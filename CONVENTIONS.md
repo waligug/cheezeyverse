@@ -206,3 +206,46 @@ Our brackets: Prep 8 teams `(0,1,1,3)` (single elimination into a best-of-3 fina
   the youngest (`LeagueSpec.youth_shrink`), not the 5 inches an ordinary 14-year-old population would get.
 - **CPU trades stay ON** (Nate's call): the AI moving players around is flavour, and a trade is only a team
   change, so a traded character keeps every rating.
+
+## Creating the saves (automated 2026-09-17)
+`tools/create_universe.py` drives FBPB3's New Game wizard end to end; `commissioner/driver/newgame.py`
+holds the screen map. Both wizard screens are real Win32 controls, so combos and text boxes are driven by
+pywinauto directly and only three things need a real mouse click (the league row, ACTIVATE, CONTINUE).
+
+Full sequence to build the universe from nothing:
+
+    python tools/generate_universe.py      # league + roster CSVs from universe/teams.csv
+    python tools/create_universe.py        # three New Games, ~1 min each
+    python tools/stamp_dobs.py             # put the real birthdays back
+    python tools/release_intruders.py      # undo AI preseason signings
+    python tools/verify_save.py            # must print ALL PASS
+
+### Three things the game does that will silently ruin a save
+
+1. **`Contract1` must be non-zero in the player file.** A row with `Contract1 = 0` is imported as a
+   **free agent** no matter what its Team column says - the league looks healthy, every team exists, and
+   not one of our players is on a roster. Proven by bisection: the identical file with
+   `Contract1 = 1,000,000` filled all 16 prep rosters (240/240); with 0 it filled none. True even with
+   Finances Off. This is why the Stabbyverse roster pages show $1,000,000 salaries on created players.
+   The generator writes `IMPORT_CONTRACT = 1000000`. Ruled out along the way: the match key (abbreviation
+   vs nickname vs city all behave identically), age, season year, finance level, and our league file
+   (the stock league with our players failed too, the stock league with stock players worked).
+2. **The importer will not create a player younger than 16.** It keeps day and month and pulls the birth
+   *year* forward until the player is 16 at the first season - which erases the entire point of a 14-17
+   prep league. The binary editor has no such floor, so `tools/stamp_dobs.py` writes the manifest
+   birthdays back after creation. Prep ends up 14/15/16/17 = 82/69/38/51.
+3. **The AI signs free agents between league creation and the first save** (Starting Stage is Preseason),
+   which pushes a roster to 16 and forces somebody inactive. `tools/release_intruders.py` releases anyone
+   rostered who is not in the manifest.
+
+### Prestige
+The combo reads **Global > Continental > National > Regional** (Global is the strongest league), so the
+league file's numeric Prestige is an index into that list: 1 Global, 2 Continental, 3 National, 4 Regional.
+Cheezeyverse: Pro 1, College 3, Prep 4. `config.validate()` rejects anything outside 1..4.
+
+### Confirmed by the created saves
+- The playoff-bracket encoding is right: prep's `(0,1,1,3)` shows in-game as None / Single game /
+  Single game / Best of 3.
+- Each save carries its league plus a generated pool the game adds on its own: prep 425 total
+  (240 ours + 120 FA + 65 draft), college 430, pro 530. Those extras are 18+ regardless of league, so a
+  prep roster spot that opens up can be filled by an adult - keep rosters full.
