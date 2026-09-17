@@ -6,6 +6,7 @@ Owner-drawn buttons are clicked at window-relative coordinates measured on the 1
 from __future__ import annotations
 
 import ctypes
+import struct
 import subprocess
 from contextlib import contextmanager
 import time
@@ -176,10 +177,29 @@ class FBPB3:
                 return c
         raise DriverError("LOAD button not found on the Load Saved Game screen")
 
+    @staticmethod
+    def save_time(folder):
+        """The game's own last-save timestamp for a save, as it sorts the Load Career list by.
+
+        `saveinfo.dat` is two little-endian doubles: [0..7] is the fraction of a day (time) and
+        [8..15] is the date serial counted from 1899-12-30. Added together they reproduce the
+        "Last Save" column exactly.
+
+        This must not be confused with `league.dat`'s file mtime: the codec rewrites that file
+        without the game knowing, which reorders the list and makes a row click load the wrong
+        league. That bug once sent an HTML export into the wrong save.
+        """
+        info = Path(folder) / "saveinfo.dat"
+        try:
+            frac, serial = struct.unpack_from("<2d", info.read_bytes(), 0)
+        except (OSError, struct.error):
+            return 0.0
+        return serial + frac
+
     def save_rows(self):
-        """Save names in list order: the game sorts by last save time, newest first."""
+        """Save names in the order the Load Career list shows them: newest game-save first."""
         saves = [d for d in (DOCS / "leaguedata").iterdir() if (d / "league.dat").exists()]
-        saves.sort(key=lambda d: (d / "league.dat").stat().st_mtime, reverse=True)
+        saves.sort(key=self.save_time, reverse=True)
         return [d.name for d in saves]
 
     def load_save_row(self, row, wait=20):
