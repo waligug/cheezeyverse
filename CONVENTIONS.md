@@ -30,7 +30,10 @@ Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by D
 | Field | Offset | Confidence |
 |---|---|---|
 | Position (1 C, 2 PF, 3 SF, 4 SG, 5 PG) | E+18 | 390/390 |
-| Team id (MDB `Team.ID`; Draft = -2) | E+40 | 390/390 (current == contract team in fixture) |
+| Team id (MDB `Team.ID`; FA = -1, Draft = -2) | E+40 | 390/390; save-time copy, rebuilt by the game on load |
+| Team1 (current team, read on load) | T1 = unique q in (E+84, R) with a `01 00 02 00 00 00 00 00 00 00` array header at q-20 and at q+2 | 390/390 |
+| Team2 (contract/last team) | T1+166 | 264/264 rostered; FA/draft keep former team |
+| Player id | file order: first record's id (the `(id, id)` int16 pair just before the name) + index | 390/390 |
 | Experience | E+82 | 390/390 |
 | Ratings ×18 | R+0..R+34 in order: Inside, JumpShot, FT, 3pUsage, 3pShot, Handling, Passing, Quickness, PostD, PerimD, Stealing, Blocking, OReb, DReb, Jumping, Strength, Stamina, Fouling | 390/390 |
 | Potentials ×12 | R+168..R+190 in order: Inside, JumpShot, FT, 3pShot, Handling, Passing, OReb, DReb, PostD, PerimD, Stealing, Blocking | 390/390 |
@@ -39,8 +42,21 @@ Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by D
 | Ratings history snapshots | ~94-byte rows from R+192 onward | observed, read-only |
 | Player id, uniform | a few bytes before S (S-24 / S-4 most common) | **not fixed**; needs more work |
 
-Unknowns to resolve: team roster lists (team records appear to hold player-id arrays), DOB age floor,
-where to park reserve slots.
+## Team membership (all must agree, or FBPB3 releases the player to FA on load)
+- Player fields: E+40 `Team`, `Team1`, `Team2` (above).
+- Roster: VB6 dynamic array in the team record before the first player record: `01 00 | int32 n | int32 0` then
+  n int16 with element 0 = 0 and elements 1..n-1 = player ids. Identified per team as the unique array whose id set
+  equals the players with that E+40 team.
+- Lineup: 14 int16 slots at roster_end + 22 (roster_end = header + 10 + 2n); ids ⊂ roster, zero-padded.
+- Depth charts: 5 blocks per team, 162 bytes each (`00 00` + 80 int16 minute slots), contiguous near the end of the
+  file in ascending team-id order. Region start found as the unique offset where every block's ids belong to the
+  expected team and slot 1 is non-zero.
+- Game-history structures (schedule leaders, box scores) also hold ids; never rewrite them.
+- **Swap** (codec `swap_teams`) replaces the two ids in both teams' roster, lineup and depth blocks and sets all three
+  team fields. File length unchanged.
+
+Unknowns to resolve: DOB age floor, moving to/from FA (changes roster array length), where to park reserve slots,
+finances-off behaviour.
 
 ## FBPB3 automation facts
 - VB6 app, no native menus. Top bar and buttons are owner-drawn `ThunderRT6UserControlDC`, so clicks are
@@ -60,3 +76,8 @@ where to park reserve slots.
   Output MDB, Hot Seat Sim Day, top-bar SAVE (name box prefilled → SAVE at 622,495), EXIT
   ("Save before exiting?" Yes/No/Cancel message box).
 - Export screens return to the League Editor; EXIT (917,662) → Tools screen → left-nav HOT SEAT (55,95).
+- 2026-09-17 **Team-field-only move FAILED as expected**: E+40 alone is rebuilt from rosters on load.
+- 2026-09-17 Swap with rosters/lineups/depth + E+40 only: both players released to FA on load (Team1/Team2 stale).
+- 2026-09-17 **Team swap PASSED.** Marvin Williams (272, RIO) ↔ Lewis Miller (244, TOR) with all structures + 3 team
+  fields: player export and MDB show the new teams, both played 2 games for their new clubs, in-game save + codec
+  re-parse shows 390 players / 18 teams consistent.

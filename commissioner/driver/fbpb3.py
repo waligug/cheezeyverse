@@ -20,6 +20,7 @@ DOCS = Path(r"C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3")
 # window-relative click targets
 TOP_TOOLS = (281, 25)
 TOP_SAVE = (207, 25)
+TOP_EXIT = (955, 25)
 TITLE_LOAD_CAREER = (457, 663)
 LOAD_FIRST_ROW_Y, LOAD_ROW_H, LOAD_ROW_X = 170, 18, 300
 LOAD_BUTTON = (804, 662)
@@ -27,8 +28,10 @@ TOOLS_OUTPUT_MDB = (260, 222)
 TOOLS_LEAGUE_EDITOR = (808, 150)
 EDITOR_EXPORT = (465, 662)
 PLAYER_FILE_SAVE = (917, 662)
+EDITOR_EXIT = (917, 662)
 SAVE_NAME_OK = (622, 495)
 HOTSEAT_SIM_DAY = (794, 585)
+NAV_HOT_SEAT = (55, 95)
 
 
 class DriverError(Exception):
@@ -75,8 +78,9 @@ class FBPB3:
             for w in self.app.windows(class_name="#32770", visible_only=True):
                 if title and w.window_text() != title:
                     continue
-                text = " ".join(c.window_text() for c in w.children() if c.class_name() == "Static")
-                w.child_window(title=button, class_name="Button").click()
+                dlg = self.app.window(handle=w.handle)
+                text = " ".join(c.window_text() for c in dlg.children() if c.class_name() == "Static")
+                dlg.child_window(title_re=f"&?{button}", class_name="Button").click()
                 time.sleep(0.5)
                 return text
             time.sleep(0.5)
@@ -93,6 +97,25 @@ class FBPB3:
         self.click(TITLE_LOAD_CAREER, 3)
         self.click((LOAD_ROW_X, LOAD_FIRST_ROW_Y + row * LOAD_ROW_H), 1)
         self.click(LOAD_BUTTON, wait)
+
+    def sim_days(self, n=1, per_day_wait=8):
+        self.click(NAV_HOT_SEAT, 3)
+        for _ in range(n):
+            self.click(HOTSEAT_SIM_DAY, per_day_wait)
+
+    def save_game(self, wait=15):
+        """Top-bar SAVE; the name box is prefilled with the loaded save's name."""
+        self.click(TOP_SAVE, 3)
+        self.click(SAVE_NAME_OK, wait)
+
+    def exit_game(self, save=False):
+        self.click(TOP_EXIT, 2)
+        self.dismiss_message("Fast Break Pro Basketball 3", button="Yes" if save else "No", timeout=15)
+        end = time.time() + 30
+        while self.is_running() and time.time() < end:
+            time.sleep(0.5)
+        if self.is_running():
+            self.kill()
 
     def output_mdb(self):
         self.click(TOP_TOOLS)
@@ -122,4 +145,5 @@ class FBPB3:
             time.sleep(0.5)
         if not target.exists():
             raise DriverError(f"player export did not appear at {target}")
+        self.click(EDITOR_EXIT, 3)  # back to the Tools screen
         return target
