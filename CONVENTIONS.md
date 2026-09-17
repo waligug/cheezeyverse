@@ -249,3 +249,27 @@ Cheezeyverse: Pro 1, College 3, Prep 4. `config.validate()` rejects anything out
 - Each save carries its league plus a generated pool the game adds on its own: prep 425 total
   (240 ours + 120 FA + 65 draft), college 430, pro 530. Those extras are 18+ regardless of league, so a
   prep roster spot that opens up can be filled by an adult - keep rosters full.
+
+## FROZEN — the filler population (locked 2026-09-17)
+Nate locked this after the height rebuild. From here on the generated population is **fixed**, and a
+change to it is a migration against live saves, not a regeneration.
+
+Frozen: the team tables in `universe/teams.csv` (16 prep / 16 college / 20 pro, names, abbreviations,
+divisions, colours), the rating and potential bands, `filler_per_team = 12` and
+`reserve_per_team = 3` (so 48 / 48 / 60 concurrent characters), the age ranges, the height model
+including `youth_shrink`, and the generator seed. `universe/manifest.json` is the record of exactly
+who was generated and which rows are reserve slots; the commissioner finds every slot through it, so
+it must stay in step with the saves that were built from it.
+
+What this means in practice:
+- `tools/create_universe.py --force` deletes and rebuilds a save. Safe only while no character
+  exists in it. Once one does, that command destroys a person's player.
+- Changing `universe/teams.csv` or any generator constant no longer takes effect on a live save. It
+  would need a codec migration that renames and re-rates in place.
+- Adding capacity later means raising `reserve_per_team`, which is also a migration - the roster is
+  already at the 15-man limit, so a new reserve slot has to displace a filler.
+
+Heights taper with age inside each league: the full `youth_shrink` at the league's youngest age,
+zero at its oldest. Prep 14-year-old point guards are 5'1"-5'9" and 17-year-olds 5'10"-6'3", which
+matches the range a created 14-year-old rolls (`HEIGHT_RANGES` in `site/js/rules.js`). Those two
+tables have to move together or characters stand a head shorter than their own teammates.
