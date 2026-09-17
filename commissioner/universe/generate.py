@@ -81,6 +81,12 @@ POT_COLUMN = {"InsideScoring": "PotInside", "JumpShot": "PotJumpShot", "FtShot":
 RESERVE_RATINGS = (3, 12)
 RESERVE_POTENTIALS = (10, 25)
 
+# A player file row with Contract1 = 0 is imported as a FREE AGENT no matter what its Team column
+# says. Proven 2026-09-17: the identical file with Contract1 = 1,000,000 filled all 16 rosters
+# (240/240), with 0 the same file left every player unrostered. This holds even with Finances Off,
+# and it is why the Stabbyverse rosters show $1,000,000 salaries on their created players.
+IMPORT_CONTRACT = 1000000
+
 
 def _lines(path):
     with open(path, encoding="latin-1") as fh:
@@ -159,6 +165,7 @@ def make_player(rng, spec, team, position, age, first_pool, last_pool, towns, re
         "TimeInjured": 0,
         "Team": team.abbrev,
         "Option": "None",
+        "Contract1": IMPORT_CONTRACT,
         "Picname": "",
         "InjuryAvoidance": -1,
         "3pUsage": rng.randint(*USAGE_3P[position]),

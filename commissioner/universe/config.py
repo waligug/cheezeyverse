@@ -41,7 +41,7 @@ class LeagueSpec:
     name: str
     abbrev: str
     save_name: str
-    prestige: int  # 1 = highest (the stock NBA league file ships with 1)
+    prestige: int  # 1..4 -> Global, Continental, National, Regional (confirmed in the New Game UI)
     conferences: tuple
     divisions: tuple
     schedule_games: int
@@ -129,7 +129,7 @@ PRO_TEAMS = (
 
 PREP = LeagueSpec(
     key="prep", name="Cheezeyverse Prep", abbrev="CVP", save_name="CV_Prep",
-    prestige=5,
+    prestige=4,   # Regional, the weakest tier
     conferences=("North", "South"),
     divisions=("Prairie", "Northeast", "River", "Far"),
     schedule_games=30, playoff_teams=8, playoff_rounds=(0, 1, 1, 3),
@@ -143,7 +143,7 @@ PREP = LeagueSpec(
 
 COLLEGE = LeagueSpec(
     key="college", name="Cheezeyverse College", abbrev="CVC", save_name="CV_College",
-    prestige=3,
+    prestige=3,   # National
     conferences=("North", "South"),
     divisions=("Tundra", "Lakes", "Delta", "Plains"),
     schedule_games=32, playoff_teams=8, playoff_rounds=(0, 1, 1, 1),
@@ -156,7 +156,7 @@ COLLEGE = LeagueSpec(
 
 PRO = LeagueSpec(
     key="pro", name="Cheezeyverse", abbrev="CV", save_name="CV_Pro",
-    prestige=1,
+    prestige=1,   # Global, the strongest tier
     conferences=("Old World", "New World"),
     divisions=("Lowlands", "Continental", "Dairyland", "Pacific"),
     schedule_games=58, playoff_teams=8, playoff_rounds=(0, 5, 7, 7),
@@ -254,6 +254,9 @@ def validate():
     """Raise on anything FBPB3 would silently mangle."""
     problems = []
     for spec in LEAGUES:
+        if not 1 <= spec.prestige <= 4:
+            problems.append(f"{spec.key}: prestige {spec.prestige} outside 1..4 "
+                            "(Global, Continental, National, Regional)")
         if spec.roster_size > ROSTER_LIMIT:
             problems.append(f"{spec.key}: roster {spec.roster_size} exceeds the {ROSTER_LIMIT}-man limit")
         if len(spec.teams) % len(spec.divisions):
