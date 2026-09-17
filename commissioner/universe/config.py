@@ -54,7 +54,7 @@ class LeagueSpec:
     ratings: tuple  # (lo, hi) band for filler current ratings
     potentials: tuple  # (lo, hi) band for filler potentials
     stud_share: float  # fraction of fillers rolled well above the band
-    youth_shrink: int = 0  # max inches taken off the adult height range for the youngest players
+    youth_shrink: int = 0  # inches off the adult height range at the league's YOUNGEST age, 0 at its oldest
     teams: tuple = field(default_factory=tuple)
 
     @property
@@ -137,7 +137,7 @@ PREP = LeagueSpec(
     age_range=(14, 17),
     filler_per_team=12, reserve_per_team=3,
     ratings=(8, 38), potentials=(25, 58), stud_share=0.05,
-    youth_shrink=1,  # an elite prep league: these are already near-grown prospects
+    youth_shrink=7,  # 14-year-olds really are 14; they grow into the adult range by 17
     teams=PREP_TEAMS,
 )
 
@@ -151,6 +151,7 @@ COLLEGE = LeagueSpec(
     age_range=(18, 21),
     filler_per_team=12, reserve_per_team=3,
     ratings=(18, 52), potentials=(35, 70), stud_share=0.07,
+    youth_shrink=2,  # college freshmen are still filling out
     teams=COLLEGE_TEAMS,
 )
 

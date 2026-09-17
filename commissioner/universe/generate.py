@@ -119,10 +119,17 @@ def hometowns():
 
 
 def height_for(rng, position, age, spec):
+    """Adult range, scaled down for youth: the full `youth_shrink` at the league's youngest age,
+    nothing at its oldest, straight line between.
+
+    The prep league has to match the heights a created 14-year-old starts at (see
+    HEIGHT_RANGES in site/js/rules.js) or characters stand a head shorter than their own
+    teammates - growing up is supposed to be the arc, not a handicap.
+    """
     lo, hi = HEIGHT_RANGE[position]
-    # spec.youth_shrink is the most that comes off the adult range; the prep league is an elite
-    # one, so its prospects are already close to full size.
-    shrink = min(spec.youth_shrink, max(0, spec.age_range[1] - age))
+    youngest, oldest = spec.age_range
+    span = max(1, oldest - youngest)
+    shrink = round(spec.youth_shrink * (oldest - age) / span)
     return rng.randint(lo - shrink, hi - shrink)
 
 
