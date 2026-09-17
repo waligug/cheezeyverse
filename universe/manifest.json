@@ -9,8 +9,8 @@
    "teams": 16,
    "players": 240,
    "reserves": 48,
-   "league_file": "C:\\claude\\hoops-universe\\tmp\\universe-dry\\LeagueFiles\\HU-Prep.csv",
-   "player_file": "C:\\claude\\hoops-universe\\tmp\\universe-dry\\PlayerFiles\\HU-Prep-Rosters.csv"
+   "league_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\LeagueFiles\\HU-Prep.csv",
+   "player_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\PlayerFiles\\HU-Prep-Rosters.csv"
   },
   {
    "league": "college",
@@ -19,8 +19,8 @@
    "teams": 16,
    "players": 240,
    "reserves": 48,
-   "league_file": "C:\\claude\\hoops-universe\\tmp\\universe-dry\\LeagueFiles\\HU-College.csv",
-   "player_file": "C:\\claude\\hoops-universe\\tmp\\universe-dry\\PlayerFiles\\HU-College-Rosters.csv"
+   "league_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\LeagueFiles\\HU-College.csv",
+   "player_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\PlayerFiles\\HU-College-Rosters.csv"
   },
   {
    "league": "pro",
@@ -29,8 +29,8 @@
    "teams": 20,
    "players": 300,
    "reserves": 60,
-   "league_file": "C:\\claude\\hoops-universe\\tmp\\universe-dry\\LeagueFiles\\HU-Pro.csv",
-   "player_file": "C:\\claude\\hoops-universe\\tmp\\universe-dry\\PlayerFiles\\HU-Pro-Rosters.csv"
+   "league_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\LeagueFiles\\HU-Pro.csv",
+   "player_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\PlayerFiles\\HU-Pro-Rosters.csv"
   }
  ],
  "players": [

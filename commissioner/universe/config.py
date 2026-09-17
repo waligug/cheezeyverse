@@ -13,6 +13,7 @@ of concurrent characters in that league.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 START_YEAR = 2030  # season the universe starts in; DOBs are derived from it
@@ -43,7 +44,7 @@ class LeagueSpec:
     divisions: tuple
     schedule_games: int
     playoff_teams: int
-    playoff_rounds: tuple  # games needed to win each of the 4 rounds
+    playoff_rounds: tuple  # 4 entries, last = the final; leading 0s mean the bracket has fewer rounds
     quarter_length: int
     age_range: tuple  # inclusive ages of the initial filler population
     filler_per_team: int
@@ -128,7 +129,7 @@ PREP = LeagueSpec(
     prestige=5,
     conferences=("East", "West"),
     divisions=("Atlantic", "Southern", "Central", "Pacific"),
-    schedule_games=30, playoff_teams=8, playoff_rounds=(3, 3, 5, 5),
+    schedule_games=30, playoff_teams=8, playoff_rounds=(0, 1, 1, 3),
     quarter_length=8,
     age_range=(14, 17),
     filler_per_team=12, reserve_per_team=3,
@@ -141,7 +142,7 @@ COLLEGE = LeagueSpec(
     prestige=3,
     conferences=("East", "West"),
     divisions=("Atlantic", "Southern", "Central", "Pacific"),
-    schedule_games=32, playoff_teams=8, playoff_rounds=(1, 1, 1, 1),
+    schedule_games=32, playoff_teams=8, playoff_rounds=(0, 1, 1, 1),
     quarter_length=10,
     age_range=(18, 21),
     filler_per_team=12, reserve_per_team=3,
@@ -154,7 +155,7 @@ PRO = LeagueSpec(
     prestige=1,
     conferences=("East", "West"),
     divisions=("Atlantic", "Southern", "Central", "Pacific"),
-    schedule_games=58, playoff_teams=16, playoff_rounds=(5, 7, 7, 7),
+    schedule_games=58, playoff_teams=8, playoff_rounds=(0, 5, 7, 7),
     quarter_length=12,
     age_range=(22, 34),
     filler_per_team=12, reserve_per_team=3,
@@ -164,6 +165,32 @@ PRO = LeagueSpec(
 
 LEAGUES = (PREP, COLLEGE, PRO)
 BY_KEY = {spec.key: spec for spec in LEAGUES}
+
+
+def _check_bracket(spec):
+    """Round1..Round4 always has 4 entries; Round4 is the final and unused rounds are leading zeros.
+
+    Confirmed against every season in Historical Leagues/North America/Leagues/USA{1,2,3}.csv:
+    4 playoff teams -> (0,0,x,x), 8 -> (0,x,x,x), 12 and 16 -> (x,x,x,x). Only the 6-team bracket
+    breaks the pattern (early-NBA divisional format), and no league here uses it.
+    """
+    out = []
+    if len(spec.playoff_rounds) != 4:
+        return [f"{spec.key}: playoff_rounds must have 4 entries"]
+    if spec.playoff_teams == 6:
+        return out
+    needed = math.ceil(math.log2(spec.playoff_teams))
+    if not 1 <= needed <= 4:
+        return [f"{spec.key}: {spec.playoff_teams} playoff teams needs {needed} rounds, only 4 are available"]
+    byes, live = spec.playoff_rounds[:4 - needed], spec.playoff_rounds[4 - needed:]
+    if any(byes):
+        out.append(f"{spec.key}: {spec.playoff_teams} playoff teams is a {needed}-round bracket, "
+                   f"so the first {4 - needed} round value(s) must be 0, got {spec.playoff_rounds}")
+    if not all(live):
+        out.append(f"{spec.key}: round length 0 inside the live bracket {spec.playoff_rounds}")
+    if any(g % 2 == 0 for g in live):
+        out.append(f"{spec.key}: series lengths must be odd, got {spec.playoff_rounds}")
+    return out
 
 
 def validate():
@@ -176,6 +203,7 @@ def validate():
             problems.append(f"{spec.key}: {len(spec.teams)} teams do not divide into {len(spec.divisions)} divisions")
         if spec.playoff_teams > len(spec.teams):
             problems.append(f"{spec.key}: {spec.playoff_teams} playoff teams but only {len(spec.teams)} teams")
+        problems += _check_bracket(spec)
         abbrevs = [t.abbrev for t in spec.teams]
         if len(set(abbrevs)) != len(abbrevs):
             problems.append(f"{spec.key}: duplicate team abbreviations")
