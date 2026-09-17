@@ -54,6 +54,8 @@ class Player:
 
 
 class LeagueDat:
+    _id_override = None  # set during a splice so re-parsed records keep their ids
+
     def __init__(self, path):
         self.path = Path(path)
         self.data = bytearray(self.path.read_bytes())
@@ -71,15 +73,26 @@ class LeagueDat:
         return self.data[p + 2:p + 2 + n].decode("latin-1"), p + 2 + n
 
     def _find_ratings(self, start, stop):
+        """First offset in the record whose 18 current + 12 potential ratings are plausible and which is
+        followed by the record's `<int> 0 0 <double>` tail. A run of zeros used to precede the block, but
+        once a save has played a season the game writes per-season archive rows there
+        ([year, 18 ratings, height, weight]), so the block is anchored on what follows it instead."""
         d = self.data
-        for q in range(start + 52, stop):
-            if d[q - 52:q - 48] != b"\x01\x00\x01\x00" or any(d[q - 48:q]):
-                continue
+        for q in range(max(start, 52), min(stop, len(d) - POT_OFFSET - 24)):
             cur = struct.unpack_from("<18h", d, q)
-            pot = struct.unpack_from("<12h", d, q + POT_OFFSET)
-            if any(cur) and all(0 <= v <= 100 for v in cur + pot):
-                return q
-        return None
+            if not any(cur) or not all(0 <= v <= 100 for v in cur):
+                continue
+            if not 0 <= self._i16(q + 36) <= 100:
+                continue
+            if not all(0 <= v <= 100 for v in struct.unpack_from("<12h", d, q + POT_OFFSET)):
+                continue
+            zeros_before = d[q - 48:q] == b"\0" * 48 and d[q - 52:q - 48] == b"\x01\x00\x01\x00"
+            # archive row: int16 season, 18 ratings, height, weight (42 bytes, ending at q)
+            archive_before = (1900 <= self._i16(q - 42) <= 2100 and 55 <= self._i16(q - 4) <= 100
+                              and 100 <= self._i16(q - 2) <= 400
+                              and all(0 <= v <= 100 for v in struct.unpack_from("<18h", d, q - 40)))
+            if zeros_before or archive_before:
+                yield q
 
     _ARR2 = bytes([1, 0, 2, 0, 0, 0, 0, 0, 0, 0])  # VB6 array header: dims=1, count=2, lbound=0
 
@@ -113,32 +126,87 @@ class LeagueDat:
             for _ in range(4):
                 _, p = self._str(p)
             stop = triples[i + 1][0] if i + 1 < len(triples) else len(self.data)
-            r = self._find_ratings(p, stop)
-            if r is None:
-                continue
-            pl = Player(S=s, E=p, R=r, bio_at=bio_at, name=full, first=first, last=last)
-            pl.T1 = self._find_team_fields(p, r)
-            self._read_values(pl)
-            players.append(pl)
+            # a record is only accepted when a ratings block and its two team fields both line up,
+            # which also filters out name triples that are not player records (staff, awards, news)
+            for r in self._find_ratings(p, stop):
+                try:
+                    t1 = self._find_team_fields(p, r)
+                except CodecError:
+                    continue
+                pl = Player(S=s, E=p, R=r, bio_at=bio_at, name=full, first=first, last=last)
+                pl.T1 = t1
+                self._read_values(pl)
+                players.append(pl)
+                break
         self._assign_ids(players)
         return players
 
+    def _roster_arrays(self, limit=None):
+        """Every VB6 `01 00 | int32 n | int32 0` array before the first player record whose elements look like
+        a roster (leading 0, then distinct positive ids). Team records appear in ascending team-id order."""
+        d = self.data
+        if limit is None:
+            limit = self.players[0].S
+        out, q = [], self.data.find(b"\x01\x00", 0, limit)
+        while q != -1:
+            if d[q + 4:q + 10] == b"\0" * 6:
+                n = self._u16(q + 2)
+                if 2 <= n <= 40:
+                    vals = struct.unpack_from(f"<{n}h", d, q + 10)
+                    if vals[0] == 0 and all(0 < v < 30000 for v in vals[1:]) and len(set(vals[1:])) == n - 1:
+                        out.append((q, n, list(vals[1:])))
+            q = d.find(b"\x01\x00", q + 1, limit)
+        return out
+
     def _assign_ids(self, players):
-        """Records are stored in contiguous id order; the base id is the (id, id) pair shortly before the name."""
-        votes = {}
-        for i, pl in enumerate(players):
-            for o in range(pl.S - 40, pl.S - 2, 2):
+        """Player ids are not stored at any fixed offset and are not contiguous once a save has aged, so they
+        are recovered from the team roster arrays: records are written in ascending id order, the teams'
+        arrays appear in ascending team-id order, and every player's own Team field says which team he is on.
+        Matching those three facts pins each rostered record's id; the rest are interpolated."""
+        override = getattr(self, "_id_override", None)
+        if override and len(override) == len(players):
+            for p, pid in zip(players, override):
+                p.id = pid
+            self.by_id = {p.id: p for p in players}
+            return
+        rostered = [p for p in players if p.values["Team"] >= 1]
+        counts = {}
+        for p in rostered:
+            counts[p.values["Team"]] = counts.get(p.values["Team"], 0) + 1
+        want = [counts[t] for t in sorted(counts)]
+        arrays = self._roster_arrays(limit=players[0].S)
+        chosen, i = [], 0
+        for size in want:  # walk the arrays in file order, taking the next one with the right size
+            while i < len(arrays) and arrays[i][1] - 1 != size:
+                i += 1
+            if i == len(arrays):
+                raise CodecError(f"no roster array of size {size} left ({len(chosen)}/{len(want)} teams matched)")
+            chosen.append(arrays[i])
+            i += 1
+        by_team = {t: sorted(a[2]) for t, a in zip(sorted(counts), chosen)}
+        ids = sorted(v for a in chosen for v in a[2])
+        if len(ids) != len(rostered) or len(set(ids)) != len(ids):
+            raise CodecError(f"roster arrays hold {len(ids)} ids for {len(rostered)} rostered players")
+        for p, pid in zip(rostered, ids):  # records are in ascending id order
+            if pid not in by_team[p.values["Team"]]:
+                raise CodecError(f"{p.name} (team {p.values['Team']}) would take id {pid} from another team")
+            p.id = pid
+        taken = set(ids)
+        for i, p in enumerate(players):  # free agents and draft-pool players sit between rostered records
+            if p.id:
+                continue
+            lo = max((q.id for q in players[:i] if q.id), default=0)
+            hi = min((q.id for q in players[i + 1:] if q.id), default=lo + 1000)
+            # the record carries its own id as an (id, id) int16 pair shortly before the name
+            found = None
+            for o in range(p.S - 60, p.S - 2, 2):
                 a, b = struct.unpack_from("<2h", self.data, o)
-                if a == b and a - i > 0:
-                    votes[a - i] = votes.get(a - i, 0) + 1
-        if not votes:
-            raise CodecError("could not determine player id base")
-        base = max(votes, key=votes.get)
-        if votes[base] < 0.6 * len(players):
-            raise CodecError(f"player id base {base} only supported by {votes[base]}/{len(players)} records")
-        for i, pl in enumerate(players):
-            pl.id = base + i
-        self.by_id = {pl.id: pl for pl in players}
+                if a == b and lo < a < hi and a not in taken:
+                    found = a
+            p.id = found if found else next(v for v in range(lo + 1, hi) if v not in taken)
+            taken.add(p.id)
+        self.by_id = {p.id: p for p in players}
+        self._roster_choice = dict(zip(sorted(counts), chosen))
 
     # ---- team structures -------------------------------------------------------------------
     # Membership lives in three places per team (see CONVENTIONS.md): the roster dynamic array in the team
@@ -217,8 +285,15 @@ class LeagueDat:
 
     # ---- roster length changes (splice: bytes shift, everything is re-parsed) --------------------------
     def _splice(self, at, remove, insert=b""):
+        """Apply a byte-level edit and re-parse. Record order and count never change, so ids carry over
+        positionally - a released player keeps his id even though he is no longer in any roster array."""
+        ids = [p.id for p in self.players]
         self.data[at:at + remove] = insert
-        self.players = self._parse()
+        self._id_override = ids
+        try:
+            self.players = self._parse()
+        finally:
+            self._id_override = None
 
     def _roster_count_add(self, info, delta):
         header = info["roster_at"] - 12

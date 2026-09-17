@@ -6,7 +6,8 @@ $tables = $conn.GetSchema("Tables") | Where-Object { $_.TABLE_TYPE -eq "TABLE" }
 foreach ($t in $tables) {
   $name = $t.TABLE_NAME
   $cmd = $conn.CreateCommand(); $cmd.CommandText = "SELECT COUNT(*) FROM [$name]"; $n = $cmd.ExecuteScalar()
-  $cols = $conn.GetSchema("Columns", @($null, $null, $name)) | Sort-Object ORDINAL_POSITION | ForEach-Object { $_.COLUMN_NAME }
+  $c2 = $conn.CreateCommand(); $c2.CommandText = "SELECT TOP 1 * FROM [$name]"
+  $r = $c2.ExecuteReader(); $cols = @(); for ($i = 0; $i -lt $r.FieldCount; $i++) { $cols += $r.GetName($i) }; $r.Close()
   "== $name ($n rows): " + ($cols -join ",")
 }
 $conn.Close()

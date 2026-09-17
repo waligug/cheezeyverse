@@ -22,7 +22,7 @@ Strings: uint16 LE length + latin-1 bytes. Numbers: int16 LE. Records are sequen
 | **S** | start of name triple: `str Full`, `str First`, `str Last` (Full == First + " " + Last) |
 | **bio** | after `str Nickname`: int16 `Height`(in), `Weight`, `0`, `BirthMonth`, `BirthDay`, `BirthYear` |
 | **E** | after bio ints + `str College`, `str City`, `str State`, `str Nation` |
-| **R** | current-ratings block, first offset after E where int16 at R-52,R-50 = `1,1`, bytes R-48..R-1 are zero, and the 18 current + 12 potential values are all 0..100 (not all zero) |
+| **R** | current-ratings block: 18 current + 12 potential values all 0..100, R+36 in 0..100, and preceded either by `1,1` + 48 zero bytes (fresh save) or by a per-season **archive row** (int16 season, 18 ratings, height, weight = 42 bytes). Candidates are tried in order and only accepted when the two team fields also line up, which filters out non-player name triples |
 
 Other fixed layout facts: the last injury string (current injury, may be empty) ends exactly at R-64.
 Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by DOB.
@@ -33,13 +33,14 @@ Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by D
 | Team id (MDB `Team.ID`; FA = -1, Draft = -2) | E+40 | 390/390; save-time copy, rebuilt by the game on load |
 | Team1 (current team, read on load) | T1 = unique q in (E+84, R) with a `01 00 02 00 00 00 00 00 00 00` array header at q-20 and at q+2 | 390/390 |
 | Team2 (contract/last team) | T1+166 | 264/264 rostered; FA/draft keep former team |
-| Player id | file order: first record's id (the `(id, id)` int16 pair just before the name) + index | 390/390 |
+| Player id | not stored at a fixed offset and **not contiguous** once a save has aged: recovered from the roster arrays (records are in ascending id order, team records in ascending team-id order, each player's Team field says which array he belongs to); free agents / draft players fall back to the `(id, id)` int16 pair before the name, bounded by their neighbours | 390/390 vs MDB |
 | Experience | E+82 | 390/390 |
 | Ratings ×18 | R+0..R+34 in order: Inside, JumpShot, FT, 3pUsage, 3pShot, Handling, Passing, Quickness, PostD, PerimD, Stealing, Blocking, OReb, DReb, Jumping, Strength, Stamina, Fouling | 390/390 |
 | Potentials ×12 | R+168..R+190 in order: Inside, JumpShot, FT, 3pShot, Handling, Passing, OReb, DReb, PostD, PerimD, Stealing, Blocking | 390/390 |
 | Happiness | R-62 | 386/386, not yet used |
 | OverallRating / OverallPotential | R+276 / R+278 | **unverified** (mostly-zero values) |
 | Ratings history snapshots | ~94-byte rows from R+192 onward | observed, read-only |
+| Per-season archive rows | 42 bytes each immediately before R once a season has been played | confirmed on the aged save |
 | Player id, uniform | a few bytes before S (S-24 / S-4 most common) | **not fixed**; needs more work |
 
 ## Team membership (all must agree, or FBPB3 releases the player to FA on load)
@@ -95,3 +96,16 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
 - 2026-09-17 Release PASSED (Marvin Williams to FA, survives load + save). Sign with Full Finances FAILED (released on
   load). Switched `Chung_test` to Finances Off via League Options → sign PASSED (Howard Aman on TOR after load and after
   game save, contract 0). No regular-season games left in Chung to confirm he receives minutes.
+- 2026-09-17 **Age floor: no floor found.** Birth years giving in-game ages 12-15 all load and sim; a save with a
+  13- and a 14-year-old simmed a full season plus offseason with both still rostered and no crash. One crash during
+  testing was a stray click, not the ages (not reproducible). The game does sometimes rewrite an edited DOB to
+  `12/1/<year>` at season rollover, so re-assert DOB after each offseason if exact birthdays matter.
+- 2026-09-17 **Offseason runs hands-off**: sim months to the end of the postseason, then END SEASON -> OFFSEASON ->
+  HIRE STAFF (its screen needs PROCESS ALL, then the same button becomes PROCEED) -> FREE AGENCY, and the next
+  regular season starts. Draft lottery / rookie draft / dispersal / expansion stay disabled in this league.
+- 2026-09-17 **Codec survives an aged save**: `tests/test_codec.py` parses both fixtures (390 fresh, 409 aged),
+  matches the game's own exports field for field, and round-trips rating edits, swaps and release+sign on both.
+- Two FBPB3 instances at once silently break automation (clicks and exports go to the wrong league). `launch()`
+  now refuses to run when more than one process exists.
+- Menu labels are windowless VB6 controls: they only react to real mouse input with the window genuinely on top,
+  so `click(real=True)` raises the window first, and `output_mdb` confirms by the file timestamp and retries.
