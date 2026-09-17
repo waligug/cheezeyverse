@@ -55,8 +55,19 @@ Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by D
 - **Swap** (codec `swap_teams`) replaces the two ids in both teams' roster, lineup and depth blocks and sets all three
   team fields. File length unchanged.
 
-Unknowns to resolve: DOB age floor, moving to/from FA (changes roster array length), where to park reserve slots,
-finances-off behaviour.
+- **Release** (codec `release`): roster array count -1 and the id's 2 bytes removed (file shifts), lineup compacted,
+  his depth-chart minutes given to the most-used teammate in each block, Team/Team1 = -1, Team2 keeps former team.
+- **Sign** (codec `sign`): roster count +1 and id appended, first empty lineup slot, all three team fields = team.
+  Not added to depth charts (open question: does the AI rebuild depth for new signings?).
+- Length changes are fine: the file is a sequential VB6 stream; the codec re-parses after every splice.
+
+## League Options that matter (Tools → League Options, real combo boxes)
+- Finances (402,190): **Finances Off** required. With Full Finances a codec-signed player (no contract) is released on load.
+- Attribute Style (402,166): **0-100** makes MDB `Player` current ratings numeric (potentials stay letters).
+- Scouting (402,334): set **Off** for the universe; with it On the MDB/UI ratings are fuzzed (Harper Inside 27 shows 24).
+- Autosave (788,214): **Never** (the app controls saves). Cpu offers trades (788,335): **No**.
+
+Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool / reserve parking, offseason flow.
 
 ## FBPB3 automation facts
 - VB6 app, no native menus. Top bar and buttons are owner-drawn `ThunderRT6UserControlDC`, so clicks are
@@ -81,3 +92,6 @@ finances-off behaviour.
 - 2026-09-17 **Team swap PASSED.** Marvin Williams (272, RIO) ↔ Lewis Miller (244, TOR) with all structures + 3 team
   fields: player export and MDB show the new teams, both played 2 games for their new clubs, in-game save + codec
   re-parse shows 390 players / 18 teams consistent.
+- 2026-09-17 Release PASSED (Marvin Williams to FA, survives load + save). Sign with Full Finances FAILED (released on
+  load). Switched `Chung_test` to Finances Off via League Options → sign PASSED (Howard Aman on TOR after load and after
+  game save, contract 0). No regular-season games left in Chung to confirm he receives minutes.

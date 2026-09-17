@@ -215,6 +215,53 @@ class LeagueDat:
             self.set(a, field_name, tb)
             self.set(b, field_name, ta)
 
+    # ---- roster length changes (splice: bytes shift, everything is re-parsed) --------------------------
+    def _splice(self, at, remove, insert=b""):
+        self.data[at:at + remove] = insert
+        self.players = self._parse()
+
+    def _roster_count_add(self, info, delta):
+        header = info["roster_at"] - 12
+        n = struct.unpack_from("<i", self.data, header + 2)[0]
+        struct.pack_into("<i", self.data, header + 2, n + delta)
+
+    def release(self, pl):
+        """Remove a rostered player from his team (he becomes a free agent). Roster array shrinks by one."""
+        t = pl.values["Team"]
+        if t < 1:
+            raise CodecError(f"{pl.name} is not on a team ({t})")
+        info = self.teams()[t]
+        others = [i for i in info["ids"] if i != pl.id]
+        if not others:
+            raise CodecError(f"team {t} would be empty")
+        for blk in info["depth_at"]:  # give his minutes to the most-used teammate in that block
+            vals = struct.unpack_from("<80h", self.data, blk + 2)
+            used = [v for v in vals if v and v != pl.id]
+            sub = max(set(used), key=used.count) if used else others[0]
+            self._replace_ids(blk + 2, 80, pl.id, sub)
+        lineup = [v for v in struct.unpack_from(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"]) if v != pl.id]
+        struct.pack_into(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"], *(lineup + [0] * (self.LINEUP_SLOTS - len(lineup))))
+        self.set(pl, "Team", -1)
+        self.set(pl, "Team1", -1)  # Team2 keeps the former team, as the game does for free agents
+        elems = struct.unpack_from(f"<{info['size']}h", self.data, info["roster_at"])
+        k = elems.index(pl.id)
+        self._roster_count_add(info, -1)
+        self._splice(info["roster_at"] + 2 * k, 2)
+
+    def sign(self, pl, t):
+        """Add a free agent / draft-pool player to team t. Roster array grows by one."""
+        if pl.values["Team"] >= 1:
+            raise CodecError(f"{pl.name} is already on team {pl.values['Team']}")
+        info = self.teams()[t]
+        lineup = list(struct.unpack_from(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"]))
+        if 0 in lineup:
+            lineup[lineup.index(0)] = pl.id
+            struct.pack_into(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"], *lineup)
+        for field_name in ("Team", "Team1", "Team2"):
+            self.set(pl, field_name, t)
+        self._roster_count_add(info, +1)
+        self._splice(info["roster_at"] + 2 * info["size"], 0, struct.pack("<h", pl.id))
+
     def _slots(self, pl):
         """Map every editable field name to its absolute int16 offset for this player."""
         slots = {name: pl.bio_at + 2 * i for i, name in enumerate(BIO_INTS) if not name.startswith("_")}
@@ -256,6 +303,9 @@ class LeagueDat:
         if len(check.players) != len(self.players):
             tmp.unlink()
             raise CodecError("record count changed after write")
+        if len(check.data) != len(self.data):
+            tmp.unlink()
+            raise CodecError("written size differs from buffer")
         for a, b in zip(self.players, check.players):
             if (a.S, a.R, a.id) != (b.S, b.R, b.id) or a.values != b.values:
                 tmp.unlink()
