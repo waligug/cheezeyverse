@@ -35,6 +35,7 @@ Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by D
 | Team2 (contract/last team) | T1+166 | 264/264 rostered; FA/draft keep former team |
 | Player id | not stored at a fixed offset and **not contiguous** once a save has aged: recovered from the roster arrays (records are in ascending id order, team records in ascending team-id order, each player's Team field says which array he belongs to); free agents / draft players fall back to the `(id, id)` int16 pair before the name, bounded by their neighbours | 390/390 vs MDB |
 | Experience | E+82 | 390/390 |
+| Inactive (-1 = dressed out) | E+46 | 400/410 on the aged save; the game recomputes it on load (a roster over the limit forces the extra player inactive) |
 | Ratings ×18 | R+0..R+34 in order: Inside, JumpShot, FT, 3pUsage, 3pShot, Handling, Passing, Quickness, PostD, PerimD, Stealing, Blocking, OReb, DReb, Jumping, Strength, Stamina, Fouling | 390/390 |
 | Potentials ×12 | R+168..R+190 in order: Inside, JumpShot, FT, 3pShot, Handling, Passing, OReb, DReb, PostD, PerimD, Stealing, Blocking | 390/390 |
 | Happiness | R-62 | 386/386, not yet used |
@@ -58,8 +59,14 @@ Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by D
 
 - **Release** (codec `release`): roster array count -1 and the id's 2 bytes removed (file shifts), lineup compacted,
   his depth-chart minutes given to the most-used teammate in each block, Team/Team1 = -1, Team2 keeps former team.
-- **Sign** (codec `sign`): roster count +1 and id appended, first empty lineup slot, all three team fields = team.
-  Not added to depth charts (open question: does the AI rebuild depth for new signings?).
+- **Sign** (codec `sign`): roster count +1 and id appended, all three team fields = team, Inactive cleared, and the
+  player takes the lineup slot and depth-chart minutes of the least-used player at his position (depth block k holds
+  position k+1: C, PF, SF, SG, PG).
+- **Roster limit matters**: signing onto a full (15-man) roster leaves the newcomer Inactive after load no matter what
+  the file says, so a transition must free a slot first - release then sign, or use `swap_teams`. Once the roster size
+  is legal the signed player is active; how many minutes he gets is then the AI coach's call.
+- **Rename** (codec `rename`): re-encodes the three name strings, changing the record's length; verified in-game with
+  both a longer and a shorter name (this is how a reserve slot becomes a real character).
 - Length changes are fine: the file is a sequential VB6 stream; the codec re-parses after every splice.
 
 ## League Options that matter (Tools → League Options, real combo boxes)
@@ -109,3 +116,9 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   now refuses to run when more than one process exists.
 - Menu labels are windowless VB6 controls: they only react to real mouse input with the window genuinely on top,
   so `click(real=True)` raises the window first, and `output_mdb` confirms by the file timestamp and retries.
+- 2026-09-17 **Age confirmed by the game itself**: the aged save's own MDB reports Chris Harper age 12 and Billie
+  Holmes 14, both active and rostered, after a full season plus offseason. No minimum-age problem.
+- 2026-09-17 Ratings are not capped at 100 (a draft-pool player had Quickness 101; a real player file reaches 139),
+  so the codec accepts 0..150.
+- 2026-09-17 Rename + sign verified in-game together: renamed players kept their new names through a sim and the
+  game's own save, and appeared in box scores under them.

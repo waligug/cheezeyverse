@@ -26,7 +26,7 @@ POTENTIALS = ["PotInside", "PotJumpShot", "PotFtShot", "Pot3pShot", "PotHandling
 POT_OFFSET = 168
 RATING_MAX = 150  # the game stores ratings above 100 (a real player file reaches 139)
 BIO_INTS = ["Height", "Weight", "_zero", "BirthMonth", "BirthDay", "BirthYear"]
-E_FIELDS = {"Position": 18, "Team": 40, "Exp": 82}
+E_FIELDS = {"Position": 18, "Team": 40, "Inactive": 46, "Exp": 82}  # Inactive: -1 = dressed out
 POSITIONS = {1: "C", 2: "PF", 3: "SF", 4: "SG", 5: "PG"}
 
 _NAME_RE = re.compile(rb"[\x03-\x30]\x00[^\x00-\x1f\x7f]{3,48}")
@@ -301,6 +301,17 @@ class LeagueDat:
         n = struct.unpack_from("<i", self.data, header + 2)[0]
         struct.pack_into("<i", self.data, header + 2, n + delta)
 
+    def rename(self, pl, first, last):
+        """Replace a player's name. The three name strings are re-encoded, so the record changes length."""
+        for part in (first, last):
+            if not part or len(part) > 40 or not all(32 <= ord(c) < 127 for c in part):
+                raise CodecError(f"unusable name part {part!r}")
+        end = pl.S
+        for _ in range(3):
+            end += 2 + self._u16(end)
+        new = b"".join(struct.pack("<H", len(s)) + s.encode("latin-1") for s in (f"{first} {last}", first, last))
+        self._splice(pl.S, end - pl.S, new)
+
     def release(self, pl):
         """Remove a rostered player from his team (he becomes a free agent). Roster array shrinks by one."""
         t = pl.values["Team"]
@@ -324,17 +335,29 @@ class LeagueDat:
         self._roster_count_add(info, -1)
         self._splice(info["roster_at"] + 2 * k, 2)
 
-    def sign(self, pl, t):
-        """Add a free agent / draft-pool player to team t. Roster array grows by one."""
+    def sign(self, pl, t, minutes=True):
+        """Add a free agent / draft-pool player to team t. Roster array grows by one.
+
+        A player who is only on the roster never appears in a box score, so by default he also takes over the
+        depth-chart minutes of the least-used player at his position (depth block k holds position k+1)."""
         if pl.values["Team"] >= 1:
             raise CodecError(f"{pl.name} is already on team {pl.values['Team']}")
         info = self.teams()[t]
         lineup = list(struct.unpack_from(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"]))
-        if 0 in lineup:
+        blk = info["depth_at"][pl.values["Position"] - 1]
+        used = [v for v in struct.unpack_from("<80h", self.data, blk + 2) if v]
+        weakest = min(set(used), key=used.count) if used else None
+        if minutes and weakest is not None:
+            self._replace_ids(blk + 2, 80, weakest, pl.id)
+        if 0 in lineup:  # the 14-slot lineup is the active list; a player outside it dresses as Inactive
             lineup[lineup.index(0)] = pl.id
-            struct.pack_into(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"], *lineup)
+        elif minutes and weakest in lineup:
+            lineup[lineup.index(weakest)] = pl.id
+        struct.pack_into(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"], *lineup)
         for field_name in ("Team", "Team1", "Team2"):
             self.set(pl, field_name, t)
+        if minutes:
+            self.set(pl, "Inactive", 0)
         self._roster_count_add(info, +1)
         self._splice(info["roster_at"] + 2 * info["size"], 0, struct.pack("<h", pl.id))
 

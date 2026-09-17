@@ -116,6 +116,19 @@ def test_edits_round_trip():
             N = LeagueDat(path)
             check(f"{src.parent.name}: release + sign round-trips",
                   N.by_id[p.id].values["Team"] == t and len(N.data) == before and len(N.teams()) == 18)
+            # renaming re-encodes three strings, so the record changes length
+            L3 = LeagueDat(path)
+            target = L3.players[5]
+            L3.rename(target, "Bartholomew", "Vandersteenhoven")
+            L3.save()
+            R1 = LeagueDat(path)
+            long_ok = R1.by_id[target.id].name == "Bartholomew Vandersteenhoven" and len(R1.teams()) == 18
+            R1.rename(R1.by_id[target.id], "Al", "Ng")
+            R1.save()
+            R2 = LeagueDat(path)
+            check(f"{src.parent.name}: rename (longer then shorter) round-trips",
+                  long_ok and R2.by_id[target.id].name == "Al Ng" and len(R2.teams()) == 18
+                  and len(R2.players) == len(L3.players))
 
 
 test_baseline_matches_game_exports()
