@@ -27,6 +27,7 @@ TITLE_LOAD_CAREER = (457, 663)
 LOAD_FIRST_ROW_Y, LOAD_ROW_H, LOAD_ROW_X = 170, 18, 300
 LOAD_BUTTON = (804, 662)
 TOOLS_OUTPUT_MDB = (260, 222)
+TOOLS_HTML_OUTPUT = (264, 174)
 TOOLS_LEAGUE_EDITOR = (808, 150)
 EDITOR_EXPORT = (465, 662)
 PLAYER_FILE_SAVE = (917, 662)
@@ -234,6 +235,31 @@ class FBPB3:
                     return target
             self.dismiss_all()
         raise DriverError(f"Output MDB did not refresh {target}")
+
+    def html_output(self, save_name, attempts=3, timeout=300):
+        """Tools -> Commish Tools -> HTML Output. Writes leaguedata/<save>/html/*.
+
+        Same shape as output_mdb: the menu labels are windowless VB6 controls whose clicks are
+        occasionally swallowed, so this confirms by the folder's own contents and retries.
+        """
+        out = DOCS / "leaguedata" / save_name / "html"
+        before = max((p.stat().st_mtime for p in out.glob("*.htm")), default=0)
+        for _ in range(attempts):
+            self.click(TOP_TOOLS, 2)
+            self.click(TOOLS_HTML_OUTPUT, 2)
+            end = time.time() + timeout
+            while time.time() < end:
+                try:
+                    self.dismiss_message(timeout=2)
+                except DriverError:
+                    pass
+                index = out / "index.htm"
+                if index.exists() and index.stat().st_mtime > before:
+                    time.sleep(3)  # let the remaining pages finish writing
+                    self.dismiss_all()
+                    return out
+            self.dismiss_all()
+        raise DriverError(f"HTML output did not appear under {out}")
 
     def dismiss_all(self):
         """Close any standard message boxes that are open."""
