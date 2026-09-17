@@ -1,0 +1,413 @@
+"""Supabase access for the local commissioner app, over plain HTTPS.
+
+Deliberately thin: PostgREST is a REST API, `requests` is already a dependency of nothing
+in particular but ships with the environment, and a full SDK would be a lot of weight for
+eight calls. Everything here uses the **service role key**, which bypasses Row Level
+Security - so this module must never be reachable from the public site.
+
+Nothing raises on import. If `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` are not set, the
+first call that needs them raises `StoreNotConfigured` and the rest of the app carries on
+offline. See `commissioner/settings.py` and `.env.example`.
+
+    python -m commissioner.store --selftest     # prints every request it would make
+    python -m commissioner.store --settings     # live: dump the settings table
+
+The RPC names below (`grant_points`, `apply_upgrade_requests`, `activate_character`) are
+defined in `supabase/schema.sql`. Change one and you change both files.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+
+import requests
+
+from . import settings as cfg
+
+__all__ = [
+    "StoreNotConfigured", "StoreError",
+    "pending_requests", "mark_applied", "pending_characters", "activate_character",
+    "grant_points", "grant_week_points", "get_settings", "set_setting",
+    "characters_for_export",
+]
+
+# The character columns the public career pages need. Kept explicit rather than `*` so a
+# new column added to the table does not silently start leaking into the export.
+CHARACTER_COLUMNS = (
+    "id,owner,first_name,last_name,position,height_inches,archetype,league,team_abbrev,"
+    "status,game_dob,ratings,potentials,points_available,points_spent,claimed_slot,created_at"
+)
+
+DRY_RUN = False  # set by --selftest; makes every call describe itself instead of firing
+
+
+class StoreError(RuntimeError):
+    """Supabase answered, but with an error."""
+
+
+class StoreNotConfigured(StoreError):
+    """No SUPABASE_URL / SUPABASE_SERVICE_KEY yet. The app is expected to keep running."""
+
+    def __init__(self, detail=""):
+        super().__init__(
+            "Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_KEY in the "
+            f"environment or in {cfg.ENV_FILE} (copy .env.example). {detail}".strip()
+        )
+
+
+# ---------------------------------------------------------------------------------------
+# plumbing
+# ---------------------------------------------------------------------------------------
+
+def is_configured():
+    """True when a real call would work. Cheap; safe to poll from a Flask status page."""
+    return cfg.is_configured()
+
+
+def _headers(prefer=None):
+    key = cfg.supabase_service_key()
+    head = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    if prefer:
+        head["Prefer"] = prefer
+    return head
+
+
+def _request(method, path, params=None, body=None, prefer=None):
+    """One PostgREST call. In DRY_RUN, returns a description of it instead."""
+    plan = {"method": method, "path": path, "params": params or {}, "body": body, "prefer": prefer}
+    if DRY_RUN:
+        _print_plan(plan)
+        return plan
+    if not cfg.is_configured():
+        raise StoreNotConfigured(f"Wanted: {method} {path}")
+    url = f"{cfg.supabase_url()}{path}"
+    try:
+        resp = requests.request(method, url, headers=_headers(prefer), params=params,
+                                json=body, timeout=cfg.timeout())
+    except requests.RequestException as exc:
+        raise StoreError(f"{method} {path} failed to reach Supabase: {exc}") from exc
+    if resp.status_code >= 400:
+        raise StoreError(f"{method} {path} -> HTTP {resp.status_code}: {resp.text[:500]}")
+    if not resp.content or resp.status_code == 204:
+        return []
+    try:
+        return resp.json()
+    except ValueError:
+        return resp.text
+
+
+def _print_plan(plan):
+    q = "&".join(f"{k}={v}" for k, v in plan["params"].items())
+    line = f"  {plan['method']:6} {plan['path']}" + (f"?{q}" if q else "")
+    print(line)
+    if plan["prefer"]:
+        print(f"         Prefer: {plan['prefer']}")
+    if plan["body"] is not None:
+        print("         body: " + json.dumps(plan["body"], default=str)[:400])
+
+
+def _table(name, params=None, prefer=None):
+    return _request("GET", f"/rest/v1/{name}", params=params, prefer=prefer)
+
+
+def _rpc(name, body):
+    return _request("POST", f"/rest/v1/rpc/{name}", body=body)
+
+
+# ---------------------------------------------------------------------------------------
+# upgrade requests
+# ---------------------------------------------------------------------------------------
+
+def pending_requests(league=None):
+    """Approved-but-not-applied upgrade requests, each with its character embedded.
+
+    These are the ones the Sim Week pipeline hands to the codec. A request the owner has
+    filed but the commissioner has not approved yet is status 'pending' and is *not*
+    returned - approve it first (in the dashboard, or by turning on the `auto_approve`
+    setting so requests skip the queue).
+    """
+    params = {
+        "select": f"*,character:characters({CHARACTER_COLUMNS})",
+        "status": "eq.approved",
+        "applied_at": "is.null",
+        "order": "requested_at.asc",
+    }
+    if league:
+        params["character.league"] = f"eq.{league}"
+    rows = _table("upgrade_requests", params)
+    if DRY_RUN or not league:
+        return rows
+    # PostgREST filters on an embedded resource null it out rather than dropping the row
+    return [r for r in rows if r.get("character")]
+
+
+def mark_applied(request_ids):
+    """Apply the given approved requests: rating moves, points move, ledger row, stamp.
+
+    One RPC, so the whole batch is a single transaction - a half-applied upgrade cannot
+    happen, which matters because the matching edit to `league.dat` is not transactional
+    at all. Call this only after the codec write has succeeded.
+
+    Returns the rows that were applied (ids that were not 'approved' are skipped).
+    """
+    ids = [str(i) for i in (request_ids or [])]
+    if not ids:
+        return []
+    return _rpc("apply_upgrade_requests", {"p_ids": ids})
+
+
+def reject_request(request_id, note=None):
+    """Turn a request down. Its reserved cost is released, nothing is charged."""
+    body = {"status": "rejected"}
+    if note:
+        body["note"] = note
+    return _request("PATCH", "/rest/v1/upgrade_requests",
+                    params={"id": f"eq.{request_id}"}, body=body,
+                    prefer="return=representation")
+
+
+def approve_requests(request_ids):
+    """Move 'pending' requests to 'approved' so the next Sim Week picks them up."""
+    ids = [str(i) for i in (request_ids or [])]
+    if not ids:
+        return []
+    return _request("PATCH", "/rest/v1/upgrade_requests",
+                    params={"id": f"in.({','.join(ids)})", "status": "eq.pending"},
+                    body={"status": "approved"}, prefer="return=representation")
+
+
+# ---------------------------------------------------------------------------------------
+# characters
+# ---------------------------------------------------------------------------------------
+
+def pending_characters():
+    """Characters waiting for a reserve slot, oldest first, with their owner attached.
+
+    The commissioner picks a free reserve row out of `universe/manifest.json`, has the
+    codec rename and re-rate it, then calls `activate_character` with that slot.
+    """
+    params = {
+        "select": f"{CHARACTER_COLUMNS},owner_profile:profiles(id,discord_username,display_name)",
+        "status": "eq.pending",
+        "order": "created_at.asc",
+    }
+    return _table("characters", params)
+
+
+def activate_character(character_id, league, team_abbrev, claimed_slot, game_dob):
+    """Record that a character now occupies a real roster slot and switch him on.
+
+    `claimed_slot` is the manifest entry the codec stamped over:
+        {"league": "prep", "team": "BKI", "name": "Milo Trask", "dob": "3/14/2016"}
+    `game_dob` is the date the save now holds for him (ISO `YYYY-MM-DD`). CONVENTIONS.md
+    notes FBPB3 sometimes rewrites a DOB to 12/1/<year> at season rollover, so re-assert
+    it after each offseason if the exact birthday matters.
+    """
+    if league not in ("prep", "college", "pro"):
+        raise ValueError(f"league must be prep, college or pro (got {league!r})")
+    if hasattr(game_dob, "isoformat"):
+        game_dob = game_dob.isoformat()
+    return _rpc("activate_character", {
+        "p_character": str(character_id),
+        "p_league": league,
+        "p_team_abbrev": team_abbrev,
+        "p_claimed_slot": claimed_slot,
+        "p_game_dob": game_dob,
+    })
+
+
+def set_character_status(character_id, status):
+    """pending / active / declared / retired. Used when a character graduates or retires."""
+    if status not in ("pending", "active", "declared", "retired"):
+        raise ValueError(f"unknown status {status!r}")
+    return _request("PATCH", "/rest/v1/characters",
+                    params={"id": f"eq.{character_id}"}, body={"status": status},
+                    prefer="return=representation")
+
+
+def characters_for_export():
+    """Everything the public career pages need, in one call.
+
+    Each row is a character plus its owner's display name, its applied upgrades and its
+    point ledger, so the site generator can render a career page without a second round
+    trip. Pending characters are included (they show as "awaiting a roster spot"); the
+    save-file plumbing in `claimed_slot` is not.
+    """
+    public_cols = CHARACTER_COLUMNS.replace(",claimed_slot", "")
+    params = {
+        "select": (
+            f"{public_cols},"
+            "owner_profile:profiles(display_name,discord_username),"
+            "upgrades:upgrade_requests(rating,delta,kind,cost,status,requested_at,applied_at),"
+            "ledger:point_ledger(amount,reason,created_at)"
+        ),
+        "order": "created_at.asc",
+    }
+    return _table("characters", params)
+
+
+# ---------------------------------------------------------------------------------------
+# points
+# ---------------------------------------------------------------------------------------
+
+def grant_points(character_id, amount, reason="admin grant"):
+    """Write the ledger row and bump `points_available` atomically (one RPC, one txn).
+
+    Negative amounts are allowed and are how a correction is made; the `points_available
+    >= 0` check constraint makes an over-withdrawal roll the whole thing back.
+    """
+    amount = int(amount)
+    if amount == 0:
+        raise ValueError("amount must be non-zero")
+    return _rpc("grant_points", {
+        "p_character": str(character_id),
+        "p_amount": amount,
+        "p_reason": reason,
+    })
+
+
+def grant_week_points(league=None, reason="week simmed"):
+    """The weekly payout: one point (settings.points_per_week) to every live character.
+
+    Pass a league to pay only that save's characters - a Sim Week is three separate
+    launch/sim/save cycles, so the three leagues are paid as each one finishes.
+    Returns the number of characters paid.
+    """
+    return _rpc("grant_week_points", {"p_league": league, "p_reason": reason})
+
+
+# ---------------------------------------------------------------------------------------
+# settings
+# ---------------------------------------------------------------------------------------
+
+def get_settings():
+    """The whole settings table as a plain dict, with the documented defaults filled in."""
+    defaults = {
+        "max_characters": 2,
+        "starting_points": 20,
+        "points_per_week": 1,
+        "auto_approve": False,
+        "current_season": 2030,
+        "current_week": 0,
+    }
+    rows = _table("settings", {"select": "key,value"})
+    if DRY_RUN:
+        return dict(defaults)
+    out = dict(defaults)
+    for row in rows or []:
+        out[row["key"]] = row["value"]
+    return out
+
+
+def set_setting(key, value):
+    """Upsert one config key. `value` is stored as JSON, so ints and bools stay typed."""
+    return _request("POST", "/rest/v1/settings",
+                    params={"on_conflict": "key"},
+                    body=[{"key": key, "value": value}],
+                    prefer="resolution=merge-duplicates,return=representation")
+
+
+# ---------------------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------------------
+
+def _selftest():
+    """Walk every public call with DRY_RUN on, printing the HTTP it would perform.
+
+    Runs happily with no credentials at all - the point is to prove the module imports,
+    that the paths and RPC names are what schema.sql defines, and that nothing here needs
+    Supabase to be reachable before the rest of the commissioner app can start.
+    """
+    global DRY_RUN
+    DRY_RUN = True
+    print("commissioner.store selftest - no network, no credentials needed\n")
+    print("configuration")
+    for k, v in cfg.describe().items():
+        print(f"  {k:24} {v}")
+    if not cfg.is_configured():
+        print("\n  not configured yet -> every real call below would raise StoreNotConfigured")
+
+    steps = [
+        ("pending_requests()", lambda: pending_requests()),
+        ("pending_requests(league='prep')", lambda: pending_requests("prep")),
+        ("mark_applied([...])", lambda: mark_applied(
+            ["11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222"])),
+        ("approve_requests([...])", lambda: approve_requests(["33333333-3333-3333-3333-333333333333"])),
+        ("reject_request(...)", lambda: reject_request("44444444-4444-4444-4444-444444444444",
+                                                       "over the archetype cap")),
+        ("pending_characters()", lambda: pending_characters()),
+        ("activate_character(...)", lambda: activate_character(
+            "55555555-5555-5555-5555-555555555555", "prep", "BKI",
+            {"league": "prep", "team": "BKI", "name": "Milo Trask", "dob": "3/14/2016"},
+            "2016-03-14")),
+        ("set_character_status(..., 'retired')", lambda: set_character_status(
+            "55555555-5555-5555-5555-555555555555", "retired")),
+        ("grant_points(..., 1, 'week simmed')", lambda: grant_points(
+            "55555555-5555-5555-5555-555555555555", 1, "week simmed")),
+        ("grant_week_points('prep')", lambda: grant_week_points("prep")),
+        ("get_settings()", lambda: get_settings()),
+        ("set_setting('current_week', 4)", lambda: set_setting("current_week", 4)),
+        ("characters_for_export()", lambda: characters_for_export()),
+    ]
+    for label, fn in steps:
+        print(f"\n{label}")
+        fn()
+
+    print("\ndefaults get_settings() falls back to when a key is missing:")
+    for k, v in get_settings().items():
+        print(f"  {k:18} {v!r}")
+
+    DRY_RUN = False
+
+    # and prove the real path fails loudly rather than silently, when unconfigured
+    if not cfg.is_configured():
+        print("\nwith DRY_RUN off and no credentials:")
+        try:
+            get_settings()
+        except StoreNotConfigured as exc:
+            print(f"  StoreNotConfigured: {exc}")
+        else:
+            print("  ERROR: expected StoreNotConfigured")
+            return 1
+    print("\nok")
+    return 0
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(prog="python -m commissioner.store",
+                                 description="Supabase access for the Cheezeyverse commissioner.")
+    ap.add_argument("--selftest", action="store_true",
+                    help="print every request this module would make; needs no credentials")
+    ap.add_argument("--settings", action="store_true", help="live: dump the settings table")
+    ap.add_argument("--pending", action="store_true",
+                    help="live: pending characters and approved-not-applied requests")
+    args = ap.parse_args(argv)
+
+    if args.selftest:
+        return _selftest()
+    try:
+        if args.settings:
+            print(json.dumps(get_settings(), indent=2, default=str))
+            return 0
+        if args.pending:
+            print(json.dumps({"characters": pending_characters(),
+                              "requests": pending_requests()}, indent=2, default=str))
+            return 0
+    except StoreNotConfigured as exc:
+        print(f"{exc}", file=sys.stderr)
+        return 2
+    except StoreError as exc:
+        print(f"Supabase error: {exc}", file=sys.stderr)
+        return 3
+    ap.print_help()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

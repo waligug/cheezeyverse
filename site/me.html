@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My players &middot; The Cheezeyverse</title>
+<meta name="description" content="Your Cheezeyverse characters: ratings, points available, and where the skill points went.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F2B705'/%3E%3Ccircle cx='10' cy='11' r='3' fill='%238A5A00'/%3E%3Ccircle cx='21' cy='17' r='4' fill='%238A5A00'/%3E%3Ccircle cx='12' cy='23' r='2.5' fill='%238A5A00'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<main class="cv-page">
+
+  <h1>My players</h1>
+  <p class="cv-muted" id="intro">Everything you own, everything you have banked, and everything you have asked for.</p>
+
+  <div id="notices"></div>
+
+  <div id="gate" hidden>
+    <div class="cv-card">
+      <h2>Sign in first</h2>
+      <p>Your players are tied to your Discord account.</p>
+      <div class="cv-actions">
+        <button class="cv-btn cv-big" type="button" id="signin">Sign in with Discord</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="characters"><p class="cv-spinner" id="loading" hidden>Loading your players...</p></div>
+
+</main>
+
+<script type="module" src="js/page-me.js"></script>
+</body>
+</html>

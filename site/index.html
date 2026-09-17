@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Cheezeyverse</title>
+<meta name="description" content="Make a basketball player, start at 14 in the Prep league, and spend a skill point every week until you make it to the pros.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F2B705'/%3E%3Ccircle cx='10' cy='11' r='3' fill='%238A5A00'/%3E%3Ccircle cx='21' cy='17' r='4' fill='%238A5A00'/%3E%3Ccircle cx='12' cy='23' r='2.5' fill='%238A5A00'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<main class="cv-page">
+
+  <section class="cv-hero cv-cheese">
+    <h1>The Cheezeyverse</h1>
+    <p id="tagline">Everybody starts at 14, in the Prep league, and everybody starts terrible.
+      Every in-game week that gets simulated is one skill point. Spend it, watch the box
+      scores, and declare for the draft whenever you think you are ready.</p>
+    <div class="cv-actions">
+      <a class="cv-btn cv-big" href="create.html">Create your player</a>
+      <a class="cv-btn cv-big cv-ghost" href="me.html">My players</a>
+    </div>
+  </section>
+
+  <div id="notices"></div>
+
+  <section class="cv-card">
+    <div class="cv-card-head">
+      <h2>The three levels</h2>
+      <span class="cv-muted">standings, stats and box scores live on the league sites</span>
+    </div>
+    <div class="cv-leagues" id="leagues"></div>
+  </section>
+
+  <section class="cv-card">
+    <div class="cv-card-head">
+      <h2>How it works</h2>
+    </div>
+    <div class="cv-grid">
+      <div>
+        <h3>1. Make a 14 year old</h3>
+        <p>Pick a position, a height and an archetype, then spend your opening points.
+          The archetype decides what he can eventually become, not what he is today.</p>
+      </div>
+      <div>
+        <h3>2. Get a roster spot</h3>
+        <p>New players sit as <b>pending</b> until the commissioner drops them onto a Prep
+          roster. After that they show up in the league site like anybody else.</p>
+      </div>
+      <div>
+        <h3>3. Spend every week</h3>
+        <p>One point per simulated week. Cheap early, brutal at the top: 1 a point under
+          50, 2 to 69, 3 to 84, then 5. Potentials cost double.</p>
+      </div>
+      <div>
+        <h3>4. Declare when you want</h3>
+        <p>Prep to College, College to the pros, on your schedule. Declare early and take
+          your lumps, or stay and dominate.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cv-card">
+    <div class="cv-card-head">
+      <h2>Newest in the universe</h2>
+      <span class="cv-muted" id="census"></span>
+    </div>
+    <div id="recent"><p class="cv-spinner">Loading the roll call...</p></div>
+  </section>
+
+</main>
+
+<script type="module" src="js/page-index.js"></script>
+</body>
+</html>

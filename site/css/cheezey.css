@@ -1,0 +1,407 @@
+/* =====================================================================================
+ * Cheezeyverse - the player-facing skin.
+ *
+ * Deliberately the same universe as the league pages: the palette below is copied value
+ * for value from PALETTE in commissioner/publish/restyle.py, which re-skins FBPB3's own
+ * HTML Output. Same cheddar-gold chrome, same cream pages, same brown ink, same
+ * Trebuchet MS / Verdana stack, same cheese-holes radial gradient that the league sites
+ * wear on their left nav.
+ *
+ * The two stylesheets are independent on purpose - restyle.py generates its copy at
+ * publish time and every rule in it is !important, because it has to beat the inline
+ * <style> block FBPB3 writes into each page. Nothing here needs that, so nothing here
+ * uses it. Do not import one from the other; if you retune the palette, change both.
+ *
+ * Warm, a bit retro, readable, works on a phone. No dark theme, by design.
+ * ===================================================================================== */
+
+:root {
+  --gold:   #F2B705;  /* young cheddar, the primary chrome */
+  --deep:   #D9901A;  /* aged, for header bands */
+  --crust:  #8A5A00;  /* rind */
+  --ink:    #2E2100;  /* text on gold */
+  --cream:  #FFF8E6;  /* page background */
+  --cream2: #F3E4BE;  /* zebra stripe */
+  --line:   #D9C48A;
+  --link:   #7A4B00;
+  --human:  #1D5C8A;  /* the "human coach" blue FBPB3 uses for played teams */
+
+  --good:   #2F6B37;
+  --bad:    #96261F;
+
+  --font: 'Trebuchet MS', Verdana, Geneva, sans-serif;
+  --radius: 6px;
+  --gutter: 16px;
+  --shadow: 0 1px 0 rgba(255, 255, 255, .6), 0 2px 6px rgba(46, 33, 0, .12);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font: 14px/1.5 var(--font);
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 { margin: 0 0 .4em; color: var(--crust); letter-spacing: -.4px; line-height: 1.15; }
+h1 { font-size: 26px; }
+h2 { font-size: 20px; }
+h3 { font-size: 16px; }
+p  { margin: 0 0 .8em; }
+
+a { color: var(--link); font-weight: 600; text-decoration: none; }
+a:hover, a:focus-visible { text-decoration: underline; }
+
+hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+
+/* ------------------------------------------------------------------ the cheese motif */
+/* The same radial-gradient holes restyle.py puts on the league sites' left nav. */
+.cv-cheese {
+  background-color: var(--gold);
+  background-image:
+    radial-gradient(circle at 12% 22%, rgba(138, 90, 0, .16) 0 11px, transparent 12px),
+    radial-gradient(circle at 34% 68%, rgba(138, 90, 0, .16) 0 7px,  transparent 8px),
+    radial-gradient(circle at 52% 18%, rgba(138, 90, 0, .16) 0 14px, transparent 15px),
+    radial-gradient(circle at 71% 72%, rgba(138, 90, 0, .16) 0 9px,  transparent 10px),
+    radial-gradient(circle at 86% 30%, rgba(138, 90, 0, .16) 0 12px, transparent 13px),
+    radial-gradient(circle at 95% 82%, rgba(138, 90, 0, .16) 0 6px,  transparent 7px),
+    linear-gradient(160deg, var(--gold) 0%, var(--deep) 100%);
+  background-repeat: no-repeat;
+}
+
+/* ------------------------------------------------------------------------- top chrome */
+.cv-top {
+  border-bottom: 3px solid var(--crust);
+  box-shadow: 0 2px 8px rgba(46, 33, 0, .18);
+}
+
+.cv-top-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 14px var(--gutter);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+}
+
+.cv-wordmark { display: block; color: var(--ink); text-decoration: none; margin-right: auto; }
+.cv-wordmark:hover { text-decoration: none; }
+.cv-wordmark b {
+  display: block;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
+}
+.cv-wordmark small {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--crust);
+}
+
+.cv-nav { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.cv-nav a {
+  display: block;
+  padding: 6px 11px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+}
+.cv-nav a:hover { background: rgba(255, 255, 255, .45); text-decoration: none; }
+.cv-nav a[aria-current='page'] { background: rgba(255, 255, 255, .6); border-color: var(--crust); }
+
+.cv-who { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--ink); }
+
+/* ------------------------------------------------------------------------- page shell */
+.cv-page { max-width: 1000px; margin: 0 auto; padding: 22px var(--gutter) 60px; }
+
+.cv-foot {
+  border-top: 2px solid var(--line);
+  margin-top: 40px;
+  padding: 16px var(--gutter) 30px;
+  font-size: 11px;
+  color: var(--crust);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------------------ cards */
+.cv-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--deep);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 0 0 18px;
+  box-shadow: var(--shadow);
+}
+.cv-card > :last-child { margin-bottom: 0; }
+.cv-card-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; margin-bottom: 10px; }
+.cv-card-head h2, .cv-card-head h3 { margin: 0; margin-right: auto; }
+
+.cv-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+
+/* ------------------------------------------------------------------------------- hero */
+.cv-hero {
+  border: 1px solid var(--crust);
+  border-radius: var(--radius);
+  padding: 26px 20px;
+  margin-bottom: 22px;
+  box-shadow: var(--shadow);
+}
+.cv-hero h1 { color: var(--ink); font-size: 30px; text-shadow: 0 1px 0 rgba(255, 255, 255, .45); }
+.cv-hero p { color: var(--ink); max-width: 46em; }
+.cv-hero p:last-child { margin-bottom: 0; }
+
+/* ----------------------------------------------------------------------------- pills */
+.cv-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--cream2);
+  color: var(--crust);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cv-pill.is-active   { background: var(--gold);  color: var(--ink);  border-color: var(--crust); }
+.cv-pill.is-pending  { background: #fff;         color: var(--crust); }
+.cv-pill.is-declared { background: var(--human); color: #fff;         border-color: #123f61; }
+.cv-pill.is-retired  { background: #e7e2d4;      color: #6a6250;      border-color: #cfc7b3; }
+
+/* --------------------------------------------------------------------------- buttons */
+.cv-btn {
+  display: inline-block;
+  font: 700 13px/1 var(--font);
+  padding: 9px 15px;
+  border: 2px solid var(--crust);
+  border-radius: var(--radius);
+  background: var(--gold);
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .55) inset, 0 2px 0 var(--crust);
+}
+.cv-btn:hover { background: var(--deep); text-decoration: none; }
+.cv-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset; }
+.cv-btn[disabled], .cv-btn.is-disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.cv-btn.cv-ghost { background: #fff; }
+.cv-btn.cv-ghost:hover { background: var(--cream2); }
+.cv-btn.cv-big { font-size: 15px; padding: 12px 22px; }
+.cv-btn.cv-small { font-size: 11px; padding: 5px 9px; border-width: 1px; box-shadow: none; }
+
+.cv-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+/* ----------------------------------------------------------------------------- forms */
+label { display: block; font-weight: 700; font-size: 12px; color: var(--crust); margin-bottom: 4px; }
+
+input[type='text'], input[type='number'], select, textarea {
+  width: 100%;
+  font: 14px/1.4 var(--font);
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--crust);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible,
+.cv-btn:focus-visible, a:focus-visible {
+  outline: 3px solid var(--deep);
+  outline-offset: 1px;
+}
+
+.cv-field { margin-bottom: 14px; }
+.cv-fields { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.cv-hint { font-size: 11px; color: var(--crust); font-weight: 400; margin-top: 3px; }
+
+/* archetype picker */
+.cv-choices { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.cv-choice {
+  display: block;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 10px 12px;
+  cursor: pointer;
+  margin: 0;
+}
+.cv-choice:hover { border-color: var(--deep); }
+.cv-choice input { position: absolute; opacity: 0; width: 0; height: 0; }
+.cv-choice b { display: block; font-size: 14px; color: var(--crust); }
+.cv-choice span { display: block; font-size: 11.5px; font-weight: 400; color: var(--ink); margin-top: 3px; }
+.cv-choice.is-on { border-color: var(--crust); background: var(--cream2); box-shadow: var(--shadow); }
+.cv-choice.is-off { opacity: .4; }
+
+/* ------------------------------------------------------------------------ rating rows */
+.cv-sheet { margin: 0 0 14px; }
+.cv-sheet h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--crust);
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+
+.cv-rating {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+}
+.cv-rating:nth-child(even) { background: var(--cream2); }
+.cv-rating.is-locked { opacity: .62; }
+
+.cv-rating-name { font-size: 13px; font-weight: 600; }
+.cv-rating-name em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--crust); }
+
+.cv-rating-controls { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.cv-step {
+  font: 700 15px/1 var(--font);
+  width: 30px; height: 28px;
+  border: 1px solid var(--crust);
+  border-radius: var(--radius);
+  background: var(--gold);
+  color: var(--ink);
+  cursor: pointer;
+}
+.cv-step:hover { background: var(--deep); }
+.cv-step[disabled] { opacity: .3; cursor: not-allowed; }
+.cv-val { display: inline-block; min-width: 2.4em; text-align: right; font-weight: 700; font-size: 15px; }
+.cv-val.is-up { color: var(--good); }
+.cv-cap { font-size: 10.5px; color: var(--crust); min-width: 5.6em; text-align: right; }
+
+/* the bar underneath a rating, in the full width of the row */
+.cv-bar {
+  grid-column: 1 / -1;
+  height: 7px;
+  border-radius: 4px;
+  background: #EFE6CC;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  position: relative;
+}
+.cv-bar i { display: block; height: 100%; background: var(--deep); }
+.cv-bar u {
+  position: absolute; top: -2px; bottom: -2px; width: 2px;
+  background: var(--crust); text-decoration: none;
+}
+
+/* ------------------------------------------------------------------------ point meter */
+.cv-meter {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border: 2px solid var(--crust);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  align-items: center;
+  box-shadow: var(--shadow);
+}
+.cv-meter b { font-size: 22px; }
+.cv-meter span { font-size: 12px; font-weight: 700; color: var(--crust); text-transform: uppercase; letter-spacing: .6px; }
+.cv-meter .cv-meter-sep { margin-left: auto; }
+
+/* ---------------------------------------------------------------------------- tables */
+table.cv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.cv-table th {
+  background: var(--deep);
+  color: var(--ink);
+  text-align: left;
+  font-weight: 700;
+  padding: 5px 8px;
+  border-bottom: 2px solid var(--crust);
+  white-space: nowrap;
+}
+table.cv-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.cv-table tr:nth-child(even) td { background: var(--cream2); }
+.cv-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ---------------------------------------------------------------------------- notices */
+.cv-note {
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--deep);
+  background: var(--cream2);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin: 0 0 16px;
+  font-size: 13px;
+}
+.cv-note.is-bad  { border-left-color: var(--bad);  background: #FBE9E7; color: #4A1512; }
+.cv-note.is-good { border-left-color: var(--good); background: #E8F2E6; color: #1F4423; }
+.cv-note ul { margin: 6px 0 0; padding-left: 20px; }
+.cv-note p:last-child { margin-bottom: 0; }
+
+.cv-muted { color: var(--crust); font-size: 12px; }
+.cv-right { text-align: right; }
+.cv-center { text-align: center; }
+.cv-stack > * + * { margin-top: 12px; }
+
+/* --------------------------------------------------------------------- league tiles */
+.cv-leagues { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.cv-league {
+  display: block;
+  border: 1px solid var(--crust);
+  border-radius: var(--radius);
+  padding: 16px;
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.cv-league:hover { text-decoration: none; filter: brightness(1.04); }
+.cv-league b { display: block; font-size: 17px; }
+.cv-league span { display: block; font-size: 11.5px; font-weight: 600; color: var(--crust); margin-top: 3px; }
+.cv-league.is-placeholder { opacity: .65; cursor: not-allowed; }
+
+/* ------------------------------------------------------------------------ characters */
+.cv-roster { list-style: none; margin: 0; padding: 0; }
+.cv-roster li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.cv-roster li:nth-child(even) { background: var(--cream2); }
+.cv-roster b { font-size: 14px; }
+.cv-roster .cv-muted { margin-left: auto; }
+
+.cv-spinner { color: var(--crust); font-size: 13px; padding: 10px 0; }
+
+/* ------------------------------------------------------------------------------ phone */
+@media (max-width: 640px) {
+  .cv-top-inner { padding: 12px var(--gutter); }
+  .cv-wordmark b { font-size: 18px; }
+  .cv-page { padding-top: 16px; }
+  .cv-hero { padding: 20px 16px; }
+  .cv-hero h1 { font-size: 24px; }
+  h1 { font-size: 22px; }
+  .cv-fields { grid-template-columns: 1fr; }
+  .cv-meter { position: static; }
+  .cv-rating { grid-template-columns: 1fr; }
+  .cv-rating-controls { justify-content: flex-end; }
+  .cv-roster .cv-muted { margin-left: 0; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

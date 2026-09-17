@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create your player &middot; The Cheezeyverse</title>
+<meta name="description" content="Make a 14 year old, pick an archetype, and spend your opening skill points.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F2B705'/%3E%3Ccircle cx='10' cy='11' r='3' fill='%238A5A00'/%3E%3Ccircle cx='21' cy='17' r='4' fill='%238A5A00'/%3E%3Ccircle cx='12' cy='23' r='2.5' fill='%238A5A00'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<main class="cv-page">
+
+  <h1>Create your player</h1>
+  <p class="cv-muted" id="intro">He turns 14 this season and he is not good yet. That is the idea.</p>
+
+  <div id="notices"></div>
+
+  <div id="gate" hidden>
+    <div class="cv-card">
+      <h2>Sign in first</h2>
+      <p>Characters belong to a Discord account, so we know whose player is whose.</p>
+      <div class="cv-actions">
+        <button class="cv-btn cv-big" type="button" id="signin">Sign in with Discord</button>
+      </div>
+    </div>
+  </div>
+
+  <form id="form" hidden>
+
+    <section class="cv-card">
+      <div class="cv-card-head"><h2>Who is he</h2></div>
+      <div class="cv-fields">
+        <div class="cv-field">
+          <label for="first">First name</label>
+          <input id="first" name="first" type="text" maxlength="20" autocomplete="off" required>
+        </div>
+        <div class="cv-field">
+          <label for="last">Last name</label>
+          <input id="last" name="last" type="text" maxlength="20" autocomplete="off" required>
+        </div>
+        <div class="cv-field">
+          <label for="position">Position</label>
+          <select id="position" name="position"></select>
+        </div>
+        <div class="cv-field">
+          <label for="height">Height</label>
+          <input id="height" name="height" type="range" step="1">
+          <div class="cv-hint" id="height-read"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cv-card">
+      <div class="cv-card-head">
+        <h2>Archetype</h2>
+        <span class="cv-muted">this sets his ceilings, not his ratings</span>
+      </div>
+      <div class="cv-choices" id="archetypes"></div>
+      <p class="cv-hint" id="archetype-note"></p>
+    </section>
+
+    <section class="cv-card">
+      <div class="cv-card-head">
+        <h2>Spend your opening points</h2>
+        <span class="cv-muted" id="curve"></span>
+      </div>
+      <div id="meter" class="cv-meter cv-cheese"></div>
+      <p class="cv-hint">A rating can never pass its potential, and a potential can never
+        pass the archetype cap. Potentials cost double. You can leave points unspent and
+        use them later.</p>
+      <div id="sheet"></div>
+    </section>
+
+    <section class="cv-card">
+      <div class="cv-card-head"><h2>Send him in</h2></div>
+      <div id="problems"></div>
+      <div class="cv-actions">
+        <button class="cv-btn cv-big" type="submit" id="submit">Create this player</button>
+        <button class="cv-btn cv-ghost" type="button" id="reset">Start over</button>
+      </div>
+      <p class="cv-hint">He arrives as <b>pending</b>. The commissioner puts him on a Prep
+        roster at the next sim, and from then on he is in the league site with everybody else.</p>
+    </section>
+
+  </form>
+
+</main>
+
+<script type="module" src="js/page-create.js"></script>
+</body>
+</html>
