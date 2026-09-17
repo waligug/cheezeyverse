@@ -22,6 +22,7 @@ DOCS = Path(r"C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3")
 
 # window-relative click targets
 TOP_TOOLS = (281, 25)
+TOP_LOAD = (132, 25)
 TOP_SAVE = (207, 25)
 TOP_EXIT = (955, 25)
 TITLE_LOAD_CAREER = (457, 663)
@@ -203,8 +204,14 @@ class FBPB3:
         return [d.name for d in saves]
 
     def load_save_row(self, row, wait=20):
-        """Load the save at list row `row` (0-based) on the Load Saved Game screen."""
-        self.click(TITLE_LOAD_CAREER, 3)
+        """Load the save at list row `row` (0-based) on the Load Saved Game screen.
+
+        Uses the top-bar LOAD rather than the title screen's LOAD CAREER button: the top bar is
+        present on every screen, while LOAD CAREER only exists before a career is open. Clicking
+        the title-screen button from inside a loaded league does nothing at all, which silently
+        leaves the previous league loaded and sends the next export into the wrong save.
+        """
+        self.click(TOP_LOAD, 3)
         self.click((LOAD_ROW_X, LOAD_FIRST_ROW_Y + row * LOAD_ROW_H), 1, real=True)
         if not self._load_button().is_enabled():
             raise DriverError(f"row {row} did not select a save")

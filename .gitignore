@@ -4,3 +4,5 @@ __pycache__/
 backups/
 tmp/
 .env
+# generated league sites are rebuilt from the saves on every publish
+site/leagues/
