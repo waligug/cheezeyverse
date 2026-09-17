@@ -122,3 +122,35 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   so the codec accepts 0..150.
 - 2026-09-17 Rename + sign verified in-game together: renamed players kept their new names through a sim and the
   game's own save, and appeared in box scores under them.
+
+## FBPB3 HTML Output (the public site) — reference: the Stabbyverse sites
+Captured 2026-09-17 from the live Stabbyverse sites into `fixtures/html-output/svprep/`
+(`http://svprep.atspace.cc/html/`). This is stock FBPB3 `Tools -> Commish Tools -> HTML Output`,
+uploaded by FTP (their commissioner used FileZilla; atspace.cc is a free FTP host).
+
+- **Structure**: `index.htm` is a two-frame FRAMESET (`menu.htm` 150px left, data pane right, default
+  `standings.htm`). Title is the league name + season, e.g. `SV Prep S5`.
+- **18 menu pages**: standings, playoffstandings, schedule, leaders, teamleaders, transactions, injuries,
+  freeagents, waiverwire, potentialfreeagents, staff, draft, awards, seasonawards, playoffs, playoffleaders,
+  champs, humancoaches.
+- **Team pages**: `rosters/roster<teamid>.htm`, one per team, linked only from `standings.htm`. Each is a
+  single ~160 KB page: team/owner/arena/finances, team stat ranks, staff, roster (bio), current ratings,
+  potentials, season and career stats (basic + shooting + advanced), salary table, full schedule with results.
+- **There are no per-player pages.** The only internal links in the whole site are the 16 roster pages.
+  A career page that follows one character prep -> college -> pro has to be built by us from the MDB + codec.
+- Links are relative (`./rosters/rosterN.htm`), so the folder hosts as-is. Styling is inline `<style>` per page,
+  team colour driven (`#990000` for SV Prep). Images referenced from `images/`.
+- Only the current season is on the site; `champs.htm` is the only cross-season page (season, champion, MVP).
+- Total upload is ~2 MB per league per refresh (`freeagents.htm` alone is 920 KB).
+
+### What the Stabbyverse sites imply about league layout
+Three separate sites, one per level: `svprep` (SV Prep S5), `svcollege` (SV College S5),
+`stabbyverse` (StabbyVerse S4, the pro league). **The pro league is a season behind the other two**, which one
+FBPB3 save cannot do - leagues inside a save advance together. So the Stabbyverse runs **three separate saves**.
+Their prep league runs Finances ON, a 30-game season, ages 14-19, and marks created characters with a `*`
+prefix on both names (`*Josh *Hall`).
+
+Open decision: one save with three leagues (our plan; codec moves players between them; HTML Output coverage
+of non-active leagues is **unverified**) vs three saves (their proven layout; promotion = stamping a reserve
+slot in the destination save, which `rename` + `set` already do). Resolve with a throwaway two-league New Game
+before the real universe is created.
