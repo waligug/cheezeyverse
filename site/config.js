@@ -21,7 +21,7 @@ window.CV_CONFIG = {
   // The three FBPB3 HTML Output sites, published separately by the commissioner app
   // (commissioner/publish/restyle.py re-skins them). Standings, stats and box scores all
   // live over there; this site only owns identity, characters and skill points.
-  
+  leagueSites: {
     prep: "leagues/prep/index.htm",
     college: "leagues/college/index.htm",
     pro: "leagues/pro/index.htm",
