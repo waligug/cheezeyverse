@@ -1,20 +1,20 @@
 league,division,city,nickname,abbrev,color,arena_city,state,arena,capacity
-prep,1,Brooklyn,Ironworks,BKI,#1D3557,New York,NY,Ironworks Fieldhouse,3200
-prep,1,Philadelphia,Forge,PHF,#7D2E2E,Philadelphia,PA,The Forge,3000
-prep,1,Boston,Landmark,BOL,#0B6E4F,Boston,MA,Landmark Court,2800
-prep,1,Newark,Ironside,NWI,#2B2D42,Newark,NJ,Ironside Center,2600
-prep,2,Atlanta,Peachtree,ATP,#C1440E,Atlanta,GA,Peachtree Hall,3100
-prep,2,Miami,Coastal,MIC,#00A6A6,Miami,FL,Coastal Pavilion,2900
-prep,2,Houston,Bayou,HOB,#6A4C93,Houston,TX,Bayou Arena,3400
-prep,2,Memphis,Delta,MED,#4F6D7A,Memphis,TN,Delta Gym,2500
-prep,3,Chicago,Southside,CHS,#A4161A,Chicago,IL,Southside Armory,3600
-prep,3,Detroit,Motorworks,DTM,#005F73,Detroit,MI,Motorworks Hall,2700
-prep,3,Indianapolis,Crossroads,INC,#BB8B00,Indianapolis,IN,Crossroads Fieldhouse,3300
-prep,3,St. Louis,Gateway,STG,#3A506B,St. Louis,MO,Gateway Court,2600
-prep,4,Los Angeles,Westgate,LAW,#8338EC,Los Angeles,CA,Westgate Pavilion,3800
-prep,4,Oakland,Harbor,OAH,#006D77,Oakland,CA,Harbor Gym,2800
-prep,4,Phoenix,Sunbelt,PHS,#E76F51,Phoenix,AZ,Sunbelt Center,3000
-prep,4,Seattle,Rainier,SER,#2A9D8F,Seattle,WA,Rainier Hall,2900
+prep,1,Saskatoon,Berries,SAS,#6B2D5C,Saskatoon,SK,The Berry Patch,2600
+prep,1,Wetaskiwin,Dealers,WET,#C9A227,Wetaskiwin,AB,The Lot,2400
+prep,1,Pierre,Stones,PIE,#5C6672,Pierre,SD,Stonehouse Court,2300
+prep,1,Lincoln,Rails,LIN,#1B3A2F,Lincoln,NE,Railyard Fieldhouse,3000
+prep,2,Montreal,Royals,MTL,#1F4E9C,Montreal,QC,The Royal Forum,3500
+prep,2,Albany,Tulips,ALB,#C0397A,Albany,NY,Tulip Garden,2800
+prep,2,Quahog,Clams,QUA,#2E8B93,Quahog,RI,The Clam Shell,3000
+prep,2,Rendville,Miners,REN,#3A3A3A,Rendville,OH,Miners Hall,2100
+prep,3,Louisville,Sluggers,LOU,#8B1E26,Louisville,KY,Slugger Fieldhouse,3200
+prep,3,Memphis,Kings,MEM,#4B2E83,Memphis,TN,Beale Street Arena,3400
+prep,3,Little Rock,Boulders,LIT,#7A6A53,Little Rock,AR,The Quarry,2700
+prep,3,Jackson,Generals,JAC,#2F4F4F,Jackson,MS,Generals Armory,2500
+prep,4,Dallas,Derricks,DAL,#0F5132,Dallas,TX,Derrick Dome,3600
+prep,4,Jerusalem,Lions,JER,#D4A017,Jerusalem,ISR,Lions Gate Arena,3100
+prep,4,Ariel,Spirits,ARI,#5A8FBF,Ariel,ISR,Spirit Hall,2600
+prep,4,Fleming,Spies,FLE,#1C1C2E,Fleming,CO,The Safehouse,2200
 college,1,Durham,Blueflame,DUR,#1B3A6B,Durham,NC,Blueflame Arena,9200
 college,1,Chapel Hill,Sandhills,CHH,#4C9BD1,Chapel Hill,NC,Sandhills Coliseum,8800
 college,1,Syracuse,Northmen,SYR,#D35400,Syracuse,NY,Northmen Dome,12000

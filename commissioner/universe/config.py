@@ -130,8 +130,8 @@ PRO_TEAMS = (
 PREP = LeagueSpec(
     key="prep", name="Cheezeyverse Prep", abbrev="CVP", save_name="CV_Prep",
     prestige=5,
-    conferences=("East", "West"),
-    divisions=("Atlantic", "Southern", "Central", "Pacific"),
+    conferences=("North", "South"),
+    divisions=("Prairie", "Northeast", "River", "Far"),
     schedule_games=30, playoff_teams=8, playoff_rounds=(0, 1, 1, 3),
     quarter_length=8,
     age_range=(14, 17),
