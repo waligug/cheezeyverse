@@ -1,4 +1,4 @@
-"""Generate the FBPB3 league files and roster files for the three Hoops Universe saves.
+"""Generate the FBPB3 league files and roster files for the three Cheezeyverse saves.
 
 Outputs, per league:
   <FBPB3 docs>/LeagueFiles/<LeagueFile>.csv   league settings + team table (used at New Game)
@@ -112,16 +112,18 @@ def hometowns():
     return rows
 
 
-def height_for(rng, position, age, oldest):
+def height_for(rng, position, age, spec):
     lo, hi = HEIGHT_RANGE[position]
-    shrink = min(5, max(0, 18 - age))  # 14-year-olds are not full size yet; adults are unscaled
+    # spec.youth_shrink is the most that comes off the adult range; the prep league is an elite
+    # one, so its prospects are already close to full size.
+    shrink = min(spec.youth_shrink, max(0, spec.age_range[1] - age))
     return rng.randint(lo - shrink, hi - shrink)
 
 
 def weight_for(rng, height, age):
     base = 100 + (height - 60) * 5.2
-    base -= max(0, (18 - age)) * 6  # teenagers are light
-    return int(max(105, rng.gauss(base, 9)))
+    base -= max(0, (18 - age)) * 4  # teenagers carry less weight on the same frame
+    return int(max(120, rng.gauss(base, 9)))
 
 
 def roll(rng, lo, hi, weight, stud=False):
@@ -133,8 +135,7 @@ def roll(rng, lo, hi, weight, stud=False):
 
 
 def make_player(rng, spec, team, position, age, first_pool, last_pool, towns, reserve=False):
-    oldest = spec.age_range[1]
-    height = height_for(rng, position, age, oldest)
+    height = height_for(rng, position, age, spec)
     stud = (not reserve) and rng.random() < spec.stud_share
     r_lo, r_hi = RESERVE_RATINGS if reserve else spec.ratings
     p_lo, p_hi = RESERVE_POTENTIALS if reserve else spec.potentials
@@ -239,8 +240,8 @@ def generate(seed=20300917, docs=DOCS, out_dir=None):
     manifest, summary = [], []
     for i, spec in enumerate(cfg.LEAGUES):
         players, entries = build_league(spec, seed + i)
-        lf = league_dir / f"HU-{spec.key.capitalize()}.csv"
-        pf = player_dir / f"HU-{spec.key.capitalize()}-Rosters.csv"
+        lf = league_dir / f"CV-{spec.key.capitalize()}.csv"
+        pf = player_dir / f"CV-{spec.key.capitalize()}-Rosters.csv"
         write_league_file(spec, lf)
         write_player_file(players, pf)
         manifest += entries

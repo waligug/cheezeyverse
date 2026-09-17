@@ -1,0 +1,53 @@
+league,division,city,nickname,abbrev,color,arena_city,state,arena,capacity
+prep,1,Brooklyn,Ironworks,BKI,#1D3557,New York,NY,Ironworks Fieldhouse,3200
+prep,1,Philadelphia,Forge,PHF,#7D2E2E,Philadelphia,PA,The Forge,3000
+prep,1,Boston,Landmark,BOL,#0B6E4F,Boston,MA,Landmark Court,2800
+prep,1,Newark,Ironside,NWI,#2B2D42,Newark,NJ,Ironside Center,2600
+prep,2,Atlanta,Peachtree,ATP,#C1440E,Atlanta,GA,Peachtree Hall,3100
+prep,2,Miami,Coastal,MIC,#00A6A6,Miami,FL,Coastal Pavilion,2900
+prep,2,Houston,Bayou,HOB,#6A4C93,Houston,TX,Bayou Arena,3400
+prep,2,Memphis,Delta,MED,#4F6D7A,Memphis,TN,Delta Gym,2500
+prep,3,Chicago,Southside,CHS,#A4161A,Chicago,IL,Southside Armory,3600
+prep,3,Detroit,Motorworks,DTM,#005F73,Detroit,MI,Motorworks Hall,2700
+prep,3,Indianapolis,Crossroads,INC,#BB8B00,Indianapolis,IN,Crossroads Fieldhouse,3300
+prep,3,St. Louis,Gateway,STG,#3A506B,St. Louis,MO,Gateway Court,2600
+prep,4,Los Angeles,Westgate,LAW,#8338EC,Los Angeles,CA,Westgate Pavilion,3800
+prep,4,Oakland,Harbor,OAH,#006D77,Oakland,CA,Harbor Gym,2800
+prep,4,Phoenix,Sunbelt,PHS,#E76F51,Phoenix,AZ,Sunbelt Center,3000
+prep,4,Seattle,Rainier,SER,#2A9D8F,Seattle,WA,Rainier Hall,2900
+college,1,Durham,Blueflame,DUR,#1B3A6B,Durham,NC,Blueflame Arena,9200
+college,1,Chapel Hill,Sandhills,CHH,#4C9BD1,Chapel Hill,NC,Sandhills Coliseum,8800
+college,1,Syracuse,Northmen,SYR,#D35400,Syracuse,NY,Northmen Dome,12000
+college,1,Storrs,Colonials,STO,#152238,Storrs,CT,Colonial Center,7600
+college,2,Lexington,Bluegrass,LEX,#3A5BA0,Lexington,KY,Bluegrass Hall,11400
+college,2,Gainesville,Marshland,GNV,#1D7874,Gainesville,FL,Marshland Arena,8100
+college,2,Knoxville,Ridgeline,KNX,#E8871E,Knoxville,TN,Ridgeline Court,9400
+college,2,Baton Rouge,Levee,BTR,#5B2A86,Baton Rouge,LA,Levee Center,7900
+college,3,Bloomington,Limestone,BLM,#A03033,Bloomington,IN,Limestone Fieldhouse,10600
+college,3,East Lansing,Greenbelt,ELS,#0F5132,East Lansing,MI,Greenbelt Arena,9800
+college,3,Lawrence,Prairie,LWR,#1F4E79,Lawrence,KS,Prairie Fieldhouse,10200
+college,3,Iowa City,Blackhawk,IWC,#2D2D2D,Iowa City,IA,Blackhawk Hall,8400
+college,4,Tucson,Saguaro,TUC,#C1272D,Tucson,AZ,Saguaro Center,8900
+college,4,Eugene,Timberline,EUG,#0B7A3B,Eugene,OR,Timberline Court,7200
+college,4,Boulder,Flatiron,BLD,#8C5A2B,Boulder,CO,Flatiron Arena,7800
+college,4,Spokane,Cascade,SPK,#264653,Spokane,WA,Cascade Pavilion,6900
+pro,1,Toronto,Northmen,TOR,#5B2C6F,Toronto,CAN,Harbourfront Centre,19800
+pro,1,New York,Skyline,NYS,#1F2A44,New York,NY,Skyline Garden,19500
+pro,1,Boston,Mariners,BOS,#0B6E4F,Boston,MA,Harbor Garden,18600
+pro,1,Philadelphia,Liberty,PHI,#A4161A,Philadelphia,PA,Liberty Center,20300
+pro,1,Brooklyn,Ironworks,BKN,#333333,New York,NY,Ironworks Arena,18100
+pro,2,Miami,Current,MIA,#00A6A6,Miami,FL,Current Arena,19600
+pro,2,Atlanta,Peaches,ATL,#C1440E,Atlanta,GA,Peachtree Arena,18400
+pro,2,Charlotte,Sabres,CHA,#3D6085,Charlotte,NC,Sabre Center,18500
+pro,2,Orlando,Comets,ORL,#0077B6,Orlando,FL,Comet Center,18800
+pro,2,Nashville,Sound,NSH,#E8B94F,Nashville,TN,Sound Arena,17900
+pro,3,Chicago,Stockyards,CHI,#BB003A,Chicago,IL,Stockyard Center,22800
+pro,3,Detroit,Motors,DET,#005F73,Detroit,MI,Motor City Arena,20400
+pro,3,Cleveland,Forge,CLE,#6A040F,Cleveland,OH,Forge Fieldhouse,20500
+pro,3,Milwaukee,Lakefront,MIL,#0F5132,Milwaukee,WI,Lakefront Arena,18700
+pro,3,Minneapolis,Northstars,MIN,#2B4162,Minneapolis,MN,Northstar Center,19400
+pro,4,Denver,Summit,DEN,#8C5A2B,Denver,CO,Summit Arena,19100
+pro,4,Phoenix,Sunbelt,PHX,#E76F51,Phoenix,AZ,Sunbelt Arena,18400
+pro,4,Los Angeles,Westgate,LAW,#8338EC,Los Angeles,CA,Westgate Forum,20100
+pro,4,San Francisco,Bayside,SFB,#006D77,San Francisco,CA,Bayside Pavilion,18600
+pro,4,Seattle,Rainier,SEA,#2A9D8F,Seattle,WA,Rainier Arena,18300

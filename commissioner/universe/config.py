@@ -1,4 +1,4 @@
-"""Universe definition: three leagues, three saves, one shared team table per league.
+"""Cheezeyverse definition: three leagues, three saves, one shared team table per league.
 
 The league CSV and the player CSV are generated from the same `teams` list so a filler's
 Team abbreviation always matches a real team. FBPB3 silently dumps a player into free
@@ -13,8 +13,10 @@ of concurrent characters in that league.
 """
 from __future__ import annotations
 
+import csv
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from pathlib import Path
 
 START_YEAR = 2030  # season the universe starts in; DOBs are derived from it
 ROSTER_LIMIT = 15
@@ -52,6 +54,7 @@ class LeagueSpec:
     ratings: tuple  # (lo, hi) band for filler current ratings
     potentials: tuple  # (lo, hi) band for filler potentials
     stud_share: float  # fraction of fillers rolled well above the band
+    youth_shrink: int = 0  # max inches taken off the adult height range for the youngest players
     teams: tuple = field(default_factory=tuple)
 
     @property
@@ -125,7 +128,7 @@ PRO_TEAMS = (
 )
 
 PREP = LeagueSpec(
-    key="prep", name="Hoops Universe Prep", abbrev="HUP", save_name="HU_Prep",
+    key="prep", name="Cheezeyverse Prep", abbrev="CVP", save_name="CV_Prep",
     prestige=5,
     conferences=("East", "West"),
     divisions=("Atlantic", "Southern", "Central", "Pacific"),
@@ -134,11 +137,12 @@ PREP = LeagueSpec(
     age_range=(14, 17),
     filler_per_team=12, reserve_per_team=3,
     ratings=(8, 38), potentials=(25, 58), stud_share=0.05,
+    youth_shrink=1,  # an elite prep league: these are already near-grown prospects
     teams=PREP_TEAMS,
 )
 
 COLLEGE = LeagueSpec(
-    key="college", name="Hoops Universe College", abbrev="HUC", save_name="HU_College",
+    key="college", name="Cheezeyverse College", abbrev="CVC", save_name="CV_College",
     prestige=3,
     conferences=("East", "West"),
     divisions=("Atlantic", "Southern", "Central", "Pacific"),
@@ -151,7 +155,7 @@ COLLEGE = LeagueSpec(
 )
 
 PRO = LeagueSpec(
-    key="pro", name="Hoops Universe Pro", abbrev="HUX", save_name="HU_Pro",
+    key="pro", name="Cheezeyverse", abbrev="CV", save_name="CV_Pro",
     prestige=1,
     conferences=("East", "West"),
     divisions=("Atlantic", "Southern", "Central", "Pacific"),
@@ -162,6 +166,59 @@ PRO = LeagueSpec(
     ratings=(28, 62), potentials=(40, 75), stud_share=0.08,
     teams=PRO_TEAMS,
 )
+
+TEAMS_CSV = Path(__file__).resolve().parents[2] / "universe" / "teams.csv"
+TEAM_CSV_HEADER = ["league", "division", "city", "nickname", "abbrev", "color", "arena_city", "state",
+                   "arena", "capacity"]
+
+
+def _load_team_overrides(path=TEAMS_CSV):
+    """Team tables live in universe/teams.csv so they can be edited without touching code.
+
+    The file wins whenever it exists; the tables above are only the starting point it was
+    written from. Missing or empty file means fall back to those tables.
+    """
+    path = Path(path)
+    if not path.exists():
+        return {}
+    out = {}
+    with open(path, encoding="utf-8-sig", newline="") as fh:
+        for i, row in enumerate(csv.DictReader(fh), start=2):
+            if not row.get("league") or row["league"].lstrip().startswith("#"):
+                continue
+            key = row["league"].strip().lower()
+            try:
+                out.setdefault(key, []).append(Team(
+                    city=row["city"].strip(), nickname=row["nickname"].strip(),
+                    abbrev=row["abbrev"].strip().upper(), division=int(row["division"]),
+                    color=row["color"].strip() or "#444444", hometown=(row["arena_city"].strip()
+                                                                       or row["city"].strip()),
+                    state=row["state"].strip(), arena=row["arena"].strip() or f'{row["city"].strip()} Arena',
+                    capacity=int(row["capacity"] or 5000)))
+            except (KeyError, ValueError) as exc:
+                raise ValueError(f"{path} line {i}: {exc}") from exc
+    return {k: tuple(v) for k, v in out.items() if v}
+
+
+def write_teams_csv(path=TEAMS_CSV, specs=None):
+    """Dump the current team tables to the editable CSV (used to seed it the first time)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(TEAM_CSV_HEADER)
+        for spec in (specs or (PREP, COLLEGE, PRO)):
+            for t in spec.teams:
+                w.writerow([spec.key, t.division, t.city, t.nickname, t.abbrev, t.color, t.hometown,
+                            t.state, t.arena, t.capacity])
+    return path
+
+
+_overrides = _load_team_overrides()
+if _overrides:
+    PREP = replace(PREP, teams=_overrides.get("prep", PREP.teams))
+    COLLEGE = replace(COLLEGE, teams=_overrides.get("college", COLLEGE.teams))
+    PRO = replace(PRO, teams=_overrides.get("pro", PRO.teams))
 
 LEAGUES = (PREP, COLLEGE, PRO)
 BY_KEY = {spec.key: spec for spec in LEAGUES}
