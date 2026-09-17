@@ -24,6 +24,7 @@ RATINGS = ["InsideScoring", "JumpShot", "FtShot", "3pUsage", "3pShot", "Handling
 POTENTIALS = ["PotInside", "PotJumpShot", "PotFtShot", "Pot3pShot", "PotHandling", "PotPassing", "PotOReb",
               "PotDReb", "PotPostDefense", "PotPerimeterDefense", "PotStealing", "PotBlocking"]
 POT_OFFSET = 168
+RATING_MAX = 150  # the game stores ratings above 100 (a real player file reaches 139)
 BIO_INTS = ["Height", "Weight", "_zero", "BirthMonth", "BirthDay", "BirthYear"]
 E_FIELDS = {"Position": 18, "Team": 40, "Exp": 82}
 POSITIONS = {1: "C", 2: "PF", 3: "SF", 4: "SG", 5: "PG"}
@@ -80,17 +81,17 @@ class LeagueDat:
         d = self.data
         for q in range(max(start, 52), min(stop, len(d) - POT_OFFSET - 24)):
             cur = struct.unpack_from("<18h", d, q)
-            if not any(cur) or not all(0 <= v <= 100 for v in cur):
+            if not any(cur) or not all(0 <= v <= RATING_MAX for v in cur):
                 continue
-            if not 0 <= self._i16(q + 36) <= 100:
+            if not 0 <= self._i16(q + 36) <= RATING_MAX:
                 continue
-            if not all(0 <= v <= 100 for v in struct.unpack_from("<12h", d, q + POT_OFFSET)):
+            if not all(0 <= v <= RATING_MAX for v in struct.unpack_from("<12h", d, q + POT_OFFSET)):
                 continue
             zeros_before = d[q - 48:q] == b"\0" * 48 and d[q - 52:q - 48] == b"\x01\x00\x01\x00"
             # archive row: int16 season, 18 ratings, height, weight (42 bytes, ending at q)
             archive_before = (1900 <= self._i16(q - 42) <= 2100 and 55 <= self._i16(q - 4) <= 100
                               and 100 <= self._i16(q - 2) <= 400
-                              and all(0 <= v <= 100 for v in struct.unpack_from("<18h", d, q - 40)))
+                              and all(0 <= v <= RATING_MAX for v in struct.unpack_from("<18h", d, q - 40)))
             if zeros_before or archive_before:
                 yield q
 
@@ -361,8 +362,8 @@ class LeagueDat:
         if field_name not in slots:
             raise CodecError(f"unknown field {field_name}")
         if field_name in RATINGS or field_name in POTENTIALS:
-            if not 0 <= value <= 100:
-                raise CodecError(f"{field_name}={value} out of range 0..100")
+            if not 0 <= value <= RATING_MAX:
+                raise CodecError(f"{field_name}={value} out of range 0..{RATING_MAX}")
         struct.pack_into("<h", self.data, slots[field_name], int(value))
         pl.values[field_name] = int(value)
 

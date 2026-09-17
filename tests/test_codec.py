@@ -54,14 +54,37 @@ def test_baseline_matches_game_exports():
     check("baseline: teams match the MDB", not wrong_team, str(wrong_team[:3]))
 
 
-def test_aged_save_parses():
+def test_aged_save_matches_game_exports():
+    """The aged fixture is the harder case: per-season archive rows, ratings above 100, retirements and
+    rookies (so ids have gaps), and 139 unrostered free-agent / draft-pool players whose ids the codec infers."""
     if not AGED.exists():
         print("SKIP  aged save fixture missing")
         return
     L = LeagueDat(AGED)
-    check("aged: players parsed", len(L.players) > 390, f"got {len(L.players)}")
+    rows = list(csv.DictReader(open(ROOT / "fixtures/exports/chung_aged_mdb_player.csv", encoding="utf-8-sig")))
+    mdb = {(r["Name"], f'{r["BirthMonth"]}/{r["BirthDay"]}/{r["BirthYear"]}'): r for r in rows}
+    check("aged: every player in the MDB was parsed", len(L.players) == len(rows), f"{len(L.players)} of {len(rows)}")
     check("aged: 18 consistent teams", len(L.teams()) == 18)
-    check("aged: ids are not contiguous", max(p.id for p in L.players) - min(p.id for p in L.players) + 1 != len(L.players))
+    missing = [p.name for p in L.players if (p.name, p.dob) not in mdb]
+    check("aged: every parsed player is in the MDB", not missing, str(missing[:3]))
+    wrong_id = [p.name for p in L.players if (p.name, p.dob) in mdb and int(mdb[(p.name, p.dob)]["ID"]) != p.id]
+    check("aged: ids match the MDB (incl. free agents and draft pool)", not wrong_id, str(wrong_id[:3]))
+    wrong_team = [p.name for p in L.players if (p.name, p.dob) in mdb and int(mdb[(p.name, p.dob)]["CurrentTeamID"]) != p.values["Team"]]
+    check("aged: teams match the MDB", not wrong_team, str(wrong_team[:3]))
+    exp = list(csv.DictReader(open(ROOT / "fixtures/exports/chung_aged_export.csv", encoding="latin-1")))
+    bad = []
+    for e in exp:
+        m, d, y = e["DOB"].split("/")
+        hits = [p for p in L.players if p.name == f'{e["FirstName"]} {e["LastName"]}' and p.dob == f"{int(m)}/{int(d)}/{y}"]
+        if len(hits) != 1:
+            bad.append((e["LastName"], "not found"))
+            continue
+        for f in RATINGS + POTENTIALS + ["Height", "Weight"]:
+            if hits[0].values[f] != int(e[f]):
+                bad.append((e["LastName"], f))
+    check("aged: every field matches the in-game player export", not bad, str(bad[:3]))
+    unrostered = sum(1 for p in L.players if p.values["Team"] < 1)
+    check("aged: fixture actually covers unrostered players", unrostered > 50, f"{unrostered} FA/draft")
 
 
 def test_edits_round_trip():
@@ -96,7 +119,7 @@ def test_edits_round_trip():
 
 
 test_baseline_matches_game_exports()
-test_aged_save_parses()
+test_aged_save_matches_game_exports()
 test_edits_round_trip()
 print(("FAILED: " + ", ".join(failures)) if failures else "\nall codec tests passed")
 sys.exit(1 if failures else 0)
