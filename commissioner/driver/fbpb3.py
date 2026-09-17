@@ -236,30 +236,88 @@ class FBPB3:
             self.dismiss_all()
         raise DriverError(f"Output MDB did not refresh {target}")
 
-    def html_output(self, save_name, attempts=3, timeout=300):
-        """Tools -> Commish Tools -> HTML Output. Writes leaguedata/<save>/html/*.
+    # HTML Output is a screen, not a one-click action: options on the left, the generated site's
+    # colours on the right (real text boxes), then the OUTPUT HTML button. Setting the colours here
+    # means the pages come out of the game already wearing the Cheezeyverse palette.
+    HTML_PLAYER_PAGES = (372, 140)
+    HTML_COACH_PAGES = (372, 188)
+    HTML_OLD_BOXES = (372, 236)
+    HTML_BOX_LINKS = (372, 284)
+    HTML_STYLE = {                       # window-relative position -> what it colours
+        "menu_bg_image": (760, 138), "bg_image": (760, 162),
+        "menu_text": (760, 186), "menu_bg": (760, 210), "background": (760, 234),
+        "header_text": (760, 258), "text": (760, 282), "link": (760, 306),
+        "human_link": (760, 330), "table_header_bg": (760, 354), "table_header_font": (760, 378),
+        "row": (760, 402), "row_alt": (760, 426),
+    }
+    HTML_OUTPUT_BTN = (691, 662)
+    HTML_EXIT = (917, 662)
 
-        Same shape as output_mdb: the menu labels are windowless VB6 controls whose clicks are
-        occasionally swallowed, so this confirms by the folder's own contents and retries.
+    # The cheese palette, matching commissioner/publish/restyle.py.
+    CHEEZEY_STYLE = {
+        "menu_bg_image": "", "bg_image": "",
+        "menu_text": "#2E2100", "menu_bg": "#F2B705", "background": "#FFF8E6",
+        "header_text": "#2E2100", "text": "#2E2100", "link": "#7A4B00",
+        "human_link": "#1D5C8A", "table_header_bg": "#D9901A", "table_header_font": "#2E2100",
+        "row": "#FFF8E6", "row_alt": "#F3E4BE",
+    }
+
+    def _control_at(self, rel):
+        r0 = self.main.rectangle()
+        for c in self.main.descendants():
+            try:
+                r = c.rectangle()
+                if (r.left - r0.left, r.top - r0.top) == rel:
+                    return c
+            except Exception:
+                continue
+        raise DriverError(f"no control at window-relative {rel}")
+
+    def html_output(self, save_name, player_pages=True, coach_pages=True, box_links=True,
+                    style=None, timeout=900):
+        """Tools -> Commish Tools -> HTML Output, with player pages on. Returns the html folder.
+
+        Player pages are off by default in FBPB3 (which is why the reference Stabbyverse site has
+        none). Turning them on is what gives every character a page of his own.
         """
         out = DOCS / "leaguedata" / save_name / "html"
-        before = max((p.stat().st_mtime for p in out.glob("*.htm")), default=0)
-        for _ in range(attempts):
-            self.click(TOP_TOOLS, 2)
-            self.click(TOOLS_HTML_OUTPUT, 2)
-            end = time.time() + timeout
-            while time.time() < end:
-                try:
-                    self.dismiss_message(timeout=2)
-                except DriverError:
-                    pass
-                index = out / "index.htm"
-                if index.exists() and index.stat().st_mtime > before:
-                    time.sleep(3)  # let the remaining pages finish writing
-                    self.dismiss_all()
-                    return out
-            self.dismiss_all()
-        raise DriverError(f"HTML output did not appear under {out}")
+        before = max((p.stat().st_mtime for p in out.glob("*.htm")), default=0) if out.exists() else 0
+        self.click(TOP_TOOLS, 2)
+        self.click(TOOLS_HTML_OUTPUT, 3)
+
+        yes_no = {True: "Yes", False: "No"}
+        for rel, want in ((self.HTML_PLAYER_PAGES, yes_no[player_pages]),
+                          (self.HTML_COACH_PAGES, yes_no[coach_pages]),
+                          (self.HTML_BOX_LINKS, yes_no[box_links]),
+                          (self.HTML_OLD_BOXES, "No")):
+            combo = self._control_at(rel)
+            if want in combo.item_texts():
+                combo.select(want)
+                time.sleep(0.3)
+
+        for key, value in (style if style is not None else self.CHEEZEY_STYLE).items():
+            box = self._control_at(self.HTML_STYLE[key])
+            with self._foreground():
+                box.set_focus()
+                box.type_keys("^a{BACKSPACE}", set_foreground=True)
+                if value:
+                    box.type_keys(value, with_spaces=True, set_foreground=True)
+            time.sleep(0.15)
+
+        self.click(self.HTML_OUTPUT_BTN, 3)
+        end = time.time() + timeout
+        index = out / "index.htm"
+        while time.time() < end:
+            try:
+                self.dismiss_message(timeout=2)
+            except DriverError:
+                pass
+            if index.exists() and index.stat().st_mtime > before:
+                time.sleep(5)  # the per-player pages keep landing after index.htm does
+                self.dismiss_all()
+                self.click(self.HTML_EXIT, 2)
+                return out
+        raise DriverError(f"HTML output did not appear under {out} within {timeout}s")
 
     def dismiss_all(self):
         """Close any standard message boxes that are open."""
