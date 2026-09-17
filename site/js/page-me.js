@@ -7,8 +7,9 @@
    again, so you cannot queue more than you have. */
 
 import {
-  RATINGS, POTENTIAL_RATINGS, RATING_LABELS, ARCHETYPES,
-  capsFor, nextPointCost, hasPotential, isLocked, describeCurve, upgradeCost,
+  RATINGS, POTENTIAL_RATINGS, RATING_LABELS, RATING_MAX, START_AGE, GROWTH_END_AGE,
+  nextPointCost, hasPotential, isLocked, describeCurve, biasedUpgradeCost, biasFor,
+  classify, growthCurve, formatHeight, expectedAdultHeight,
 } from './rules.js';
 import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
@@ -18,6 +19,7 @@ import {
 import {
   $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
   statusPill, renderSheet, renderMeter, describeCharacter, fmtDate,
+  renderTraitBars, classLine, positionLine, goalLine,
 } from './ui.js';
 
 const chrome = renderChrome({
@@ -74,6 +76,7 @@ async function load() {
       character,
       requests.filter((r) => r.character_id === character.id),
       ledger.filter((l) => l.character_id === character.id),
+      currentAge(character, cfg.current_season),
     ));
   }
 }
@@ -100,22 +103,43 @@ function draftFor(character) {
 }
 
 function stampOf(c) {
-  return `${c.points_available}:${JSON.stringify(c.ratings)}:${JSON.stringify(c.potentials)}`;
+  // growth_bias belongs in here: it is what prices a queued step, so a draft cached
+  // against an old bias would quote the wrong number after the commissioner corrects one.
+  return `${c.points_available}:${JSON.stringify(c.ratings)}:${JSON.stringify(c.potentials)}`
+    + `:${JSON.stringify(c.growth_bias)}`;
 }
 
-function renderCharacter(character, requests, ledger) {
+function renderCharacter(character, requests, ledger, age) {
   const card = el('section', { class: 'cv-card' });
-  const arch = ARCHETYPES[character.archetype];
+  const klass = classify(character.ratings || {}, character.position);
+  const bias = character.growth_bias || {};
   const reserved = reservedCost(requests);
 
   card.append(el('div', { class: 'cv-card-head' },
-    el('h2', {}, `${character.first_name} ${character.last_name}`),
+    el('h2', {},
+      (character.jersey_preference === null || character.jersey_preference === undefined
+        ? '' : `#${character.jersey_preference} `)
+      + `${character.first_name} ${character.last_name}`),
     statusPill(character.status),
     el('span', { class: 'cv-pill' }, LEAGUE_LABELS[character.league] || character.league)));
 
   card.append(el('p', { class: 'cv-muted' },
     `${describeCharacter(character)}`
+    + (character.hometown ? ` · ${character.hometown}` : '')
     + (character.game_dob ? ` · born ${fmtDate(character.game_dob)} in game` : '')));
+
+  card.append(el('div', { class: 'cv-readout cv-cheese' },
+    el('b', {}, classLine(klass)),
+    el('span', {}, klass.blurb),
+    el('span', {}, `Second closest: ${klass.runnerUp.label}. `
+      + 'It is a label, not a cage - spend differently and it changes.')));
+
+  card.append(el('p', { class: 'cv-muted' }, positionLine(character)));
+
+  const goal = goalLine(character.career_goal);
+  if (goal) card.append(el('p', {}, el('b', {}, 'What he wants: '), goal));
+
+  card.append(heightBlock(character, age));
 
   if (character.status === 'pending') {
     card.append(note(null, 'Waiting for a roster spot. The commissioner drops pending '
@@ -132,7 +156,6 @@ function renderCharacter(character, requests, ledger) {
   const actions = el('div', { class: 'cv-actions' });
 
   const draft = draftFor(character);
-  const caps = capsFor(character.archetype);
   const base = { ratings: character.ratings || {}, potentials: character.potentials || {} };
 
   const queuedCost = () => {
@@ -140,12 +163,12 @@ function renderCharacter(character, requests, ledger) {
     for (const r of RATINGS) {
       const from = Number(base.ratings[r] ?? 0);
       const to = Number(draft.ratings[r] ?? from);
-      if (to > from) total += upgradeCost(from, to - from, 'rating');
+      if (to > from) total += biasedUpgradeCost(from, to - from, 'rating', biasFor(bias, r));
     }
     for (const r of POTENTIAL_RATINGS) {
       const from = Number(base.potentials[r] ?? 0);
       const to = Number(draft.potentials[r] ?? from);
-      if (to > from) total += upgradeCost(from, to - from, 'potential');
+      if (to > from) total += biasedUpgradeCost(from, to - from, 'potential', biasFor(bias, r));
     }
     return total;
   };
@@ -159,10 +182,11 @@ function renderCharacter(character, requests, ledger) {
     const value = Number(bag[rating] ?? floor);
     if (dir > 0) {
       const ceiling = kind === 'potential'
-        ? caps[rating]
-        : Math.min(caps[rating], hasPotential(rating) ? Number(draft.potentials[rating]) : caps[rating]);
+        ? RATING_MAX
+        : Math.min(RATING_MAX,
+          hasPotential(rating) ? Number(draft.potentials[rating]) : RATING_MAX);
       if (value >= ceiling) return;
-      if (nextPointCost(value, kind) > freePoints()) return;
+      if (nextPointCost(value, kind, biasFor(bias, rating)) > freePoints()) return;
       bag[rating] = value + 1;
     } else {
       if (value <= floor) return;
@@ -181,12 +205,11 @@ function renderCharacter(character, requests, ledger) {
     renderMeter(meter, {
       budget: freePoints(),
       spent: queued,
-      label: reserved ? `${reserved} already waiting on the commissioner` : (arch ? arch.label : ''),
+      label: reserved ? `${reserved} already waiting on the commissioner` : klass.label,
     });
     renderSheet(sheet, {
-      archetype: character.archetype,
-      caps,
       base,
+      bias,
       ratings: draft.ratings,
       potentials: draft.potentials,
       budget: freePoints(),
@@ -218,6 +241,13 @@ function renderCharacter(character, requests, ledger) {
     drawSpend();
   }
 
+  /* ---- who he is ---- */
+  if (character.traits && Object.keys(character.traits).length) {
+    const traits = el('div', { class: 'cv-traits' });
+    renderTraitBars(traits, character.traits);
+    body.append(el('h3', {}, 'What the quiz said about him'), traits);
+  }
+
   /* ---- history ---- */
   body.append(el('h3', {}, 'Requests'), requestTable(requests));
   body.append(el('h3', {}, 'Points'), ledgerTable(ledger, character));
@@ -242,6 +272,63 @@ function renderCharacter(character, requests, ledger) {
   if (footer.childNodes.length) body.append(footer);
 
   return card;
+}
+
+/**
+ * How old he is in game years. `height_inches` on the row is his height AT FOURTEEN and
+ * never moves; the commissioner writes the grown inches into the save file, and this page
+ * recomputes them from the same model. So the age is what decides how much of the curve
+ * has actually happened.
+ *
+ * A pending character has no game_dob yet, so he is fourteen.
+ */
+function currentAge(character, currentSeason) {
+  if (!character.game_dob) return START_AGE;
+  const born = new Date(character.game_dob).getFullYear();
+  const age = Number(currentSeason) - born;
+  if (!Number.isFinite(age)) return START_AGE;
+  return Math.max(START_AGE, Math.min(GROWTH_END_AGE, age));
+}
+
+/**
+ * Growth SO FAR, and where it is heading.
+ *
+ * The curve is recomputed from the character's id, his height at fourteen and his
+ * `height_genes` trait - exactly the three inputs commissioner/growth.py uses when it
+ * writes the inches into league.dat, so this is a readout of the real thing rather than a
+ * second opinion.
+ *
+ * Only the offseasons that have HAPPENED are shown. The rest of the curve exists and is
+ * already decided, but printing it would hand back the one number the whole creation
+ * redesign is built to withhold: nobody knows how tall a fifteen year old is going to be.
+ * What is shown for the future is the stored expectation, which is a pure function of his
+ * height at fourteen and his genes and was never a secret.
+ */
+function heightBlock(character, age) {
+  const genes = Number((character.traits || {}).height_genes);
+  if (!Number.isFinite(genes)) {
+    return el('p', { class: 'cv-muted' }, formatHeight(character.height_inches));
+  }
+  const start = Number(character.height_inches);
+  const expected = Number(character.expected_adult_height) || expectedAdultHeight(start, genes);
+  const sofar = growthCurve(character.id, start, genes).filter((p) => p.age <= age);
+  const now = sofar[sofar.length - 1];
+
+  const line = el('p', {},
+    el('b', {}, age <= START_AGE
+      ? `${formatHeight(start)}, and he is ${START_AGE}.`
+      : `${formatHeight(now.inches)} at ${age}, up from ${formatHeight(start)} at ${START_AGE}.`),
+    ` He is expected to finish somewhere around ${formatHeight(expected)}`
+    + `, but that is an expectation and not a ceiling - he keeps growing a little every `
+    + `offseason until he is ${GROWTH_END_AGE}, less each year, and there is nothing in the `
+    + 'model that says stop. You find out how tall he is when he gets there.');
+
+  const strip = el('div', { class: 'cv-growth' },
+    sofar.map((p) => el('span', { class: 'cv-growth-step', title: `age ${p.age}` },
+      el('b', {}, formatHeight(p.inches)),
+      el('em', {}, String(p.age)))));
+
+  return el('div', {}, line, strip);
 }
 
 function requestTable(requests) {

@@ -2,6 +2,20 @@
 -- Cheezeyverse - Supabase schema (identity, characters, skill points)
 -- =====================================================================================
 --
+-- CHANGED BY THE PLAYER-CREATION REDESIGN (edit in place, nothing is deployed yet)
+--   * public.characters gains nine columns: jersey_preference, hometown, build,
+--     career_goal, traits, quiz_answers, growth_bias, height_seed, expected_adult_height.
+--     They are also written as `alter table ... add column if not exists` just below the
+--     create table, so re-running this file on an existing project is still safe.
+--   * `archetype` is NOT dropped. It stops being a rule and becomes a record: the class
+--     label the character looked like on the day he was made. Nothing in SQL reads it, and
+--     the website recomputes the live label from the ratings on every render.
+--   * cv_upgrade_request_guard() now applies the character's growth bias to the finished
+--     cost. The curve functions (cv_step_cost / cv_upgrade_cost) are untouched - the bias
+--     is a separate, clamped multiply applied afterwards. See the note on that trigger.
+--   * There is no starting spend any more. Creation always inserts points_spent = 0 and
+--     the whole opening budget arrives banked.
+--
 -- HOW TO APPLY
 --   1. Supabase dashboard -> SQL Editor -> New query.
 --   2. Paste this whole file and Run. It is idempotent: every object is created with
@@ -32,9 +46,15 @@
 --     `site/js/rules.js`. The SQL copy is authoritative: the BEFORE INSERT trigger
 --     recomputes `cost` from the character's real ratings and ignores whatever the
 --     client sent. `tests/test_rules.py` pins the JS copy to the same numbers.
---   * Archetype potential caps live only in `rules.js`. SQL caps potentials at 100 and
---     the commissioner eyeballs `pending_characters()` before activating - proportionate
---     for a friends-only league, and the one place a determined cheat could push.
+--   * There are no archetype caps left anywhere: a rating is held by its own potential and
+--     a potential by 100. The opening ratings, potentials and `growth_bias` are all
+--     DERIVED IN THE BROWSER from the quiz answers by site/js/rules.js, and SQL cannot
+--     re-derive them (it would need the whole quiz table). SQL therefore range-checks them
+--     and clamps the bias to 85..115, and the commissioner eyeballs `pending_characters()`
+--     before activating. That is the same trust posture the ratings block has always had,
+--     and it is proportionate for a friends-only league - but the bias is a NEW surface, so
+--     it is worth saying out loud: a determined cheat could send 85 on all eighteen and
+--     make every point 15% cheaper. The clamp is what stops it being worse than that.
 --
 -- =====================================================================================
 
@@ -63,8 +83,14 @@ create table if not exists public.characters (
   owner            uuid not null references public.profiles(id) on delete cascade,
   first_name       text not null check (length(btrim(first_name)) between 1 and 20),
   last_name        text not null check (length(btrim(last_name))  between 1 and 20),
+  -- The position he is LISTED at. FBPB3's AI coach builds the depth charts and will play
+  -- him somewhere else whenever it suits the roster, so this is a label, not a contract,
+  -- and nothing in this file gates on it.
   "position"       text not null check ("position" in ('C','PF','SF','SG','PG')),
+  -- Height AT FOURTEEN. He grows from here, every offseason, by commissioner/growth.py.
   height_inches    int  not null check (height_inches between 60 and 95),
+  -- The class he looked like the day he was created. A record, not a rule - see the note
+  -- at the top of this file.
   archetype        text not null,
   league           text not null default 'prep'    check (league in ('prep','college','pro')),
   team_abbrev      text,
@@ -81,12 +107,54 @@ create table if not exists public.characters (
   -- matching an entry in universe/manifest.json. Service role only, and not readable by
   -- anon/authenticated (see the column grants below).
   claimed_slot     jsonb,
+
+  -- ---- player creation: what the quiz produced ----------------------------------------
+  -- The number he WANTS. He has no team at creation (the commissioner claims a dormant
+  -- reserve slot for him at the next sim), so uniqueness inside a team cannot be checked
+  -- here and is not checked here. The commissioner resolves collisions when it puts him on
+  -- a roster; whatever ends up in league.dat is the number he actually wears.
+  jersey_preference int check (jersey_preference between 0 and 99),
+  hometown         text check (hometown is null or length(btrim(hometown)) between 1 and 40),
+  -- one of BUILDS in site/js/rules.js: wiry / lean / solid / strong / heavy. Weight in lbs
+  -- is derived from height_inches + build, not stored.
+  build            text,
+  -- one of CAREER_GOALS in site/js/rules.js. Flavour, plus a 5% discount on the four
+  -- ratings it names, which is already folded into growth_bias below.
+  career_goal      text,
+  -- the eleven-name trait vector the quiz answers produced, each 0-100
+  traits           jsonb not null default '{}'::jsonb,
+  -- {questionId: answerId} for the fourteen questions, plus "summer". Kept so a character
+  -- can be re-derived if the quiz is ever re-tuned, and because reading somebody else's
+  -- answers is half the fun. `build` and `career_goal` have columns of their own.
+  quiz_answers     jsonb not null default '{}'::jsonb,
+  -- {rating: percent}, 85..115. Applied to the finished cost of every upgrade request.
+  growth_bias      jsonb not null default '{}'::jsonb,
+  -- Cache of heightSeed(id) - the 32-bit FNV-1a of this row's own id, which is what seeds
+  -- the growth PRNG. It cannot be supplied at insert (the id does not exist yet), so it is
+  -- service-role only: the commissioner fills it the first time it grows him, purely so
+  -- the number is visible in the database. The model never depends on the column.
+  height_seed      bigint,
+  -- Where the model expects him to finish, in inches. Pure function of height_inches and
+  -- traits->>'height_genes', so it is safe to store at creation and show on the form. It
+  -- is an expectation, not a cap: growth past it is possible and never guaranteed.
+  expected_adult_height int check (expected_adult_height is null
+                                   or expected_adult_height between 60 and 110),
+
   created_at       timestamptz not null default now()
 );
 
 -- Older deployments: bring them up to date without dropping anything.
 alter table public.characters add column if not exists ratings    jsonb not null default '{}'::jsonb;
 alter table public.characters add column if not exists potentials jsonb not null default '{}'::jsonb;
+alter table public.characters add column if not exists jersey_preference int;
+alter table public.characters add column if not exists hometown          text;
+alter table public.characters add column if not exists build             text;
+alter table public.characters add column if not exists career_goal       text;
+alter table public.characters add column if not exists traits       jsonb not null default '{}'::jsonb;
+alter table public.characters add column if not exists quiz_answers jsonb not null default '{}'::jsonb;
+alter table public.characters add column if not exists growth_bias  jsonb not null default '{}'::jsonb;
+alter table public.characters add column if not exists height_seed  bigint;
+alter table public.characters add column if not exists expected_adult_height int;
 
 create index if not exists characters_owner_idx   on public.characters(owner);
 create index if not exists characters_status_idx  on public.characters(status);
@@ -248,9 +316,10 @@ $fn$;
 
 -- Characters are inserted by their owner straight from create.html. The trigger pins
 -- everything the owner must not choose (owner, status, the plumbing columns, the point
--- budget) and sanity-checks the ratings block. The archetype template and its potential
--- caps are enforced client-side in rules.js; the commissioner reviews pending characters
--- before activating them, which is where a bogus stat line gets caught.
+-- budget) and sanity-checks the ratings block, the derived sheet and the growth bias.
+-- The quiz itself lives in site/js/rules.js and SQL cannot re-derive it; the commissioner
+-- reviews pending characters before activating them, which is where a bogus sheet is
+-- caught. See THE TRUST MODEL at the top.
 create or replace function public.cv_character_insert_guard() returns trigger
 language plpgsql security definer set search_path = public as $fn$
 declare
@@ -260,6 +329,8 @@ declare
   r         text;
   v         int;
   p         int;
+  b         int;
+  bias      jsonb := '{}'::jsonb;
 begin
   if auth.uid() is not null and not public.cv_is_admin() then
     new.owner := auth.uid();
@@ -276,6 +347,8 @@ begin
     raise exception 'that account already has % live character(s); the limit is %', owned, max_chars;
   end if;
 
+  -- Creation does not spend any more: the quiz derives the sheet and the whole opening
+  -- budget arrives banked. The check stays in case an older client is still out there.
   start_pts := public.cv_setting_int('starting_points', 20);
   if coalesce(new.points_spent, 0) < 0 or coalesce(new.points_spent, 0) > start_pts then
     raise exception 'starting spend % is outside 0..%', new.points_spent, start_pts;
@@ -290,6 +363,9 @@ begin
   new.claimed_slot := null;
   new.game_dob    := null;
   new.created_at  := now();
+  -- derived from the row's own id, which does not exist until this insert lands. The
+  -- commissioner caches it later; nothing may supply it.
+  new.height_seed := null;
 
   -- every rating present and in range
   foreach r in array public.cv_ratings() loop
@@ -310,6 +386,25 @@ begin
       raise exception '% is % but its potential is only %', r, v, p;
     end if;
   end loop;
+
+  -- The growth bias arrives derived from the quiz and cannot be re-derived here, so it is
+  -- CLAMPED rather than trusted: 85..115, neutral for anything missing or unparseable.
+  -- That clamp is the whole defence, and it is what bounds how much a forged bias is
+  -- worth - see THE TRUST MODEL at the top of this file.
+  foreach r in array public.cv_ratings() loop
+    begin
+      b := coalesce((new.growth_bias ->> r)::int, 100);
+    exception when others then
+      b := 100;
+    end;
+    bias := bias || jsonb_build_object(r, least(115, greatest(85, b)));
+  end loop;
+  new.growth_bias := bias;
+
+  if new.jersey_preference is not null
+     and (new.jersey_preference < 0 or new.jersey_preference > 99) then
+    raise exception 'jersey number % is not 0-99', new.jersey_preference;
+  end if;
 
   return new;
 end;
@@ -343,10 +438,21 @@ create trigger cv_character_opening_ledger
 -- Upgrade requests: the client sends character_id, rating, delta and kind. Everything
 -- else - cost above all - is computed here from the character's real ratings plus the
 -- deltas already queued, so requests stack correctly and cannot be under-priced.
+--
+-- THE GROWTH BIAS. A character's traits make some ratings come a little more readily than
+-- others. That is applied HERE, to the finished cost, and never inside cv_upgrade_cost():
+--
+--     new.cost := greatest(1, round(new.cost * bias / 100.0))
+--
+-- so the curve itself (1 / 2 / 3 / 5, charged at the value being left) stays exactly what
+-- it has always been and the only thing that moved is a multiply on the total. site/js/
+-- rules.js applies the identical line in applyBias(), and tests/test_rules.py pins the two
+-- copies to the same text. `bias` was clamped to 85..115 by the insert guard.
 create or replace function public.cv_upgrade_request_guard() returns trigger
 language plpgsql security definer set search_path = public as $fn$
 declare
   ch           public.characters%rowtype;
+  bias_pct     int;
   base         int;
   queued       int;
   effective    int;
@@ -404,6 +510,14 @@ begin
     end if;
     new.cost := public.cv_upgrade_cost(pot_eff, new.delta, 'potential');
   end if;
+
+  -- The growth bias, on top of the finished curve cost and never inside it.
+  -- `cost * bias / 100.0` is numeric, round() on numeric is half-away-from-zero (which is
+  -- Math.round for positives), greatest(int, numeric) is numeric, and assigning numeric to
+  -- an int column rounds a second time - harmless, because the value is already integral
+  -- by then. Spelled out so nobody has to wonder whether the double round can drift.
+  bias_pct := least(115, greatest(85, coalesce((ch.growth_bias ->> new.rating)::int, 100)));
+  new.cost := greatest(1, round(new.cost * bias_pct / 100.0));
 
   -- requests that are queued but not applied have already reserved their cost
   reserved := coalesce((select sum(cost) from public.upgrade_requests
@@ -688,15 +802,24 @@ revoke update on public.characters from anon, authenticated;
 grant  update (first_name, last_name) on public.characters to authenticated;
 
 -- claimed_slot is the save-file plumbing and stays out of the public API surface.
+-- Everything else is public, including the quiz answers: half the fun is reading somebody
+-- else's. Keep this list in step with CHARACTER_COLUMNS in site/js/supabase.js - the site
+-- never does select('*'), precisely because a column without a grant here would 403.
 revoke select on public.characters from anon, authenticated;
 grant  select (id, owner, first_name, last_name, "position", height_inches, archetype,
                league, team_abbrev, status, game_dob, ratings, potentials,
-               points_available, points_spent, created_at)
+               points_available, points_spent, created_at,
+               jersey_preference, hometown, build, career_goal, traits, quiz_answers,
+               growth_bias, height_seed, expected_adult_height)
   on public.characters to anon, authenticated;
 
+-- height_seed is NOT insertable: it is derived from the row's own id, which does not exist
+-- until the insert lands, so the commissioner writes it with the service role afterwards.
 revoke insert on public.characters from anon, authenticated;
 grant  insert (owner, first_name, last_name, "position", height_inches, archetype,
-               ratings, potentials, points_spent, league)
+               ratings, potentials, points_spent, league,
+               jersey_preference, hometown, build, career_goal, traits, quiz_answers,
+               growth_bias, expected_adult_height)
   on public.characters to authenticated;
 grant delete on public.characters to authenticated;
 

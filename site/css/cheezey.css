@@ -244,6 +244,59 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .cv-choice.is-on { border-color: var(--crust); background: var(--cream2); box-shadow: var(--shadow); }
 .cv-choice.is-off { opacity: .4; }
 
+.cv-choices-tight { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+
+/* ------------------------------------------------------------- the creation quiz */
+.cv-question { margin: 0 0 18px; }
+.cv-question h3 {
+  font-size: 14px;
+  color: var(--crust);
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 5px;
+  margin-bottom: 8px;
+}
+.cv-question .cv-choice b { font-size: 12.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+
+/* the live "right now this looks like a Playmaker" strip */
+.cv-readout {
+  border: 2px solid var(--crust);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 0 0 14px;
+  box-shadow: var(--shadow);
+}
+.cv-readout b { display: block; font-size: 17px; color: var(--ink); text-shadow: 0 1px 0 rgba(255, 255, 255, .45); }
+.cv-readout span { display: block; font-size: 12px; color: var(--crust); margin-top: 3px; }
+
+/* the eleven traits */
+.cv-traits { margin: 0 0 14px; }
+.cv-trait {
+  display: grid;
+  grid-template-columns: 9.5em minmax(60px, 1fr) 2.4em;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+}
+.cv-trait:nth-child(even) { background: var(--cream2); }
+.cv-trait-name { font-size: 12.5px; font-weight: 700; color: var(--crust); }
+.cv-trait-val { font-size: 13px; font-weight: 700; text-align: right; }
+.cv-trait-blurb { grid-column: 1 / -1; font-size: 11px; color: var(--crust); }
+.cv-trait .cv-bar { grid-column: auto; }
+
+/* the height strip on a player's page */
+.cv-growth { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 12px; }
+.cv-growth-step {
+  border: 1px solid var(--line);
+  background: var(--cream2);
+  border-radius: var(--radius);
+  padding: 4px 7px;
+  text-align: center;
+  min-width: 3.6em;
+}
+.cv-growth-step b { display: block; font-size: 12px; }
+.cv-growth-step em { display: block; font-style: normal; font-size: 10px; color: var(--crust); }
+
 /* ------------------------------------------------------------------------ rating rows */
 .cv-sheet { margin: 0 0 14px; }
 .cv-sheet h3 {
@@ -300,6 +353,22 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .cv-bar u {
   position: absolute; top: -2px; bottom: -2px; width: 2px;
   background: var(--crust); text-decoration: none;
+}
+/* the shaded band on the create page: everywhere the roll could land */
+.cv-bar s {
+  position: absolute; top: 0; bottom: 0;
+  background: var(--deep);
+  opacity: .55;
+  border-left: 2px solid var(--crust);
+  border-right: 2px solid var(--crust);
+  text-decoration: none;
+}
+.cv-scout-word {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--link);
+  text-align: right;
+  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------------ point meter */
@@ -400,6 +469,10 @@ table.cv-table tr:nth-child(even) td { background: var(--cream2); }
   .cv-rating { grid-template-columns: 1fr; }
   .cv-rating-controls { justify-content: flex-end; }
   .cv-roster .cv-muted { margin-left: 0; width: 100%; }
+  .cv-choices { grid-template-columns: 1fr; }
+  .cv-choices-tight { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .cv-trait { grid-template-columns: 8em minmax(40px, 1fr) 2.2em; }
+  .cv-readout b { font-size: 15px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

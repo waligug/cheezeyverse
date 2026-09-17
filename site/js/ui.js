@@ -7,8 +7,10 @@
  * ===================================================================================== */
 
 import {
-  RATING_LABELS, RATING_GROUPS, POSITION_LABELS,
-  ARCHETYPES, hasPotential, isLocked, nextPointCost, formatHeight,
+  RATING_LABELS, RATING_GROUPS, POSITION_LABELS, RATING_MAX,
+  TRAITS, TRAIT_LABELS, TRAIT_BLURBS,
+  hasPotential, isLocked, nextPointCost, formatHeight, biasFor, classify, careerGoal,
+  scoutingWord, certaintyWord, scoutScale,
 } from './rules.js';
 import { config, leagueSites, displayNameOf } from './supabase.js';
 
@@ -158,10 +160,13 @@ export function setupNeededNote() {
  * create.html (which edits a local sheet) and me.html (which queues upgrade requests) can
  * both drive it.
  *
+ * There are no archetype caps any more: a rating is held by its own potential, a potential
+ * is held by 100, and the cost curve is the only other limit.
+ *
  * state = {
- *   archetype, caps,
  *   base:   {ratings, potentials},   // what it looked like before this session's spending
  *   ratings, potentials,             // what it looks like now
+ *   bias,                            // {rating: percent} - the character's growth bias
  *   budget,                          // points still free
  *   showPotentials: bool,
  * }
@@ -185,16 +190,17 @@ export function renderSheet(container, state, onStep) {
 }
 
 function ratingRow(rating, state, onStep) {
-  const cap = state.caps[rating];
+  const cap = RATING_MAX;
   const value = state.ratings[rating];
   const baseValue = state.base.ratings[rating];
   const pot = hasPotential(rating) ? state.potentials[rating] : null;
   const basePot = hasPotential(rating) ? state.base.potentials[rating] : null;
   const locked = isLocked(rating);
+  const bias = biasFor(state.bias, rating);
 
   const ceiling = pot === null ? cap : Math.min(cap, pot);
-  const ratingCost = nextPointCost(value, 'rating');
-  const potCost = pot === null ? 0 : nextPointCost(pot, 'potential');
+  const ratingCost = nextPointCost(value, 'rating', bias);
+  const potCost = pot === null ? 0 : nextPointCost(pot, 'potential', bias);
 
   const canRaise = !locked && value < ceiling && ratingCost <= state.budget;
   const canLower = !locked && value > baseValue;
@@ -203,10 +209,11 @@ function ratingRow(rating, state, onStep) {
 
   const row = el('div', { class: `cv-rating${locked ? ' is-locked' : ''}` });
 
+  const knack = bias < 100 ? `comes easy (${bias}%)` : bias > 100 ? `hard work (${bias}%)` : '';
   row.append(el('div', { class: 'cv-rating-name' },
     RATING_LABELS[rating] || rating,
     ' ',
-    el('em', {}, locked ? 'set by the game' : `cap ${cap}`)));
+    el('em', {}, locked ? 'set by the quiz, never bought' : knack)));
 
   const controls = el('div', { class: 'cv-rating-controls' });
   controls.append(
@@ -296,14 +303,139 @@ export function renderReadOnlySheet(container, character) {
   }
 }
 
-/** "6'4\" Sharpshooter shooting guard, Prep, BKI" */
+/**
+ * The derived sheet on the create page: the same three columns plus what the growth bias
+ * does to the price. Read-only - creation spends nothing.
+ */
+export function renderDerivedSheet(container, derived) {
+  clear(container);
+  for (const group of RATING_GROUPS) {
+    const table = el('table', { class: 'cv-table' },
+      el('thead', {}, el('tr', {},
+        el('th', {}, group.title),
+        el('th', { class: 'cv-right' }, 'At 14'),
+        el('th', { class: 'cv-right' }, 'Potential'),
+        el('th', { class: 'cv-right' }, 'Price'))),
+      el('tbody', {}, group.ratings.map((r) => {
+        const bias = biasFor(derived.bias, r);
+        return el('tr', {},
+          el('td', {}, RATING_LABELS[r] || r),
+          el('td', { class: 'cv-right' }, String(derived.ratings[r] ?? '-')),
+          el('td', { class: 'cv-right' },
+            hasPotential(r) ? String(derived.potentials[r] ?? '-') : '–'),
+          el('td', { class: 'cv-right' },
+            isLocked(r) ? 'never' : bias === 100 ? 'normal' : `${bias}%`));
+      })));
+    container.append(el('div', { class: 'cv-scroll' }, table));
+  }
+}
+
+/**
+ * The scouting sheet: what you see BEFORE he is signed.
+ *
+ * Deliberately numberless. Each rating gets a shaded band showing every value the roll can
+ * land on and a scout's phrase read off the middle of that band, so you can tell a shooter
+ * from a rebounder without being able to watch a number tick up as you flip an answer.
+ * The band is the real range - see THE ROLL in rules.js.
+ */
+export function renderScoutingSheet(container, derived) {
+  clear(container);
+  for (const group of RATING_GROUPS) {
+    const box = el('section', { class: 'cv-sheet' }, el('h3', {}, group.title));
+    for (const r of group.ratings) {
+      const range = (derived.ranges || {})[r] || [0, 0];
+      const scale = scoutScale(r);
+      const lo = Math.max(0, Math.min(100, (100 * range[0]) / scale));
+      const hi = Math.max(0, Math.min(100, (100 * range[1]) / scale));
+      box.append(el('div', { class: 'cv-rating' },
+        el('div', { class: 'cv-rating-name' },
+          RATING_LABELS[r] || r, ' ',
+          el('em', {}, certaintyWord((derived.bands || {})[r]))),
+        el('div', { class: 'cv-scout-word' }, scoutingWord(r, range)),
+        el('div', { class: 'cv-bar' },
+          el('s', { style: `left:${lo}%;width:${Math.max(2, hi - lo)}%` }))));
+    }
+    container.append(box);
+  }
+}
+
+/**
+ * The eleven traits as bars.
+ *
+ * `numbers` is off on the create page for the same reason the sheet is: a visible number
+ * turns the quiz back into a stat allocator. Once he is signed it goes on.
+ */
+export function renderTraitBars(container, traits, { numbers = true } = {}) {
+  clear(container);
+  for (const t of TRAITS) {
+    const v = Math.max(0, Math.min(100, Number((traits || {})[t]) || 0));
+    container.append(el('div', { class: 'cv-trait' },
+      el('span', { class: 'cv-trait-name' }, TRAIT_LABELS[t] || t),
+      el('span', { class: 'cv-bar' }, el('i', { style: `width:${v}%` })),
+      el('span', { class: 'cv-trait-val' }, numbers ? String(v) : traitWord(v)),
+      el('span', { class: 'cv-trait-blurb' }, TRAIT_BLURBS[t] || '')));
+  }
+}
+
+function traitWord(v) {
+  if (v < 20) return 'none';
+  if (v < 40) return 'low';
+  if (v < 60) return 'some';
+  if (v < 80) return 'lots';
+  return 'rare';
+}
+
+/** "Right now this looks like a Playmaker (61% sure)" */
+export function classLine(klass) {
+  return `Right now this looks like a ${klass.label} · ${klass.confidence}% sure`;
+}
+
+/**
+ * "6'4\" Sharpshooter shooting guard, Prep, BKI"
+ *
+ * The class is recomputed from the sheet every time rather than read off the row, because
+ * the row's `archetype` column is only the label he had on the day he was created.
+ */
 export function describeCharacter(character) {
-  const arch = ARCHETYPES[character.archetype];
+  const klass = classify(character.ratings || {}, character.position);
   const bits = [
     formatHeight(character.height_inches),
-    arch ? arch.label : character.archetype,
+    klass.label,
     POSITION_LABELS[character.position] || character.position,
   ];
   if (character.team_abbrev) bits.push(character.team_abbrev);
   return bits.filter(Boolean).join(' · ');
+}
+
+/**
+ * The listed position, and where he has actually been playing.
+ *
+ * FBPB3's AI coach builds the depth charts and will play someone away from his listed
+ * slot whenever it suits the roster, so "listed" and "actual" are genuinely different
+ * facts. `character.minutes_by_position` is the hook for the real thing: the commissioner
+ * fills it from the league export. Until it exists this renders the listed position and
+ * says plainly that the coach decides.
+ */
+export function positionLine(character) {
+  const listed = POSITION_LABELS[character.position] || character.position;
+  const actual = character.minutes_by_position;
+  if (!actual || typeof actual !== 'object') {
+    return `Listed at ${listed}. Where he actually plays is up to the coach.`;
+  }
+  const rows = Object.entries(actual)
+    .map(([pos, mins]) => [pos, Number(mins) || 0])
+    .filter(([, mins]) => mins > 0)
+    .sort((a, b) => b[1] - a[1]);
+  if (!rows.length) return `Listed at ${listed}. He has not played a minute yet.`;
+  const total = rows.reduce((sum, [, mins]) => sum + mins, 0);
+  const share = rows.slice(0, 3)
+    .map(([pos, mins]) => `${pos} ${Math.round((100 * mins) / total)}%`)
+    .join(' · ');
+  return `Listed at ${listed}. Actually playing: ${share}.`;
+}
+
+/** The career goal, as the line of character it is meant to be. */
+export function goalLine(goalId) {
+  const goal = careerGoal(goalId);
+  return goal ? goal.line : '';
 }

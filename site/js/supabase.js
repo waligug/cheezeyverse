@@ -24,6 +24,9 @@ export const CHARACTER_COLUMNS = [
   'id', 'owner', 'first_name', 'last_name', 'position', 'height_inches', 'archetype',
   'league', 'team_abbrev', 'status', 'game_dob', 'ratings', 'potentials',
   'points_available', 'points_spent', 'created_at',
+  // the creation redesign: everything the quiz produced, plus the height model's cache
+  'jersey_preference', 'hometown', 'build', 'career_goal', 'traits', 'quiz_answers',
+  'growth_bias', 'height_seed', 'expected_adult_height',
 ].join(',');
 
 export const LEAGUE_LABELS = { prep: 'Prep', college: 'College', pro: 'Pro' };
@@ -195,22 +198,43 @@ export async function myCharacters() {
 /**
  * Insert a new character with status 'pending'. The database trigger pins owner, status,
  * points_available and the save-file plumbing, so the only things that actually travel
- * from this form are the identity fields and the opening stat sheet.
+ * from this form are the identity fields, the quiz and the sheet the quiz derived.
+ *
+ * `points_spent` is always 0 now: creation does not spend, so the whole opening budget
+ * arrives banked and gets spent on me.html.
+ *
+ * `archetype` is kept as the *class he looked like on the day he was made*. It is a
+ * snapshot for the record - nothing reads it for a rule. Every live readout calls
+ * rules.classify() on the current sheet instead.
+ *
+ * `height_seed` is not sent: it is derived from the character's id, which the database
+ * generates during this insert, and the commissioner caches it on the row afterwards.
  */
 export async function createCharacter(build) {
   const user = await currentUser();
   if (!user) throw new Error('Sign in with Discord first.');
+  const d = build.derived;
   const row = {
     owner: user.id,
     first_name: build.firstName.trim(),
     last_name: build.lastName.trim(),
     position: build.position,
     height_inches: Number(build.heightInches),
-    archetype: build.archetype,
-    ratings: build.ratings,
-    potentials: build.potentials,
-    points_spent: Number(build.spent) || 0,
+    archetype: d.klass.id,
+    ratings: d.ratings,
+    potentials: d.potentials,
+    points_spent: 0,
     league: 'prep',
+    jersey_preference: Number(build.jersey),
+    hometown: String(build.hometown || '').trim(),
+    build: build.build,
+    career_goal: build.goal,
+    traits: d.traits,
+    // the fourteen answers plus the summer, which is a question in everything but name.
+    // `build` and `career_goal` have columns of their own, so they are not repeated here.
+    quiz_answers: { ...build.answers, summer: build.summer },
+    growth_bias: d.bias,
+    expected_adult_height: Number(d.expectedAdultHeight),
   };
   const { data, error } = await client()
     .from('characters').insert(row).select(CHARACTER_COLUMNS).single();
