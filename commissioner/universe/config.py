@@ -144,8 +144,8 @@ PREP = LeagueSpec(
 COLLEGE = LeagueSpec(
     key="college", name="Cheezeyverse College", abbrev="CVC", save_name="CV_College",
     prestige=3,
-    conferences=("East", "West"),
-    divisions=("Atlantic", "Southern", "Central", "Pacific"),
+    conferences=("North", "South"),
+    divisions=("Tundra", "Lakes", "Backroads", "Frontier"),
     schedule_games=32, playoff_teams=8, playoff_rounds=(0, 1, 1, 1),
     quarter_length=10,
     age_range=(18, 21),
@@ -157,8 +157,8 @@ COLLEGE = LeagueSpec(
 PRO = LeagueSpec(
     key="pro", name="Cheezeyverse", abbrev="CV", save_name="CV_Pro",
     prestige=1,
-    conferences=("East", "West"),
-    divisions=("Atlantic", "Southern", "Central", "Pacific"),
+    conferences=("North", "South"),
+    divisions=("Borealis", "Heartland", "Delta", "Outlands"),
     schedule_games=58, playoff_teams=8, playoff_rounds=(0, 5, 7, 7),
     quarter_length=12,
     age_range=(22, 34),
