@@ -4,33 +4,33 @@
  "leagues": [
   {
    "league": "prep",
-   "name": "Hoops Universe Prep",
-   "save": "HU_Prep",
+   "name": "Cheezeyverse Prep",
+   "save": "CV_Prep",
    "teams": 16,
    "players": 240,
    "reserves": 48,
-   "league_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\LeagueFiles\\HU-Prep.csv",
-   "player_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\PlayerFiles\\HU-Prep-Rosters.csv"
+   "league_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\LeagueFiles\\CV-Prep.csv",
+   "player_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\PlayerFiles\\CV-Prep-Rosters.csv"
   },
   {
    "league": "college",
-   "name": "Hoops Universe College",
-   "save": "HU_College",
+   "name": "Cheezeyverse College",
+   "save": "CV_College",
    "teams": 16,
    "players": 240,
    "reserves": 48,
-   "league_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\LeagueFiles\\HU-College.csv",
-   "player_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\PlayerFiles\\HU-College-Rosters.csv"
+   "league_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\LeagueFiles\\CV-College.csv",
+   "player_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\PlayerFiles\\CV-College-Rosters.csv"
   },
   {
    "league": "pro",
-   "name": "Hoops Universe Pro",
-   "save": "HU_Pro",
+   "name": "Cheezeyverse",
+   "save": "CV_Pro",
    "teams": 20,
    "players": 300,
    "reserves": 60,
-   "league_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\LeagueFiles\\HU-Pro.csv",
-   "player_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\PlayerFiles\\HU-Pro-Rosters.csv"
+   "league_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\LeagueFiles\\CV-Pro.csv",
+   "player_file": "C:\\Users\\Public\\Documents\\GDS\\Fast Break Pro Basketball 3\\PlayerFiles\\CV-Pro-Rosters.csv"
   }
  ],
  "players": [
