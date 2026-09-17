@@ -17,37 +17,37 @@ prep,4,Ariel,Spirits,ARI,#5A8FBF,Ariel,ISR,Spirit Hall,2600
 prep,4,Fleming,Spies,FLE,#1C1C2E,Fleming,CO,The Safehouse,2200
 college,1,Moose Jaw,Mandibles,MJW,#6B3FA0,Moose Jaw,SK,The Jawbone,8200
 college,1,Flin Flon,Prospectors,FLN,#C07F00,Flin Flon,MB,The Claim,7400
-college,1,Come By Chance,Longshots,CBC,#1F6F8B,Come By Chance,NL,The Long Shot,6800
+college,1,Oshkosh,Overalls,OSH,#1F4E79,Oshkosh,WI,The Denim Dome,8600
 college,1,Sheboygan,Brats,SHB,#B5651D,Sheboygan,WI,The Casing,9100
 college,2,Hell,Hounds,HEL,#8B0000,Hell,MI,The Furnace,9600
 college,2,Ypsilanti,Towers,YPS,#2E4057,Ypsilanti,MI,Tower Hall,8400
 college,2,Kalamazoo,Kazoos,KZO,#E0A800,Kalamazoo,MI,The Kazoo Dome,8900
-college,2,Punxsutawney,Groundhogs,PNX,#4A3B2A,Punxsutawney,PA,Gobbler's Knob,7700
-college,3,Toad Suck,Toads,TDS,#4F7942,Toad Suck,AR,The Lily Pad,6600
-college,3,Two Egg,Yolks,TEG,#F2C12E,Two Egg,FL,The Carton,6200
-college,3,Bird-in-Hand,Buggies,BIH,#2B2B2B,Bird-in-Hand,PA,The Buggy Barn,7100
-college,3,Accident,Wrecks,ACC,#A63D40,Accident,MD,The Fender,6400
-college,4,Boring,Snoozers,BOR,#8A9BA8,Boring,OR,The Waiting Room,6000
+college,2,Muncie,Munchers,MUN,#4F7942,Muncie,IN,The Lunchbox,8000
+college,3,Yazoo City,Catfish,YAZ,#3C6E71,Yazoo City,MS,The Delta,6800
+college,3,Opelika,Owls,OPK,#5A3E85,Opelika,AL,The Roost,7000
+college,3,Okeechobee,Gators,OKE,#2F6B3A,Okeechobee,FL,The Marsh,7300
+college,3,Weeki Wachee,Mermaids,WKW,#2E8B93,Weeki Wachee,FL,The Spring,6500
+college,4,Wahoo,Wahoos,WAH,#C9302C,Wahoo,NE,The Hollering Post,6400
+college,4,Cando,Cannons,CAN,#5C6672,Cando,ND,The Battery,6100
+college,4,Pocatello,Potatoes,POC,#8B6B3D,Pocatello,ID,The Root Cellar,7600
 college,4,Walla Walla,Onions,WWA,#C9B037,Walla Walla,WA,The Bulb,7900
-college,4,Zzyzx,Mirage,ZZX,#5A9BD4,Zzyzx,CA,The Oasis,6900
-college,4,Chicken,Nuggets,CHK,#D98C00,Chicken,AK,The Coop,5800
-pro,1,Medicine Hat,Hatters,MHT,#7B3F9E,Medicine Hat,AB,The Hatbox,17400
-pro,1,Yellowknife,Blades,YKN,#C8A800,Yellowknife,NT,The Whetstone,16800
-pro,1,Moose Factory,Assembly,MFA,#4A6741,Moose Factory,ON,The Assembly Line,17100
-pro,1,Dog River,Hounds,DRV,#8C6239,Dog River,SK,The Kennel,16200
-pro,1,Embarrass,Blush,EMB,#C05C79,Embarrass,MN,The Red Face,16500
-pro,2,Normal,Standards,NRM,#5C6672,Normal,IL,The Baseline,18300
-pro,2,Peculiar,Oddities,PEC,#6A4C93,Peculiar,MO,The Curio,17600
-pro,2,Frankenstein,Monsters,FRK,#3E6B3E,Frankenstein,MO,The Laboratory,18900
-pro,2,Santa Claus,Reindeer,SCL,#B3151F,Santa Claus,IN,The Workshop,18100
-pro,2,Gnaw Bone,Marrow,GNB,#8B7355,Gnaw Bone,IN,The Bone Yard,16700
-pro,3,Hot Coffee,Percolators,HCF,#5B3A1E,Hot Coffee,MS,The Percolator,17200
-pro,3,Monkey's Eyebrow,Monkeys,MEB,#A0703C,Monkey's Eyebrow,KY,The Canopy,16400
-pro,3,Nameless,Unknowns,NML,#4D4D4D,Nameless,TN,The Blank,16900
-pro,3,Cut and Shoot,Pistols,CAS,#8B1A1A,Cut and Shoot,TX,The Holster,18600
-pro,3,Ding Dong,Bells,DDG,#D4A017,Ding Dong,TX,The Belfry,17800
-pro,4,Truth or Consequences,Consequences,TOC,#1F6F8B,Truth or Consequences,NM,The Reckoning,17300
-pro,4,Why,Nots,WHY,#7A9E7E,Why,AZ,The Question Mark,16100
-pro,4,Mexican Hat,Sombreros,MXH,#E07A00,Mexican Hat,UT,The Brim,16600
-pro,4,Eek,Shrieks,EEK,#2F4F6F,Eek,AK,The Echo,15900
-pro,4,Batman,Bats,BTM,#2B2B3B,Batman,TUR,The Cave,19400
+pro,1,Gouda,Wheels,GOU,#E0A100,Gouda,NLD,The Wheelhouse,18200
+pro,1,Edam,Waxheads,EDM,#C0392B,Edam,NLD,The Wax Works,17400
+pro,1,Cheddar,Caves,CHD,#D9901A,Cheddar,ENG,Cheddar Gorge,19100
+pro,1,Stilton,Blues,STL,#2C5F8A,Stilton,ENG,The Blue Room,17800
+pro,1,Cheshire,Cats,CHE,#7B4FA0,Cheshire,ENG,The Grin,18500
+pro,2,Parma,Hams,PAR,#8B1A1A,Parma,ITA,The Curing Room,19300
+pro,2,Asiago,Alpines,ASI,#3E6B8A,Asiago,ITA,The Plateau,17100
+pro,2,Gorgonzola,Veins,GOR,#4A6FA5,Gorgonzola,ITA,The Marbling,17900
+pro,2,Roquefort,Rams,ROQ,#5B4B8A,Roquefort,FRA,The Cellar,18000
+pro,2,Muenster,Monks,MNS,#6B4423,Muenster,GER,The Abbey,18700
+pro,3,Colby,Curds,COL,#F2B705,Colby,WI,The Curd Barn,17200
+pro,3,Plymouth,Cheesemakers,PLY,#B5651D,Plymouth,WI,The Exchange,18400
+pro,3,Monroe,Swiss,MNR,#C9302C,Monroe,WI,The Hole,17600
+pro,3,Little Chute,Windmills,LCH,#2F6B3A,Little Chute,WI,The Millhouse,16900
+pro,3,Thorp,Threshers,THP,#7A6A53,Thorp,WI,The Thresher Floor,16500
+pro,4,Monterey,Jacks,MTY,#1F6F8B,Monterey,CA,The Cannery,19600
+pro,4,Tillamook,Creamers,TIL,#E07A00,Tillamook,OR,The Creamery,18800
+pro,4,Petaluma,Leghorns,PET,#D4A017,Petaluma,CA,The Hatchery,17500
+pro,4,Ferndale,Ferns,FER,#3E7A4E,Ferndale,CA,The Grove,16700
+pro,4,Sonoma,Crush,SON,#6B2D5C,Sonoma,CA,The Crushpad,18100
