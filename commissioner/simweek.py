@@ -17,6 +17,7 @@ JSON file - so this code path is identical before and after that switch.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import threading
 import time
@@ -95,13 +96,47 @@ def _league_status(spec, st):
     own = save_dir / "html" / "standings.htm"
     if own.exists():
         row["games_played"] = _games_played(own)
-        row["stage"] = "Preseason" if not row["games_played"] else "Regular season"
+        row["stage"] = _stage(save_dir / "html" / "schedule.htm", row["games_played"])
     else:
         row["games_played"] = None
         row["stage"] = "not exported yet"
     row["published_games"] = _games_played(site / "standings.htm")
     row["players"] = _player_count(save_dir / "league.dat")
     return row
+
+
+def _stage(schedule, games_played):
+    """Preseason, Regular season or Playoffs, read from the schedule's own section headings.
+
+    "any games played means the regular season has started" is wrong, and misleadingly so: the
+    standings carry PRESEASON wins and losses while the preseason is being played, so the panel
+    announced "Regular season, 18 games" during camp - and then dropped back to "Preseason,
+    0 games" when FBPB3 zeroed the standings at the real season's start, which reads like
+    something broke. The schedule page marks its own sections; find the last one that has a
+    played game under it.
+    """
+    if not schedule.exists():
+        return "Preseason" if not games_played else "Regular season"
+    try:
+        text = schedule.read_text(encoding="latin-1", errors="replace")
+    except OSError:
+        return "Regular season" if games_played else "Preseason"
+    stage = "Preseason"
+    for label in ("Preseason", "Regular Season", "Playoffs"):
+        at = text.find(label)
+        if at == -1:
+            continue
+        # A played game is a score; an unplayed one is not. Look between this heading and the
+        # next for anything that has been decided.
+        nxt = min((text.find(n, at + 1) for n in ("Regular Season", "Playoffs")
+                   if text.find(n, at + 1) != -1), default=len(text))
+        section = text[at:nxt]
+        # A played game is the only thing FBPB3 links to a box score. Matching on
+        # "looks like a score" instead caught the Playoffs heading itself and
+        # reported every league as being in the playoffs on day one.
+        if "boxes/box" in section:
+            stage = "Regular season" if label == "Regular Season" else label
+    return stage
 
 
 def _games_played(standings):
@@ -590,7 +625,13 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
             # preseason as its own step, then guarding and dressing, then simming the week,
             # would do that. Worth doing if regular-season weeks turn out to pad too.
             try:
-                L2 = LeagueDat(path)
+                # ch.save_path(key), NOT `path`. `path` is left over from the earlier per-league
+                # loop and holds whichever league that loop finished on - so this opened CV_Pro
+                # while re-dressing prep, found none of the prep characters, and reported "0
+                # players match" for every one of them. It has therefore never worked. Worse: had
+                # a name ever matched in the wrong file, the L2.save() below would have written
+                # that league instead.
+                L2 = LeagueDat(ch.save_path(key))
                 redressed = _dress_characters(key, L2, st, lambda m: emit("apply", m, key))
                 if redressed:
                     L2.save(backup_dir=BACKUPS)
