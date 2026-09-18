@@ -565,7 +565,13 @@ class LeagueDat:
             try:
                 tmp.replace(self.path)
                 break
-            except PermissionError:
+            except PermissionError as exc:
+                # Say so even when the next attempt works. "The retry logged nothing" was offered
+                # as evidence that the lock had not recurred, and it cannot be: a silent success
+                # is indistinguishable from never having fired. One line per attempt is what
+                # makes the absence of lines mean something.
+                print(f"league.dat is locked ({exc.__class__.__name__}), retrying "
+                      f"{attempt + 1}/10 in {delay:.1f}s: {self.path.parent.name}", flush=True)
                 if attempt == 9:
                     raise
                 time.sleep(delay)

@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
 import threading
 import time
 from datetime import datetime
@@ -61,6 +62,21 @@ def _manifest():
 
 
 # ---- status ----------------------------------------------------------------------------------
+def _wait_for_game_to_exit(timeout=30):
+    """True once no FBPB3 process is left, or False if one is still there after `timeout`."""
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq FBPB3.exe"],
+                                 capture_output=True, text=True, timeout=10)
+            if "FBPB3.exe" not in out.stdout:
+                return True
+        except Exception:
+            return True          # cannot tell; do not block the week over it
+        time.sleep(1)
+    return False
+
+
 def _league_status(spec, st):
     save_dir = DOCS / "leaguedata" / spec.save_name
     site = ROOT / "site" / "leagues" / spec.key
@@ -597,6 +613,18 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
         # The consequence is that the pages published this week still show the churn; next week's
         # export shows the repair. The SAVE is correct the moment the game closes, which is what
         # everything else depends on.
+        # Wait for FBPB3 to be really gone before writing anything. exit_game ends the process
+        # when the quit box never appears, and until it actually dies it still holds the league it
+        # last loaded - so the first post-sim write can hit a lock the save's own retry budget
+        # (about five seconds) may not outlast. The cost of losing that write is concrete: an
+        # untidied save with our reserves left in free agency, which is the exact state in which
+        # the next person to sign up cannot be placed.
+        #
+        # Costs nothing when the game has already exited, which is the normal case.
+        gone = _wait_for_game_to_exit()
+        if not gone:
+            emit("apply", "FBPB3 is still running after 30s; tidying anyway, writes may be locked")
+
         for key in keys:
             try:
                 from tools.protect_rosters import protect as _protect
