@@ -45,8 +45,13 @@ and are not in git. `backups/` in this project holds timestamped copies of every
 
 - **The Sim Week pipeline.** Every piece is proven separately (apply edits, sim, export, save) but
   nothing has run the whole loop yet. It also cannot be tested for real until Supabase exists.
-- **The player-facing site has never been rendered in a browser.** It serves and its JS passes
-  static checks; nobody has looked at it.
+- **The site has now been rendered in a browser** (2026-09-17) and four bugs were found and fixed
+  that static checks could not see: the create page was blank without Supabase, a temporal-dead-zone
+  error that threw at module load with no console message, a heading reading "He scouting report",
+  and the scouts naming a player's type before a single question was answered. The create page now
+  runs in **preview mode** with no Supabase at all, so the quiz can be played with and demoed - only
+  the final save is blocked. `me.html` is still unexercised: it lists characters you own, and without
+  a signed-in account there is nothing to show.
 - **`supabase/schema.sql` has never been run against a real Postgres.**
 
 ## Red — the one thing actually broken
