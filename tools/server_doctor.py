@@ -129,6 +129,32 @@ def main():
           "the session is locked or disconnected. See docs/SERVER.md - use keep_session.bat "
           "so disconnecting from RDP hands the session back to the console instead of locking it")
 
+    # Display scaling. The driver addresses FBPB3's controls by their position in pixels - it
+    # has to, because the owner-drawn ones have no other handle - and those numbers were
+    # measured at 100% scaling. At 125% or 150% Windows moves everything, every click lands in
+    # the wrong place, and the failure looks like "the game ignored me" rather than anything to
+    # do with DPI. An RDP session often defaults to the client's scaling, so this is a real risk
+    # on exactly this kind of move.
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)   # per-monitor, so we read the truth
+        except Exception:
+            pass
+        hdc = user32.GetDC(0)
+        dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)     # LOGPIXELSX
+        user32.ReleaseDC(0, hdc)
+        w, h = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+        check("display scaling is 100%", dpi == 96,
+              f"{dpi} dpi ({dpi / 96 * 100:.0f}%), screen {w}x{h}",
+              "Settings > System > Display > Scale = 100%. The control positions the driver "
+              "clicks were measured at 100%; anything else moves them and every click misses.")
+        check("screen is big enough for the game window", w >= 1024 and h >= 720,
+              f"{w}x{h}", "FBPB3's window needs about 1024x720 to lay out as the driver expects")
+    except Exception as exc:
+        check("display metrics readable", False, str(exc)[:60])
+
     if session_name.upper().startswith("RDP"):
         print("\n  NOTE: you are on an RDP session. Windows LOCKS it when you disconnect, and a")
         print("  locked session cannot be clicked - a sim running at that moment will fail.")
