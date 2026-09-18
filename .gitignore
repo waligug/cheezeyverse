@@ -10,3 +10,7 @@ site/leagues/
 # Live character data, not source. It is the store when Supabase is not configured, so it holds
 # real people's players once anybody signs up - it does not belong in a public repository.
 universe/local_store.json
+# ...and every copy of it. `git add -A` swept a *.bak aside-copy into a public repo
+# once; the store holds real characters and real owner ids.
+universe/local_store*.json*
+universe/sim_runs.json
