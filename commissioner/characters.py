@@ -108,18 +108,46 @@ def free_slots(manifest, league_key, claimed):
             and (r["name"], r["dob"]) not in taken]
 
 
-def pick_slot(slots, position=None, team=None):
-    """Pick a free reserve slot: the right team first, then the right position, then anything.
+def pick_slot(slots, position=None, team=None, busy=None, divisions=None, team_of=None):
+    """Pick a free reserve slot, spreading people across the league rather than stacking them.
 
-    `team` matters for the draft. Without it the first free slot league-wide was taken, so a
-    player drafted first overall by STL was placed on whichever roster happened to have a
-    vacancy - GOU, in the rehearsal, a slot freed moments earlier by somebody else's retirement.
-    His career page then said "drafted #1 by STL" about a player who had never been on STL.
+    Taking the first free slot in team order put the first five friends on two teams. So when
+    `busy` is given - {team abbrev: how many characters that team already has} - slots are
+    ordered by that count first, then by how many characters are already in the same division,
+    then by name for determinism. The effect is that each new person lands somewhere nobody is,
+    which is what a league of friends should look like.
 
-    Position is a preference and nothing more: FBPB3's coach assigns minutes off the depth chart
-    and will happily play someone away from his listed spot.
+    `team` still wins outright, for the draft: a player taken first overall by STL should join
+    STL. Without it he went wherever a vacancy happened to be and his page claimed a team he had
+    never played for.
+
+    `team_of` resolves which team a slot is REALLY on. The manifest records where a reserve row
+    started, and rows genuinely move between teams - a CPU trade does it, and so does moving a
+    character deliberately - so the manifest's team is a starting position, not a fact. Reading
+    it as one would place somebody on the team a slot used to belong to.
+
+    Position remains a preference and nothing more: FBPB3's coach assigns minutes off the depth
+    chart and plays people away from their listed spot all the time.
     """
-    pools = ([s for s in slots if s.team == team], slots) if team else (slots,)
+    where = team_of or (lambda slot: slot.team)
+
+    if team:
+        pools = ([s for s in slots if where(s) == team], slots)
+    elif busy:
+        in_division = {}
+        for abbrev, n in busy.items():
+            d = (divisions or {}).get(abbrev)
+            if d is not None:
+                in_division[d] = in_division.get(d, 0) + n
+        ordered = sorted(
+            slots,
+            key=lambda s: (busy.get(where(s), 0),
+                           in_division.get((divisions or {}).get(where(s)), 0),
+                           where(s) or ""))
+        pools = (ordered,)
+    else:
+        pools = (slots,)
+
     for pool in pools:
         if position:
             for s in pool:

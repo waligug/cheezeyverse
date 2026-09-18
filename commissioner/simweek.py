@@ -217,13 +217,38 @@ def _activate_pending(league_key, L, st, log):
     taken = [{"name": c["claimed_slot"].get("name"),
               "dob": c["claimed_slot"].get("dob")} for c in holders]
     slots = ch.free_slots(_manifest(), league_key, taken)
+
+    # Spread new characters across the league. The first five friends all landed on two teams,
+    # because slots were taken in team order and each team's three reserves sit together.
+    spec = cfg.BY_KEY[league_key]
+    busy = {t.abbrev: 0 for t in spec.teams}
+    for other in st.characters(league=league_key):
+        if other.get("status") in ("active", "declared") and other.get("team_abbrev"):
+            busy[other["team_abbrev"]] = busy.get(other["team_abbrev"], 0) + 1
+    divisions = {t.abbrev: t.division for t in spec.teams}
+
+    # Where each reserve row ACTUALLY is, read from the save. The manifest says where a row
+    # started, and rows move - a CPU trade moves them, and so does relocating a character on
+    # purpose - so trusting the manifest would place somebody on a team the slot has left.
+    ids = sorted({p.values["Team"] for p in L.players if p.values["Team"] >= 1})
+    abbrev_of = {tid: t.abbrev for tid, t in zip(ids, spec.teams)}
+
+    def team_of(slot):
+        try:
+            return abbrev_of.get(L.find(slot.name, ch.codec_dob(slot.dob)).values["Team"], slot.team)
+        except Exception:
+            return slot.team           # not in the save under that name: fall back to the manifest
+
     done, expect = [], []
     for c in pending:
-        slot = ch.pick_slot(slots, c.get("position"))
+        slot = ch.pick_slot(slots, c.get("position"), busy=busy, divisions=divisions,
+                            team_of=team_of)
         if slot is None:
             log(f"no reserve slot left in {league_key} for {c['first_name']} {c['last_name']}")
             break
         slots = [s for s in slots if s is not slot]
+        landed = team_of(slot)
+        busy[landed] = busy.get(landed, 0) + 1   # or everyone created this week stacks up again
         # A character has no birthday of his own: the website never asks for one and the
         # characters table has no column for it. He takes the birthday of the reserve slot he
         # claims, which is the same birthday offseason.refill stamps back when he leaves and
