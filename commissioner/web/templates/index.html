@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cheezeyverse Commissioner</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Cheezeyverse</h1>
+  <span class="sub">Commissioner control panel</span>
+  <span class="spacer"></span>
+  <span class="chip" id="store-chip">
+    {%- set store = status.get('store') or {} -%}
+    store: {{ store.get('kind') or 'unknown' }}{% if store.get('configured') %} ok{% else %} (not configured){% endif %}
+  </span>
+  <span class="chip" id="game-chip">
+    {% if status.get('game_running') %}FBPB3 running{% elif status.get('game_running') is none %}FBPB3 unknown{% else %}FBPB3 closed{% endif %}
+  </span>
+  <span class="chip" id="busy-chip" {% if not run or not run.running %}hidden{% endif %}>sim running</span>
+</div>
+
+<div class="wrap">
+
+  <!-- ------------------------------------------------------------------ banners -->
+  {% if not simweek.ok %}
+  <div class="banner">
+    <strong>commissioner.simweek did not import, so nothing can touch a save.</strong>
+    Sim, approvals, history and character creation are all unavailable until it does. The
+    league cards below show static configuration only - stage, day and games played are
+    unknown, not zero.
+    <div style="margin-top:4px"><code>{{ simweek.error }}</code></div>
+  </div>
+  {% elif status.get('degraded') %}
+  <div class="banner warn">
+    <strong>universe_status() failed, so the league cards are configuration only.</strong>
+    <div style="margin-top:4px"><code>{{ status.get('error') }}</code></div>
+  </div>
+  {% endif %}
+  <div class="banner" id="js-banner" hidden></div>
+
+  <!-- ------------------------------------------------------------------ leagues -->
+  <div class="leagues" id="leagues">
+    {% for lg in status.get('leagues') or [] %}
+    <div class="league" data-key="{{ lg.get('key') }}">
+      <h3>{{ lg.get('name') or lg.get('key') }} <span class="save">{{ lg.get('save') or '' }}</span></h3>
+      <div class="stage">
+        {% if lg.get('stage') %}<b>{{ lg.get('stage') }}</b>{% else %}<span class="dash">stage unknown</span>{% endif %}
+        {% if lg.get('season') %} &middot; season {{ lg.get('season') }}{% endif %}
+        {% if lg.get('day') is not none and lg.get('day') != '' %} &middot; day {{ lg.get('day') }}{% endif %}
+      </div>
+      <dl>
+        <dt>Games played</dt>
+        <dd>{% if lg.get('games_played') is not none %}{{ lg.get('games_played') }}{% else %}<span class="dash">&mdash;</span>{% endif %}</dd>
+        <dt>Characters</dt>
+        <dd>{% if lg.get('characters') is not none %}{{ lg.get('characters') }}{% else %}<span class="dash">&mdash;</span>{% endif %}</dd>
+        <dt>Free reserve slots</dt>
+        <dd>{% if lg.get('reserve_free') is not none %}{{ lg.get('reserve_free') }} / {{ lg.get('reserve_total') }}{% elif lg.get('reserve_total') %}<span class="dash">&mdash;</span> / {{ lg.get('reserve_total') }}{% else %}<span class="dash">&mdash;</span>{% endif %}</dd>
+        <dt>Teams / players</dt>
+        <dd>{% if lg.get('teams') %}{{ lg.get('teams') }}{% else %}<span class="dash">&mdash;</span>{% endif %}
+            / {% if lg.get('players') %}{{ lg.get('players') }}{% else %}<span class="dash">&mdash;</span>{% endif %}</dd>
+      </dl>
+      <footer>
+        {% if lg.get('site_href') %}
+        <a href="{{ lg.get('site_href') }}" target="_blank" rel="noopener">League site{% if lg.get('site_pages') %} ({{ lg.get('site_pages') }} pages){% endif %}</a>
+        {% else %}<span class="muted">no published site yet</span>{% endif %}
+      </footer>
+    </div>
+    {% else %}
+    <div class="league"><h3>No leagues</h3>
+      <div class="stage muted">Neither <code>universe_status()</code> nor
+        <code>commissioner.universe.config</code> could be read.</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ------------------------------------------------------------------ run + log -->
+  <div class="card">
+    <header>
+      <h2>Run</h2>
+      <span class="spacer"></span>
+      <span class="chip" id="run-chip">idle</span>
+    </header>
+    <div class="body">
+      <div class="controls">
+        <div class="group">
+          <button id="btn-week" type="button">Sim Week</button>
+          <input type="number" id="days-week" min="1" max="400" value="{{ defaults.week }}"
+                 title="days per Sim Week"> <label for="days-week">days</label>
+        </div>
+        <div class="group">
+          <button id="btn-chunk" type="button" class="plain">Sim Chunk</button>
+          <input type="number" id="days-chunk" min="1" max="400" value="{{ defaults.chunk }}"
+                 title="days per Sim Chunk"> <label for="days-chunk">days</label>
+        </div>
+        <div class="group">
+          <span class="muted">leagues:</span>
+          {% for lg in status.get('leagues') or [] %}
+          <label><input type="checkbox" class="league-pick" value="{{ lg.get('key') }}" checked>
+            {{ lg.get('key') }}</label>
+          {% endfor %}
+        </div>
+        <div class="group">
+          <label title="passes dry_run=True: simweek reports what it would do and touches no save">
+            <input type="checkbox" id="dry-run"> dry run</label>
+        </div>
+        <span class="spacer"></span>
+        <button id="btn-clear" type="button" class="plain small">Clear log</button>
+      </div>
+
+      <div class="progress" id="progress"><i></i></div>
+      <div class="muted" id="run-line" style="font-size:11.5px;min-height:16px">Nothing has run yet.</div>
+      <div id="log"><div class="empty">The live log appears here. Each step shows the time it
+        arrived and how long the previous step took.</div></div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- ---------------------------------------------------------------- approvals -->
+    <div class="card">
+      <header>
+        <h2>Approval queue</h2>
+        <span class="spacer"></span>
+        <label title="read from pending_work()"><input type="checkbox" id="auto-approve" disabled>
+          auto-approve</label>
+        <button id="btn-refresh-pending" type="button" class="plain small">Refresh</button>
+      </header>
+      <div class="body">
+        <div class="muted" id="auto-note" style="font-size:11px;margin-bottom:8px"></div>
+
+        <h3>Characters waiting for a reserve slot</h3>
+        <div id="pending-characters"><div class="empty-note">not loaded</div></div>
+
+        <h3 style="margin-top:12px">Upgrade requests</h3>
+        <div id="pending-requests"><div class="empty-note">not loaded</div></div>
+
+        <div class="queue-actions">
+          <button id="btn-approve" type="button" class="small">Approve selected</button>
+          <button id="btn-reject" type="button" class="small danger">Reject selected</button>
+          <input type="text" id="reject-note" placeholder="rejection note (optional)">
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------------------------------------------------------------- history -->
+    <div class="card">
+      <header>
+        <h2>History</h2>
+        <span class="spacer"></span>
+        <button id="btn-refresh-history" type="button" class="plain small">Refresh</button>
+      </header>
+      <div class="body">
+        <div id="history"><div class="empty-note">not loaded</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ create -->
+  <div class="card">
+    <div class="body">
+      <details class="create">
+        <summary>Create a character by hand</summary>
+        <div class="muted" style="font-size:11.5px;margin-top:4px">
+          Goes straight to <code>create_character()</code>. Normally people create their own on
+          the public site; this is for fixing one up by hand.
+        </div>
+        <div class="grid">
+          <div><label for="cc-first">First name</label><input type="text" id="cc-first"></div>
+          <div><label for="cc-last">Last name</label><input type="text" id="cc-last"></div>
+          <div><label for="cc-owner">Owner (discord)</label><input type="text" id="cc-owner"></div>
+          <div><label for="cc-league">League</label>
+            <select id="cc-league">
+              {% for lg in status.get('leagues') or [] %}
+              <option value="{{ lg.get('key') }}">{{ lg.get('key') }}</option>
+              {% endfor %}
+            </select></div>
+          <div><label for="cc-position">Position</label>
+            <select id="cc-position">
+              <option>PG</option><option>SG</option><option>SF</option>
+              <option>PF</option><option>C</option>
+            </select></div>
+          <div><label for="cc-height">Height (inches)</label>
+            <input type="number" id="cc-height" min="48" max="96" value="75"></div>
+          <div><label for="cc-dob">DOB (M/D/YYYY)</label><input type="text" id="cc-dob"></div>
+        </div>
+        <div class="queue-actions">
+          <button id="btn-create" type="button" class="small">Create character</button>
+          <span class="muted" id="create-note"></span>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <p class="muted" style="font-size:11px">
+    Local tool, bound to 127.0.0.1, no authentication. Page rendered {{ now }}.
+  </p>
+</div>
+
+<div id="toast" hidden></div>
+
+<script type="application/json" id="boot">{{ boot|tojson }}</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

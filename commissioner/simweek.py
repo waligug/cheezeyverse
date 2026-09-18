@@ -216,8 +216,19 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
             dest.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, dest / "league.dat")
 
+            # The game's own AI will cut a 14-year-old for an adult free agent the first chance
+            # it gets - it took 80 of our players off Prep rosters on the very first sim. Defang
+            # the pool and put anyone it already took back, before anything else is applied.
+            if not dry_run:
+                from tools.protect_rosters import protect as _protect
+                guard = _protect(key, store_characters=st.characters())
+                if guard.get("released") or guard.get("signed"):
+                    emit("apply", f'AI roster churn undone: {guard["released"]} out, '
+                                  f'{guard["signed"]} of ours back in', key)
+                L = LeagueDat(path)
+
             emit("apply", f"applying pending work to {spec.name}", key)
-            L = LeagueDat(path)
+            L = locals().get("L") or LeagueDat(path)
             activated, expect_a = _activate_pending(key, L, st, lambda m: emit("apply", m, key))
             applied, expect_b = _apply_requests(key, L, st, lambda m: emit("apply", m, key))
             if dry_run:

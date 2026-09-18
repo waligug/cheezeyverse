@@ -38,7 +38,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, send_from_directory
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = Path(__file__).resolve().parent / "web"
@@ -313,6 +313,25 @@ def _worker(run):
 _STATUS_TTL = 10.0
 _status_cache = {"at": 0.0, "value": None, "error": ""}
 _status_lock = threading.Lock()
+
+SITE = ROOT / "site"
+
+
+def _site_href(league):
+    """A clickable URL for a league's published pages, or "" when nothing is published yet.
+
+    `universe_status()` reports a repo-relative path (`site/leagues/prep/index.htm`); a browser
+    cannot follow a file:// link from an http page, so the panel serves `site/` itself (read
+    only, see `serve_site`) and this turns that path into `/site/leagues/prep/index.htm`.
+    """
+    raw = str(league.get("site") or "").replace("\\", "/").lstrip("/")
+    if not raw:
+        key = str(league.get("key") or "")
+        raw = f"site/leagues/{key}/index.htm" if key else ""
+    if not raw:
+        return ""
+    rel = raw[5:] if raw.startswith("site/") else raw
+    return f"/site/{rel}" if (SITE / rel).exists() else ""
 
 
 def _invalidate_status():
@@ -636,6 +655,16 @@ def api_create_character():
         return jsonify({"ok": False, "error": "Empty character payload."}), 400
     created = create_character(payload)
     return jsonify({"ok": True, "character": json.loads(json.dumps(created, default=str))})
+
+
+@app.get("/site/<path:relpath>")
+def serve_site(relpath):
+    """Serve the published league pages read-only, so the cards' links actually open.
+
+    The same folder GitHub Pages serves. `send_from_directory` refuses to escape the root, and
+    nothing here ever writes - publishing is `simweek`'s job.
+    """
+    return send_from_directory(SITE, relpath)
 
 
 @app.get("/healthz")
