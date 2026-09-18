@@ -155,7 +155,7 @@ a:hover {{ text-decoration: underline !important; }}
 
 /* Dropping the missing player photos leaves the cell that held them behind; an empty cell with a
    team-coloured background reads as a rendering fault. */
-td:empty {{ background: transparent !important; padding: 0 !important; }}
+td:empty, td.cv-blank {{ background: transparent !important; padding: 0 !important; }}
 
 /* team pages keep their own team colour on the big banner, but the chrome matches the league */
 td.teamheader {{ color: #FFF8E6 !important; letter-spacing: -.5px !important; }}
@@ -201,13 +201,25 @@ def _inject_link(html, prefix):
 _EMPTY_IMG = re.compile(r"<img[^>]*src=[\"']?[^\"'\s>]*/[\"']?[\s>][^>]*>", re.I)
 
 
+BODY_BG = r"""\sbackground=["']?[^"'\s>]*/["']?(?=[\s>])"""
+
+
 def _drop_empty_images(html):
     def keep(m):
         tag = m.group(0)
         src = re.search(r"src=[\"']?([^\"'\s>]*)", tag, re.I)
         value = src.group(1) if src else ""
         return "" if (not value or value.endswith("/")) else tag
-    return re.sub(r"<img[^>]*>", keep, html, flags=re.I)
+    html = re.sub(r"<img[^>]*>", keep, html, flags=re.I)
+    # A cell whose only content was that image is now blank, and CSS `td:empty` will not match it
+    # because the whitespace survives - so mark it here, where we can see it is really empty.
+    # Includes cells that already carry a class: the photo sat in a team-coloured one, and an
+    # empty coloured block is exactly what reads as a broken image to anyone looking at it.
+    html = re.sub(r"<td[^>]*>(?:\s|&nbsp;)*</td>",
+                  '<td class="cv-blank"></td>', html, flags=re.I)
+    # `background=<dir>` on <body> is the same empty-filename bug as the images.
+    html = re.sub(BODY_BG, "", html, flags=re.I)
+    return html
 
 
 def _nav_bar(league, season, prefix, current):
