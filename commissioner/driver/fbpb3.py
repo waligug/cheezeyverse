@@ -36,6 +36,8 @@ PLAYER_FILE_SAVE = (917, 662)
 EDITOR_EXIT = (917, 662)
 SAVE_NAME_OK = (622, 495)
 HOTSEAT_SIM_DAY = (794, 585)
+HOTSEAT_SIM_PRESEASON = (910, 585)
+HOTSEAT_SIM_TO_PLAYOFFS = (910, 651)
 NAV_HOT_SEAT = (55, 95)
 
 
@@ -228,6 +230,16 @@ class FBPB3:
         self.click(NAV_HOT_SEAT, 3)
         for _ in range(n):
             self.click(HOTSEAT_SIM_DAY, per_day_wait)
+
+    def sim_preseason(self, wait=90):
+        """Blast through the preseason so the regular season can start.
+
+        A freshly created league opens in Preseason and SIM DAY only advances exhibition games;
+        nothing lands in the standings until this button has been pressed.
+        """
+        self.click(NAV_HOT_SEAT, 3)
+        self.click(HOTSEAT_SIM_PRESEASON, wait)
+        self.dismiss_all()
 
     def save_game(self, wait=15):
         """Top-bar SAVE; the name box is prefilled with the loaded save's name."""

@@ -72,6 +72,9 @@ async function boot() {
       el('a', { href: 'create.html' }, 'Be the first.')));
     return;
   }
+  // Heights on this list are computed for the current season, not the stored
+  // fourteen-year-old column, or everyone stays 14 forever on the public page.
+  const seasonNow = (cfg && cfg.current_season) || null;
   const list = el('ul', { class: 'cv-roster' });
   for (const c of rows) {
     const owner = (c.owner_profile && c.owner_profile.display_name) || 'someone';
@@ -79,7 +82,7 @@ async function boot() {
       el('b', {}, `${c.first_name} ${c.last_name}`),
       statusPill(c.status),
       el('span', { class: 'cv-muted' },
-        `${describeCharacter(c)} · ${owner} · ${fmtDate(c.created_at)}`)));
+        `${describeCharacter(c, seasonNow)} · ${owner} · ${fmtDate(c.created_at)}`)));
   }
   box.append(list);
 }

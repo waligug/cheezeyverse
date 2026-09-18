@@ -201,13 +201,23 @@ def _age_pct_at(i: int) -> int:
     return max(AGE_PCT_FLOOR, AGE_PCT_BASE - i * AGE_PCT_DECAY)
 
 
+def _js_round(x):
+    """Round half UP, the way JavaScript's Math.round does.
+
+    Python's round() is banker's rounding: round(70.5) is 70 but Math.round(70.5) is 71,
+    which would put this mirror an inch away from rules.js for any half-inch input.
+    """
+    import math
+    return int(math.floor(float(x) + 0.5))
+
+
 def expected_adult_hundredths(start_inches, height_genes) -> int:
     """Where he is expected to finish, in hundredths. Pure - no seed, no rolls.
 
     It is an expectation, not a cap: the creep and the freak roll both push past it.
     """
-    start = int(round(float(start_inches or 0))) * 100
-    genes = max(0, min(100, int(round(float(height_genes or 0)))))
+    start = _js_round(start_inches or 0) * 100
+    genes = max(0, min(100, _js_round(height_genes or 0)))
     return start + GAIN_BASE + (genes * GAIN_PER_TEN_GENES) // 10
 
 
@@ -225,7 +235,7 @@ def growth_curve(character_id, start_inches, height_genes):
     """
     rng = mulberry32(height_seed(character_id))
     expected = expected_adult_hundredths(start_inches, height_genes)
-    cur = int(round(float(start_inches or 0))) * 100
+    cur = _js_round(start_inches or 0) * 100
 
     # One draw, up front: where he is really heading. See TARGET_DOWN / TARGET_UP.
     target = expected - TARGET_DOWN + (rng() % (TARGET_DOWN + TARGET_UP + 1))
@@ -310,7 +320,7 @@ def height_outlook(start_inches, height_genes) -> dict:
 
 def format_height(inches) -> str:
     """76 -> 6'4\"."""
-    n = int(round(float(inches)))
+    n = _js_round(inches)
     return f"{n // 12}'{n % 12}\""
 
 

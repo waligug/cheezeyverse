@@ -1,0 +1,59 @@
+{
+ "characters": [
+  {
+   "first_name": "Cheezey",
+   "last_name": "McTest",
+   "league": "prep",
+   "position": "PG",
+   "height_inches": 68,
+   "dob": "4/2/2016",
+   "hometown": "Wetaskiwin, AB",
+   "jersey_preference": 7,
+   "ratings": {
+    "Handling": 24,
+    "Passing": 26,
+    "Quickness": 22,
+    "JumpShot": 17,
+    "3pShot": 15,
+    "3pUsage": 44,
+    "PerimeterDefense": 16,
+    "Stealing": 18,
+    "InsideScoring": 12,
+    "Stamina": 55,
+    "Fouling": 40
+   },
+   "potentials": {
+    "PotHandling": 78,
+    "PotPassing": 82,
+    "Pot3pShot": 61,
+    "PotJumpShot": 66
+   },
+   "status": "active",
+   "id": "b5beefeb5585408db065c99f74c53597",
+   "points_available": 0,
+   "points_spent": 0,
+   "created_at": "2026-09-18T00:02:38+00:00",
+   "team_abbrev": "SAS",
+   "claimed_slot": {
+    "league": "prep",
+    "team": "SAS",
+    "name": "Derek Uribe",
+    "dob": "11/27/2015",
+    "position": "PG",
+    "uniform": 15
+   },
+   "game_dob": "4/2/2016",
+   "activated_at": "2026-09-18T00:02:52+00:00"
+  }
+ ],
+ "requests": [],
+ "ledger": [],
+ "runs": [],
+ "settings": {
+  "max_characters": 2,
+  "auto_approve": true,
+  "current_season": 2030,
+  "current_week": 0,
+  "points_per_week": 1
+ }
+}

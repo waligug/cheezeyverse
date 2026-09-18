@@ -10,7 +10,7 @@ import {
   RATING_LABELS, RATING_GROUPS, POSITION_LABELS, RATING_MAX,
   TRAITS, TRAIT_LABELS, TRAIT_BLURBS,
   hasPotential, isLocked, nextPointCost, formatHeight, biasFor, classify, careerGoal,
-  scoutingWord, certaintyWord, scoutScale,
+  scoutingWord, certaintyWord, scoutScale, heightAtAge, START_AGE, GROWTH_END_AGE,
 } from './rules.js';
 import { config, leagueSites, displayNameOf } from './supabase.js';
 
@@ -396,10 +396,31 @@ export function classLine(klass) {
  * The class is recomputed from the sheet every time rather than read off the row, because
  * the row's `archetype` column is only the label he had on the day he was created.
  */
-export function describeCharacter(character) {
+/**
+ * How tall he is TODAY.
+ *
+ * `character.height_inches` is his height at fourteen and never moves; the inches he has put on
+ * since are recomputed from his id, so every surface has to ask for them rather than print the
+ * stored column. Falls back to the stored height when there is not enough to compute a curve.
+ */
+export function heightNow(character, currentSeason) {
+  const start = Number(character.height_inches);
+  if (!Number.isFinite(start)) return null;
+  const genes = Number((character.traits || {}).height_genes);
+  if (!character.id || !Number.isFinite(genes)) return start;
+  let age = START_AGE;
+  if (character.game_dob && currentSeason) {
+    const born = new Date(character.game_dob).getUTCFullYear();
+    const guess = Number(currentSeason) - born;
+    if (Number.isFinite(guess)) age = Math.max(START_AGE, Math.min(GROWTH_END_AGE, guess));
+  }
+  return heightAtAge(character.id, start, genes, age);
+}
+
+export function describeCharacter(character, currentSeason) {
   const klass = classify(character.ratings || {}, character.position);
   const bits = [
-    formatHeight(character.height_inches),
+    formatHeight(heightNow(character, currentSeason) ?? character.height_inches),
     klass.label,
     POSITION_LABELS[character.position] || character.position,
   ];

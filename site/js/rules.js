@@ -521,7 +521,7 @@ export const QUIZ_IDS = QUIZ.map((q) => q.id);
 
 /**
  * The career goal. Stored on the character, shown on his page as a line of character, and
- * worth one small mechanical thing: THE FOUR RATINGS THE GOAL NAMES COST 10% LESS PER
+ * worth one small mechanical thing: THE FOUR RATINGS THE GOAL NAMES COST `GOAL_DISCOUNT`% LESS PER
  * POINT, forever. That is the whole effect - it stacks with the trait bias into the same
  * clamped 85..115 window, so it can never be more than a nudge.
  */
@@ -562,6 +562,12 @@ export const CAREER_GOALS = [
     weights: { motor: 6, frame: 4, touch: -4 },
   },
 ];
+
+/** A trait of exactly 0 is a real value, not a missing one - `|| TRAIT_BASE` would hide it. */
+function coachTrait(traits) {
+  const v = Number((traits || {}).coachability);
+  return Number.isFinite(v) ? v : TRAIT_BASE;
+}
 
 export const GOAL_DISCOUNT = 5; // percent off the cost of a step, on the four it names
 
@@ -800,7 +806,8 @@ export function ratingAffinity(rating, traits) {
  */
 export function tendencies(position, traits) {
   const template = POSITION_TEMPLATES[position] || POSITION_TEMPLATES.SF;
-  const t = (k) => (Number((traits || {})[k]) || TRAIT_BASE) - TRAIT_BASE;
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : TRAIT_BASE);
+  const t = (k) => num((traits || {})[k]) - TRAIT_BASE;
 
   const usage = template['3pUsage']
     + (t('confidence') * 45) / 100
@@ -870,7 +877,10 @@ function bandFor(max, min, conviction) {
 
 /** How emphatic the quiz was about the two habits. */
 function tendencyConviction(traits) {
-  const off = (k) => Math.abs((Number((traits || {})[k]) || TRAIT_BASE) - TRAIT_BASE);
+  const off = (k) => {
+    const v = Number((traits || {})[k]);
+    return Math.abs((Number.isFinite(v) ? v : TRAIT_BASE) - TRAIT_BASE);
+  };
   return Math.min(1, (off('confidence') + off('discipline') + off('touch')) / 90);
 }
 
@@ -956,7 +966,7 @@ export function startingSheet(position, traits, opts = {}) {
   }
 
   const coach = Math.round(
-    (POTENTIAL_COACH_SWING * ((Number((traits || {}).coachability) || TRAIT_BASE) - TRAIT_BASE)) / 50,
+    (POTENTIAL_COACH_SWING * (coachTrait(traits) - TRAIT_BASE)) / 50,
   );
   const potentials = {};
   const potentialRanges = {};
@@ -1625,7 +1635,12 @@ export function validateBuild(build) {
     }
   }
 
-  const jersey = Number(b.jersey);
+  // Number(null) and Number('') are both 0, which would validate a blank field as jersey 0 -
+  // and worse, identitySeed would hash '' while the stored row says 0, so the character could
+  // never re-derive its own roll. Reject empty explicitly before coercing.
+  const jerseyRaw = b.jersey;
+  const jerseyBlank = jerseyRaw === null || jerseyRaw === undefined || String(jerseyRaw).trim() === '';
+  const jersey = jerseyBlank ? NaN : Number(jerseyRaw);
   if (!Number.isInteger(jersey) || jersey < JERSEY_MIN || jersey > JERSEY_MAX) {
     errors.push(`Pick a jersey number from ${JERSEY_MIN} to ${JERSEY_MAX}.`);
   }

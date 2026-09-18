@@ -124,7 +124,7 @@ function renderCharacter(character, requests, ledger, age) {
     el('span', { class: 'cv-pill' }, LEAGUE_LABELS[character.league] || character.league)));
 
   card.append(el('p', { class: 'cv-muted' },
-    `${describeCharacter(character)}`
+    `${describeCharacter(character, cfg.current_season)}`
     + (character.hometown ? ` · ${character.hometown}` : '')
     + (character.game_dob ? ` · born ${fmtDate(character.game_dob)} in game` : '')));
 
