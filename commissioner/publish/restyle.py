@@ -514,9 +514,25 @@ ROSTER_ATTR_COLUMNS = [
 NUM_CELL = re.compile(r"<td class=main>\s*(\d+)\s*</font></td>", re.I)
 
 
-def _swatch_colour(value):
-    """Which of the six ability colours a number falls in, worst to best."""
-    for edge, (colour, _) in zip((25, 35, 45, 55, 65), SWATCH_SCALE):
+# Where FBPB3 itself puts each colour, measured on 780 fillers whose pages still match the save,
+# as the MEAN of the abilities (current) and the mean of the potentials (future):
+#     current   red 21.1   orange 37.6   gold 40.7   green 55.8   blue 63.6
+#     potential red 30.7   orange 44.5   gold 49.1   green 48.4   blue 65.8   purple 74.1
+# The thresholds below are the midpoints between neighbours. They will not match the game
+# exactly - its ranges overlap, so it evidently grades relative to position rather than on a
+# flat average - but they put a player in the right neighbourhood.
+#
+# Two separate scales, because the potential one sits much higher: a ceiling of 75 is GOLD to
+# FBPB3, and purple needs about 98. Colouring both from one scale, off the MAX rather than the
+# mean it was derived from, painted every single character's ceiling purple - which flatters
+# five fourteen-year-olds into elite prospects and makes the colour meaningless.
+CURRENT_EDGES = (29, 39, 48, 60, 70)
+POTENTIAL_EDGES = (37, 47, 58, 66, 74)
+
+
+def _swatch_colour(value, edges=CURRENT_EDGES):
+    """Which of the six ability colours a MEAN falls in, worst to best."""
+    for edge, (colour, _) in zip(edges, SWATCH_SCALE):
         if value < edge:
             return colour
     return SWATCH_SCALE[-1][0]
@@ -571,10 +587,14 @@ def _live_roster_row(html, ours):
             new_html = "".join(pieces)
 
             # Recolour his two swatches, which were painted from the same stale numbers.
-            best = max((ratings[k] for k in ROSTER_ATTR_COLUMNS if k in ratings), default=0)
-            ceiling = max(pots.values()) if pots else best
+            # The MEAN, not the max - that is the basis the thresholds were measured on, and
+            # a max is always the player's one good skill.
+            have = [ratings[k] for k in ROSTER_ATTR_COLUMNS if k in ratings]
+            now = sum(have) / len(have) if have else 0
+            ceiling = sum(pots.values()) / len(pots) if pots else now
             head, rest = new_html[:at], new_html[at:]
-            colours = iter((_swatch_colour(best), _swatch_colour(ceiling)))
+            colours = iter((_swatch_colour(now, CURRENT_EDGES),
+                            _swatch_colour(ceiling, POTENTIAL_EDGES)))
             rest = re.sub(r"bgcolor=#[0-9A-Fa-f]{6}",
                           lambda _: f"bgcolor={next(colours)}", rest, count=2)
             html = head + rest
