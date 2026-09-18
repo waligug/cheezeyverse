@@ -1018,7 +1018,7 @@ function exampleCharacter() {
     },
   };
   const derived = deriveCharacter(form);
-  const season = 2030;
+  const season = 2026;
 
   // five years of getting better, capped by his own potentials, so the then/now table has a story
   const ratings = {};
@@ -1042,7 +1042,7 @@ function exampleCharacter() {
     league: 'college',
     team_abbrev: 'GRD',
     status: 'active',
-    game_dob: '2011-04-02',          // season 2030 makes him 19
+    game_dob: '2007-04-02',          // season 2026 makes him 19
     ratings,
     potentials,
     points_available: 6,

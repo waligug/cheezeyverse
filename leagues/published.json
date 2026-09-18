@@ -1,22 +1,22 @@
 {
- "published_at": "2026-09-18T11:27:11",
+ "published_at": "2026-09-18T11:54:11",
  "leagues": [
   {
    "league": "prep",
    "name": "Cheezeyverse Prep",
-   "pages": 605,
+   "pages": 603,
    "path": "C:\\claude\\hoops-universe\\site\\leagues\\prep"
   },
   {
    "league": "college",
    "name": "Cheezeyverse College",
-   "pages": 610,
+   "pages": 608,
    "path": "C:\\claude\\hoops-universe\\site\\leagues\\college"
   },
   {
    "league": "pro",
    "name": "Cheezeyverse",
-   "pages": 750,
+   "pages": 748,
    "path": "C:\\claude\\hoops-universe\\site\\leagues\\pro"
   }
  ]

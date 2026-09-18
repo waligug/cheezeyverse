@@ -181,7 +181,7 @@ const SETTING_DEFAULTS = {
   starting_points: 20,
   points_per_week: 1,
   auto_approve: false,
-  current_season: 2030,
+  current_season: 2026,
   current_week: 0,
 };
 
