@@ -459,7 +459,12 @@ class LeagueDat:
     def save(self, backup_dir=None):
         """Write in place after verifying a fresh parse sees exactly the intended values."""
         if backup_dir:
-            dest = Path(backup_dir) / datetime.now().strftime("%Y%m%d-%H%M%S")
+            # Name the folder after the SAVE, not just the clock. Every league's file is called
+            # league.dat, so a bare timestamp left 147 folders of identically named files with
+            # no way to tell a Prep backup from a Pro one without parsing each candidate - which
+            # is exactly the moment you least want to be guessing.
+            who = self.path.parent.name or "unknown"
+            dest = Path(backup_dir) / f'{datetime.now().strftime("%Y%m%d-%H%M%S")}-{who}'
             dest.mkdir(parents=True, exist_ok=True)
             shutil.copy2(self.path, dest / self.path.name)
         tmp = self.path.with_suffix(".dat.tmp")
