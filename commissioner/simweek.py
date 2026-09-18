@@ -519,6 +519,35 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
         game.exit_game(save=False)
         game = None
 
+        # ---- 2b. tidy up after the game --------------------------------------------------------
+        # The guard runs before the sim so the week is played with the right rosters. It has to
+        # run AFTER as well, because the AI churns during the week it just played: the first 2026
+        # week took all three leagues through preseason camp and left rosters at 17-20, with 241
+        # signings (all at our defang floor, so it is filling seats rather than chasing quality)
+        # and fifteen of OUR reserve slots cut.
+        #
+        # A cut reserve slot is not cosmetic. `_activate_pending` stamps a new character onto a
+        # slot the manifest says exists, then dresses him - and dress() raises "is not on a team"
+        # for a slot sitting in free agency. So the next person to sign up would fail to be
+        # placed, for a reason that has nothing to do with him.
+        #
+        # This cannot be done any earlier. The export reads the game's own memory, not the file,
+        # so a codec repair before it would not reach the published pages anyway - and CONVENTIONS
+        # forbids touching league.dat under a running FBPB3, which rewrites it whenever it saves.
+        # The consequence is that the pages published this week still show the churn; next week's
+        # export shows the repair. The SAVE is correct the moment the game closes, which is what
+        # everything else depends on.
+        for key in keys:
+            try:
+                from tools.protect_rosters import protect as _protect
+                after = _protect(key, store_characters=st.characters())
+            except Exception as exc:
+                emit("apply", f"post-sim tidy failed for {key} ({exc}); the week itself is fine", key)
+                continue
+            if after.get("released") or after.get("signed"):
+                emit("apply", f'tidied up after the week: {after["released"]} of the AI\'s '
+                              f'signings out, {after["signed"]} of ours back on a roster', key)
+
         # ---- 3. write down everybody's sheet ---------------------------------------------------
         # After the game has closed, never while it is open: CONVENTIONS forbids reading
         # league.dat under a running FBPB3, which rewrites it whenever it saves. Wrapped per
