@@ -614,3 +614,33 @@ table.cv-table tr:nth-child(even) td { background: var(--cream2); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---------------------------------------------------------------- the roll call
+   One row per real person's player. Deliberately not a table: at phone width a table of
+   eight columns becomes a horizontal scrollbar, and this list just stacks. */
+.cv-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px 0; }
+.cv-tab {
+  font: 600 13px/1 'Trebuchet MS', Verdana, sans-serif;
+  padding: 7px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--crust); background: transparent; color: var(--crust);
+}
+.cv-tab:hover { background: var(--row-alt); }
+.cv-tab.is-on { background: var(--gold); color: var(--ink); border-color: var(--crust); }
+
+.cv-roll {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  padding: 10px 12px; border-bottom: 1px solid var(--row-alt);
+}
+.cv-roll:last-child { border-bottom: 0; }
+.cv-roll.is-mine { background: var(--row-alt); border-radius: 6px; }
+.cv-roll-main { display: flex; align-items: baseline; gap: 8px; flex: 1 1 260px; }
+.cv-rollname { font-weight: 700; font-size: 16px; color: var(--crust); text-decoration: none; }
+a.cv-rollname:hover { text-decoration: underline; }
+.cv-roll-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 13px; flex: 1 1 240px; }
+.cv-roll-owner { flex: 0 0 auto; font-size: 12px; }
+.cv-chip-mine { background: var(--gold); color: var(--ink); font-weight: 700; }
+
+@media (max-width: 560px) {
+  .cv-roll { flex-direction: column; gap: 4px; }
+  .cv-roll-owner { order: 3; }
+}

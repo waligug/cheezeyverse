@@ -128,6 +128,9 @@ a.cv-ours:hover {{ background: {deep} !important; }}
 }}
 .cv-legend b {{ font-weight: 700 !important; margin-right: 3px !important; }}
 
+/* A result with no box score behind it. Left looking like data rather than a broken link. */
+.cv-noscore {{ color: {ink} !important; }}
+
 .cv-bar {{
   display: flex !important;
   flex-wrap: wrap !important;
@@ -362,8 +365,8 @@ def _nav_bar(league, season, prefix, current, key=None):
 # evidently grades relative to position rather than on a flat average - so this is the ORDER,
 # not a set of thresholds. Purple has so far only ever appeared as a potential.
 SWATCH_SCALE = [
-    ("#B0040C", "poor"), ("#F2662A", "fair"), ("#EDBE30", "decent"),
-    ("#307B1A", "good"), ("#0052C3", "excellent"), ("#9402B8", "elite"),
+    ("#B0040C", "poor"), ("#F2662A", "below average"), ("#EDBE30", "average"),
+    ("#307B1A", "good"), ("#0052C3", "very good"), ("#9402B8", "elite"),
 ]
 
 
@@ -401,9 +404,44 @@ def _mark_ours(html, ours):
     return PLAYER_LINK.sub(swap, html)
 
 
-def _skin_page(html, league, season, prefix, current, key=None, ours=None):
+BOX_LINK = re.compile(r'<a\s+class=linkmain\s+href=([^>\s]*?boxes/box[\w-]+\.htm)>([^<]*)</a>',
+                      re.I)
+
+
+def _unlink_dead_boxes(html, page_dir, src_root):
+    """Turn a link to a box score that was never written into plain text.
+
+    FBPB3's schedule links every result to `boxes/boxN-N.htm` whether or not it exported the
+    box scores - and ours does not export them, so all 52 links on the prep schedule alone are
+    404s. A score that looks clickable and goes nowhere is worse than one that is plainly just
+    a score: people try it twice and conclude the site is broken.
+
+    Checked against the file actually being there, so the day box scores ARE turned on the
+    links start working again with no change here.
+    """
+    if "boxes/box" not in html:
+        return html
+
+    def swap(m):
+        href, text = m.group(1), m.group(2)
+        target = (page_dir / href).resolve()
+        try:
+            target.relative_to(src_root)            # never look outside the export
+        except ValueError:
+            return m.group(0)
+        if target.exists():
+            return m.group(0)
+        return f'<span class="cv-noscore" title="no box score was exported">{text}</span>'
+
+    return BOX_LINK.sub(swap, html)
+
+
+def _skin_page(html, league, season, prefix, current, key=None, ours=None,
+               page_dir=None, src_root=None):
     """Put the nav bar just inside <body> so the page reads the same wherever it was opened."""
     html = _mark_ours(html, ours)
+    if page_dir is not None and src_root is not None:
+        html = _unlink_dead_boxes(html, page_dir, src_root)
     bar = FRAME_TEST + _nav_bar(league, season, prefix, current, key)
     if "bgcolor=#" in html.replace(" ", ""):        # a page that actually shows swatches
         bar += _legend()
@@ -457,7 +495,8 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
         if name == "menu.htm":
             html = _skin_menu(html, league, season, key or dst.name)
         elif name != "index.htm":
-            html = _skin_page(html, league, season, prefix, name, key or dst.name, ours)
+            html = _skin_page(html, league, season, prefix, name, key or dst.name, ours,
+                              page_dir=path.parent, src_root=src.resolve())
         target.write_text(html, encoding="latin-1", errors="replace")
         pages += 1
 
