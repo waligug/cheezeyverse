@@ -90,6 +90,10 @@ def git_push(message=None, branch=PAGES_BRANCH, remote="origin"):
             f"no git remote called {remote!r}. Create the GitHub repository, add it as a remote, "
             "and turn on Pages for the " + branch + " branch.")
 
+    kept_cname = ""
+    if git("rev-parse", "--verify", f"{branch}:CNAME", check=False).returncode == 0:
+        kept_cname = git("show", f"{branch}:CNAME", check=False).stdout.strip()
+
     work = ROOT / "tmp" / "pages-worktree"
     if work.exists():
         git("worktree", "remove", "--force", str(work), check=False)
@@ -102,6 +106,15 @@ def git_push(message=None, branch=PAGES_BRANCH, remote="origin"):
                 shutil.rmtree(child) if child.is_dir() else child.unlink()
         shutil.copytree(SITE, work, dirs_exist_ok=True)
         (work / ".nojekyll").write_text("", encoding="utf-8")   # or Pages skips folders like js/
+
+        # A custom domain lives in a CNAME file IN the published branch, and this publish replaces
+        # that branch wholesale - so without this the domain would break on every single sim.
+        # site/CNAME is the source of truth; keep whatever the branch already had otherwise.
+        domain = (SITE / "CNAME")
+        if domain.exists():
+            shutil.copy2(domain, work / "CNAME")
+        elif kept_cname:
+            (work / "CNAME").write_text(kept_cname, encoding="utf-8")
         git("add", "-f", ".", cwd=work)
         git("commit", "-m", message, cwd=work, check=False)
         git("push", "--force", remote, f"HEAD:{branch}", cwd=work)
