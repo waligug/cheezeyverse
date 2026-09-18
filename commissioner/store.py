@@ -47,7 +47,11 @@ CHARACTER_COLUMNS = (
     # the draft. Omitting them made every caller read None and conclude "not declared,
     # no college years" - which is indistinguishable from the real thing and is how a
     # write was three times believed not to have landed when it had.
-    "league_player_ids,level_history,declared,college_years,created_at"
+    "league_player_ids,level_history,declared,college_years,"
+    # traits carries height_genes, which apply_growth needs. Without it every character
+    # read None, growth skipped all of them, and the offseason reported "0 grew" - so
+    # nobody would ever have got taller, in a game whose whole premise is growing up.
+    "traits,created_at"
 )
 
 DRY_RUN = False  # set by --selftest; makes every call describe itself instead of firing

@@ -548,6 +548,32 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
                 emit("apply", f'tidied up after the week: {after["released"]} of the AI\'s '
                               f'signings out, {after["signed"]} of ours back on a roster', key)
 
+            # Putting them back on the roster is not the same as putting them back in the team.
+            # The AI coach benches the worst man when a roster is over-full, and a character
+            # built for prep IS the worst man in college or in the pros - so preseason padding
+            # left two of the three rehearsal characters at Inactive -1 with no depth-chart
+            # minutes and an empty game log. They had been dressed before the week; the coach
+            # undressed them during it.
+            #
+            # _dress_characters already runs BEFORE the sim, which cannot help: by then the
+            # padding has not happened yet. Running it again here means the save sits between
+            # weeks with every character dressed, so a person opening the site does not find
+            # their player benched, and the next week starts from a correct state rather than
+            # relying on the pre-sim pass to notice.
+            #
+            # It cannot stop a character being benched DURING a week - only simming the
+            # preseason as its own step, then guarding and dressing, then simming the week,
+            # would do that. Worth doing if regular-season weeks turn out to pad too.
+            try:
+                L2 = LeagueDat(path)
+                redressed = _dress_characters(key, L2, st, lambda m: emit("apply", m, key))
+                if redressed:
+                    L2.save(backup_dir=BACKUPS)
+                    emit("apply", f'put {len(redressed)} character(s) back in the lineup after '
+                                  f'the coach benched them: {", ".join(redressed[:4])}', key)
+            except Exception as exc:
+                emit("apply", f"could not re-dress in {key} ({exc}); the week itself is fine", key)
+
         # ---- 3. write down everybody's sheet ---------------------------------------------------
         # After the game has closed, never while it is open: CONVENTIONS forbids reading
         # league.dat under a running FBPB3, which rewrites it whenever it saves. Wrapped per
