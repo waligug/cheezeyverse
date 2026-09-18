@@ -123,8 +123,15 @@ def protect(key, dry_run=False, store_characters=None):
             restored += 1
             unclaimed = [p for p in L.players if (p.name, p.dob) not in keep
                          and _looks_like_ours(p, man, key)]
-        if not restored:
-            L = LeagueDat(path)
+        # The renames live in memory until they are written. Re-reading the file without
+        # saving first is how three restored Pro slots were silently thrown away: the loop
+        # printed "restored", the next line reloaded the unchanged file, and the save at the
+        # end of this function then wrote back a league that had never heard of them. Those
+        # three rows stayed unclaimed, got defanged as strangers, and were released - which
+        # is why two Pro rosters came out at 13 and 14 men.
+        if restored:
+            L.save(backup_dir=BACKUPS)
+        # Fresh read either way: a splice moves every offset captured before it.
         L = LeagueDat(path)
         keep, man = ours(key)
         for c in store_characters or []:
