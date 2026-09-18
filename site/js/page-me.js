@@ -15,6 +15,7 @@ import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
   myCharacters, requestsFor, ledgerFor, requestUpgrade, cancelRequest,
   declareForDraft, deletePendingCharacter, LEAGUE_LABELS, errorText,
+  oauthErrorFromUrl,
 } from './supabase.js';
 import {
   $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
@@ -35,10 +36,23 @@ $('#signin').addEventListener('click', () => signIn().catch(
 /** rendering state, one entry per character id */
 const drafts = new Map();
 
+/* An OAuth failure comes back in the URL, not as an exception - see oauthErrorFromUrl().
+   Read it before anything else so the page can say what happened instead of just looking
+   signed out. This runs even when the Supabase client is never constructed. */
+const cvOauthError = oauthErrorFromUrl();
+if (cvOauthError) showNote($('#notices'), 'bad', `Discord sign-in failed: ${cvOauthError}`);
+
 if (!isConfigured()) {
   $('#notices').append(setupNeededNote());
 } else {
-  boot().catch((err) => showNote($('#notices'), 'bad', errorText(err)));
+  boot().catch((err) => {
+    // The spinner lives inside #characters and is only ever cleared by a successful load(),
+    // so without this a failure leaves "Loading your players..." turning for ever beside the
+    // error message.
+    const spinner = $('#loading');
+    if (spinner) spinner.hidden = true;
+    showNote($('#notices'), 'bad', errorText(err));
+  });
 }
 
 async function boot() {

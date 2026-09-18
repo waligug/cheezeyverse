@@ -4,6 +4,7 @@
 import {
   isConfigured, leagueSites, config, signIn, signOut, currentUser, ensureProfile,
   recentCharacters, characterCounts, errorText,
+  oauthErrorFromUrl,
 } from './supabase.js';
 import {
   el, $, clear, renderChrome, renderFooter, setupNeededNote, showNote, statusPill,
@@ -28,6 +29,12 @@ document.title = cfg.universeName || 'The Cheezeyverse';
 
 renderLeagues();
 renderFooter();
+
+/* An OAuth failure comes back in the URL, not as an exception - see oauthErrorFromUrl().
+   Read it before anything else so the page can say what happened instead of just looking
+   signed out. This runs even when the Supabase client is never constructed. */
+const cvOauthError = oauthErrorFromUrl();
+if (cvOauthError) showNote($('#notices'), 'bad', `Discord sign-in failed: ${cvOauthError}`);
 
 if (!isConfigured()) {
   clear($('#recent'));

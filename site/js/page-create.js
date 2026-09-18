@@ -18,6 +18,7 @@ import {
 import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
   myCharacters, createCharacter, errorText,
+  oauthErrorFromUrl,
 } from './supabase.js';
 import {
   $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
@@ -55,6 +56,12 @@ $('#signin').addEventListener('click', () => signIn().catch(
 // Declared before first use: `preview()` runs immediately below, and a `let` further down the
 // file would still be in its temporal dead zone at that point.
 let previewOnly = false;
+
+/* An OAuth failure comes back in the URL, not as an exception - see oauthErrorFromUrl().
+   Read it before anything else so the page can say what happened instead of just looking
+   signed out. This runs even when the Supabase client is never constructed. */
+const cvOauthError = oauthErrorFromUrl();
+if (cvOauthError) showNote($('#notices'), 'bad', `Discord sign-in failed: ${cvOauthError}`);
 
 if (!isConfigured()) {
   // Preview mode. Without Supabase there is nobody to save a character for, but the whole point

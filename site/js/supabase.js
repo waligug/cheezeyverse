@@ -113,20 +113,59 @@ export function onAuthChange(fn) {
 }
 
 /**
- * Make sure this user has a profiles row. The auth.users trigger in schema.sql normally
- * has already done it; this is the fallback for a project where that trigger could not
- * be created, and it is cheap (one upsert) so it is safe to call on every page load.
+ * Make sure this user has a profiles row, and say so loudly if he has not.
+ *
+ * `cv_ensure_profile()` is the ONLY way a profile row can be created from the browser, by
+ * design: schema.sql revokes insert on `profiles` from authenticated and has no insert policy,
+ * so the security-definer RPC is the whole path. The second query here is a SELECT - it reads,
+ * it does not create - so if the RPC fails there is no fallback, only a diagnosis.
+ *
+ * That matters more than it looks. `characters.owner` references `profiles(id)`, and nothing
+ * else on the way notices a missing profile: the header still shows the right Discord name from
+ * user_metadata, the character list comes back empty, and the create form opens happily. The
+ * first sign of trouble was a raw foreign-key violation AFTER answering all fourteen questions.
+ * Returning null quietly is how that happens, so this throws instead.
  */
 export async function ensureProfile() {
   const user = await currentUser();
   if (!user) return null;
   const { data, error } = await client().rpc('cv_ensure_profile');
   if (!error && data) return Array.isArray(data) ? data[0] : data;
-  // the RPC is missing or refused: fall back to reading whatever row exists
-  const { data: rows } = await client()
+  const { data: rows, error: readError } = await client()
     .from('profiles').select('id,display_name,discord_username,is_admin').eq('id', user.id).limit(1);
-  return (rows && rows[0]) || null;
+  if (rows && rows[0]) return rows[0];
+  const why = (error && error.message) || (readError && readError.message) || 'no row came back';
+  console.error('cv_ensure_profile failed:', error || readError);
+  throw new Error(
+    `Signed in, but your player profile could not be set up (${why}). `
+    + 'Nothing you create would save. Tell the commissioner before going further.');
 }
+
+/**
+ * What the OAuth round trip said when it came back, or null.
+ *
+ * supabase-js defaults to the implicit flow, so a failure returns in the URL FRAGMENT
+ * (`#error=...&error_description=...`) rather than as a thrown error. The client parses that
+ * fragment during initialize(), throws internally, stores the result on a promise that
+ * `getSession()` awaits and then discards - so the page simply renders signed-out with no
+ * explanation and the only evidence is the address bar.
+ *
+ * Worse, `signInWithOAuth` never returns an error at all: it builds the authorize URL locally
+ * and calls location.assign, so every `if (error) throw error` around the sign-in button is
+ * unreachable. Reading the URL is the only way the site can tell anybody what went wrong.
+ */
+export function oauthErrorFromUrl() {
+  const read = (qs) => qs.get('error_description') || qs.get('error');
+  const found = read(new URLSearchParams(location.hash.replace(/^#/, '')))
+    || read(new URLSearchParams(location.search));
+  if (!found) return null;
+  try {
+    return decodeURIComponent(found.replace(/\+/g, ' '));
+  } catch {
+    return found;
+  }
+}
+
 
 export function displayNameOf(user, profile) {
   if (profile && profile.display_name) return profile.display_name;
