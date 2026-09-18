@@ -208,11 +208,18 @@ def _activate_pending(league_key, L, st, log):
             log(f"no reserve slot left in {league_key} for {c['first_name']} {c['last_name']}")
             break
         slots = [s for s in slots if s is not slot]
-        ch.stamp_character(L, slot, c)
-        st.activate_character(c["id"], league_key, slot.team, slot.as_json(), c["dob"])
+        # A character has no birthday of his own: the website never asks for one and the
+        # characters table has no column for it. He takes the birthday of the reserve slot he
+        # claims, which is the same birthday offseason.refill stamps back when he leaves and
+        # the one tools/stamp_dobs.py restores - so the save, the manifest and the store all
+        # name the same person. Without this the first sim after anybody created a character
+        # died on KeyError: 'dob'.
+        dob = ch.codec_dob(c.get("dob") or slot.dob)
+        ch.stamp_character(L, slot, {**c, "dob": dob})
+        st.activate_character(c["id"], league_key, slot.team, slot.as_json(), dob)
         if hasattr(st, "record_level"):
             try:
-                placed = L.find(f'{c["first_name"]} {c["last_name"]}', c["dob"])
+                placed = L.find(f'{c["first_name"]} {c["last_name"]}', dob)
                 st.record_level(c["id"], {
                     "level": league_key, "team_abbrev": slot.team, "player_id": placed.id,
                     "from_season": int(st.get_settings().get("current_season", 0)) or None,
@@ -222,7 +229,7 @@ def _activate_pending(league_key, L, st, log):
             except Exception as exc:
                 log(f"   (could not record the level for {c['first_name']}: {exc})")
         done.append(c)
-        expect.append((f'{c["first_name"]} {c["last_name"]}', c["dob"],
+        expect.append((f'{c["first_name"]} {c["last_name"]}', dob,
                        {"Height": int(c["height_inches"])}))
         log(f'{c["first_name"]} {c["last_name"]} claimed {slot.team} (was {slot.name})')
     return done, expect

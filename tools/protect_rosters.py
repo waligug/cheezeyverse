@@ -64,7 +64,7 @@ def protect(key, dry_run=False, store_characters=None):
         slot = c.get("claimed_slot") or {}
         if c.get("league") == key and slot:
             keep.discard((slot.get("name"), slot.get("dob")))
-            keep.add((f'{c["first_name"]} {c["last_name"]}', c.get("game_dob") or slot.get("dob")))
+            keep.add((f'{c["first_name"]} {c["last_name"]}', ch.codec_dob(c.get("game_dob") or slot.get("dob"))))
 
     L = LeagueDat(path)
 
@@ -139,7 +139,7 @@ def protect(key, dry_run=False, store_characters=None):
             if c.get("league") == key and slot:
                 keep.discard((slot.get("name"), slot.get("dob")))
                 keep.add((f'{c["first_name"]} {c["last_name"]}',
-                          c.get("game_dob") or slot.get("dob")))
+                          ch.codec_dob(c.get("game_dob") or slot.get("dob"))))
 
     mine = [p for p in L.players if (p.name, p.dob) in keep]
     theirs = [p for p in L.players if (p.name, p.dob) not in keep]

@@ -13,10 +13,10 @@
 
 window.CV_CONFIG = {
   // Supabase dashboard -> Project Settings -> API -> Project URL
-  supabaseUrl: 'https://YOUR-PROJECT-REF.supabase.co',
+  supabaseUrl: 'https://ldybkcsmgleausdnwdmb.supabase.co',
 
   // Supabase dashboard -> Project Settings -> API -> Project API keys -> anon / public
-  supabaseAnonKey: 'PASTE-YOUR-ANON-PUBLIC-KEY-HERE',
+  supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxkeWJrY3NtZ2xlYXVzZG53ZG1iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk3MDA5ODAsImV4cCI6MjEwNTI3Njk4MH0.9e7wohtEYuJFxqp6hhqXSQH9VF9GbpzZrAkNnLu2AsU',
 
   // The three FBPB3 HTML Output sites, published separately by the commissioner app
   // (commissioner/publish/restyle.py re-skins them). Standings, stats and box scores all

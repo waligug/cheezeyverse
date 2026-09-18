@@ -96,7 +96,7 @@ def _manifest():
 
 
 def age_of(character, season):
-    dob = character.get("game_dob") or (character.get("claimed_slot") or {}).get("dob")
+    dob = ch.codec_dob(character.get("game_dob") or (character.get("claimed_slot") or {}).get("dob"))
     if not dob:
         return growth.START_AGE if hasattr(growth, "START_AGE") else 14
     try:
@@ -240,7 +240,7 @@ def run_retirements(characters, store, season, log=print, dry_run=False):
         for c in live:
             name = f'{c["first_name"]} {c["last_name"]}'
             try:
-                dob = c.get("game_dob") or (c.get("claimed_slot") or {}).get("dob")
+                dob = ch.codec_dob(c.get("game_dob") or (c.get("claimed_slot") or {}).get("dob"))
                 pl, state = _locate(L, name, dob)
                 if state == "ambiguous":
                     raise OffseasonError(f"more than one record in the {key} save answers to "
@@ -284,7 +284,7 @@ def apply_growth(league_key, characters, season, log=print, dry_run=False):
         age = age_of(c, season)
         name = f'{c["first_name"]} {c["last_name"]}'
         try:
-            pl = L.find(name, c.get("game_dob"))
+            pl = L.find(name, ch.codec_dob(c.get("game_dob")))
         except Exception as exc:
             log(f"   ! {name}: {exc}")
             continue
@@ -294,7 +294,7 @@ def apply_growth(league_key, characters, season, log=print, dry_run=False):
         now = pl.values["Height"] + inches
         if not dry_run:
             L.set(pl, "Height", now)
-        expect.append((name, c.get("game_dob"), {"Height": now}))
+        expect.append((name, ch.codec_dob(c.get("game_dob")), {"Height": now}))
         grown.append({"character": c, "inches": inches, "height": now})
         log(f'   {name} grew {inches}" to {now // 12}\'{now % 12}" at {age}')
     if grown and not dry_run:
@@ -360,7 +360,7 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
     name = f'{character["first_name"]} {character["last_name"]}'
 
     src = LeagueDat(src_path)
-    pl = src.find(name, character.get("game_dob"))
+    pl = src.find(name, ch.codec_dob(character.get("game_dob")))
     ratings, potentials = _ratings_of(pl)
     height = pl.values["Height"]
 
@@ -391,17 +391,17 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
     dst = LeagueDat(dst_path)
     ch.stamp_character(dst, slot, {
         "first_name": character["first_name"], "last_name": character["last_name"],
-        "dob": character.get("game_dob") or slot.dob, "height_inches": height,
+        "dob": ch.codec_dob(character.get("game_dob") or slot.dob), "height_inches": height,
         "position": character.get("position"), "ratings": ratings, "potentials": potentials,
     })
-    ch.commit(dst, [(name, character.get("game_dob") or slot.dob, {"Height": height})])
+    ch.commit(dst, [(name, ch.codec_dob(character.get("game_dob") or slot.dob), {"Height": height})])
 
     refill(from_league, character, log=log)
     store.activate_character(character["id"], to_league, slot.team, slot.as_json(),
-                             character.get("game_dob"))
+                             ch.codec_dob(character.get("game_dob")))
     if hasattr(store, "record_level"):
         try:
-            placed = LeagueDat(dst_path).find(name, character.get("game_dob") or slot.dob)
+            placed = LeagueDat(dst_path).find(name, ch.codec_dob(character.get("game_dob") or slot.dob))
             store.record_level(character["id"], {
                 "level": to_league, "team_abbrev": slot.team, "player_id": placed.id,
                 "from_season": season, "to_season": None,
@@ -429,7 +429,7 @@ def refill(league_key, character, log=print):
     L = LeagueDat(path)
     name = f'{character["first_name"]} {character["last_name"]}'
     try:
-        pl = L.find(name, character.get("game_dob") or slot.get("dob"))
+        pl = L.find(name, ch.codec_dob(character.get("game_dob") or slot.get("dob")))
     except Exception as exc:
         log(f"   ! could not find {name} in {league_key} to refill his slot: {exc}")
         return False

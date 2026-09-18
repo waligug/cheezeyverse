@@ -55,6 +55,38 @@ class Slot:
                 "dob": self.dob, "position": self.position, "uniform": self.uniform}
 
 
+def codec_dob(value):
+    """Any birthday the store hands back, in the form the save file actually uses.
+
+    LeagueDat.find() compares the date as a STRING, and the codec builds it unpadded as
+    `M/D/YYYY` straight out of BirthMonth/BirthDay/BirthYear. `game_dob` is a Postgres `date`
+    column, so however it went in, Supabase returns it as `YYYY-MM-DD` - which matches no
+    player in any save, and a character who cannot be found in his own save cannot be
+    upgraded, promoted or retired ever again. The local JSON store keeps whatever string it
+    was given, so the two backends disagree unless everything normalises on the way in.
+
+    Accepts `M/D/YYYY`, `YYYY-MM-DD`, and anything with .year/.month/.day (date, datetime).
+    """
+    if value is None:
+        return None
+    if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
+        return f"{value.month}/{value.day}/{value.year}"
+    text = str(value).strip()
+    if not text:
+        return None
+    if "-" in text:                                   # ISO, from a date column
+        parts = text.split("T")[0].split("-")
+        if len(parts) == 3:
+            y, m, d = (int(x) for x in parts)
+            return f"{m}/{d}/{y}"
+    if "/" in text:                                   # already ours, but maybe zero padded
+        parts = text.split("/")
+        if len(parts) == 3:
+            m, d, y = (int(x) for x in parts)
+            return f"{m}/{d}/{y}"
+    raise ApplyError(f"cannot read {value!r} as a birthday")
+
+
 def save_path(league_key):
     return DOCS / "leaguedata" / cfg.BY_KEY[league_key].save_name / "league.dat"
 
@@ -106,11 +138,17 @@ def stamp_character(L, slot, character):
     if not character.get("position"):
         raise ApplyError(f'{character.get("first_name")} {character.get("last_name")} has no position')
 
-    pl = L.find(slot.name, slot.dob)
+    pl = L.find(slot.name, codec_dob(slot.dob))
     L.rename(pl, character["first_name"], character["last_name"])
-    pl = L.find(f'{character["first_name"]} {character["last_name"]}', slot.dob)
+    pl = L.find(f'{character["first_name"]} {character["last_name"]}', codec_dob(slot.dob))
 
-    month, day, year = (int(v) for v in character["dob"].split("/"))
+    dob = codec_dob(character.get("dob"))
+    if not dob:
+        raise ApplyError(
+            f'{character.get("first_name")} {character.get("last_name")} has no dob. The website '
+            "never sends one - a character takes the birthday of the reserve slot he claims, "
+            "which is also the birthday offseason.refill puts back when he leaves.")
+    month, day, year = (int(v) for v in dob.split("/"))
     L.set(pl, "BirthMonth", month)
     L.set(pl, "BirthDay", day)
     L.set(pl, "BirthYear", year)
@@ -137,7 +175,7 @@ def apply_deltas(L, name, dob, deltas):
     A rating is never pushed past its own potential - that is the game's rule, not ours, and a
     rating above its ceiling simply decays back.
     """
-    pl = L.find(name, dob)
+    pl = L.find(name, codec_dob(dob))
     moved = {}
     for field, delta in deltas.items():
         if field in LOCKED:
@@ -180,7 +218,7 @@ def commit(L, expect):
     wrong = []
     for name, dob, fields in expect:
         try:
-            pl = check.find(name, dob)
+            pl = check.find(name, codec_dob(dob))
         except CodecError as exc:
             wrong.append(f"{name} ({dob}): {exc}")
             continue

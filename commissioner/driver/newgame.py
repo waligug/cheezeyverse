@@ -60,16 +60,31 @@ class NewGame:
         self.g = game
 
     # ---- control access --------------------------------------------------------------------
-    def _at(self, rel):
-        r0 = self.g.main.rectangle()
-        for c in self.g.main.descendants():
+    def _at(self, rel, timeout=25):
+        """Find a control by its window-relative position, WAITING for it to exist.
+
+        A screen does not appear the instant CONTINUE is clicked, and how long it takes depends on
+        what else the machine is doing. Reading a control immediately after the click worked on the
+        first New Game of a session and failed on the third, which is how a rebuild deleted the
+        Prep save and then could not recreate it. Poll instead of assuming.
+        """
+        end = time.time() + timeout
+        last = None
+        while time.time() < end:
             try:
-                r = c.rectangle()
-                if (r.left - r0.left, r.top - r0.top) == rel:
-                    return c
-            except Exception:
-                continue
-        raise DriverError(f"no control at window-relative {rel}")
+                r0 = self.g.main.rectangle()
+                for c in self.g.main.descendants():
+                    try:
+                        r = c.rectangle()
+                        if (r.left - r0.left, r.top - r0.top) == rel:
+                            return c
+                    except Exception:
+                        continue
+            except Exception as exc:
+                last = exc
+            time.sleep(0.5)
+        raise DriverError(f"no control at window-relative {rel} after {timeout}s"
+                          + (f" ({last})" if last else ""))
 
     def combo(self, rel, value):
         c = self._at(rel)

@@ -99,7 +99,14 @@ def git_push(message=None, branch=PAGES_BRANCH, remote="origin"):
         git("worktree", "remove", "--force", str(work), check=False)
         shutil.rmtree(work, ignore_errors=True)
     exists = git("rev-parse", "--verify", branch, check=False).returncode == 0
-    git("worktree", "add", *( [] if exists else ["--orphan"] ), str(work), *([branch] if exists else [branch]))
+    # `git worktree add --orphan <path> <branch>` is rejected: --orphan takes the branch name via
+    # -b and refuses a commit-ish alongside it.
+    if exists:
+        git("worktree", "add", str(work), branch)
+    else:
+        git("worktree", "add", "--detach", str(work))
+        git("checkout", "--orphan", branch, cwd=work)
+        git("rm", "-rf", "--cached", ".", cwd=work, check=False)
     try:
         for child in work.iterdir():
             if child.name != ".git":

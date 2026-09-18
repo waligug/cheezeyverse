@@ -1,0 +1,1161 @@
+{
+ "characters": [
+  {
+   "first_name": "Cheezey",
+   "last_name": "McTest",
+   "league": "pro",
+   "position": "PG",
+   "height_inches": 68,
+   "dob": "4/2/2016",
+   "hometown": "Wetaskiwin, AB",
+   "jersey_preference": 7,
+   "ratings": {
+    "Handling": 24,
+    "Passing": 26,
+    "Quickness": 22,
+    "JumpShot": 17,
+    "3pShot": 15,
+    "3pUsage": 44,
+    "PerimeterDefense": 16,
+    "Stealing": 18,
+    "InsideScoring": 12,
+    "Stamina": 55,
+    "Fouling": 40
+   },
+   "potentials": {
+    "PotHandling": 78,
+    "PotPassing": 82,
+    "Pot3pShot": 61,
+    "PotJumpShot": 66
+   },
+   "status": "active",
+   "id": "b5beefeb5585408db065c99f74c53597",
+   "points_available": 240,
+   "points_spent": -19,
+   "created_at": "2026-09-18T00:02:38+00:00",
+   "team_abbrev": "EDM",
+   "claimed_slot": {
+    "league": "pro",
+    "team": "EDM",
+    "name": "Lane Felts",
+    "dob": "10/14/2007",
+    "position": "PG",
+    "uniform": 14
+   },
+   "game_dob": "4/2/2016",
+   "activated_at": "2026-09-18T01:15:20+00:00",
+   "college_years": 3,
+   "points_reserved": 42
+  },
+  {
+   "first_name": "Wheel",
+   "last_name": "Gouda",
+   "league": "pro",
+   "position": "SF",
+   "height_inches": 76,
+   "dob": "3/9/2013",
+   "traits": {
+    "height_genes": 72
+   },
+   "hometown": "Gouda, NLD",
+   "jersey_preference": 33,
+   "ratings": {
+    "InsideScoring": 34,
+    "JumpShot": 31,
+    "Handling": 28,
+    "Passing": 26,
+    "PerimeterDefense": 30,
+    "DReb": 29,
+    "Quickness": 30,
+    "Stamina": 60
+   },
+   "potentials": {
+    "PotInside": 74,
+    "PotJumpShot": 70,
+    "PotHandling": 62
+   },
+   "status": "active",
+   "id": "933851e53b534bd984316b612d69acfe",
+   "points_available": 230,
+   "points_spent": 0,
+   "created_at": "2026-09-18T00:57:47+00:00",
+   "team_abbrev": "GOU",
+   "claimed_slot": {
+    "league": "pro",
+    "team": "GOU",
+    "name": "Mauricio Babin",
+    "dob": "2/10/2008",
+    "position": "SF",
+    "uniform": 10
+   },
+   "game_dob": "3/9/2013",
+   "activated_at": "2026-09-18T01:14:57+00:00",
+   "college_years": 3
+  },
+  {
+   "first_name": "Brie",
+   "last_name": "Cheddar",
+   "league": "pro",
+   "position": "PG",
+   "height_inches": 74,
+   "dob": "6/1/2012",
+   "traits": {
+    "height_genes": 55
+   },
+   "hometown": "Cheddar, ENG",
+   "jersey_preference": 4,
+   "college_years": 0,
+   "declared": true,
+   "ratings": {
+    "Handling": 62,
+    "Passing": 58,
+    "Quickness": 55,
+    "JumpShot": 50,
+    "3pShot": 48,
+    "PerimeterDefense": 46,
+    "Stamina": 65,
+    "Blocking": 6
+   },
+   "potentials": {
+    "PotHandling": 88,
+    "PotPassing": 85,
+    "Pot3pShot": 72
+   },
+   "status": "active",
+   "id": "59c5ae1e543141ce8763bca229395642",
+   "points_available": 182,
+   "points_spent": 0,
+   "created_at": "2026-09-18T01:10:49+00:00",
+   "team_abbrev": "GOU",
+   "claimed_slot": {
+    "league": "pro",
+    "team": "GOU",
+    "name": "Dwight Hebron",
+    "dob": "9/5/2007",
+    "position": "PG",
+    "uniform": 12
+   },
+   "game_dob": "6/1/2012",
+   "activated_at": "2026-09-18T01:10:53+00:00"
+  },
+  {
+   "first_name": "Stilton",
+   "last_name": "Blue",
+   "league": "college",
+   "position": "PF",
+   "height_inches": 78,
+   "dob": "4/4/2029",
+   "traits": {
+    "height_genes": 58
+   },
+   "hometown": "Stilton, ENG",
+   "jersey_preference": 44,
+   "ratings": {
+    "InsideScoring": 40,
+    "DReb": 38,
+    "Handling": 25,
+    "Stamina": 60
+   },
+   "potentials": {
+    "PotInside": 80,
+    "PotDReb": 76
+   },
+   "status": "active",
+   "id": "49009b05695349fcaf78bf660550614b",
+   "points_available": 17,
+   "points_spent": 0,
+   "created_at": "2026-09-18T01:20:21+00:00",
+   "team_abbrev": "MJW",
+   "claimed_slot": {
+    "league": "college",
+    "team": "MJW",
+    "name": "Jamal Garvin",
+    "dob": "2/1/2011",
+    "position": "PG",
+    "uniform": 52
+   },
+   "game_dob": "4/4/2029",
+   "activated_at": "2026-09-18T01:20:25+00:00",
+   "level_history": [
+    {
+     "level": "prep",
+     "team_abbrev": "SAS",
+     "player_id": 53,
+     "from_season": 2046,
+     "from_age": null,
+     "to_season": 2046,
+     "how_it_started": "created",
+     "how_it_ended": "aged out of prep"
+    },
+    {
+     "level": "college",
+     "team_abbrev": "MJW",
+     "player_id": 53,
+     "from_season": 2046,
+     "to_season": null,
+     "how_it_started": "aged out of prep",
+     "how_it_ended": null,
+     "carried": 0.97,
+     "years_early": 0
+    }
+   ],
+   "league_player_ids": {
+    "prep": 53,
+    "college": 53
+   }
+  },
+  {
+   "first_name": "Gouda",
+   "last_name": "Kid",
+   "league": "prep",
+   "position": "SF",
+   "height_inches": 74,
+   "dob": "6/6/2033",
+   "hometown": "Gouda, NLD",
+   "jersey_preference": 12,
+   "traits": {
+    "touch": 47,
+    "handle": 55,
+    "vision": 46,
+    "motor": 83,
+    "frame": 68,
+    "explosiveness": 44,
+    "discipline": 77,
+    "confidence": 50,
+    "coachability": 60,
+    "basketball_iq": 61,
+    "height_genes": 66
+   },
+   "ratings": {
+    "InsideScoring": 29,
+    "JumpShot": 28,
+    "FtShot": 23,
+    "3pUsage": 11,
+    "3pShot": 26,
+    "Handling": 27,
+    "Passing": 20,
+    "Quickness": 23,
+    "PostDefense": 19,
+    "PerimeterDefense": 29,
+    "Stealing": 26,
+    "Blocking": 20,
+    "OReb": 27,
+    "DReb": 23,
+    "Jumping": 21,
+    "Strength": 22,
+    "Stamina": 21,
+    "Fouling": 25
+   },
+   "potentials": {
+    "PotInsideScoring": 68,
+    "PotJumpShot": 65,
+    "PotFtShot": 63,
+    "Pot3pShot": 64,
+    "PotHandling": 69,
+    "PotPassing": 51,
+    "PotOReb": 71,
+    "PotDReb": 69,
+    "PotPostDefense": 65,
+    "PotPerimeterDefense": 76,
+    "PotStealing": 65,
+    "PotBlocking": 54
+   },
+   "status": "active",
+   "id": "2087485d68964a908f7baf708acdafd7",
+   "points_available": 1,
+   "points_spent": 0,
+   "points_reserved": 0,
+   "created_at": "2026-09-18T02:36:29+00:00",
+   "team_abbrev": "SAS",
+   "claimed_slot": {
+    "league": "prep",
+    "team": "SAS",
+    "name": "Bret Fenner",
+    "dob": "11/24/2016",
+    "position": "SF",
+    "uniform": 17
+   },
+   "game_dob": "6/6/2033",
+   "activated_at": "2026-09-18T02:36:30+00:00",
+   "level_history": [
+    {
+     "level": "prep",
+     "team_abbrev": "SAS",
+     "player_id": 54,
+     "from_season": 2047,
+     "from_age": null,
+     "to_season": null,
+     "how_it_started": "created",
+     "how_it_ended": null
+    }
+   ],
+   "league_player_ids": {
+    "prep": 54
+   }
+  }
+ ],
+ "requests": [
+  {
+   "id": "16d64e69539e45d38ffe74ab9ae2a8d8",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": 2,
+   "kind": "rating",
+   "cost": 2,
+   "status": "applied",
+   "requested_at": "2026-09-18T00:11:33+00:00",
+   "applied_at": "2026-09-18T00:11:35+00:00",
+   "note": ""
+  },
+  {
+   "id": "2c6f0af737084158b371f21cd66b804c",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Passing",
+   "delta": 2,
+   "kind": "rating",
+   "cost": 2,
+   "status": "applied",
+   "requested_at": "2026-09-18T00:11:33+00:00",
+   "applied_at": "2026-09-18T00:11:35+00:00",
+   "note": ""
+  },
+  {
+   "id": "f2f5093a21884047892a3e28e8243fde",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": 2,
+   "kind": "rating",
+   "cost": 20,
+   "status": "applied",
+   "requested_at": "2026-09-18T02:08:54+00:00",
+   "applied_at": "2026-09-18T02:08:54+00:00",
+   "note": ""
+  },
+  {
+   "id": "032885424c53400b9662ec6e1ecfeaf6",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Telekinesis",
+   "delta": 2,
+   "kind": "rating",
+   "cost": 2,
+   "status": "rejected",
+   "requested_at": "2026-09-18T02:09:09+00:00",
+   "applied_at": null,
+   "note": "there is no rating called Telekinesis"
+  },
+  {
+   "id": "d322b1f5c34c4a85b32c7d35574bb5f3",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Fouling",
+   "delta": 2,
+   "kind": "rating",
+   "cost": 2,
+   "status": "rejected",
+   "requested_at": "2026-09-18T02:09:09+00:00",
+   "applied_at": null,
+   "note": "that rating cannot be spent on"
+  },
+  {
+   "id": "f7a8bd1ce1cc4f5d95cc24956514a952",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": 1,
+   "kind": "rating",
+   "cost": 3,
+   "status": "applied",
+   "requested_at": "2026-09-18T02:09:31+00:00",
+   "applied_at": "2026-09-18T02:30:31+00:00",
+   "note": ""
+  },
+  {
+   "id": "0ef8070304df4e829eea1b54d6c43447",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": -5,
+   "kind": "rating",
+   "cost": -50,
+   "status": "applied",
+   "requested_at": "2026-09-18T02:13:35+00:00",
+   "applied_at": "2026-09-18T02:30:31+00:00",
+   "note": ""
+  },
+  {
+   "id": "73e6f886a47d4ff49504975c3913ff23",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Passing",
+   "delta": 5,
+   "kind": "rating",
+   "cost": 0,
+   "status": "applied",
+   "requested_at": "2026-09-18T02:13:35+00:00",
+   "applied_at": "2026-09-18T02:30:31+00:00",
+   "note": ""
+  },
+  {
+   "id": "d416d2b20e5743e1adb71757a3ec65d3",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Passing",
+   "delta": 5,
+   "kind": "rating",
+   "cost": 0,
+   "status": "applied",
+   "requested_at": "2026-09-18T02:13:35+00:00",
+   "applied_at": "2026-09-18T02:30:31+00:00",
+   "note": ""
+  },
+  {
+   "id": "a9d6a004ff304c14bc1c8e13d809146b",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Passing",
+   "delta": 5,
+   "kind": "rating",
+   "cost": 0,
+   "status": "applied",
+   "requested_at": "2026-09-18T02:13:35+00:00",
+   "applied_at": "2026-09-18T02:30:31+00:00",
+   "note": ""
+  },
+  {
+   "id": "82e1ecd03eb749548e71e283c9d59048",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": 5,
+   "kind": "rating",
+   "cost": 5,
+   "status": "applied",
+   "requested_at": "2026-09-18T02:14:06+00:00",
+   "applied_at": "2026-09-18T02:30:31+00:00",
+   "note": ""
+  },
+  {
+   "id": "5b80adc666cb4424b9b5bf84da4ee755",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": 3,
+   "kind": "rating",
+   "cost": 3,
+   "status": "applied",
+   "requested_at": "2026-09-18T02:14:06+00:00",
+   "applied_at": "2026-09-18T02:30:31+00:00",
+   "note": ""
+  }
+ ],
+ "ledger": [
+  {
+   "id": "5025a53a709744ccb5b12c438ab1e987",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 2,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T00:08:09+00:00"
+  },
+  {
+   "id": "11995ecdb2544828aa725da8319143cb",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T00:14:13+00:00"
+  },
+  {
+   "id": "f97aecbb630146edacaa0588f493cb0a",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:10:53+00:00"
+  },
+  {
+   "id": "95e749b453e248bc9bedcab4b5bb94b6",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:10:53+00:00"
+  },
+  {
+   "id": "a8947cca53304175bdb44c0e6e9955fa",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 12,
+   "reason": "college development",
+   "created_at": "2026-09-18T01:10:53+00:00"
+  },
+  {
+   "id": "512c0922eaf24ef4b23877984711f095",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:10:53+00:00"
+  },
+  {
+   "id": "8aff24ac73ca45c4a8fa960800b81ad2",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:51+00:00"
+  },
+  {
+   "id": "5e9fd3c1feab4118b1e10491bdaf5161",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:51+00:00"
+  },
+  {
+   "id": "aa4a18309f3e4eaa9d2d2ad893539c62",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 12,
+   "reason": "college development",
+   "created_at": "2026-09-18T01:14:51+00:00"
+  },
+  {
+   "id": "6d8ab7965c74472db710ccf78d90f955",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:51+00:00"
+  },
+  {
+   "id": "8fdc974c86084e268da13cccb1fe5726",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:54+00:00"
+  },
+  {
+   "id": "c6213b10b32d46c29bf761a9bb46a942",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:54+00:00"
+  },
+  {
+   "id": "bdfb542a0b544969a1f6b6bb32d4cf21",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 12,
+   "reason": "college development",
+   "created_at": "2026-09-18T01:14:54+00:00"
+  },
+  {
+   "id": "014e5f6d5eb743a0bf7e1a72386839fd",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:54+00:00"
+  },
+  {
+   "id": "64a39f5363d1439ba02fe0fb90783a58",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:54+00:00"
+  },
+  {
+   "id": "0f7fba3c742c478e80587568d8a399c1",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 12,
+   "reason": "college development",
+   "created_at": "2026-09-18T01:14:54+00:00"
+  },
+  {
+   "id": "25eb5473caa148eba5a634fc5f3ee702",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:54+00:00"
+  },
+  {
+   "id": "d684923ab87d453a898b3d1a5c023f7e",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 12,
+   "reason": "college development",
+   "created_at": "2026-09-18T01:14:54+00:00"
+  },
+  {
+   "id": "62274e6e52e34bd1a6ff0799e1d3ed0d",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:54+00:00"
+  },
+  {
+   "id": "5558da3079064aecb343ebaacdd42e79",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:57+00:00"
+  },
+  {
+   "id": "7827b13524d14d1b88dcbbd16d259723",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 12,
+   "reason": "college development",
+   "created_at": "2026-09-18T01:14:57+00:00"
+  },
+  {
+   "id": "dcc100deb84b486b8d5c533a4afbcb58",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:57+00:00"
+  },
+  {
+   "id": "1fa1f472e627407481b9f42d45f1d2d7",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:14:57+00:00"
+  },
+  {
+   "id": "6a486c49ddec42faa5686f92384527ad",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:15:17+00:00"
+  },
+  {
+   "id": "42814d93fde34de990546e0faa996128",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 12,
+   "reason": "college development",
+   "created_at": "2026-09-18T01:15:17+00:00"
+  },
+  {
+   "id": "48c658cb0ec3413a9c49147af59717be",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:15:17+00:00"
+  },
+  {
+   "id": "ea6dd91361d640d3b3a16b637d8f0d72",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:15:17+00:00"
+  },
+  {
+   "id": "e03e2ba3a5484762aaec63da4926a0a4",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:15:20+00:00"
+  },
+  {
+   "id": "bc9ce913d2f04f58a1d30bcbc32c4f1e",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:15:20+00:00"
+  },
+  {
+   "id": "5556684760db469ab7bffef86e68838e",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:15:20+00:00"
+  },
+  {
+   "id": "8e8282363c6d45479d855150d9cbc230",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:15:37+00:00"
+  },
+  {
+   "id": "8bbef206059a42f19fd21eb4cd89247d",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:15:37+00:00"
+  },
+  {
+   "id": "fa748f202eaf4409bb4d119991ce26fe",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:15:37+00:00"
+  },
+  {
+   "id": "7ef913d37f374d269373a079b837a491",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:16:12+00:00"
+  },
+  {
+   "id": "98d02c7a656c468298abc73a81966e5f",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:16:12+00:00"
+  },
+  {
+   "id": "eea79b15a96f4e5e8fde380fab2157b6",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:16:12+00:00"
+  },
+  {
+   "id": "b804b1f1af6e455e8ec62ea3181d2db5",
+   "character_id": "8d34c710d52042b38f1e46e83e7ce810",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:16:12+00:00"
+  },
+  {
+   "id": "20145c5693d74f71b4379f21efd9c052",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "ce4d1eba50684736bd304160524185e1",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "ce6edc58682246d0ab88071b1adcef91",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "4726b40bc3fb45509912d23d5a7bbc90",
+   "character_id": "9fc19e4c227c4e3aac26ffa0f9ec6ebf",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "ca7afce9e0f74bbd9fd6c2b188715303",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "cc443b5219da48188d910bbe34a3f782",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "9cfe6707808846c297e9cb544292c58d",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "0e4e37ea44a741188589f2511d899999",
+   "character_id": "9fc19e4c227c4e3aac26ffa0f9ec6ebf",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "b4bbcfa031af4f28bbefef8ef1ee1399",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "c76958f74d0e4c2a9816bad4f8e263d9",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "7e156d82263c4dec9f50e333a91517b7",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "afeb32c8d8234849bfcee3206c77e8e4",
+   "character_id": "9fc19e4c227c4e3aac26ffa0f9ec6ebf",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "059dac10513346709822daae67bb7e53",
+   "character_id": "49009b05695349fcaf78bf660550614b",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "99689495fc5149fbb6023cc5b9e9b726",
+   "character_id": "49009b05695349fcaf78bf660550614b",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "id": "1f0e6b2e2c97423ea4c440824f468c90",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "id": "19265a8bef90453d885718a9e1d9147c",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "id": "56185338a0424bbca9c2209fe1da913b",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "id": "186a924266c140109669043737d438a2",
+   "character_id": "49009b05695349fcaf78bf660550614b",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:35:42+00:00"
+  },
+  {
+   "id": "a9203c5442ed4d67b509467e103eee80",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:35:42+00:00"
+  },
+  {
+   "id": "1e8623a9ee504a99b22bfed7c1ae3c11",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:35:42+00:00"
+  },
+  {
+   "id": "735ca934e567417dbd27f6bf716492b9",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:35:42+00:00"
+  },
+  {
+   "id": "fbcca0895d8048f8bd387f43bc44e562",
+   "character_id": "2087485d68964a908f7baf708acdafd7",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:40:05+00:00"
+  }
+ ],
+ "runs": [
+  {
+   "ok": true,
+   "leagues": [
+    "prep"
+   ],
+   "days": 10,
+   "dry_run": false,
+   "applied": 0,
+   "activated": 0,
+   "snapshots": 1,
+   "errors": [],
+   "seconds": 201,
+   "at": "2026-09-18T02:40:05+00:00"
+  },
+  {
+   "ok": true,
+   "leagues": [
+    "college",
+    "pro"
+   ],
+   "days": 7,
+   "dry_run": false,
+   "applied": 7,
+   "activated": 0,
+   "snapshots": 4,
+   "errors": [],
+   "seconds": 315,
+   "at": "2026-09-18T02:35:42+00:00"
+  },
+  {
+   "ok": true,
+   "leagues": [
+    "prep",
+    "college",
+    "pro"
+   ],
+   "days": 7,
+   "dry_run": false,
+   "applied": 0,
+   "activated": 0,
+   "errors": [],
+   "seconds": 464,
+   "at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "ok": false,
+   "leagues": [
+    "prep",
+    "college",
+    "pro"
+   ],
+   "days": 7,
+   "dry_run": false,
+   "applied": 0,
+   "activated": 0,
+   "errors": [
+    "0 players match 'Mauricio Babin' dob=None"
+   ],
+   "seconds": 4,
+   "at": "2026-09-18T01:31:14+00:00"
+  },
+  {
+   "ok": true,
+   "leagues": [
+    "prep"
+   ],
+   "days": 7,
+   "dry_run": false,
+   "applied": 2,
+   "activated": 0,
+   "errors": [],
+   "seconds": 160,
+   "at": "2026-09-18T00:14:13+00:00"
+  }
+ ],
+ "snapshots": [
+  {
+   "id": "08e9b7d7d1a34f379f9e55bb2f5e2e13",
+   "character_id": "49009b05695349fcaf78bf660550614b",
+   "season": 2047,
+   "week": 2,
+   "ratings": {
+    "InsideScoring": 39,
+    "JumpShot": 12,
+    "FtShot": 9,
+    "3pUsage": 43,
+    "3pShot": 10,
+    "Handling": 18,
+    "Passing": 8,
+    "Quickness": 11,
+    "PostDefense": 4,
+    "PerimeterDefense": 11,
+    "Stealing": 4,
+    "Blocking": 12,
+    "OReb": 5,
+    "DReb": 37,
+    "Jumping": 4,
+    "Strength": 7,
+    "Stamina": 58,
+    "Fouling": 39
+   },
+   "potentials": {
+    "PotInside": 80,
+    "PotJumpShot": 25,
+    "PotFtShot": 15,
+    "Pot3pShot": 15,
+    "PotHandling": 18,
+    "PotPassing": 14,
+    "PotOReb": 14,
+    "PotDReb": 76,
+    "PotPostDefense": 21,
+    "PotPerimeterDefense": 16,
+    "PotStealing": 23,
+    "PotBlocking": 20
+   },
+   "height_inches": 79,
+   "league": "college",
+   "taken_at": "2026-09-18T02:35:40+00:00"
+  },
+  {
+   "id": "35b6c4ce186f402f87063cb27d508ad2",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "season": 2047,
+   "week": 2,
+   "ratings": {
+    "InsideScoring": 7,
+    "JumpShot": 15,
+    "FtShot": 8,
+    "3pUsage": 40,
+    "3pShot": 14,
+    "Handling": 28,
+    "Passing": 40,
+    "Quickness": 20,
+    "PostDefense": 1,
+    "PerimeterDefense": 15,
+    "Stealing": 16,
+    "Blocking": 1,
+    "OReb": 3,
+    "DReb": 3,
+    "Jumping": 10,
+    "Strength": 4,
+    "Stamina": 50,
+    "Fouling": 37
+   },
+   "potentials": {
+    "PotInside": 7,
+    "PotJumpShot": 66,
+    "PotFtShot": 16,
+    "Pot3pShot": 61,
+    "PotHandling": 78,
+    "PotPassing": 82,
+    "PotOReb": 6,
+    "PotDReb": 11,
+    "PotPostDefense": 7,
+    "PotPerimeterDefense": 17,
+    "PotStealing": 18,
+    "PotBlocking": 4
+   },
+   "height_inches": 68,
+   "league": "pro",
+   "taken_at": "2026-09-18T02:35:41+00:00"
+  },
+  {
+   "id": "20da49a926484c36b7c65681c936124f",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "season": 2047,
+   "week": 2,
+   "ratings": {
+    "InsideScoring": 32,
+    "JumpShot": 29,
+    "FtShot": 6,
+    "3pUsage": 15,
+    "3pShot": 6,
+    "Handling": 26,
+    "Passing": 12,
+    "Quickness": 28,
+    "PostDefense": 8,
+    "PerimeterDefense": 19,
+    "Stealing": 7,
+    "Blocking": 4,
+    "OReb": 5,
+    "DReb": 13,
+    "Jumping": 11,
+    "Strength": 5,
+    "Stamina": 56,
+    "Fouling": 60
+   },
+   "potentials": {
+    "PotInside": 74,
+    "PotJumpShot": 70,
+    "PotFtShot": 15,
+    "Pot3pShot": 13,
+    "PotHandling": 62,
+    "PotPassing": 12,
+    "PotOReb": 19,
+    "PotDReb": 13,
+    "PotPostDefense": 19,
+    "PotPerimeterDefense": 19,
+    "PotStealing": 17,
+    "PotBlocking": 18
+   },
+   "height_inches": 80,
+   "league": "pro",
+   "taken_at": "2026-09-18T02:35:41+00:00"
+  },
+  {
+   "id": "3a190da947c14756b8089d5f338b611d",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "season": 2047,
+   "week": 2,
+   "ratings": {
+    "InsideScoring": 5,
+    "JumpShot": 12,
+    "FtShot": 9,
+    "3pUsage": 26,
+    "3pShot": 35,
+    "Handling": 45,
+    "Passing": 42,
+    "Quickness": 40,
+    "PostDefense": 1,
+    "PerimeterDefense": 24,
+    "Stealing": 6,
+    "Blocking": 3,
+    "OReb": 3,
+    "DReb": 3,
+    "Jumping": 10,
+    "Strength": 4,
+    "Stamina": 47,
+    "Fouling": 50
+   },
+   "potentials": {
+    "PotInside": 8,
+    "PotJumpShot": 12,
+    "PotFtShot": 26,
+    "Pot3pShot": 72,
+    "PotHandling": 88,
+    "PotPassing": 85,
+    "PotOReb": 6,
+    "PotDReb": 11,
+    "PotPostDefense": 7,
+    "PotPerimeterDefense": 24,
+    "PotStealing": 19,
+    "PotBlocking": 3
+   },
+   "height_inches": 74,
+   "league": "pro",
+   "taken_at": "2026-09-18T02:35:41+00:00"
+  },
+  {
+   "id": "853a043d7e9e4f1a9840d1c1bd42ef95",
+   "character_id": "2087485d68964a908f7baf708acdafd7",
+   "season": 2047,
+   "week": 3,
+   "ratings": {
+    "InsideScoring": 5,
+    "JumpShot": 28,
+    "FtShot": 23,
+    "3pUsage": 11,
+    "3pShot": 26,
+    "Handling": 27,
+    "Passing": 20,
+    "Quickness": 23,
+    "PostDefense": 19,
+    "PerimeterDefense": 29,
+    "Stealing": 26,
+    "Blocking": 20,
+    "OReb": 27,
+    "DReb": 23,
+    "Jumping": 21,
+    "Strength": 22,
+    "Stamina": 21,
+    "Fouling": 25
+   },
+   "potentials": {
+    "PotInside": 5,
+    "PotJumpShot": 65,
+    "PotFtShot": 63,
+    "Pot3pShot": 64,
+    "PotHandling": 69,
+    "PotPassing": 51,
+    "PotOReb": 71,
+    "PotDReb": 69,
+    "PotPostDefense": 65,
+    "PotPerimeterDefense": 76,
+    "PotStealing": 65,
+    "PotBlocking": 54
+   },
+   "height_inches": 74,
+   "league": "prep",
+   "taken_at": "2026-09-18T02:40:05+00:00"
+  }
+ ],
+ "settings": {
+  "max_characters": 2,
+  "auto_approve": true,
+  "current_season": 2047,
+  "current_week": 3,
+  "points_per_week": 1,
+  "offseason_points": 15,
+  "college_development_bonus": 12,
+  "last_offseason": 2046
+ }
+}
