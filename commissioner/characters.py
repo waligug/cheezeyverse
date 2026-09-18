@@ -108,17 +108,26 @@ def free_slots(manifest, league_key, claimed):
             and (r["name"], r["dob"]) not in taken]
 
 
-def pick_slot(slots, position=None):
-    """Prefer a slot whose listed position matches; fall back to any free one.
+def pick_slot(slots, position=None, team=None):
+    """Pick a free reserve slot: the right team first, then the right position, then anything.
 
-    Position is a preference, not a promise - FBPB3's coach assigns minutes from the depth chart
-    and will happily play someone away from their listed spot.
+    `team` matters for the draft. Without it the first free slot league-wide was taken, so a
+    player drafted first overall by STL was placed on whichever roster happened to have a
+    vacancy - GOU, in the rehearsal, a slot freed moments earlier by somebody else's retirement.
+    His career page then said "drafted #1 by STL" about a player who had never been on STL.
+
+    Position is a preference and nothing more: FBPB3's coach assigns minutes off the depth chart
+    and will happily play someone away from his listed spot.
     """
-    if position:
-        for s in slots:
-            if s.position == position:
-                return s
-    return slots[0] if slots else None
+    pools = ([s for s in slots if s.team == team], slots) if team else (slots,)
+    for pool in pools:
+        if position:
+            for s in pool:
+                if s.position == position:
+                    return s
+        if pool:
+            return pool[0]
+    return None
 
 
 def stamp_character(L, slot, character):

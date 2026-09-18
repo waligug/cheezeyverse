@@ -204,6 +204,21 @@ def retire(character, season, reason, store, log=print, dry_run=False, slot_exis
 
     if slot_exists:
         row["slot_refilled"] = refill(character["league"], character, log=log)
+    # Close the open level row before retiring him. Promotion closes the level a
+    # character is leaving, retirement did not - so a retired career page read as
+    # still in progress for ever: to_season null, how_it_ended null, on a man who
+    # had aged out four seasons earlier.
+    if hasattr(store, "record_level"):
+        try:
+            history = list(character.get("level_history") or [])
+            for row in history:
+                if row.get("to_season") is None:
+                    row["to_season"] = season
+                    row["how_it_ended"] = reason
+            if history:
+                store.set_character_field(character["id"], "level_history", history)
+        except Exception as exc:
+            log(f"   (could not close the career of {character['first_name']}: {exc})")
     store.retire_character(character["id"], season, reason, release_slot=row["slot_refilled"])
     log(f"   {name} retired: {reason}")
     if slot_exists and not row["slot_refilled"]:
@@ -353,7 +368,8 @@ def convert(ratings, factor):
     return out
 
 
-def promote(character, to_league, store, log=print, dry_run=False, how="promoted", season=None):
+def promote(character, to_league, store, log=print, dry_run=False, how="promoted", season=None,
+            team=None):
     """Move one character up a level, carrying his ratings, and hand back his old slot."""
     from_league = character["league"]
     src_path, dst_path = ch.save_path(from_league), ch.save_path(to_league)
@@ -379,7 +395,9 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
     taken = [{"name": c["claimed_slot"].get("name"),
               "dob": c["claimed_slot"].get("dob")} for c in holders]
     slots = ch.free_slots(_manifest(), to_league, taken)
-    slot = ch.pick_slot(slots, character.get("position"))
+    # `team` is the drafting team when this is a draft pick: a player drafted by STL should
+    # join STL if STL has a free reserve slot, not simply the first vacancy in the league.
+    slot = ch.pick_slot(slots, character.get("position"), team=team)
     if slot is None:
         raise OffseasonError(f"no reserve slot left in {to_league} for {name}")
 
@@ -399,6 +417,23 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
     refill(from_league, character, log=log)
     store.activate_character(character["id"], to_league, slot.team, slot.as_json(),
                              ch.codec_dob(character.get("game_dob")))
+
+    # Write the CONVERTED sheet back. The save now holds the reduced ratings - moving up costs
+    # 3% to college and 6% to the pros - while characters.ratings still held what he had at the
+    # old level until the next Sim Week happened to overwrite it from the save.
+    #
+    # That gap is not cosmetic. The website reads characters.ratings, so his page showed
+    # ratings he no longer has; and the database prices an upgrade from that same column, so a
+    # point bought in that window is priced off a number the save disagrees with. The offseason
+    # is exactly when somebody looks at their player, which makes it the worst possible moment
+    # for the two to disagree.
+    if hasattr(store, "set_character_field"):
+        try:
+            store.set_character_field(character["id"], "ratings", ratings)
+            store.set_character_field(character["id"], "potentials",
+                                      ch.store_potentials({**potentials}))
+        except Exception as exc:
+            log(f"   (could not write {name}'s converted sheet back: {exc})")
     if hasattr(store, "record_level"):
         try:
             placed = LeagueDat(dst_path).find(name, ch.codec_dob(character.get("game_dob") or slot.dob))
@@ -493,7 +528,14 @@ def run_draft(declared, store, log=print, dry_run=False, season=None):
         if not dry_run:
             try:
                 how = f'drafted #{p["pick"]} by {p["team"]}'
-                moved = promote(c, "pro", store, log=log, how=how, season=season)
+                moved = promote(c, "pro", store, log=log, how=how, season=season,
+                                team=p["team"])
+                if moved["slot"].get("team") != p["team"]:
+                    # Not fatal - a roster with no free reserve row cannot take him and
+                    # anywhere in the league is better than nowhere - but it must be said,
+                    # because the career page will read "drafted by X, plays for Y".
+                    log(f'   ! {p["team"]} had no free slot; '
+                        f'{c["first_name"]} goes to {moved["slot"].get("team")} instead')
                 p["slot"] = moved["slot"]
                 p["conversion"] = moved["conversion"]
                 if hasattr(store, "set_character_field"):
