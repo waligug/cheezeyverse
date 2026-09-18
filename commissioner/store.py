@@ -282,6 +282,33 @@ def snapshots(character_id=None, league=None):
     return _table("rating_snapshots", params)
 
 
+def characters(league=None, status=None):
+    """Every character, with `claimed_slot` - the roster-protection view.
+
+    This is the twin of localstore.characters(), and it was missing. Both callers of it reach
+    the store through simweek.store(), which returns THIS module once Supabase is configured,
+    so its absence did not raise where anyone would see it:
+
+      * simweek wraps its protect_rosters call in a try/except so a guard failure can never
+        abort a sim - the AttributeError was swallowed and roster protection silently never
+        ran on any week;
+      * tools/protect_rosters.py falls back to `chars = []` on any exception, which is worse
+        than not running at all. With no characters, a claimed reserve row answers to a name
+        the manifest does not know, so it looks BOTH like a missing reserve and like a
+        stranger: it would be defanged to floor ratings and renamed back to its manifest
+        identity. That is a deleted character.
+
+    `claimed_slot` is deliberately included here and deliberately excluded from
+    characters_for_export(): this view feeds the save file, that one feeds the public site.
+    """
+    params = {"select": CHARACTER_COLUMNS, "order": "created_at.asc"}
+    if league:
+        params["league"] = f"eq.{league}"
+    if status:
+        params["status"] = f"eq.{status}"
+    return _table("characters", params)
+
+
 def characters_for_export():
     """Everything the public career pages need, in one call.
 

@@ -301,16 +301,34 @@ class FBPB3:
         "row": "#FFF8E6", "row_alt": "#F3E4BE",
     }
 
-    def _control_at(self, rel):
-        r0 = self.main.rectangle()
-        for c in self.main.descendants():
+    def _control_at(self, rel, timeout=25):
+        """Find a control by its window-relative position, WAITING for it to exist.
+
+        A screen does not appear the instant the button that opens it is clicked, and how long
+        it takes depends on what else the machine is doing. Reading a control immediately after
+        the click is the same bug that made the third New Game of a session throw while the
+        first two passed - and html_output() is driven three times in a row, once per league.
+        Poll instead of assuming.
+        """
+        end = time.time() + timeout
+        last = None
+        while True:
             try:
-                r = c.rectangle()
-                if (r.left - r0.left, r.top - r0.top) == rel:
-                    return c
-            except Exception:
-                continue
-        raise DriverError(f"no control at window-relative {rel}")
+                r0 = self.main.rectangle()
+                for c in self.main.descendants():
+                    try:
+                        r = c.rectangle()
+                        if (r.left - r0.left, r.top - r0.top) == rel:
+                            return c
+                    except Exception:
+                        continue
+            except Exception as exc:
+                last = exc
+            if time.time() >= end:
+                break
+            time.sleep(0.5)
+        raise DriverError(f"no control at window-relative {rel} after {timeout}s"
+                          + (f" ({last})" if last else ""))
 
     def html_output(self, save_name, player_pages=True, coach_pages=True, box_links=True,
                     style=None, timeout=900):

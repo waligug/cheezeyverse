@@ -219,10 +219,20 @@ def protect(key, dry_run=False, store_characters=None):
 if __name__ == "__main__":
     keys = [a for a in sys.argv[1:] if not a.startswith("--")] or [s.key for s in cfg.LEAGUES]
     dry = "--dry-run" in sys.argv
+    # Running this with an empty character list is far worse than not running it at all: a
+    # claimed reserve row answers to a name the manifest does not know, so with no characters
+    # it looks BOTH like a missing reserve and like a stranger - it gets defanged to floor
+    # ratings and renamed back to its manifest identity, which is a deleted character. The old
+    # `except: chars = []` turned any store hiccup into exactly that. Refuse instead.
+    from commissioner import simweek
     try:
-        from commissioner import simweek
         chars = simweek.store().characters()
-    except Exception:
-        chars = []
+    except Exception as exc:
+        sys.exit(
+            f"cannot read the characters from the store ({exc}). Refusing to run: "
+            "without them this pass would defang and rename live characters. Pass "
+            "--no-characters only if you are certain the universe has none.")
+    if not chars and "--no-characters" not in sys.argv:
+        print("note: the store reports no characters yet; nothing to protect from the rename pass")
     for k in keys:
         protect(k, dry_run=dry, store_characters=chars)
