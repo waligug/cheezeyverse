@@ -1249,6 +1249,10 @@ def main(argv=None):
         prog="python -m commissioner.app",
         description="The Cheezeyverse commissioner control panel (local, no auth).")
     ap.add_argument("--port", type=int, default=5095, help="port to serve on (default 5095)")
+    ap.add_argument("--lan", action="store_true",
+                    help="serve on the local network so the panel can be opened from another "
+                         "machine (the point of running the game on a server). No password: "
+                         "anything on your network can press Sim Week.")
     ap.add_argument("--host", default="127.0.0.1",
                     help="interface to bind (default 127.0.0.1; see the note in the source)")
     args = ap.parse_args(argv)
@@ -1261,16 +1265,36 @@ def main(argv=None):
         print(f"  ! commissioner.offseason is unavailable: {OFFSEASON_ERROR}")
         print("    The offseason panel will say so; everything else still works.")
 
-    # 127.0.0.1, never 0.0.0.0: this panel has no authentication of any kind, and every button
-    # on it can rewrite a save file or spend somebody's points. Binding the loopback interface
-    # is what keeps it off the LAN. If it ever needs to be reachable from another machine, the
-    # answer is a tunnel, not a wider bind.
+    # Loopback by default. This panel has no authentication of any kind and every button on it
+    # can rewrite a save file, so the narrow bind is the only thing standing between the LAN and
+    # the offseason.
+    #
+    # --lan widens it on purpose, because the game now runs on a headless server and the whole
+    # point is pressing Sim Week from another machine. That is the owner's decision, made with
+    # the trade-off stated: on a home network, with no password, anything that can reach port
+    # 5095 can sim a week or roll the season over. It is off unless asked for, and it announces
+    # itself when used so it can never be on by accident.
     #
     # use_reloader=False, deliberately: the reloader runs a second process, which would mean a
     # second `_SIM_LOCK` - and "only one sim at a time, ever" would quietly stop being true.
     # debug is off for the same reason (it implies the reloader) and because a debugger console
     # on an unauthenticated port is a remote shell.
-    app.run(host=args.host, port=args.port, threaded=True, debug=False, use_reloader=False)
+    host = "0.0.0.0" if args.lan else args.host
+    if args.lan:
+        import socket
+        try:
+            probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            probe.connect(("8.8.8.8", 80))          # no packet is sent; this just picks the route
+            mine = probe.getsockname()[0]
+            probe.close()
+        except OSError:
+            mine = socket.gethostbyname(socket.gethostname())
+        print()
+        print("  SERVING ON THE LOCAL NETWORK, WITH NO PASSWORD.")
+        print(f"  From another machine on this network:  http://{mine}:{args.port}")
+        print("  Anything that can reach that address can press Sim Week or run the offseason.")
+        print()
+    app.run(host=host, port=args.port, threaded=True, debug=False, use_reloader=False)
     return 0
 
 
