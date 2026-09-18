@@ -157,8 +157,17 @@ def main():
               f"{dpi} dpi ({dpi / 96 * 100:.0f}%), {where} is {w}x{h}",
               "Settings > System > Display > Scale = 100%. The control positions the driver "
               "clicks were measured at 100%; anything else moves them and every click misses.")
-        check("screen is big enough for the game window", w >= 1024 and h >= 720,
-              f"{w}x{h}", "FBPB3's window needs about 1024x720 to lay out as the driver expects")
+        # Measured, not guessed: FBPB3's window is 1019x762. A screen of exactly 1024x768
+        # therefore fits it with five pixels to spare horizontally and six vertically - and
+        # then the taskbar takes forty of those six, so it does not fit at all. The old
+        # threshold of 1024x720 would have passed a screen the game cannot be displayed on.
+        GAME_W, GAME_H, CHROME = 1019, 762, 48
+        fits = w >= GAME_W and h >= GAME_H + CHROME
+        check("screen is big enough for the game window", fits,
+              f"{w}x{h}; the window is {GAME_W}x{GAME_H} and the taskbar wants ~{CHROME} more",
+              "Raise the resolution. A headless card falls back to 1024x768, which is six "
+              "pixels taller than the game window before the taskbar takes forty of them. A "
+              "dummy HDMI/DP plug makes the console report a real monitor's size.")
         if on_rdp:
             # This number is true of the session it was measured in and NOT of the one a sim
             # will run in after a disconnect. A headless console falls back to whatever the
