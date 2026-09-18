@@ -29,6 +29,9 @@ DEFAULTS = {
     # A season is about 26 in-game weeks, so this is roughly half a season on top,
     # paid at the rollover. It is what stops a young character feeling becalmed.
     "offseason_points": 15,
+    # Paid on top of the lump sum for a college season seen through; it is what makes
+    # staying a real alternative to declaring the moment you are allowed to.
+    "college_development_bonus": 12,
 }
 
 

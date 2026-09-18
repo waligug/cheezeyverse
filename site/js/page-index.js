@@ -79,7 +79,9 @@ async function boot() {
   for (const c of rows) {
     const owner = (c.owner_profile && c.owner_profile.display_name) || 'someone';
     list.append(el('li', {},
-      el('b', {}, `${c.first_name} ${c.last_name}`),
+      el('b', {},
+        el('a', { href: `career.html?id=${encodeURIComponent(c.id)}` },
+          `${c.first_name} ${c.last_name}`)),
       statusPill(c.status),
       el('span', { class: 'cv-muted' },
         `${describeCharacter(c, seasonNow)} · ${owner} · ${fmtDate(c.created_at)}`)));

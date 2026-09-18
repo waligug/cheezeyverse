@@ -273,7 +273,8 @@ def test_rules_has_no_imports():
 
 def test_page_ids_exist():
     """Each page module only reaches for element ids its own page actually has."""
-    pages = {"page-index.js": "index.html", "page-create.js": "create.html", "page-me.js": "me.html"}
+    pages = {"page-index.js": "index.html", "page-create.js": "create.html", "page-me.js": "me.html",
+             "page-career.js": "career.html"}
     bad = []
     for module, page in pages.items():
         js = (ROOT / "site/js" / module).read_text(encoding="utf-8")
@@ -286,10 +287,10 @@ def test_page_ids_exist():
 
 
 def test_pages_wire_up():
-    """The three pages must load config.js as a classic script BEFORE their module, or
+    """Every page must load config.js as a classic script BEFORE its module, or
     window.CV_CONFIG is undefined when supabase.js reads it."""
     bad = []
-    for page in ("index.html", "create.html", "me.html"):
+    for page in ("index.html", "create.html", "me.html", "career.html"):
         html = (ROOT / "site" / page).read_text(encoding="utf-8")
         cfg = html.find('src="config.js"')
         mod = html.find('type="module"')

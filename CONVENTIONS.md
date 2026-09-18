@@ -344,3 +344,29 @@ matter.
    forever (Quickness 77 and climbing by college). They now take an **athletic ceiling** from the
    body the quiz described: explosiveness for quickness and jumping, frame for strength, motor for
    stamina. See `athleticCeiling()`.
+
+## Declaring early, and the conversion between levels (2026-09-17)
+A promotion does not carry ratings across at face value. The same skill is worth less against
+bigger, older, better opposition, and an FBPB3 rating is relative to the league a player is in.
+
+| Move | Carries |
+|---|---|
+| Prep -> College | 97% |
+| College -> Pro, eligibility used (4 years) | 94% |
+| College -> Pro, 1 year early | 87% |
+| College -> Pro, 2 years early | 80% |
+| College -> Pro, 3 years early (declare as a freshman) | 73% |
+
+**Potentials are never converted.** The ceiling is who he can still become, and leaving early must
+not close it: the points are earnable again, the years are not. Ratings at or below 8 are left alone,
+because a percentage of nothing is nothing.
+
+**Balanced by modelling the trade, not by feel.** At the first numbers I tried (4% per year early)
+declaring as a freshman was strictly best by about 34 points over a career - that is not a choice,
+it is an answer. Two changes fixed it: the penalty went to 7% per year, and a college season that is
+seen through pays a **12-point development bonus** on top of the usual offseason lump. Staying pays
+in points, leaving pays in time. The four options now finish within about 12 points of each other
+over a 300-point career, and the two extremes beat dithering in the middle, which is the right shape.
+
+`declareWarning()` in `rules.js` mirrors the constants so the site can say what declaring costs
+*before* the confirm dialog. Those two copies have to move together.

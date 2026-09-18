@@ -183,6 +183,26 @@ export async function characterCounts() {
   };
 }
 
+/**
+ * One character by id, for career.html. Public: `characters_read` in schema.sql grants SELECT to
+ * anon, so anybody can look at anybody's career - the same posture the league sites have. His
+ * points history is not public and is fetched separately (see requestsFor / ledgerFor, which RLS
+ * limits to the owner).
+ *
+ * Returns null rather than throwing when the id does not exist, because a mistyped link is a
+ * normal thing for a page to handle and not an error worth a red box.
+ */
+export async function characterById(characterId) {
+  if (!characterId) return null;
+  const { data, error } = await client()
+    .from('characters')
+    .select(`${CHARACTER_COLUMNS},owner_profile:profiles(display_name)`)
+    .eq('id', characterId)
+    .limit(1);
+  if (error) throw error;
+  return (data && data[0]) || null;
+}
+
 export async function myCharacters() {
   const user = await currentUser();
   if (!user) return [];

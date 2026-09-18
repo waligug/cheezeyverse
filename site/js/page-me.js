@@ -9,7 +9,7 @@
 import {
   RATINGS, POTENTIAL_RATINGS, RATING_LABELS, RATING_MAX, START_AGE, GROWTH_END_AGE,
   nextPointCost, hasPotential, isLocked, describeCurve, biasedUpgradeCost, biasFor,
-  classify, growthCurve, formatHeight, expectedAdultHeight,
+  classify, growthCurve, formatHeight, expectedAdultHeight, declareWarning,
 } from './rules.js';
 import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
@@ -77,6 +77,7 @@ async function load() {
       requests.filter((r) => r.character_id === character.id),
       ledger.filter((l) => l.character_id === character.id),
       currentAge(character, cfg.current_season),
+      cfg.current_season,
     ));
   }
 }
@@ -109,7 +110,10 @@ function stampOf(c) {
     + `:${JSON.stringify(c.growth_bias)}`;
 }
 
-function renderCharacter(character, requests, ledger, age) {
+/* `currentSeason` is a parameter rather than a closed-over `cfg`: this function is declared at
+   module level, so the `const cfg` inside load() is not in scope here and reading it threw a
+   ReferenceError that killed every card before it rendered. */
+function renderCharacter(character, requests, ledger, age, currentSeason) {
   const card = el('section', { class: 'cv-card' });
   const klass = classify(character.ratings || {}, character.position);
   const bias = character.growth_bias || {};
@@ -124,9 +128,15 @@ function renderCharacter(character, requests, ledger, age) {
     el('span', { class: 'cv-pill' }, LEAGUE_LABELS[character.league] || character.league)));
 
   card.append(el('p', { class: 'cv-muted' },
-    `${describeCharacter(character, cfg.current_season)}`
+    `${describeCharacter(character, currentSeason)}`
     + (character.hometown ? ` · ${character.hometown}` : '')
     + (character.game_dob ? ` · born ${fmtDate(character.game_dob)} in game` : '')));
+
+  card.append(el('p', { class: 'cv-actions' },
+    el('a', { class: 'cv-btn cv-small cv-ghost', href: `career.html?id=${encodeURIComponent(character.id)}` },
+      'His whole career'),
+    el('span', { class: 'cv-muted' },
+      'prep, college and pro on one page, with the growth and the spending')));
 
   card.append(el('div', { class: 'cv-readout cv-cheese' },
     el('b', {}, classLine(klass)),
@@ -432,7 +442,17 @@ async function cancel(request, button) {
 }
 
 async function declare(character, target, button, problems) {
-  if (!window.confirm(`Declare ${character.first_name} ${character.last_name} for ${target}? `
+  // Never let someone spend three years of a career on a confirm dialog that does not say
+  // what it costs.
+  const warn = declareWarning(character, character.college_years);
+  const name = `${character.first_name} ${character.last_name}`;
+  if (!window.confirm(`Declare ${name} for ${target}?
+
+${warn.headline}
+
+${warn.detail}
+
+`
     + 'This cannot be undone.')) return;
   button.disabled = true;
   try {

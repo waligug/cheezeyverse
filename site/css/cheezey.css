@@ -297,6 +297,134 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .cv-growth-step b { display: block; font-size: 12px; }
 .cv-growth-step em { display: block; font-style: normal; font-size: 10px; color: var(--crust); }
 
+/* ==================================================================== the career page */
+/* career.html follows one character through all three saves. Everything below is only used
+   there, and it reuses the same cards, pills, bars and tables the other pages do. */
+
+/* the fact list under his name */
+.cv-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 14px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream2);
+}
+.cv-fact { min-width: 0; }
+.cv-facts dt {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--crust);
+}
+.cv-facts dd { margin: 1px 0 0; font-size: 14px; font-weight: 700; }
+
+/* the shape of the career, at a glance: three segments, sized by seasons when we know them */
+.cv-arc {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.cv-arc-step {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 9px 10px;
+  text-align: center;
+}
+.cv-arc-step b { display: block; font-size: 15px; color: var(--crust); }
+.cv-arc-step span { display: block; font-size: 11px; font-weight: 700; }
+.cv-arc-step em {
+  display: block;
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--crust);
+  min-height: 1.2em;
+}
+.cv-arc-step.is-done {
+  background: var(--cream2);
+  border-color: var(--crust);
+}
+.cv-arc-step.is-now {
+  background-color: var(--gold);
+  border-color: var(--crust);
+  box-shadow: var(--shadow);
+}
+.cv-arc-step.is-now b, .cv-arc-step.is-now span { color: var(--ink); }
+.cv-arc-step.is-ahead { border-style: dashed; opacity: .6; }
+
+/* the same three levels again, in words */
+.cv-timeline { margin: 14px 0 0; }
+.cv-tl-level {
+  border-left: 4px solid var(--line);
+  padding: 8px 0 8px 12px;
+  margin: 0;
+}
+.cv-tl-level.is-done { border-left-color: var(--crust); }
+.cv-tl-level.is-now { border-left-color: var(--deep); background: var(--cream2); border-radius: 0 var(--radius) var(--radius) 0; }
+.cv-tl-level.is-ahead { border-left-style: dashed; opacity: .75; }
+.cv-tl-level p { margin: 0 0 .25em; font-size: 12.5px; }
+.cv-tl-level p:last-child { margin-bottom: 0; }
+.cv-tl-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+.cv-tl-head b { font-size: 15px; color: var(--crust); }
+
+.cv-tl-move {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 0 7px 10px;
+  margin-left: 2px;
+  border-left: 2px dashed var(--line);
+  font-size: 12px;
+  color: var(--crust);
+}
+.cv-tl-move.is-done { border-left-color: var(--crust); color: var(--ink); font-weight: 600; }
+.cv-tl-arrow { font-size: 15px; line-height: 1; color: var(--crust); }
+
+/* links out to the three league sites */
+.cv-links { list-style: none; margin: 0; padding: 0; }
+.cv-links li { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.cv-links li:last-child { border-bottom: 0; }
+.cv-links b { color: var(--crust); }
+
+/* inline SVG charts - no library, sized by viewBox so they never overflow a phone */
+.cv-chart-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 6px;
+  margin: 0 0 12px;
+}
+.cv-chart { display: block; width: 100%; height: auto; }
+.cv-chart-grid { stroke: var(--line); stroke-width: 1; }
+.cv-chart-axis { stroke: var(--crust); stroke-width: 1.5; }
+.cv-chart-line { fill: none; stroke: var(--deep); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.cv-chart-dot { fill: var(--crust); }
+.cv-chart-expected { stroke: var(--link); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.cv-chart-future { fill: var(--cream2); opacity: .65; }
+.cv-chart-label { fill: var(--crust); font: 600 10px var(--font); }
+.cv-chart-note { fill: var(--crust); font: 700 11px var(--font); letter-spacing: 1px; text-transform: uppercase; }
+
+/* then-and-now table: one column layout for all five groups, so the numbers line up down the
+   page instead of each little table choosing its own widths */
+table.cv-then { table-layout: fixed; min-width: 560px; }
+table.cv-then th:nth-child(1), table.cv-then td:nth-child(1) { width: 27%; }
+table.cv-then th:nth-child(2), table.cv-then td:nth-child(2),
+table.cv-then th:nth-child(3), table.cv-then td:nth-child(3),
+table.cv-then th:nth-child(4), table.cv-then td:nth-child(4) { width: 9%; }
+table.cv-then th:nth-child(5), table.cv-then td:nth-child(5) { width: 14%; }
+.cv-delta { font-weight: 700; }
+.cv-delta.is-up { color: var(--good); }
+.cv-delta.is-down { color: var(--bad); }
+.cv-bar-inline { grid-column: auto; display: block; min-width: 90px; width: 100%; margin-top: 3px; }
+
 /* ------------------------------------------------------------------------ rating rows */
 .cv-sheet { margin: 0 0 14px; }
 .cv-sheet h3 {
@@ -392,6 +520,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 
 /* ---------------------------------------------------------------------------- tables */
 table.cv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+/* `table.cv-table th` outranks a bare `.cv-right`, so a right-aligned column used to keep a
+   left-aligned header sitting away from its own numbers. Both pages that use .cv-right on a th
+   wanted this. */
+table.cv-table th.cv-right { text-align: right; }
 table.cv-table th {
   background: var(--deep);
   color: var(--ink);
@@ -473,6 +605,10 @@ table.cv-table tr:nth-child(even) td { background: var(--cream2); }
   .cv-choices-tight { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
   .cv-trait { grid-template-columns: 8em minmax(40px, 1fr) 2.2em; }
   .cv-readout b { font-size: 15px; }
+  /* the career arc: three wide segments become three stacked ones. flex-grow does nothing in a
+     column with no definite height, so the inline season weighting simply stops applying. */
+  .cv-arc { flex-direction: column; }
+  .cv-facts { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

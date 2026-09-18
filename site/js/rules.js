@@ -1502,6 +1502,65 @@ export function potentialCeiling() {
   return RATING_MAX;
 }
 
+/* -------------------------------------------------------------------------------------
+ * Moving up a level
+ *
+ * The same skill is worth less against bigger, older, better opposition, so a promotion
+ * carries ratings across at less than face value - and going up early costs more. These
+ * must stay in step with commissioner/offseason.py, which does the actual conversion;
+ * this copy exists so the site can tell somebody what declaring will cost him BEFORE he
+ * clicks the button that cannot be undone.
+ *
+ * Potentials are never converted. The ceiling is who he can still become, and leaving
+ * early must not close it: the points are earnable again, the years are not.
+ * ---------------------------------------------------------------------------------- */
+export const LEVEL_CONVERSION = { college: 0.97, pro: 0.94 };
+export const EARLY_PENALTY_PER_YEAR = 0.07;
+export const EARLY_PENALTY_MAX = 0.24;
+export const COLLEGE_MAX_YEARS = 4;
+export const CONVERSION_FLOOR = 8;
+
+export function conversionFor(toLeague, collegeYearsUsed = COLLEGE_MAX_YEARS) {
+  const base = LEVEL_CONVERSION[toLeague] ?? 1;
+  const early = toLeague === 'pro'
+    ? Math.max(0, COLLEGE_MAX_YEARS - Number(collegeYearsUsed || 0)) : 0;
+  const penalty = Math.min(EARLY_PENALTY_MAX, early * EARLY_PENALTY_PER_YEAR);
+  return { factor: Number((base - penalty).toFixed(4)), base, earlyYears: early, penalty };
+}
+
+/** What a sheet looks like on the other side of the move. */
+export function convertSheet(ratings, factor) {
+  const out = {};
+  for (const [k, v] of Object.entries(ratings || {})) {
+    out[k] = v <= CONVERSION_FLOOR ? v : Math.max(CONVERSION_FLOOR, Math.round(v * factor));
+  }
+  return out;
+}
+
+/** One honest sentence about what declaring now would do to him. */
+export function declareWarning(character, collegeYearsUsed) {
+  const c = conversionFor('pro', collegeYearsUsed);
+  const pct = Math.round(c.factor * 100);
+  const ratings = character.ratings || {};
+  const before = Object.values(ratings).reduce((a, b) => a + Number(b || 0), 0);
+  const after = Object.values(convertSheet(ratings, c.factor))
+    .reduce((a, b) => a + Number(b || 0), 0);
+  const lost = Math.max(0, before - after);
+  const years = c.earlyYears;
+  return {
+    ...c, lost,
+    headline: years
+      ? `Declaring ${years} year${years === 1 ? '' : 's'} early: he carries ${pct}% of his `
+        + `ratings into the pros, about ${lost} rating points gone.`
+      : `He has used his eligibility, so he carries ${pct}% of his ratings into the pros.`,
+    detail: years
+      ? 'His ceilings do not move, so every point is earnable again - and he starts collecting '
+        + 'professional points three seasons sooner. Staying would pay him a development bonus '
+        + 'each year instead. Neither is wrong.'
+      : 'His ceilings do not move.',
+  };
+}
+
 /**
  * Total cost of moving a sheet from `start` to where it is now, with the character's bias
  * applied per rating. Not used at creation any more (creation spends nothing) - me.html

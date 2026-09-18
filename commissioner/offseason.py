@@ -42,6 +42,25 @@ NEXT_LEVEL = {"prep": "college", "college": "pro"}
 PREP_LAST_AGE = 17
 COLLEGE_MAX_YEARS = 4
 
+# ---- conversion -----------------------------------------------------------------------------
+# Moving up a level always costs something. The same skill is worth less against bigger, older,
+# better opposition, and a rating in FBPB3 is relative to the league he is in. So a promotion
+# carries ratings across at less than face value.
+#
+# Going up EARLY costs more, and that is the whole trade: declare after one college year and you
+# start earning pro points three years sooner, but you arrive rawer than you left. Potentials are
+# never touched - the ceiling is who he can still become, and leaving early must not close it.
+# The lost points are earnable again; the lost years are not.
+LEVEL_CONVERSION = {"college": 0.97, "pro": 0.94}
+EARLY_PENALTY_PER_YEAR = 0.07     # each year skipped takes another 7% off
+EARLY_PENALTY_MAX = 0.24          # never worse than a 24% haircut
+# Staying pays in points, leaving pays in time. Without this the maths made declaring after one
+# year strictly best by about 34 points over a career, which is not a choice, it is an answer.
+# A completed college season is worth this on top of the usual offseason lump.
+COLLEGE_DEVELOPMENT_BONUS = 12
+# Below this a rating is too low for a percentage to mean anything; leave it alone.
+CONVERSION_FLOOR = 8
+
 
 class OffseasonError(Exception):
     pass
@@ -121,6 +140,32 @@ def _ratings_of(pl):
     return ({f: pl.values[f] for f in RATINGS}, {f: pl.values[f] for f in POTENTIALS})
 
 
+def years_early(character, to_league, season):
+    """How many years ahead of the normal path this move is. 0 when he is on schedule."""
+    if to_league != "pro":
+        return 0
+    used = int(character.get("college_years") or 0) + 1
+    return max(0, COLLEGE_MAX_YEARS - used)
+
+
+def conversion_for(character, to_league, season):
+    """The multiplier his ratings carry across at, and why."""
+    base = LEVEL_CONVERSION.get(to_league, 1.0)
+    early = years_early(character, to_league, season)
+    penalty = min(EARLY_PENALTY_MAX, early * EARLY_PENALTY_PER_YEAR)
+    return {"factor": round(base - penalty, 4), "base": base, "early_years": early,
+            "early_penalty": round(penalty, 4)}
+
+
+def convert(ratings, factor):
+    """Apply the conversion. Never moves a rating that is already near the floor."""
+    out = {}
+    for field, value in ratings.items():
+        out[field] = value if value <= CONVERSION_FLOOR else max(
+            CONVERSION_FLOOR, int(round(value * factor)))
+    return out
+
+
 def promote(character, to_league, store, log=print, dry_run=False):
     """Move one character up a level, carrying his ratings, and hand back his old slot."""
     from_league = character["league"]
@@ -131,6 +176,14 @@ def promote(character, to_league, store, log=print, dry_run=False):
     pl = src.find(name, character.get("game_dob"))
     ratings, potentials = _ratings_of(pl)
     height = pl.values["Height"]
+
+    conv = conversion_for(character, to_league, None)
+    if conv["factor"] < 1.0:
+        before = sum(ratings.values())
+        ratings = convert(ratings, conv["factor"])
+        lost = before - sum(ratings.values())
+        note = f' ({conv["early_years"]} year(s) early)' if conv["early_years"] else ""
+        log(f'   {name}: carries {int(conv["factor"] * 100)}% across{note}, -{lost} rating points')
 
     # a free slot at the new level
     active = [c for c in store.characters(league=to_league) if c.get("status") == "active"]
@@ -143,7 +196,8 @@ def promote(character, to_league, store, log=print, dry_run=False):
 
     if dry_run:
         log(f"   would move {name}: {from_league} -> {to_league} ({slot.team})")
-        return {"character": character, "to": to_league, "team": slot.team, "slot": slot.as_json()}
+        return {"character": character, "to": to_league, "team": slot.team,
+                "slot": slot.as_json(), "conversion": conv}
 
     dst = LeagueDat(dst_path)
     ch.stamp_character(dst, slot, {
@@ -157,7 +211,8 @@ def promote(character, to_league, store, log=print, dry_run=False):
     store.activate_character(character["id"], to_league, slot.team, slot.as_json(),
                              character.get("game_dob"))
     log(f"   {name}: {from_league} -> {to_league}, {slot.team}")
-    return {"character": character, "to": to_league, "team": slot.team, "slot": slot.as_json()}
+    return {"character": character, "to": to_league, "team": slot.team,
+            "slot": slot.as_json(), "conversion": conv}
 
 
 # ---- 4. give the slot back ------------------------------------------------------------------
@@ -294,17 +349,28 @@ def run_offseason(store, season=None, log=print, dry_run=False):
             log(f"   ! {exc}")
     result["drafted"] = run_draft(moving["draft"], store, log=log, dry_run=dry_run)
 
-    # The offseason lump sum: every active character is a year older and gets paid for it.
+    # The offseason lump sum: every active character is a year older and gets paid for it,
+    # and a college season that was seen through pays a development bonus on top.
     lump = int(settings.get("offseason_points", 15))
-    if lump and not dry_run:
-        paid = 0
+    bonus = int(settings.get("college_development_bonus", COLLEGE_DEVELOPMENT_BONUS))
+    if not dry_run:
+        paid = developed = 0
+        stayed = {c["id"] for c in moving["stay"]}
         for c in store.characters():
-            if c.get("status") == "active":
+            if c.get("status") != "active":
+                continue
+            if lump:
                 store.grant_points(c["id"], lump, "offseason")
                 paid += 1
+            if bonus and c.get("league") == "college" and c["id"] in stayed:
+                store.grant_points(c["id"], bonus, "college development")
+                developed += 1
         if paid:
             log(f"paid {lump} offseason point(s) to {paid} character(s)")
+        if developed:
+            log(f"paid {bonus} development point(s) to {developed} who stayed in college")
         result["paid"] = paid
+        result["developed"] = developed
 
     if not dry_run:
         store.set_setting("current_season", season + 1)
