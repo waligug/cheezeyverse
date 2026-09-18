@@ -155,7 +155,7 @@ a:hover {{ text-decoration: underline !important; }}
 
 /* Dropping the missing player photos leaves the cell that held them behind; an empty cell with a
    team-coloured background reads as a rendering fault. */
-td:empty, td.cv-blank {{ background: transparent !important; padding: 0 !important; }}
+td:empty, td.cv-blank, td.teamheader:empty, td.headerbg:empty {{ background: transparent !important; padding: 0 !important; }}
 
 /* team pages keep their own team colour on the big banner, but the chrome matches the league */
 td.teamheader {{ color: #FFF8E6 !important; letter-spacing: -.5px !important; }}
@@ -215,8 +215,12 @@ def _drop_empty_images(html):
     # because the whitespace survives - so mark it here, where we can see it is really empty.
     # Includes cells that already carry a class: the photo sat in a team-coloured one, and an
     # empty coloured block is exactly what reads as a broken image to anyone looking at it.
-    html = re.sub(r"<td[^>]*>(?:\s|&nbsp;)*</td>",
-                  '<td class="cv-blank"></td>', html, flags=re.I)
+    def blank(m):
+        # Keep every attribute: colspan and width hold the table together, and dropping them
+        # collapses the layout. Only the styling class is added.
+        attrs = m.group(1)
+        return f"<td{attrs} class=cv-blank></td>" if "class=" not in attrs.lower()             else f"<td{attrs}></td>"
+    html = re.sub(r"<td([^>]*)>(?:\s|&nbsp;)*</td>", blank, html, flags=re.I)
     # `background=<dir>` on <body> is the same empty-filename bug as the images.
     html = re.sub(BODY_BG, "", html, flags=re.I)
     return html
