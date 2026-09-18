@@ -250,8 +250,30 @@ class FBPB3:
         return serial + frac
 
     def save_rows(self):
-        """Save names in the order the Load Career list shows them: newest game-save first."""
+        """Save names in the order the Load Career list shows them: newest game-save first.
+
+        Refuses to guess when two saves report the SAME save time. The row is chosen purely by
+        this ordering, so a tie means the order is arbitrary and `load_save` would load whichever
+        one sorted first - silently, with everything downstream then reading or writing the wrong
+        league. That is not hypothetical: copying a save folder to experiment on copies
+        `saveinfo.dat` with it, so the clone and the original tie immediately, and an export
+        asked for on the clone landed in the original.
+
+        Two real saves can only tie if the game wrote them in the same second, which is unlikely
+        but not impossible during a three-league Sim Week. Better to stop and say so than to pick
+        one.
+        """
         saves = [d for d in (DOCS / "leaguedata").iterdir() if (d / "league.dat").exists()]
+        times = {}
+        for d in saves:
+            times.setdefault(self.save_time(d), []).append(d.name)
+        tied = {t: names for t, names in times.items() if len(names) > 1}
+        if tied:
+            groups = "; ".join(", ".join(sorted(n)) for n in tied.values())
+            raise DriverError(
+                f"these saves report the same save time, so the load list order is ambiguous: "
+                f"{groups}. Open one in the game and save it, or remove the duplicate, before "
+                "loading by name.")
         saves.sort(key=self.save_time, reverse=True)
         return [d.name for d in saves]
 
@@ -476,18 +498,37 @@ class FBPB3:
         end = time.time() + timeout
         index = out / "index.htm"
         while time.time() < end:
-            # dismiss_all, not dismiss_message: this has to CLEAR whatever is up, not merely
-            # survive it. dismiss_message only knows the OK button, so a Yes/No box was left
-            # on screen and the export then span out its full 900 seconds before reporting a
-            # timeout - telling the operator the export was slow when a dialog was blocking it.
-            # dismiss_all tries OK, No and Cancel, and swallows what it cannot close.
-            self.dismiss_all()
+            # ONLY affirmative buttons while an export is in flight. The obvious-looking
+            # improvement here is dismiss_all(), which tries OK then "&No" then "Cancel" - and
+            # that is actively wrong in this loop, because FBPB3 asks a Yes/No question during
+            # the export and dismiss_all answers No, cancelling the thing we are waiting for.
+            # A smoke test caught it doing exactly that: the export then never produced a page
+            # and timed out after 420 seconds.
+            #
+            # So: click OK or Yes if either is there, and leave anything else alone. A dialog
+            # we cannot answer affirmatively is reported by the timeout below rather than
+            # dismissed into a cancelled export.
+            for label in ("OK", "Yes"):
+                try:
+                    self.dismiss_message(button=label, timeout=1)
+                    break
+                except DriverError:
+                    continue
             if index.exists() and index.stat().st_mtime > before:
                 time.sleep(5)  # the per-player pages keep landing after index.htm does
                 self.dismiss_all()
                 self.click(self.HTML_EXIT, 2)
                 return out
-        raise DriverError(f"HTML output did not appear under {out} within {timeout}s")
+        # Name the dialog if one is sitting there. "It was slow" and "a box was blocking it"
+        # are very different problems and the timeout alone cannot tell them apart.
+        blocking = []
+        try:
+            for w in self.app.windows(class_name="#32770", visible_only=True):
+                blocking.append(w.window_text())
+        except Exception:
+            pass
+        extra = f"; a dialog is open: {blocking}" if blocking else ""
+        raise DriverError(f"HTML output did not appear under {out} within {timeout}s{extra}")
 
     def dismiss_all(self):
         """Close any standard message boxes that are open."""
