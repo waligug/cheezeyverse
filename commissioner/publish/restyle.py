@@ -87,6 +87,45 @@ a.menulink:hover {{
   border-left-color: {crust} !important;
 }}
 
+/* ---- the nav bar every content page carries ---- */
+.cv-bar {{
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  gap: 4px 14px !important;
+  background: linear-gradient(170deg, {gold}, {deep}) !important;
+  border-bottom: 3px solid {crust} !important;
+  padding: 7px 12px 8px !important;
+  margin: -8px -8px 12px !important;
+  font-family: 'Trebuchet MS', Verdana, sans-serif !important;
+}}
+.cv-bar .cv-home {{
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  color: {ink} !important;
+  text-decoration: none !important;
+  margin-right: 6px !important;
+}}
+.cv-bar .cv-home small {{
+  display: block !important;
+  font-weight: 600 !important;
+  font-size: 9.5px !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: {crust} !important;
+}}
+.cv-bar nav {{ display: flex !important; flex-wrap: wrap !important; gap: 2px 12px !important; }}
+.cv-bar nav a {{
+  color: {ink} !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  padding: 2px 0 !important;
+  border-bottom: 2px solid transparent !important;
+}}
+.cv-bar nav a:hover {{ border-bottom-color: {crust} !important; }}
+.cv-bar nav a.on {{ border-bottom-color: {ink} !important; }}
+
 /* ---- data pages ---- */
 td.main, td.header, td.plainheader, td.headerbg, td.teamheader, td.teamheader2,
 td.tableheader, td.newheader {{ font-family: 'Trebuchet MS', Verdana, sans-serif !important; }}
@@ -121,6 +160,24 @@ td.teamheader2 {{ color: #FFF8E6 !important; }}
 
 MENU_MARK = ('<div class="cv-wordmark">{league}<small>{season}</small></div>')
 
+# FBPB3's site is a frameset: the menu only exists inside index.htm, so every page reached
+# directly - a shared link, a search result, and all 400-odd player pages - arrives with no
+# navigation whatsoever. This bar goes on every content page so each one stands on its own.
+NAV_LINKS = [
+    ("standings.htm", "Standings"), ("schedule.htm", "Schedule"),
+    ("leaders.htm", "Leaders"), ("teamleaders.htm", "Teams"),
+    ("transactions.htm", "Transactions"), ("injuries.htm", "Injuries"),
+    ("freeagents.htm", "Free agents"), ("draft.htm", "Draft"),
+    ("awards.htm", "Awards"), ("playoffs.htm", "Playoffs"), ("champs.htm", "Champs"),
+]
+NAV_BAR = (
+    '<div class="cv-bar">'
+    '<a class="cv-home" href="{prefix}index.htm" target="_top">{league}'
+    '<small>{season}</small></a>'
+    '<nav>{links}</nav>'
+    '</div>'
+)
+
 
 def _css_text():
     return STYLESHEET.format(**PALETTE)
@@ -132,6 +189,21 @@ def _inject_link(html, prefix):
     if re.search(r"<html[^>]*>", html, re.I):
         return re.sub(r"(<html[^>]*>)", r"\1" + link, html, count=1, flags=re.I)
     return link + html
+
+
+def _nav_bar(league, season, prefix, current):
+    links = "".join(
+        f'<a href="{prefix}{href}"{" class=on" if href == current else ""} target="_top">{label}</a>'
+        for href, label in NAV_LINKS)
+    return NAV_BAR.format(prefix=prefix, league=league, season=season, links=links)
+
+
+def _skin_page(html, league, season, prefix, current):
+    """Put the nav bar just inside <body> so the page reads the same wherever it was opened."""
+    bar = _nav_bar(league, season, prefix, current)
+    if re.search(r"<body[^>]*>", html, re.I):
+        return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + bar, html, count=1, flags=re.I)
+    return re.sub(r"(<html[^>]*>)", lambda m: m.group(1) + bar, html, count=1, flags=re.I)
 
 
 def _skin_menu(html, league, season):
@@ -171,11 +243,14 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True):
             continue
         html = path.read_text(encoding="latin-1")
         prefix = "../" * len(rel.parent.parts)
-        if rel.name.lower() == "index.htm":
+        name = rel.name.lower()
+        if name == "index.htm":
             html = _skin_index(html, league, season)
         html = _inject_link(html, prefix)
-        if rel.name.lower() == "menu.htm":
+        if name == "menu.htm":
             html = _skin_menu(html, league, season)
+        elif name != "index.htm":
+            html = _skin_page(html, league, season, prefix, name)
         target.write_text(html, encoding="latin-1", errors="replace")
         pages += 1
 
