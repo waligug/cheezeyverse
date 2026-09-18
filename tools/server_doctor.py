@@ -139,8 +139,9 @@ def main():
     except Exception as exc:
         interactive, detail = False, str(exc)[:60]
     check("desktop is rendering (pywinauto can click)", interactive, detail,
-          "the session is locked or disconnected. See docs/SERVER.md - use keep_session.bat "
-          "so disconnecting from RDP hands the session back to the console instead of locking it")
+          "the session is locked or disconnected. See docs/SERVER.md: hand the session back to "
+          "the console on disconnect (tools/install_session_keeper.bat registers a task that "
+          "does it), and check the console is big enough for the game window")
 
     # Display scaling. The driver addresses FBPB3's controls by their position in pixels - it
     # has to, because the owner-drawn ones have no other handle - and those numbers were
@@ -187,13 +188,17 @@ def main():
             print("        (1024x768 is common). Check it with the session on the console:")
             print("        the game window needs to fit, or clicks land off-screen.")
             print("        A dummy HDMI/DP plug makes the console match a real monitor.")
+            print("        Until then, handing the session back to the console does NOT make it")
+            print("        safe to disconnect mid-sim on a box whose console is too small - the")
+            print("        session stays unlocked but the game no longer fits. Stay connected.")
     except Exception as exc:
         check("display metrics readable", False, str(exc)[:60])
 
     if session_name.upper().startswith("RDP"):
         print("\n  NOTE: you are on an RDP session. Windows LOCKS it when you disconnect, and a")
         print("  locked session cannot be clicked - a sim running at that moment will fail.")
-        print("  Run tools\\keep_session.bat before disconnecting, or start sims only while")
+        print("  Hand the session back to the console before disconnecting (a scheduled task")
+        print("  can do it: tools\\install_session_keeper.bat), or start sims only while")
         print("  connected. See docs/SERVER.md.")
 
     # ---- verdict --------------------------------------------------------------------------
