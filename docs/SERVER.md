@@ -71,7 +71,24 @@ running rather than creating a session of their own, so disconnecting from them 
 at all - no lock, no tscon, nothing to install. This is the properly correct answer; RDP is
 awkward here only because it is designed to own the session exclusively.
 
-Either way you can also simply stay connected while a sim runs, which needs no setup at all.
+Either way you can also simply stay connected while a sim runs, which needs no setup at all -
+but if you do, two things will break it and neither is obvious:
+
+**Do not minimize the Remote Desktop window.** A minimized `mstsc` client stops the remote
+session rendering its desktop, and real-click automation stops landing, exactly as though the
+session were locked. Leave the window open and visible, with your mouse outside it. (The
+client-side registry value `RemoteDesktop_SuppressWhenMinimized = 2` suppresses this, if you
+would rather fix it properly.)
+
+**Do not let either machine sleep.** If your desktop sleeps, RDP drops, the hand-off task moves
+the session to the console, and the resolution changes underneath a running sim.
+
+**Install only one hand-off task.** If the machine already has one, do not add a second - both
+fire on the same disconnect and race each other to call `tscon`. Check with:
+
+```
+schtasks /query /fo list | findstr /I "keep desktop session keeper"
+```
 
 ---
 
@@ -158,7 +175,28 @@ and it announces itself at startup so it can never be on by accident. If you lat
 reachable from outside the house, use Tailscale rather than forwarding the port - the panel has
 no authentication to put in front of the open internet.
 
-Windows Firewall will ask to allow Python the first time. Allow it on **private** networks only.
+### The firewall, and the trap in it
+
+Windows Firewall will block the panel, and the obvious advice - "allow it on private networks"
+- does nothing if Windows has decided your home Ethernet is a **public** network, which it
+often does on a machine that was set up headless. Check first:
+
+```
+Get-NetConnectionProfile
+```
+
+If `NetworkCategory` says `Public`, the panel is unreachable no matter what you allow, because
+the rule and the interface are on different profiles. Set the profile, then add one narrow rule
+rather than allowing `python.exe` wholesale:
+
+```
+Set-NetConnectionProfile -InterfaceAlias Ethernet -NetworkCategory Private
+New-NetFirewallRule -DisplayName "Cheezeyverse panel" -Direction Inbound `
+  -Protocol TCP -LocalPort 5095 -Profile Private -RemoteAddress LocalSubnet -Action Allow
+```
+
+That opens one port, on the private profile, to the local subnet only - rather than every port
+Python ever listens on, to anything that can route to the machine.
 
 ---
 
