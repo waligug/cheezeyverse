@@ -549,7 +549,7 @@ def get_settings():
         "starting_points": 20,
         "points_per_week": 1,
         "auto_approve": False,
-        "current_season": 2030,
+        "current_season": 2026,
         "current_week": 0,
     }
     rows = _table("settings", {"select": "key,value"})

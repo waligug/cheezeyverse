@@ -38,7 +38,7 @@ how a new character enters the universe: the codec renames and re-rates it in pl
 | Setting | Value | Why |
 |---|---|---|
 | Save Name | `CV_Prep` / `CV_College` / `CV_Pro` | the driver loads saves by name |
-| First Season | `2030` | must match `START_YEAR` in `commissioner/universe/config.py` |
+| First Season | `2026` | must match `START_YEAR` in `commissioner/universe/config.py` |
 | League Password | *blank* | a password would block automated simming |
 | Attribute Style | **1-100** | makes the MDB export numeric instead of letter grades |
 | Coaching | On | teams need coaches to set the depth charts the codec edits |

@@ -14,7 +14,7 @@ insert into public.settings (key, value) values
   ('starting_points', '20'::jsonb),     -- points a brand new 14 year old gets to spend
   ('points_per_week', '1'::jsonb),      -- points granted per simmed in-game week
   ('auto_approve',    'false'::jsonb),  -- true = upgrade requests skip the commissioner's queue
-  ('current_season',  '2030'::jsonb),   -- must match START_YEAR in commissioner/universe/config.py
+  ('current_season',  '2026'::jsonb),   -- must match START_YEAR in commissioner/universe/config.py
   ('current_week',    '0'::jsonb)
 on conflict (key) do nothing;
 

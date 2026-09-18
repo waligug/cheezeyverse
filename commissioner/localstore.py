@@ -23,7 +23,7 @@ _LOCK = threading.Lock()
 DEFAULTS = {
     "max_characters": 2,
     "auto_approve": True,     # no queue to babysit while it is just the owner
-    "current_season": 2030,
+    "current_season": 2026,
     "current_week": 0,
     "points_per_week": 1,
     # A season is about 26 in-game weeks, so this is roughly half a season on top,

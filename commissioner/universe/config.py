@@ -18,7 +18,7 @@ import math
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-START_YEAR = 2030  # season the universe starts in; DOBs are derived from it
+START_YEAR = 2026  # season the universe starts in; DOBs are derived from it
 ROSTER_LIMIT = 15
 
 

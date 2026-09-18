@@ -317,7 +317,8 @@ Model it, do not guess: `node tools/progression_model.mjs` prints what eight sea
 Re-run it after touching the cost curve, points per week, the offseason lump sum or the potential
 constants.
 
-A season is **26 in-game weeks** (the prep calendar runs 2030-10-15 to 2031-04-17, 184 days), so at
+A season is **26 in-game weeks** (the prep calendar ran 2030-10-15 to 2031-04-17, 184 days, when
+the universe started in 2030; it now starts in 2026 and the same 184 days apply), so at
 1 point per week plus a **15-point offseason lump sum** a character earns about **41 points a year**.
 
 Measured arc, spending evenly across six core skills:
