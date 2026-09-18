@@ -456,3 +456,32 @@ on their own:
 
 Proven end to end 2026-09-18: Gouda Kid, created through the real quiz rules, 6th of 15 on the
 Saskatoon Berries, played 18 minutes with 5 rebounds and 0 points in his first simmed week.
+
+## Box scores: why the schedule's scores are not links
+
+FBPB3's schedule links every result to `boxes/boxN-N.htm` whether or not any box score exists.
+Ours had none, so all 52 links on prep's schedule were 404s; `restyle.py` now renders a score as
+plain text when the file is absent, and will link it again automatically if boxes ever appear.
+
+What we know, from reading strings in FBPB3.exe and from testing on a throwaway save
+(2026-09-18):
+
+- The game stores each game as `<save>ox\*.box` and HTML Output converts those into
+  `html/boxes/`. The dialog's box controls are "Include box links" and "Output old boxes".
+- **No `box\` folder is ever created** in any of our three saves, and `pbp\` stays empty. So
+  there is nothing for HTML Output to convert - the games are being simmed without being
+  recorded.
+- It is **not** an HTML Output setting: exporting with "Output old boxes" = Yes still produced
+  no `boxes/` folder.
+- It is **not** a League Option. That form's combos are Randomization, Attributes, Autosave,
+  Staff, Finances, Historical Mods, Scouting, Fictional History, Draft Trade, 60 Day Rule and
+  Rating Style. `FBPB3help.htm` does not mention storing box scores anywhere.
+- Simming one day through Hot Seat SIM DAY - the path the driver uses - creates no `.box` file.
+
+Two hypotheses remain, neither tested: that a different sim path records games, or that FBPB3
+only stores boxes for games involving a **human-coached** team, of which our leagues have none.
+The Stabbyverse sites do have box scores and do have a Human Coaches page, which is weak
+evidence for the second.
+
+Not worth chasing for its own sake - the scores read fine as text - but worth knowing before
+anybody asks why they cannot click a result.

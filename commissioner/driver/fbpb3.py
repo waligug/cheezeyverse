@@ -379,7 +379,7 @@ class FBPB3:
         raise DriverError(f"Tools -> HTML Output would not open after {attempts} attempts ({last})")
 
     def html_output(self, save_name, player_pages=True, coach_pages=True, box_links=True,
-                    style=None, timeout=900):
+                    old_boxes=False, style=None, timeout=900):
         """Tools -> Commish Tools -> HTML Output, with player pages on. Returns the html folder.
 
         Player pages are off by default in FBPB3 (which is why the reference Stabbyverse site has
@@ -393,7 +393,7 @@ class FBPB3:
         for rel, want in ((self.HTML_PLAYER_PAGES, yes_no[player_pages]),
                           (self.HTML_COACH_PAGES, yes_no[coach_pages]),
                           (self.HTML_BOX_LINKS, yes_no[box_links]),
-                          (self.HTML_OLD_BOXES, "No")):
+                          (self.HTML_OLD_BOXES, yes_no[old_boxes])):
             combo = self._control_at(rel)
             if want in combo.item_texts():
                 combo.select(want)
