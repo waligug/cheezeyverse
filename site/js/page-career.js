@@ -259,7 +259,7 @@ function whoHeIsNow(character, season, age, preview) {
     facts.append(el('div', { class: 'cv-fact' }, el('dt', {}, term), el('dd', {}, value)));
   };
 
-  fact('Age', character.game_dob ? `${age}` : `${START_AGE} (no in-game birthday yet)`);
+  fact('Age', String(age));
   fact('Height now', inches ? formatHeight(inches) : '—');
   fact('Weight', character.build
     ? `about ${buildWeight(inches || character.height_inches, character.build)} lbs`
@@ -270,7 +270,7 @@ function whoHeIsNow(character, season, age, preview) {
   fact('Team', character.team_abbrev || 'no roster spot yet');
   fact('League', LEAGUE_LABELS[character.league] || character.league || '—');
   fact('Hometown', character.hometown || null);
-  fact('Born', character.game_dob ? fmtDate(character.game_dob) : null);
+  fact('Born', character.game_dob ? fmtDate(character.game_dob) : 'no in-game birthday yet');
   fact('Created', character.created_at ? fmtDate(character.created_at) : null);
   card.append(facts);
 
@@ -346,7 +346,11 @@ function theArc(character, season, age) {
     el('span', {}, t.years
       ? `${t.years} ${t.years === 1 ? 'season' : 'seasons'}`
       : t.state === 'now' ? 'here now' : t.state === 'done' ? 'came through' : 'ahead of him'),
-    el('em', {}, t.team || (t.state === 'ahead' ? '' : 'team not recorded'))));
+    /* "team not recorded" is only true of a level he has LEFT. A character still waiting for a
+       roster spot has no team because there is nothing to record yet, which is a different
+       sentence. */
+    el('em', {}, t.team
+      || (t.state === 'ahead' ? '' : t.state === 'now' ? 'no roster spot yet' : 'team not recorded'))));
   }
   card.append(rail);
   if (!known) {
@@ -678,13 +682,18 @@ function thenAndNow(character, requests, viewerOwns) {
     .filter((r) => r.status === 'applied' && r.kind !== 'potential')
     .reduce((sum, r) => sum + Number(r.delta || 0), 0);
 
-  card.append(el('p', {},
-    el('b', {}, `${gained} point${gained === 1 ? '' : 's'} of rating since he was fourteen.`),
-    viewerOwns && bought
-      ? ` ${bought} of them he bought; the rest is the game deciding he got better on his own.`
-      : viewerOwns
-        ? ' None of it was bought - that is all FBPB3 developing him.'
-        : ' How much of that he bought is between him and his owner.'));
+  card.append(gained === 0
+    ? el('p', {},
+      el('b', {}, 'Not a point of improvement yet.'),
+      ' His sheet is still exactly the one the quiz gave him, which is what a fourteen year old '
+      + 'who has not played a game looks like.')
+    : el('p', {},
+      el('b', {}, `${gained} point${gained === 1 ? '' : 's'} of rating since he was fourteen.`),
+      viewerOwns && bought
+        ? ` ${bought} of them he bought; the rest is the game deciding he got better on his own.`
+        : viewerOwns
+          ? ' None of it was bought - that is all FBPB3 developing him.'
+          : ' How much of that he bought is between him and his owner.'));
 
   card.append(el('p', { class: 'cv-hint' },
     'His opening sheet is re-derived from his stored traits and his name, not stored, so it is '

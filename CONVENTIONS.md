@@ -370,3 +370,25 @@ over a 300-point career, and the two extremes beat dithering in the middle, whic
 
 `declareWarning()` in `rules.js` mirrors the constants so the site can say what declaring costs
 *before* the confirm dialog. Those two copies have to move together.
+
+## The career thread between levels (2026-09-17)
+Each league's generated site knows a player only inside that league, so the thread between Prep,
+College and Pro is ours to keep. The commissioner writes three things on every placement:
+
+- `level_history` - one row per level: team, the FBPB3 player id at that level, the seasons it
+  spanned, how it started and how it ended ("created", "aged out of prep", "drafted #1 by GOU").
+  The previous level's row is closed when the next one opens.
+- `league_player_ids` - `{"prep": 53, "college": 53}`, which is what a direct link to
+  `leagues/<level>/players/player<id>.htm` needs.
+- `draft_round`, `draft_pick`, `draft_season` on a drafted character.
+
+**A new character column takes three edits, not one:** the column in `schema.sql`, its name in that
+file's `grant select (...)` list, and its name in `CHARACTER_COLUMNS` in `site/js/supabase.js`.
+`supabase.js` never does `select('*')`, so a column missing from that list is simply `undefined` in
+the browser, and a column missing from the grant errors the whole query and blanks the page.
+
+**Orphaned reserve slots.** Deleting a character (or restoring the store from an older backup)
+leaves his renamed row stranded in the save: the manifest name it used to answer to is missing and
+nobody claims it, so that slot can never be handed to anybody again. `protect_rosters.py` now
+detects them - a player the manifest does not name whose birth year is inside our band, since the
+game's own free agents are all adults - and gives the row its manifest identity back.

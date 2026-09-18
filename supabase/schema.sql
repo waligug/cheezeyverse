@@ -100,6 +100,16 @@ create table if not exists public.characters (
   college_years    int  not null default 0 check (college_years between 0 and 8),
   -- He has asked for the draft. The offseason acts on it at the next rollover.
   declared         boolean not null default false,
+  -- Each league's generated site knows a player only inside that league, so the thread between
+  -- Prep, College and Pro is ours to keep. One row per level, appended by the commissioner:
+  --   {"level":"prep","team_abbrev":"SAS","player_id":53,"from_season":2030,"to_season":2033,
+  --    "how_it_started":"created","how_it_ended":"aged out of prep","carried":0.97}
+  level_history    jsonb not null default '[]'::jsonb,
+  -- His FBPB3 player id per league, which is what a direct link to a player page needs.
+  league_player_ids jsonb not null default '{}'::jsonb,
+  draft_round      int,
+  draft_pick       int,
+  draft_season     int,
   status           text not null default 'pending' check (status in ('pending','active','declared','retired')),
   game_dob         date,
   -- all 18 ratings, keyed by the names in cv_ratings()
@@ -816,7 +826,10 @@ grant  select (id, owner, first_name, last_name, "position", height_inches, arch
                league, team_abbrev, status, game_dob, ratings, potentials,
                points_available, points_spent, created_at,
                jersey_preference, hometown, build, career_goal, traits, quiz_answers,
-               growth_bias, height_seed, expected_adult_height)
+               growth_bias, height_seed, expected_adult_height,
+               -- the career page's thread between levels; the commissioner writes all of these
+               college_years, declared, level_history, league_player_ids,
+               draft_round, draft_pick, draft_season)
   on public.characters to anon, authenticated;
 
 -- height_seed is NOT insertable: it is derived from the row's own id, which does not exist

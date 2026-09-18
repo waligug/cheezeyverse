@@ -27,6 +27,10 @@ export const CHARACTER_COLUMNS = [
   // the creation redesign: everything the quiz produced, plus the height model's cache
   'jersey_preference', 'hometown', 'build', 'career_goal', 'traits', 'quiz_answers',
   'growth_bias', 'height_seed', 'expected_adult_height',
+  // the thread between levels, written by the commissioner: without these the career page
+  // cannot name a team he has left or link to his page on that league's site
+  'college_years', 'declared', 'level_history', 'league_player_ids',
+  'draft_round', 'draft_pick', 'draft_season',
 ].join(',');
 
 export const LEAGUE_LABELS = { prep: 'Prep', college: 'College', pro: 'Pro' };

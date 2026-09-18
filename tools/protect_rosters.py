@@ -38,6 +38,18 @@ FLOOR_POTENTIAL = 5
 LEAVE_ALONE = {"3pUsage", "Fouling", "Stamina"}
 
 
+def _looks_like_ours(player, manifest, key):
+    """A rostered player the manifest does not name, whose birth year is inside our band.
+
+    The game's own free agents are adults (Age.ini starts at 18); a rostered teenager the
+    manifest has never heard of is one of our reserve rows wearing a deleted character's name.
+    """
+    years = [int(r["dob"].split("/")[-1]) for r in manifest["players"] if r["league"] == key]
+    if not years:
+        return False
+    return min(years) <= player.values["BirthYear"] <= max(years)
+
+
 def ours(key):
     man = json.loads((ROOT / "universe" / "manifest.json").read_text(encoding="utf-8"))
     return {(r["name"], r["dob"]) for r in man["players"] if r["league"] == key}, man
@@ -55,6 +67,39 @@ def protect(key, dry_run=False, store_characters=None):
             keep.add((f'{c["first_name"]} {c["last_name"]}', c.get("game_dob") or slot.get("dob")))
 
     L = LeagueDat(path)
+
+    # Orphaned slots: a reserve row was renamed onto a character, and that character is no longer
+    # in the store (deleted, or a store restored from an older backup). The manifest name it used
+    # to answer to is missing and nobody claims the row, so the slot is stranded - it can never be
+    # handed to anybody again. Give it its manifest identity back.
+    known = {(p.name, p.dob) for p in L.players}
+    missing = [r for r in man["players"]
+               if r["league"] == key and r["role"] == "reserve"
+               and (r["name"], r["dob"]) not in known]
+    # Rostered or not: an earlier pass may already have released the orphan as an intruder,
+    # which leaves it stranded in free agency instead of on a roster.
+    unclaimed = [p for p in L.players if (p.name, p.dob) not in keep
+                 and _looks_like_ours(p, man, key)]
+    if missing and unclaimed and not dry_run:
+        for orphan, original in zip(unclaimed, missing):
+            first, _, last = original["name"].partition(" ")
+            L.rename(orphan, first, last)
+            back = L.find(original["name"])
+            month, day, year = (int(v) for v in original["dob"].split("/"))
+            L.set(back, "BirthMonth", month)
+            L.set(back, "BirthDay", day)
+            L.set(back, "BirthYear", year)
+            print(f"   orphaned slot {orphan.name} restored to {original['name']}")
+        L.save(backup_dir=BACKUPS)
+        L = LeagueDat(path)
+        keep, man = ours(key)
+        for c in store_characters or []:
+            slot = c.get("claimed_slot") or {}
+            if c.get("league") == key and slot:
+                keep.discard((slot.get("name"), slot.get("dob")))
+                keep.add((f'{c["first_name"]} {c["last_name"]}',
+                          c.get("game_dob") or slot.get("dob")))
+
     mine = [p for p in L.players if (p.name, p.dob) in keep]
     theirs = [p for p in L.players if (p.name, p.dob) not in keep]
     intruders = [p for p in theirs if p.values["Team"] >= 1]

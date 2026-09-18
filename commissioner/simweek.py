@@ -185,6 +185,17 @@ def _activate_pending(league_key, L, st, log):
         slots = [s for s in slots if s is not slot]
         ch.stamp_character(L, slot, c)
         st.activate_character(c["id"], league_key, slot.team, slot.as_json(), c["dob"])
+        if hasattr(st, "record_level"):
+            try:
+                placed = L.find(f'{c["first_name"]} {c["last_name"]}', c["dob"])
+                st.record_level(c["id"], {
+                    "level": league_key, "team_abbrev": slot.team, "player_id": placed.id,
+                    "from_season": int(st.get_settings().get("current_season", 0)) or None,
+                    "from_age": None, "to_season": None,
+                    "how_it_started": "created", "how_it_ended": None,
+                })
+            except Exception as exc:
+                log(f"   (could not record the level for {c['first_name']}: {exc})")
         done.append(c)
         expect.append((f'{c["first_name"]} {c["last_name"]}', c["dob"],
                        {"Height": int(c["height_inches"])}))

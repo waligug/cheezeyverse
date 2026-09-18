@@ -30,7 +30,7 @@
    },
    "status": "active",
    "id": "b5beefeb5585408db065c99f74c53597",
-   "points_available": 174,
+   "points_available": 219,
    "points_spent": 0,
    "created_at": "2026-09-18T00:02:38+00:00",
    "team_abbrev": "EDM",
@@ -75,7 +75,7 @@
    },
    "status": "active",
    "id": "933851e53b534bd984316b612d69acfe",
-   "points_available": 183,
+   "points_available": 228,
    "points_spent": 0,
    "created_at": "2026-09-18T00:57:47+00:00",
    "team_abbrev": "GOU",
@@ -122,7 +122,7 @@
    },
    "status": "active",
    "id": "59c5ae1e543141ce8763bca229395642",
-   "points_available": 135,
+   "points_available": 180,
    "points_spent": 0,
    "created_at": "2026-09-18T01:10:49+00:00",
    "team_abbrev": "GOU",
@@ -136,6 +136,72 @@
    },
    "game_dob": "6/1/2012",
    "activated_at": "2026-09-18T01:10:53+00:00"
+  },
+  {
+   "first_name": "Stilton",
+   "last_name": "Blue",
+   "league": "college",
+   "position": "PF",
+   "height_inches": 78,
+   "dob": "4/4/2029",
+   "traits": {
+    "height_genes": 58
+   },
+   "hometown": "Stilton, ENG",
+   "jersey_preference": 44,
+   "ratings": {
+    "InsideScoring": 40,
+    "DReb": 38,
+    "Handling": 25,
+    "Stamina": 60
+   },
+   "potentials": {
+    "PotInside": 80,
+    "PotDReb": 76
+   },
+   "status": "active",
+   "id": "49009b05695349fcaf78bf660550614b",
+   "points_available": 15,
+   "points_spent": 0,
+   "created_at": "2026-09-18T01:20:21+00:00",
+   "team_abbrev": "MJW",
+   "claimed_slot": {
+    "league": "college",
+    "team": "MJW",
+    "name": "Jamal Garvin",
+    "dob": "2/1/2011",
+    "position": "PG",
+    "uniform": 52
+   },
+   "game_dob": "4/4/2029",
+   "activated_at": "2026-09-18T01:20:25+00:00",
+   "level_history": [
+    {
+     "level": "prep",
+     "team_abbrev": "SAS",
+     "player_id": 53,
+     "from_season": 2046,
+     "from_age": null,
+     "to_season": 2046,
+     "how_it_started": "created",
+     "how_it_ended": "aged out of prep"
+    },
+    {
+     "level": "college",
+     "team_abbrev": "MJW",
+     "player_id": 53,
+     "from_season": 2046,
+     "to_season": null,
+     "how_it_started": "aged out of prep",
+     "how_it_ended": null,
+     "carried": 0.97,
+     "years_early": 0
+    }
+   ],
+   "league_player_ids": {
+    "prep": 53,
+    "college": 53
+   }
   }
  ],
  "requests": [
@@ -423,6 +489,97 @@
    "amount": 15,
    "reason": "offseason",
    "created_at": "2026-09-18T01:16:12+00:00"
+  },
+  {
+   "id": "20145c5693d74f71b4379f21efd9c052",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "ce4d1eba50684736bd304160524185e1",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "ce6edc58682246d0ab88071b1adcef91",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "4726b40bc3fb45509912d23d5a7bbc90",
+   "character_id": "9fc19e4c227c4e3aac26ffa0f9ec6ebf",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "ca7afce9e0f74bbd9fd6c2b188715303",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "cc443b5219da48188d910bbe34a3f782",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "9cfe6707808846c297e9cb544292c58d",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "0e4e37ea44a741188589f2511d899999",
+   "character_id": "9fc19e4c227c4e3aac26ffa0f9ec6ebf",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:03+00:00"
+  },
+  {
+   "id": "b4bbcfa031af4f28bbefef8ef1ee1399",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "c76958f74d0e4c2a9816bad4f8e263d9",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "7e156d82263c4dec9f50e333a91517b7",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "afeb32c8d8234849bfcee3206c77e8e4",
+   "character_id": "9fc19e4c227c4e3aac26ffa0f9ec6ebf",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "059dac10513346709822daae67bb7e53",
+   "character_id": "49009b05695349fcaf78bf660550614b",
+   "amount": 15,
+   "reason": "offseason",
+   "created_at": "2026-09-18T01:20:26+00:00"
   }
  ],
  "runs": [
@@ -443,11 +600,11 @@
  "settings": {
   "max_characters": 2,
   "auto_approve": true,
-  "current_season": 2043,
+  "current_season": 2047,
   "current_week": 0,
   "points_per_week": 1,
   "offseason_points": 15,
   "college_development_bonus": 12,
-  "last_offseason": 2042
+  "last_offseason": 2046
  }
 }

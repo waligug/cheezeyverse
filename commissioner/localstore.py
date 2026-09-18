@@ -136,6 +136,33 @@ def set_character_field(character_id, field, value):
     raise KeyError(character_id)
 
 
+def record_level(character_id, entry):
+    """Append one level to a character's history, and remember his id in that league's save.
+
+    The career page needs this: each league's site knows a player only inside that league, so the
+    thread between Prep, College and Pro is ours to keep. `player_id` is what makes a direct link
+    to `leagues/<level>/players/player<id>.htm` possible.
+    """
+    with _LOCK:
+        d = _read()
+        for c in d["characters"]:
+            if c["id"] == character_id:
+                history = list(c.get("level_history") or [])
+                for row in history:                      # close the level he is leaving
+                    if row.get("to_season") is None and row.get("level") != entry.get("level"):
+                        row["to_season"] = entry.get("from_season")
+                        row["how_it_ended"] = entry.get("how_it_started")
+                history.append(entry)
+                c["level_history"] = history
+                ids = dict(c.get("league_player_ids") or {})
+                if entry.get("player_id") is not None:
+                    ids[entry["level"]] = entry["player_id"]
+                c["league_player_ids"] = ids
+                _write(d)
+                return c
+    raise KeyError(character_id)
+
+
 def set_character_status(character_id, status):
     with _LOCK:
         d = _read()

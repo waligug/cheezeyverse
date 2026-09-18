@@ -166,7 +166,7 @@ def convert(ratings, factor):
     return out
 
 
-def promote(character, to_league, store, log=print, dry_run=False):
+def promote(character, to_league, store, log=print, dry_run=False, how="promoted", season=None):
     """Move one character up a level, carrying his ratings, and hand back his old slot."""
     from_league = character["league"]
     src_path, dst_path = ch.save_path(from_league), ch.save_path(to_league)
@@ -210,6 +210,17 @@ def promote(character, to_league, store, log=print, dry_run=False):
     refill(from_league, character, log=log)
     store.activate_character(character["id"], to_league, slot.team, slot.as_json(),
                              character.get("game_dob"))
+    if hasattr(store, "record_level"):
+        try:
+            placed = LeagueDat(dst_path).find(name, character.get("game_dob") or slot.dob)
+            store.record_level(character["id"], {
+                "level": to_league, "team_abbrev": slot.team, "player_id": placed.id,
+                "from_season": season, "to_season": None,
+                "how_it_started": how, "how_it_ended": None,
+                "carried": conv["factor"], "years_early": conv["early_years"],
+            })
+        except Exception as exc:
+            log(f"   (could not record the level for {name}: {exc})")
     log(f"   {name}: {from_league} -> {to_league}, {slot.team}")
     return {"character": character, "to": to_league, "team": slot.team,
             "slot": slot.as_json(), "conversion": conv}
@@ -288,7 +299,7 @@ def draft_order(pro_save=None):
     return [abbrev for _, _, abbrev in rows]
 
 
-def run_draft(declared, store, log=print, dry_run=False):
+def run_draft(declared, store, log=print, dry_run=False, season=None):
     """Assign declared players to pro teams, worst record first. Returns the picks."""
     if not declared:
         return []
@@ -305,9 +316,14 @@ def run_draft(declared, store, log=print, dry_run=False):
         log(f'   #{p["pick"]:2} {p["team"]}  {c["first_name"]} {c["last_name"]}')
         if not dry_run:
             try:
-                moved = promote(c, "pro", store, log=log)
+                how = f'drafted #{p["pick"]} by {p["team"]}'
+                moved = promote(c, "pro", store, log=log, how=how, season=season)
                 p["slot"] = moved["slot"]
                 p["conversion"] = moved["conversion"]
+                if hasattr(store, "set_character_field"):
+                    store.set_character_field(c["id"], "draft_pick", p["pick"])
+                    store.set_character_field(c["id"], "draft_round", p["round"])
+                    store.set_character_field(c["id"], "draft_season", season)
             except Exception as exc:
                 log(f'   ! pick #{p["pick"]} failed: {exc}')
                 p["error"] = str(exc)
@@ -363,12 +379,14 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
     result["failed"] = []
     for c in moving["college"]:
         try:
-            result["promoted"].append(promote(c, "college", store, log=log, dry_run=dry_run))
+            result["promoted"].append(promote(
+                c, "college", store, log=log, dry_run=dry_run,
+                how="aged out of prep", season=season))
         except Exception as exc:
             name = f'{c.get("first_name")} {c.get("last_name")}'
             log(f"   ! {name} did not move: {exc}")
             result["failed"].append({"character": c, "stage": "promote", "error": str(exc)})
-    result["drafted"] = run_draft(moving["draft"], store, log=log, dry_run=dry_run)
+    result["drafted"] = run_draft(moving["draft"], store, log=log, dry_run=dry_run, season=season)
 
     # Bank the college year BEFORE anything reads it again. This was a real bug: three places
     # read `college_years` and nothing wrote it, so every college player was permanently a
