@@ -273,3 +273,17 @@ Heights taper with age inside each league: the full `youth_shrink` at the league
 zero at its oldest. Prep 14-year-old point guards are 5'1"-5'9" and 17-year-olds 5'10"-6'3", which
 matches the range a created 14-year-old rolls (`HEIGHT_RANGES` in `site/js/rules.js`). Those two
 tables have to move together or characters stand a head shorter than their own teammates.
+
+
+## The game's player pages lag a mid-season rating change
+Verified 2026-09-17 against a real sim: for four unchanged fillers the codec's values matched their
+generated `players/player<id>.htm` column for column, and the only player who differed was the one we
+had just upgraded mid-season - his page showed Handling 24 / Passing 26 while the save (and the sim
+engine) had 26 / 28.
+
+So FBPB3's player page prints a **season-start snapshot**, not the live record. The upgrade is real -
+the sim uses the live ratings, which Phase 0 proved by changing a player's behaviour - but the league
+site will not show it until the season rolls over. Our own character pages read the live values from
+the store, so the person who spent the point sees it immediately; the FBPB3 page is the one that
+lags. Do not "fix" this by writing the archive rows: CONVENTIONS already forbids touching the
+ratings-history block, and the game rebuilds it.

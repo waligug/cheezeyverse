@@ -291,9 +291,18 @@ def _worker(run):
     except BaseException as exc:  # noqa: BLE001 - a crash in simweek is a log line, not a 500
         run.status = "error"
         run.error = f"{type(exc).__name__}: {exc}"
-        run.emit({"kind": "step", "step": "error", "league": None, "pct": None,
-                  "message": run.error,
-                  "traceback": traceback.format_exc(limit=8)})
+        # simweek keeps a lock of its own, so a sim started outside this panel (a script, a
+        # second process) refuses us. That is not a crash and it must not read like one: this
+        # panel started nothing and nothing was written.
+        if type(exc).__name__ == "SimBusy":
+            run.error = ("Another process is already simming - this panel did not start "
+                         f"anything and nothing was written. ({exc})")
+            run.emit({"kind": "step", "step": "error", "league": None, "pct": None,
+                      "message": run.error})
+        else:
+            run.emit({"kind": "step", "step": "error", "league": None, "pct": None,
+                      "message": run.error,
+                      "traceback": traceback.format_exc(limit=8)})
     finally:
         run.finished_at = time.time()
         _invalidate_status()
@@ -488,8 +497,10 @@ def api_sim_stream():
     # Everything off `request` is read here, before the generator: inside it the request
     # context is already gone.
     wanted = request.args.get("run") or ""
+    # EventSource resends the last `id:` it saw as Last-Event-ID when it reconnects on its own,
+    # so a dropped connection resumes exactly where it stopped instead of replaying the log.
     try:
-        after = int(request.args.get("after", 0))
+        after = int(request.headers.get("Last-Event-ID") or request.args.get("after", 0))
     except (TypeError, ValueError):
         after = 0
     run = current_run()
@@ -513,6 +524,8 @@ def api_sim_stream():
                 try:
                     event = q.get(timeout=10)
                 except queue.Empty:
+                    if run.finished_at is not None:
+                        return  # finished, nothing further coming: do not hold the socket open
                     # A comment keeps the connection (and any proxy) awake without
                     # reaching the browser's message handler.
                     yield ": keepalive\n\n"
@@ -531,7 +544,10 @@ def api_sim_stream():
 
 
 def _sse(payload):
-    return "data: " + json.dumps(payload, default=str) + "\n\n"
+    """One SSE frame. `id:` is the event sequence, which is what makes Last-Event-ID work."""
+    seq = payload.get("seq")
+    head = f"id: {seq}\n" if seq else ""
+    return head + "data: " + json.dumps(payload, default=str) + "\n\n"
 
 
 @app.get("/api/sim/log")
@@ -609,7 +625,10 @@ def api_approve():
     ids = [str(i) for i in (_body().get("ids") or []) if str(i).strip()]
     if not ids:
         return jsonify({"ok": False, "error": "Nothing selected."}), 400
-    count = approve(ids)
+    result = approve(ids)
+    # `approve` returns a count from the local store and a list of the updated rows from
+    # Supabase, so the panel normalises rather than printing "Approved [object Object]".
+    count = len(result) if isinstance(result, (list, tuple)) else result
     return jsonify({"ok": True, "approved": count, "ids": ids})
 
 

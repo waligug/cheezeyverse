@@ -495,9 +495,6 @@ function wire() {
 
 function boot() {
   wire();
-  if (!BOOT.simweek || !BOOT.simweek.ok) {
-    $('btn-refresh-pending').disabled = false;   // it will report the same failure, clearly
-  }
   if (BOOT.busy && BOOT.run) {
     // A sim was already running when this page loaded: reattach to its log from the start
     // rather than pretending the panel is idle.

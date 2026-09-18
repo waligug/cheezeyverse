@@ -107,7 +107,13 @@ def pending_work():
     return {
         "characters": st.pending_characters(),
         "requests": st.queued_requests() if hasattr(st, "queued_requests") else [],
+        "auto_approve": bool(st.get_settings().get("auto_approve", False)),
     }
+
+
+def set_auto_approve(on):
+    """Whether a point spend needs the owner to say yes before the next sim applies it."""
+    return store().set_setting("auto_approve", bool(on))
 
 
 def approve(request_ids):
