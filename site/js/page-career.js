@@ -359,14 +359,14 @@ function theArc(character, season, age) {
   const list = el('div', { class: 'cv-timeline' });
   track.forEach((t, i) => {
     if (i) list.append(transitionRow(track[i - 1], t, character));
-    list.append(levelRow(t, character));
+    list.append(levelRow(t));
   });
   card.append(list);
 
   return card;
 }
 
-function levelRow(t, character) {
+function levelRow(t) {
   const box = el('div', { class: `cv-tl-level is-${t.state}` });
   const head = el('div', { class: 'cv-tl-head' },
     el('b', {}, t.label),

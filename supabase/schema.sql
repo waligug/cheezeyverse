@@ -94,6 +94,12 @@ create table if not exists public.characters (
   archetype        text not null,
   league           text not null default 'prep'    check (league in ('prep','college','pro')),
   team_abbrev      text,
+  -- Seasons FINISHED at college. It drives two things: the four-year eligibility cap, and how
+  -- much of his ratings survive the move to the pros (see commissioner/offseason.py). The
+  -- offseason writes it; nothing else may, which is why it is service-role only below.
+  college_years    int  not null default 0 check (college_years between 0 and 8),
+  -- He has asked for the draft. The offseason acts on it at the next rollover.
+  declared         boolean not null default false,
   status           text not null default 'pending' check (status in ('pending','active','declared','retired')),
   game_dob         date,
   -- all 18 ratings, keyed by the names in cv_ratings()

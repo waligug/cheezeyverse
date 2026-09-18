@@ -124,6 +124,18 @@ def activate_character(character_id, league, team_abbrev, claimed_slot, game_dob
     raise KeyError(character_id)
 
 
+def set_character_field(character_id, field, value):
+    """Set one column on a character. The offseason uses it to bank college years."""
+    with _LOCK:
+        d = _read()
+        for c in d["characters"]:
+            if c["id"] == character_id:
+                c[field] = value
+                _write(d)
+                return c
+    raise KeyError(character_id)
+
+
 def set_character_status(character_id, status):
     with _LOCK:
         d = _read()

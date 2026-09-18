@@ -304,9 +304,14 @@ def run_draft(declared, store, log=print, dry_run=False):
         c = p["character"]
         log(f'   #{p["pick"]:2} {p["team"]}  {c["first_name"]} {c["last_name"]}')
         if not dry_run:
-            moved = promote(c, "pro", store, log=log)
-            p["slot"] = moved["slot"]
-    return picks
+            try:
+                moved = promote(c, "pro", store, log=log)
+                p["slot"] = moved["slot"]
+                p["conversion"] = moved["conversion"]
+            except Exception as exc:
+                log(f'   ! pick #{p["pick"]} failed: {exc}')
+                p["error"] = str(exc)
+    return [p for p in picks if "error" not in p] + [p for p in picks if "error" in p]
 
 
 def _promise(character):
@@ -320,10 +325,20 @@ def _promise(character):
 
 
 # ---- the whole thing ------------------------------------------------------------------------
-def run_offseason(store, season=None, log=print, dry_run=False):
-    """Grow everyone, move whoever has outgrown his level, run the draft, free the slots."""
+def run_offseason(store, season=None, log=print, dry_run=False, force=False):
+    """Grow everyone, move whoever has outgrown his level, run the draft, free the slots.
+
+    Refuses to run the same season twice. Everything in here is cumulative - inches, points,
+    college years, promotions - so a second run silently pays everybody again and grows them
+    again. It is one button, and a double click is not a reason to ruin a season.
+    """
     settings = store.get_settings()
     season = int(season or settings.get("current_season", cfg.START_YEAR))
+    done = settings.get("last_offseason")
+    if done is not None and int(done) >= season and not dry_run and not force:
+        raise OffseasonError(
+            f"the {season} offseason has already been run (last completed: {done}). "
+            "Pass force=True only if you know the first run did not finish.")
     characters = store.characters()
     result = {"season": season, "grown": 0, "promoted": [], "drafted": [], "dry_run": dry_run}
 
@@ -342,12 +357,28 @@ def run_offseason(store, season=None, log=print, dry_run=False):
 
     moving = movers(characters, season)
     log(f"moving up: {len(moving['college'])} to college, {len(moving['draft'])} into the draft")
+    # One character the codec cannot find must not abort an offseason that has already moved
+    # other people - a half-run offseason is far worse than a reported failure, because the
+    # save and the store disagree from then on.
+    result["failed"] = []
     for c in moving["college"]:
         try:
             result["promoted"].append(promote(c, "college", store, log=log, dry_run=dry_run))
-        except OffseasonError as exc:
-            log(f"   ! {exc}")
+        except Exception as exc:
+            name = f'{c.get("first_name")} {c.get("last_name")}'
+            log(f"   ! {name} did not move: {exc}")
+            result["failed"].append({"character": c, "stage": "promote", "error": str(exc)})
     result["drafted"] = run_draft(moving["draft"], store, log=log, dry_run=dry_run)
+
+    # Bank the college year BEFORE anything reads it again. This was a real bug: three places
+    # read `college_years` and nothing wrote it, so every college player was permanently a
+    # freshman - always three years early, so always the 73% conversion, and the four-year
+    # eligibility cap could never fire.
+    if not dry_run:
+        for c in moving["stay"]:
+            if c.get("league") == "college":
+                store.set_character_field(c["id"], "college_years",
+                                          int(c.get("college_years") or 0) + 1)
 
     # The offseason lump sum: every active character is a year older and gets paid for it,
     # and a college season that was seen through pays a development bonus on top.
@@ -373,6 +404,7 @@ def run_offseason(store, season=None, log=print, dry_run=False):
         result["developed"] = developed
 
     if not dry_run:
+        store.set_setting("last_offseason", season)
         store.set_setting("current_season", season + 1)
         store.set_setting("current_week", 0)
     log(f"offseason complete: {result['grown']} grew, {len(result['promoted'])} promoted, "

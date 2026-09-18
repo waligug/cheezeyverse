@@ -13,10 +13,10 @@
 
 window.CV_CONFIG = {
   // Supabase dashboard -> Project Settings -> API -> Project URL
-  supabaseUrl: 'https://cv-offline-test.supabase.co',
+  supabaseUrl: 'https://YOUR-PROJECT-REF.supabase.co',
 
   // Supabase dashboard -> Project Settings -> API -> Project API keys -> anon / public
-  supabaseAnonKey: 'eyJoffline.test.key',
+  supabaseAnonKey: 'PASTE-YOUR-ANON-PUBLIC-KEY-HERE',
 
   // The three FBPB3 HTML Output sites, published separately by the commissioner app
   // (commissioner/publish/restyle.py re-skins them). Standings, stats and box scores all
