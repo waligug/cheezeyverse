@@ -330,10 +330,10 @@ begin
 end;
 $fn$;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
+-- The trigger that would install handle_new_user() on auth.users is NOT here. It is at the
+-- very bottom of this file, on its own, deliberately outside the transaction - see the note
+-- down there. Everything above and below stays inside one transaction; that one statement
+-- cannot, because it is allowed to fail.
 
 -- The website calls this right after sign-in. The auth.users trigger above normally has
 -- already done the work; this covers a project where creating that trigger was refused.
@@ -958,3 +958,28 @@ insert into public.settings (key, value) values
   ('current_season',  '2030'::jsonb),   -- must match START_YEAR in commissioner/universe/config.py
   ('current_week',    '0'::jsonb)
 on conflict (key) do nothing;
+
+-- =====================================================================================
+-- LAST, AND OUTSIDE THE TRANSACTION ON PURPOSE
+-- =====================================================================================
+--
+-- Creating a trigger on `auth.users` needs ownership of that table, and the role running a
+-- SQL-editor script often does not have it. Both statements below - including the `drop ... if
+-- exists` - then fail with `must be owner of relation users`.
+--
+-- While they sat inside the file's one big transaction, that refusal rolled back EVERYTHING:
+-- no profiles table, no cv_ensure_profile, no policies, no grants. One predictable permission
+-- error silently discarded the entire schema, and the comment two hundred lines up promising a
+-- fallback "for a project where creating that trigger was refused" described something that
+-- could not possibly exist, because the fallback was rolled back with the rest of it.
+--
+-- Out here, a refusal costs exactly this trigger and nothing else. That is survivable, because
+-- cv_ensure_profile() does the same job and the website calls it on every single page load.
+--
+-- So: if the two statements below fail, IGNORE THE ERROR. Everything above it has committed and
+-- the site works. This is a convenience, not a dependency.
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
