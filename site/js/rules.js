@@ -726,8 +726,8 @@ export const SHEET_WEIGHTS = {
 export const SKILL_RATINGS = RATINGS.filter((r) => !TENDENCY_RATINGS.includes(r));
 
 /** A brand new 14 year old is terrible. Nothing on the sheet starts above this. */
-export const START_RATING_CEILING = 30;
-export const START_RATING_FLOOR = 3;
+export const START_RATING_CEILING = 44;
+export const START_RATING_FLOOR = 4;
 /** And his potentials sit inside the prep filler band (25-58 in universe/config.py). */
 export const START_POTENTIAL_CEILING = 95;
 
@@ -740,33 +740,33 @@ export const TRAIT_SWING = 8;
  */
 export const POSITION_TEMPLATES = {
   PG: {
-    InsideScoring: 12, JumpShot: 15, FtShot: 19, '3pUsage': 25, '3pShot': 14,
-    Handling: 21, Passing: 21, Quickness: 22, PostDefense: 7, PerimeterDefense: 14,
-    Stealing: 15, Blocking: 5, OReb: 7, DReb: 10, Jumping: 16, Strength: 9,
+    InsideScoring: 19, JumpShot: 24, FtShot: 30, '3pUsage': 25, '3pShot': 22,
+    Handling: 32, Passing: 32, Quickness: 34, PostDefense: 12, PerimeterDefense: 22,
+    Stealing: 24, Blocking: 9, OReb: 12, DReb: 16, Jumping: 25, Strength: 15,
     Stamina: 20, Fouling: 25,
   },
   SG: {
-    InsideScoring: 14, JumpShot: 17, FtShot: 18, '3pUsage': 28, '3pShot': 16,
-    Handling: 17, Passing: 15, Quickness: 20, PostDefense: 9, PerimeterDefense: 16,
-    Stealing: 14, Blocking: 7, OReb: 9, DReb: 12, Jumping: 18, Strength: 11,
+    InsideScoring: 22, JumpShot: 27, FtShot: 28, '3pUsage': 28, '3pShot': 25,
+    Handling: 27, Passing: 24, Quickness: 31, PostDefense: 15, PerimeterDefense: 25,
+    Stealing: 22, Blocking: 12, OReb: 15, DReb: 19, Jumping: 28, Strength: 18,
     Stamina: 19, Fouling: 26,
   },
   SF: {
-    InsideScoring: 16, JumpShot: 15, FtShot: 16, '3pUsage': 22, '3pShot': 13,
-    Handling: 14, Passing: 13, Quickness: 17, PostDefense: 12, PerimeterDefense: 15,
-    Stealing: 12, Blocking: 11, OReb: 13, DReb: 15, Jumping: 18, Strength: 14,
+    InsideScoring: 25, JumpShot: 24, FtShot: 25, '3pUsage': 22, '3pShot': 21,
+    Handling: 22, Passing: 21, Quickness: 27, PostDefense: 19, PerimeterDefense: 24,
+    Stealing: 19, Blocking: 18, OReb: 21, DReb: 24, Jumping: 28, Strength: 22,
     Stamina: 18, Fouling: 28,
   },
   PF: {
-    InsideScoring: 18, JumpShot: 12, FtShot: 14, '3pUsage': 14, '3pShot': 9,
-    Handling: 10, Passing: 11, Quickness: 13, PostDefense: 16, PerimeterDefense: 12,
-    Stealing: 10, Blocking: 16, OReb: 18, DReb: 20, Jumping: 17, Strength: 18,
+    InsideScoring: 28, JumpShot: 19, FtShot: 22, '3pUsage': 14, '3pShot': 15,
+    Handling: 16, Passing: 18, Quickness: 21, PostDefense: 25, PerimeterDefense: 19,
+    Stealing: 16, Blocking: 25, OReb: 28, DReb: 31, Jumping: 27, Strength: 28,
     Stamina: 17, Fouling: 32,
   },
   C: {
-    InsideScoring: 20, JumpShot: 9, FtShot: 12, '3pUsage': 10, '3pShot': 6,
-    Handling: 8, Passing: 9, Quickness: 11, PostDefense: 18, PerimeterDefense: 9,
-    Stealing: 8, Blocking: 20, OReb: 19, DReb: 21, Jumping: 16, Strength: 20,
+    InsideScoring: 31, JumpShot: 15, FtShot: 19, '3pUsage': 10, '3pShot': 11,
+    Handling: 14, Passing: 15, Quickness: 18, PostDefense: 28, PerimeterDefense: 15,
+    Stealing: 14, Blocking: 31, OReb: 30, DReb: 32, Jumping: 25, Strength: 31,
     Stamina: 16, Fouling: 34,
   },
 };

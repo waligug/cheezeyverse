@@ -35,7 +35,7 @@ Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by D
 | Team2 (contract/last team) | T1+166 | 264/264 rostered; FA/draft keep former team |
 | Player id | not stored at a fixed offset and **not contiguous** once a save has aged: recovered from the roster arrays (records are in ascending id order, team records in ascending team-id order, each player's Team field says which array he belongs to); free agents / draft players fall back to the `(id, id)` int16 pair before the name, bounded by their neighbours | 390/390 vs MDB |
 | Experience | E+82 | 390/390 |
-| Inactive (-1 = dressed out) | E+46 | 400/410 on the aged save; the game recomputes it on load (a roster over the limit forces the extra player inactive) |
+| Inactive (0 = dressed out, -1 = benched) | E+46 | 400/410 on the aged save; the game recomputes it on load (a roster over the limit forces the extra player inactive) |
 | Ratings ×18 | R+0..R+34 in order: Inside, JumpShot, FT, 3pUsage, 3pShot, Handling, Passing, Quickness, PostD, PerimD, Stealing, Blocking, OReb, DReb, Jumping, Strength, Stamina, Fouling | 390/390 |
 | Potentials ×12 | R+168..R+190 in order: Inside, JumpShot, FT, 3pShot, Handling, Passing, OReb, DReb, PostD, PerimD, Stealing, Blocking | 390/390 |
 | Happiness | R-62 | 386/386, not yet used |
@@ -415,3 +415,24 @@ the chart was last rebuilt - disqualified the entire region and `teams()` raised
 It now scores candidates instead: an id belonging to another team is still fatal, an id belonging to
 nobody is not, and the best offset above 0.95 wins. The search window also went from 64 KB to 256 KB
 from the end, because game history pushes the region further forward as a season is played.
+
+
+## Playing time, and why a new character has to be mid-pack (2026-09-18)
+**The Inactive flag is 0 for a player the game dresses and -1 for one it benches.** The note in the
+record layout had it backwards. Measured against FBPB3's own player pages: 97 players the game calls
+Active all carry 0, and 23 it calls Inactive all carry -1.
+
+Knowing that exposed the thing that actually mattered. Every created character was **benched, with
+zero games**, because a fresh 14-year-old averaged **16.9** against a prep filler median of **24.2**
+- better than only 21% of the league he was joining. The coach plays the better fillers, so a new
+player would never appear in a box score, and the entire premise fails at the first sim.
+
+The filler population is frozen, so the fix is the starting sheet: the position templates were
+lifted about 45% and `START_RATING_CEILING` went 30 -> 44. A median new character now averages 23.5
+against the filler median of 24.2 - **44th percentile, ranging 27th to 71st**. He gets minutes
+without starting, which is what a fourteen year old should be. The progression model still lands
+(prep exit above every filler, college exit inside the pro band).
+
+Re-measure both of these together after any change to either side: `node tools/progression_model.mjs`
+for the arc, and compare a batch of `deriveCharacter` sheets against the league's own averages for
+the percentile. One without the other is how this was missed.
