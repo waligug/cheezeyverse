@@ -43,7 +43,11 @@ CHARACTER_COLUMNS = (
     # league_player_ids is how anything outside the codec finds a character in the
     # generated league site: it maps each level to his FBPB3 player id. Leaving it out
     # of the select made every caller see None and conclude he had never been placed.
-    "league_player_ids,level_history,created_at"
+    # declared and college_years decide whether the offseason moves somebody up or into
+    # the draft. Omitting them made every caller read None and conclude "not declared,
+    # no college years" - which is indistinguishable from the real thing and is how a
+    # write was three times believed not to have landed when it had.
+    "league_player_ids,level_history,declared,college_years,created_at"
 )
 
 DRY_RUN = False  # set by --selftest; makes every call describe itself instead of firing
