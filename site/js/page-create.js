@@ -202,6 +202,28 @@ function syncHeightRead() {
 
 /* ---------------------------------------------------------------------------- choices */
 
+/**
+ * Repaint which card in a radio group looks selected, WITHOUT rebuilding the group.
+ *
+ * Picking an answer used to call the group's render function again, which cleared the
+ * container and built every card from scratch - all fourteen questions, on every single
+ * click. That destroys the radio you just clicked, so focus is lost, and the page collapses
+ * to a shorter height for an instant while it rebuilds. The browser clamps the scroll
+ * position to the shorter page, and when it expands again you are somewhere near the top.
+ * The page appeared to teleport upwards every time you answered anything.
+ *
+ * Nothing about the cards actually changes except which one is highlighted, and the browser
+ * already tracks the checked state for a named radio group. So only the class needs moving.
+ */
+function syncChoiceGroup(name) {
+  const inputs = document.querySelectorAll(`input[type="radio"][name="${CSS.escape(name)}"]`);
+  for (const input of inputs) {
+    const card = input.closest('.cv-choice');
+    if (card) card.classList.toggle('is-on', input.checked);
+  }
+}
+
+
 function choiceCard(name, value, checked, title, blurb, onPick) {
   return el('label', { class: `cv-choice${checked ? ' is-on' : ''}` },
     el('input', {
@@ -217,7 +239,7 @@ function renderBuilds() {
   for (const b of BUILDS) {
     box.append(choiceCard('build', b.id, state.build === b.id, b.label, b.blurb, (v) => {
       state.build = v;
-      renderBuilds();
+      syncChoiceGroup('build');
       draw();
     }));
   }
@@ -234,7 +256,7 @@ function renderQuiz() {
       choices.append(choiceCard(`q-${q.id}`, a.id, state.answers[q.id] === a.id, a.text, null,
         (v) => {
           state.answers[q.id] = v;
-          renderQuiz();
+          syncChoiceGroup(`q-${q.id}`);
           draw();
         }));
     }
@@ -249,7 +271,7 @@ function renderGoals() {
   for (const g of CAREER_GOALS) {
     box.append(choiceCard('goal', g.id, state.goal === g.id, g.label, g.line, (v) => {
       state.goal = v;
-      renderGoals();
+      syncChoiceGroup('goal');
       draw();
     }));
   }
@@ -261,7 +283,7 @@ function renderSummer() {
   for (const s of SUMMER_WORK) {
     box.append(choiceCard('summer', s.id, state.summer === s.id, s.label, null, (v) => {
       state.summer = v;
-      renderSummer();
+      syncChoiceGroup('summer');
       draw();
     }));
   }
