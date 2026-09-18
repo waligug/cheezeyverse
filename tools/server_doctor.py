@@ -106,6 +106,14 @@ def main():
     # confirmed" on a machine where gh was not even installed yet. A read test cannot prove a
     # write. --dry-run contacts receive-pack, which requires real credentials, and sends nothing.
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
+    # Publishing commits to an orphan branch first, and git refuses to commit without an
+    # identity. A fresh machine has none, and the failure surfaces three steps later as an
+    # unrelated-looking refspec error from the push.
+    who = subprocess.run(["git", "config", "user.email"], cwd=ROOT,
+                         capture_output=True, text=True).stdout.strip()
+    check("git knows who you are", bool(who), who or "no user.email set",
+          'git config user.name "Your Name" && git config user.email "you@example.com"')
+
     r = subprocess.run(["git", "push", "--dry-run", "origin", "HEAD:refs/heads/cv-auth-probe"],
                        cwd=ROOT, capture_output=True, text=True, timeout=90, env=env)
     check("can PUSH to GitHub", r.returncode == 0,

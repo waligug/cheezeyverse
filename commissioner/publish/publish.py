@@ -146,7 +146,12 @@ def git_push(message=None, branch=PAGES_BRANCH, remote="origin"):
         elif kept_cname:
             (work / "CNAME").write_text(kept_cname, encoding="utf-8")
         git("add", "-f", ".", cwd=work)
-        git("commit", "-m", message, cwd=work, check=False)
+        # check=True, deliberately. A commit that fails - most commonly because the machine has
+        # no git user.name/user.email - used to be swallowed here, leaving the orphan branch
+        # with no commit at all. The PUSH then failed with "src refspec HEAD does not match
+        # any", which describes a symptom three steps downstream of the cause and sent the
+        # reader looking at refspecs. git() already tolerates "nothing to commit".
+        git("commit", "-m", message, cwd=work)
         git("push", "--force", remote, f"HEAD:{branch}", cwd=work)
     finally:
         git("worktree", "remove", "--force", str(work), check=False)
