@@ -729,7 +729,7 @@ export const SKILL_RATINGS = RATINGS.filter((r) => !TENDENCY_RATINGS.includes(r)
 export const START_RATING_CEILING = 30;
 export const START_RATING_FLOOR = 3;
 /** And his potentials sit inside the prep filler band (25-58 in universe/config.py). */
-export const START_POTENTIAL_CEILING = 58;
+export const START_POTENTIAL_CEILING = 95;
 
 /** The most a trait profile can move one rating off its position template, either way. */
 export const TRAIT_SWING = 8;
@@ -832,16 +832,23 @@ export function tendencies(position, traits) {
  * Potentials come off the finished ratings: a flat 12 of headroom, leaning further out on
  * the things his traits suit and pulling in on the things they do not, plus coachability,
  * which is the trait that mostly buys ceiling rather than ability. Everything lands inside
- * the prep filler potential band, so a created 14 year old reads as a real prospect next
- * to the AI population rather than as an alien.
+ * A ceiling is a PROJECTION, not a current stat, so it is not anchored to the filler band the
+ * way the starting ratings are. Anchoring it there was a real bug: it gave a fresh character
+ * 9 to 18 points of headroom, which one season of points exhausts, and left him with a lower
+ * ceiling than the AI free agent beside him. A ceiling has to hold a whole career - prep,
+ * college and a professional peak - so it sits where a scout would put it on a fourteen year
+ * old, and the quiz decides WHERE it is high rather than whether it is high at all.
+ *
+ * It matters twice over: FBPB3's own progression develops a young player toward his potential
+ * on its own, so a low ceiling was also suppressing the growth we were not paying for.
  *
  * Invariant this guarantees, which everything downstream relies on:
  *     START_RATING_FLOOR <= rating <= START_RATING_CEILING <= potential <= START_POTENTIAL_CEILING
  * for every skill, for every position, for every possible set of quiz answers.
  */
-export const POTENTIAL_HEADROOM = 12;
-export const POTENTIAL_AFFINITY_SWING = 13;
-export const POTENTIAL_COACH_SWING = 8;
+export const POTENTIAL_HEADROOM = 34;
+export const POTENTIAL_AFFINITY_SWING = 22;
+export const POTENTIAL_COACH_SWING = 12;
 export const POTENTIAL_MIN_HEADROOM = 3;
 
 /**
@@ -1453,11 +1460,39 @@ export function isLocked(rating) {
 }
 
 /**
- * The ceiling a rating can currently be raised to. With no archetypes there are no caps:
- * the 12 with a potential are held by their potential, the other 6 by the 0-100 scale.
+ * The athletic ceilings.
+ *
+ * Six ratings have no potential in FBPB3 - Quickness, Strength, Jumping, Stamina, 3pUsage and
+ * the locked Fouling - so nothing held them back and every surplus point after the skilled
+ * twelve topped out flowed into them. A character who ran out of skill ceiling in college
+ * finished with Quickness 77 and climbing, which is not a build, it is a leak.
+ *
+ * They get a ceiling of their own, from the body the quiz described: the frame trait for
+ * strength, explosiveness for quickness and jumping, motor for stamina. Wide enough that
+ * nobody bumps it early, low enough that it is a real limit.
  */
-export function ratingCeiling(rating, potentials) {
-  if (!hasPotential(rating)) return RATING_MAX;
+export const ATHLETIC_BASE = 55;
+export const ATHLETIC_SWING = 30;
+export const ATHLETIC_TRAIT = {
+  Quickness: 'explosiveness', Jumping: 'explosiveness', Strength: 'frame',
+  Stamina: 'motor', '3pUsage': 'confidence', Fouling: 'discipline',
+};
+
+export function athleticCeiling(rating, traits) {
+  const name = ATHLETIC_TRAIT[rating];
+  if (!name) return RATING_MAX;
+  const raw = Number((traits || {})[name]);
+  const t = Number.isFinite(raw) ? raw : TRAIT_BASE;
+  return Math.max(35, Math.min(RATING_MAX,
+    Math.round(ATHLETIC_BASE + (ATHLETIC_SWING * (t - TRAIT_BASE)) / 50)));
+}
+
+/**
+ * The ceiling a rating can currently be raised to: its potential for the twelve that have one,
+ * its athletic ceiling for the six that do not.
+ */
+export function ratingCeiling(rating, potentials, traits) {
+  if (!hasPotential(rating)) return athleticCeiling(rating, traits);
   const pot = Number((potentials || {})[rating]);
   return Math.min(RATING_MAX, Number.isFinite(pot) ? pot : RATING_MAX);
 }

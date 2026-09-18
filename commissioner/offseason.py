@@ -294,6 +294,18 @@ def run_offseason(store, season=None, log=print, dry_run=False):
             log(f"   ! {exc}")
     result["drafted"] = run_draft(moving["draft"], store, log=log, dry_run=dry_run)
 
+    # The offseason lump sum: every active character is a year older and gets paid for it.
+    lump = int(settings.get("offseason_points", 15))
+    if lump and not dry_run:
+        paid = 0
+        for c in store.characters():
+            if c.get("status") == "active":
+                store.grant_points(c["id"], lump, "offseason")
+                paid += 1
+        if paid:
+            log(f"paid {lump} offseason point(s) to {paid} character(s)")
+        result["paid"] = paid
+
     if not dry_run:
         store.set_setting("current_season", season + 1)
         store.set_setting("current_week", 0)

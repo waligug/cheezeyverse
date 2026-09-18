@@ -26,6 +26,9 @@ DEFAULTS = {
     "current_season": 2030,
     "current_week": 0,
     "points_per_week": 1,
+    # A season is about 26 in-game weeks, so this is roughly half a season on top,
+    # paid at the rollover. It is what stops a young character feeling becalmed.
+    "offseason_points": 15,
 }
 
 

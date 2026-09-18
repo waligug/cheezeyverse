@@ -311,3 +311,36 @@ undoes it, so the system is self-healing, but a character can miss games in betw
 player stops appearing, that is the first thing to check. When a displaced player's own team has
 filled up, he is signed to any team with room rather than left in free agency - the AI will not
 re-sign a defanged 14-year-old, so free agency is where a career goes to die.
+
+## Point economy, and how it was balanced (2026-09-17)
+Model it, do not guess: `node tools/progression_model.mjs` prints what eight seasons of points buy.
+Re-run it after touching the cost curve, points per week, the offseason lump sum or the potential
+constants.
+
+A season is **26 in-game weeks** (the prep calendar runs 2030-10-15 to 2031-04-17, 184 days), so at
+1 point per week plus a **15-point offseason lump sum** a character earns about **41 points a year**.
+
+Measured arc, spending evenly across six core skills:
+
+| | points so far | core average | population |
+|---|---|---|---|
+| End of season 1 | 41 | 24 | prep fillers 8-38 |
+| End of prep (season 4) | 164 | 44 | above every prep filler |
+| End of college (season 7) | 287 | 56 | pro fillers 28-62 |
+
+So four years to become the best kid in prep, four more to arrive pro-ready, and after that the only
+place left to spend is buying ceilings at double rate. FBPB3's own progression runs on top of all of
+this, and it develops a young player *toward his potential* - which is the second reason the ceilings
+matter.
+
+**Two balance bugs found by modelling it, both severe:**
+1. **Ceilings were anchored to the filler band** (`START_POTENTIAL_CEILING` 58, headroom 12), which
+   gave a new character 9-18 points of room on every skill. One season of points exhausted it, and
+   his ceiling was *lower than the AI free agent next to him*. Now headroom 34, affinity swing 22,
+   ceiling 95: a projection for a fourteen year old, not a current stat, with the quiz deciding
+   **where** it is high rather than whether it is high at all.
+2. **The six ratings with no potential were uncapped** - Quickness, Strength, Jumping, Stamina,
+   3pUsage, Fouling - so every surplus point after the skilled twelve topped out flowed into them
+   forever (Quickness 77 and climbing by college). They now take an **athletic ceiling** from the
+   body the quiz described: explosiveness for quickness and jumping, frame for strength, motor for
+   stamina. See `athleticCeiling()`.
