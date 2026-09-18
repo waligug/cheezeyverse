@@ -88,6 +88,11 @@ def main():
     for name, calls in sorted(sites.items()):
         if name in ONLY_LOCAL or name in ONLY_SUPABASE:
             continue
+        # A leading underscore says "this is one backend's own plumbing, not the shared
+        # contract". Admin tools that only ever talk to Supabase reach for store._request
+        # deliberately; holding localstore to that would be demanding it grow a REST client.
+        if name.startswith("_"):
+            continue
         for module in (store, localstore):
             func = getattr(module, name, None)
             if func is None:
