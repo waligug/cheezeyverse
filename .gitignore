@@ -6,3 +6,7 @@ tmp/
 .env
 # generated league sites are rebuilt from the saves on every publish
 site/leagues/
+
+# Live character data, not source. It is the store when Supabase is not configured, so it holds
+# real people's players once anybody signs up - it does not belong in a public repository.
+universe/local_store.json
