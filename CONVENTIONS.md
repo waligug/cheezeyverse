@@ -476,8 +476,12 @@ What we know, from reading strings in FBPB3.exe and from testing on a throwaway 
 - **No `box\` folder is ever created** in any of our three saves, and `pbp\` stays empty. So
   there is nothing for HTML Output to convert - the games are being simmed without being
   recorded.
-- It is **not** an HTML Output setting: exporting with "Output old boxes" = Yes still produced
-  no `boxes/` folder.
+- Probably **not** an HTML Output setting: exporting with "Output old boxes" = Yes still
+  produced no `boxes/` folder. Treat that as unconfirmed. At the time of the test the driver
+  set dropdowns without reading them back, and it skipped in silence when the option was not
+  there - so the export may have run with the setting unchanged and the experiment proved
+  nothing. The driver verifies now (`FBPB3.combo`), so repeating it would settle it; nobody has.
+  The stronger evidence is simply that no `.box` files exist for it to convert.
 - It is **not** a League Option, as far as the form's controls show: Randomization, Attributes,
   Autosave, Staff, Finances, Historical Mods, Scouting, Fictional History, Draft Trade, 60 Day
   Rule and Rating Style. `FBPB3help.htm` does not mention storing box scores anywhere.
@@ -493,8 +497,13 @@ only stores boxes for games involving a **human-coached** team, of which our lea
 The second is often justified by "the Stabbyverse sites have box scores" - but our only capture
 of them, `fixtures/html-output/svprep/`, holds 273 `boxes/box*.htm` LINKS and no `boxes/`
 directory, because the capture never fetched them. Those are the same links this section opens
-by saying prove nothing. So that is not evidence yet; fetching one of their box pages would
-make it evidence, and nobody has.
+by saying prove nothing. So that is not evidence yet; fetching one of their box pages
+would make it evidence, and nobody has.
+
+The *other* half does hold, and should not have been thrown out with it:
+`fixtures/html-output/svprep/humancoaches.htm` exists in the capture, so their league really does
+have human coaches where ours has none. That is the one real piece of support the
+human-coached hypothesis has.
 
 Not worth chasing for its own sake - the scores read fine as text - but worth knowing before
 anybody asks why they cannot click a result.

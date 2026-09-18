@@ -130,6 +130,46 @@ class FBPB3:
         finally:
             win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
 
+    def combo(self, rel, value, timeout=20):
+        """Set a dropdown by window-relative position and PROVE it took. Returns the value.
+
+        Two traps, both of which have bitten:
+
+        `if value in item_texts(): select(value)` skips in silence when the option is not there
+        - and a combo that has not finished populating has no options yet, so a perfectly valid
+        request is dropped and the screen runs with its previous setting. Hence the poll: the
+        surrounding code's idiom everywhere else is wait-then-fail, not fail-immediately.
+
+        And `selected_text()` cannot be trusted to confirm the result. pywinauto computes it as
+        `item_texts()[selected_index()]`, and `selected_index()` returns CB_ERR (-1) when
+        nothing is selected - which Python indexes as the LAST option. So a select that never
+        took reports the final entry, and on these dialogs the final entry is frequently exactly
+        the "Yes" being asked for. Compare the index instead.
+        """
+        end = time.time() + timeout
+        last = ""
+        while True:
+            c = self._control_at(rel, timeout=min(10, timeout))
+            if not hasattr(c, "item_texts"):
+                # _control_at matches on position alone, with no class filter.
+                raise DriverError(f"the control at {rel} is a {c.class_name()}, not a dropdown")
+            try:
+                options = list(c.item_texts())
+            except Exception as exc:
+                options, last = [], str(exc)
+            if value in options:
+                c.select(options.index(value))
+                time.sleep(0.3)
+                if c.selected_index() == options.index(value):
+                    return value
+                last = f"it stayed on index {c.selected_index()} of {options!r}"
+            elif options:
+                last = f"its options are {options!r}"
+            if time.time() >= end:
+                raise DriverError(f"could not set the dropdown at {rel} to {value!r}: "
+                                  f"{last or 'it never offered any options'}")
+            time.sleep(0.5)
+
     def dismiss_message(self, title=None, button="OK", timeout=30):
         """Wait for a standard message box, return its text, and press a button."""
         end = time.time() + timeout
@@ -139,7 +179,17 @@ class FBPB3:
                     continue
                 dlg = self.app.window(handle=w.handle)
                 text = " ".join(c.window_text() for c in dlg.children() if c.class_name() == "Static")
-                dlg.child_window(title_re=f"&?{button}", class_name="Button").click()
+                try:
+                    dlg.child_window(title_re=f"&?{button}", class_name="Button").click()
+                except Exception as exc:
+                    # A Yes/No confirmation or an Abort/Retry/Ignore box has no OK, and
+                    # pywinauto raises ElementNotFoundError - which is NOT a DriverError, so
+                    # every `except DriverError` wrapped around this call was a hole that let
+                    # a stray dialog abort a whole week's export. Raise our own error so those
+                    # guards mean what they say. Fixed here rather than at each call site,
+                    # because there are four and two were missed the first time.
+                    raise DriverError(
+                        f"message box {w.window_text()!r} has no {button!r} button ({exc})") from exc
                 time.sleep(0.5)
                 return text
             time.sleep(0.5)
@@ -399,24 +449,19 @@ class FBPB3:
                           (self.HTML_COACH_PAGES, yes_no[coach_pages]),
                           (self.HTML_BOX_LINKS, yes_no[box_links]),
                           (self.HTML_OLD_BOXES, yes_no[old_boxes])):
-            combo = self._control_at(rel)
-            # Read it back. `if want in item_texts(): select(want)` skips silently when the
-            # option is not there - and _control_at matches purely on window position with no
-            # class filter, so it can hand back a control that is not the combo, or one that
-            # has not finished populating. The export then runs with the OLD setting and
-            # html_output returns success, which is how an experiment can "prove" a negative
-            # about a setting that was never applied. newgame.combo() has always verified;
-            # this did not.
-            options = combo.item_texts()
-            if want not in options:
-                raise DriverError(
-                    f"the control at {rel} offers {options!r}, which does not include {want!r} - "
-                    "either the screen is not the one expected, or it had not finished loading")
-            combo.select(want)
-            time.sleep(0.3)
-            got = combo.selected_text()
-            if got != want:
-                raise DriverError(f"the control at {rel} stayed on {got!r} instead of {want!r}")
+            try:
+                self.combo(rel, want)
+            except DriverError:
+                # Leave the game somewhere known. Every other exit from this screen either
+                # clicks EXIT or backs out; raising from the middle of a modal dialog leaves it
+                # open, so the caller's exit_game() then clicks the top bar THROUGH it and burns
+                # its timeouts before falling back to kill().
+                self.dismiss_all()
+                try:
+                    self.main.type_keys("{ESC}", set_foreground=True)
+                except Exception:
+                    pass
+                raise
 
         for key, value in (style if style is not None else self.CHEEZEY_STYLE).items():
             box = self._control_at(self.HTML_STYLE[key])
@@ -431,15 +476,12 @@ class FBPB3:
         end = time.time() + timeout
         index = out / "index.htm"
         while time.time() < end:
-            try:
-                self.dismiss_message(timeout=2)
-            except Exception:
-                # Not just DriverError. dismiss_message takes the first visible #32770 and
-                # clicks its OK button; a Yes/No confirmation or an Abort/Retry/Ignore box has
-                # no OK child, so pywinauto raises ElementNotFoundError, which is not a
-                # DriverError and would abort the whole export mid-week with the game still
-                # open. dismiss_all already wraps every dialog this way; this did not.
-                pass
+            # dismiss_all, not dismiss_message: this has to CLEAR whatever is up, not merely
+            # survive it. dismiss_message only knows the OK button, so a Yes/No box was left
+            # on screen and the export then span out its full 900 seconds before reporting a
+            # timeout - telling the operator the export was slow when a dialog was blocking it.
+            # dismiss_all tries OK, No and Cancel, and swallows what it cannot close.
+            self.dismiss_all()
             if index.exists() and index.stat().st_mtime > before:
                 time.sleep(5)  # the per-player pages keep landing after index.htm does
                 self.dismiss_all()

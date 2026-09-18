@@ -87,15 +87,11 @@ class NewGame:
                           + (f" ({last})" if last else ""))
 
     def combo(self, rel, value):
-        c = self._at(rel)
-        if value not in c.item_texts():
-            raise DriverError(f"combo {rel} has no option {value!r}; options are {c.item_texts()}")
-        c.select(value)
-        time.sleep(0.4)
-        got = c.selected_text()
-        if got != value:
-            raise DriverError(f"combo {rel} stayed on {got!r} instead of {value!r}")
-        return got
+        """Delegates to FBPB3.combo. This used to be its own copy of the same three steps, and
+        the copies had already drifted apart - different settle times, and only one of them
+        knew that selected_text() reports the LAST option when nothing is selected, so a select
+        that never took could verify as successful. One implementation, one place to fix it."""
+        return self.g.combo(rel, value)
 
     def text(self, rel, value):
         t = self._at(rel)
