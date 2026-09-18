@@ -58,8 +58,20 @@ session, which never locks and renders fine with no monitor.
 
 Reconnect by RDP any time. Run it again before disconnecting next time.
 
-If you would rather not think about it: only start sims while you are connected, and stay
-connected until the run finishes.
+That is fine once, and annoying every time. Two better ways:
+
+**Automate it.** Run `tools\install_session_keeper.bat` once, as Administrator. It registers a
+scheduled task that watches for the "session disconnected" event and runs `tscon` for you about
+two seconds later. You close the Remote Desktop window exactly as normal and the session hands
+itself back to the console. Nothing to remember.
+
+**Or stop using RDP for this machine.** Set it to log in automatically at boot, and reach it
+with **VNC, AnyDesk or Parsec** instead. Those attach to the console session that is already
+running rather than creating a session of their own, so disconnecting from them changes nothing
+at all - no lock, no tscon, nothing to install. This is the properly correct answer; RDP is
+awkward here only because it is designed to own the session exclusively.
+
+Either way you can also simply stay connected while a sim runs, which needs no setup at all.
 
 ---
 
