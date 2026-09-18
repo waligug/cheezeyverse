@@ -88,7 +88,7 @@ file that is half one state and half another.
 
 `gh` is not on a fresh Windows box, and `winget install GitHub.cli` wants administrator. If the
 account is not an admin, the portable zip works and needs no elevation: unpack it to
-`%LOCALAPPDATA%\Programs\GitHubCLIin` and add that folder to the user PATH.
+`%LOCALAPPDATA%\Programs\GitHubCLI\bin` and add that folder to the user PATH.
 
 ```
 gh auth login            # device code; you complete it in a browser
