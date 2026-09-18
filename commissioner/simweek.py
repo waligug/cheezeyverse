@@ -34,6 +34,8 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKUPS = ROOT / "backups"
 MANIFEST = ROOT / "universe" / "manifest.json"
 
+RATINGS_SET, POTENTIALS_SET = set(RATINGS), set(POTENTIALS)
+
 _SIM_LOCK = threading.Lock()
 _RUNNING = {"active": False, "started": None, "steps": []}
 
@@ -222,13 +224,34 @@ def _apply_requests(league_key, L, st, log):
         c = rows[0]["character"]
         slot = c.get("claimed_slot") or {}
         name = f'{c["first_name"]} {c["last_name"]}'
-        deltas = {}
+
+        # Drop what cannot be applied and keep the rest. One malformed request - a rating that
+        # does not exist, or the locked one - used to raise straight through run_sim and abort
+        # the week for EVERYBODY. A bad request is one person's problem; it must never be
+        # everyone's. Rejecting it also returns the points it reserved.
+        deltas, keep = {}, []
         for r in rows:
-            deltas[r["rating"]] = deltas.get(r["rating"], 0) + int(r["delta"])
-        moved = ch.apply_deltas(L, name, c.get("game_dob") or slot.get("dob"), deltas)
+            field = r["rating"]
+            if field in ch.LOCKED or (field not in RATINGS_SET and field not in POTENTIALS_SET):
+                why = "that rating cannot be spent on" if field in ch.LOCKED                     else f"there is no rating called {field}"
+                log(f"{name}: rejected {field} - {why}")
+                try:
+                    st.reject_request(r["id"], why)
+                except Exception:
+                    pass
+                continue
+            deltas[field] = deltas.get(field, 0) + int(r["delta"])
+            keep.append(r)
+        if not deltas:
+            continue
+        try:
+            moved = ch.apply_deltas(L, name, c.get("game_dob") or slot.get("dob"), deltas)
+        except Exception as exc:
+            log(f"{name}: none of his requests could be applied - {exc}")
+            continue
         expect.append((name, c.get("game_dob") or slot.get("dob"),
                        {k: v[1] for k, v in moved.items()}))
-        applied += [r["id"] for r in rows]
+        applied += [r["id"] for r in keep]
         log(f"{name}: " + ", ".join(f"{k} {v[0]}->{v[1]}" for k, v in moved.items()))
     return applied, expect
 

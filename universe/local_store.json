@@ -30,8 +30,8 @@
    },
    "status": "active",
    "id": "b5beefeb5585408db065c99f74c53597",
-   "points_available": 220,
-   "points_spent": 0,
+   "points_available": 197,
+   "points_spent": 20,
    "created_at": "2026-09-18T00:02:38+00:00",
    "team_abbrev": "EDM",
    "claimed_slot": {
@@ -44,7 +44,8 @@
    },
    "game_dob": "4/2/2016",
    "activated_at": "2026-09-18T01:15:20+00:00",
-   "college_years": 3
+   "college_years": 3,
+   "points_reserved": 3
   },
   {
    "first_name": "Wheel",
@@ -227,6 +228,54 @@
    "status": "applied",
    "requested_at": "2026-09-18T00:11:33+00:00",
    "applied_at": "2026-09-18T00:11:35+00:00",
+   "note": ""
+  },
+  {
+   "id": "f2f5093a21884047892a3e28e8243fde",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": 2,
+   "kind": "rating",
+   "cost": 20,
+   "status": "applied",
+   "requested_at": "2026-09-18T02:08:54+00:00",
+   "applied_at": "2026-09-18T02:08:54+00:00",
+   "note": ""
+  },
+  {
+   "id": "032885424c53400b9662ec6e1ecfeaf6",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Telekinesis",
+   "delta": 2,
+   "kind": "rating",
+   "cost": 2,
+   "status": "rejected",
+   "requested_at": "2026-09-18T02:09:09+00:00",
+   "applied_at": null,
+   "note": "there is no rating called Telekinesis"
+  },
+  {
+   "id": "d322b1f5c34c4a85b32c7d35574bb5f3",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Fouling",
+   "delta": 2,
+   "kind": "rating",
+   "cost": 2,
+   "status": "rejected",
+   "requested_at": "2026-09-18T02:09:09+00:00",
+   "applied_at": null,
+   "note": "that rating cannot be spent on"
+  },
+  {
+   "id": "f7a8bd1ce1cc4f5d95cc24956514a952",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": 1,
+   "kind": "rating",
+   "cost": 3,
+   "status": "approved",
+   "requested_at": "2026-09-18T02:09:31+00:00",
+   "applied_at": null,
    "note": ""
   }
  ],

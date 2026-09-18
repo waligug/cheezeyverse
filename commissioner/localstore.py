@@ -103,6 +103,7 @@ def add_character(payload):
         row.setdefault("status", "pending")
         row.setdefault("points_available", 0)
         row.setdefault("points_spent", 0)
+        row.setdefault("points_reserved", 0)
         row.setdefault("created_at", _now())
         d["characters"].append(row)
         _write(d)
@@ -198,16 +199,47 @@ def retire_character(character_id, season, reason, release_slot=True):
 
 
 # ---- upgrade requests ------------------------------------------------------------------------
+class NotEnoughPoints(ValueError):
+    pass
+
+
 def add_request(character_id, rating, delta, kind_="rating", cost=None, note=""):
+    """Queue an upgrade, RESERVING its cost immediately.
+
+    Reserving at request time rather than at apply time is the whole point: a week's worth of
+    requests is queued before any of it is written to the save, so charging on apply would let
+    somebody queue ten times what he has and have it all land. Reserved points are returned if
+    the request is rejected or cancelled, and become `points_spent` once it is applied.
+    """
+    price = int(cost if cost is not None else delta)
     with _LOCK:
         d = _read()
+        character = next((c for c in d["characters"] if c["id"] == character_id), None)
+        if character is None:
+            raise KeyError(character_id)
+        available = int(character.get("points_available", 0))
+        if price > available:
+            raise NotEnoughPoints(
+                f'{character["first_name"]} {character["last_name"]} has {available} point(s) '
+                f"and that costs {price}")
+        character["points_available"] = available - price
+        character["points_reserved"] = int(character.get("points_reserved", 0)) + price
         row = {"id": uuid.uuid4().hex, "character_id": character_id, "rating": rating,
-               "delta": int(delta), "kind": kind_, "cost": int(cost if cost is not None else delta),
+               "delta": int(delta), "kind": kind_, "cost": price,
                "status": "approved" if d["settings"].get("auto_approve") else "pending",
                "requested_at": _now(), "applied_at": None, "note": note}
         d["requests"].append(row)
         _write(d)
     return row
+
+
+def _return_points(d, request):
+    """Hand a reserved cost back, for a request that will never be applied."""
+    for c in d["characters"]:
+        if c["id"] == request["character_id"]:
+            c["points_reserved"] = max(0, int(c.get("points_reserved", 0)) - int(request["cost"]))
+            c["points_available"] = int(c.get("points_available", 0)) + int(request["cost"])
+            return
 
 
 def pending_requests(league=None):
@@ -249,17 +281,24 @@ def reject_request(request_id, note=""):
     with _LOCK:
         d = _read()
         for r in d["requests"]:
-            if r["id"] == request_id:
+            if r["id"] == request_id and r["status"] in ("pending", "approved"):
+                _return_points(d, r)
                 r.update(status="rejected", note=note)
         _write(d)
 
 
 def mark_applied(request_ids):
+    """Reserved points become spent points. They do not come back."""
     ids = set(request_ids)
     with _LOCK:
         d = _read()
         for r in d["requests"]:
-            if r["id"] in ids:
+            if r["id"] in ids and r["status"] != "applied":
+                for c in d["characters"]:
+                    if c["id"] == r["character_id"]:
+                        c["points_reserved"] = max(
+                            0, int(c.get("points_reserved", 0)) - int(r["cost"]))
+                        c["points_spent"] = int(c.get("points_spent", 0)) + int(r["cost"])
                 r.update(status="applied", applied_at=_now())
         _write(d)
     return len(ids)

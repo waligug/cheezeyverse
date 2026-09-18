@@ -537,6 +537,19 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
     college years, promotions - so a second run silently pays everybody again and grows them
     again. It is one button, and a double click is not a reason to ruin a season.
     """
+    # The offseason drives the same three saves a sim does, and both write league.dat. Share the
+    # sim's lock rather than inventing a second one: two locks that do not know about each other
+    # are the same as no lock at all.
+    from .simweek import _SIM_LOCK, SimBusy
+    if not _SIM_LOCK.acquire(blocking=False):
+        raise SimBusy("a sim or another offseason is already using the saves")
+    try:
+        return _run_offseason(store, season=season, log=log, dry_run=dry_run, force=force)
+    finally:
+        _SIM_LOCK.release()
+
+
+def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
     settings = store.get_settings()
     season = int(season or settings.get("current_season", cfg.START_YEAR))
     done = settings.get("last_offseason")
