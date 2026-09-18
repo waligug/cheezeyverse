@@ -170,7 +170,26 @@ a:hover {{ text-decoration: underline !important; }}
 
 /* Dropping the missing player photos leaves the cell that held them behind; an empty cell with a
    team-coloured background reads as a rendering fault. */
-td:empty, td.cv-blank, td.teamheader:empty, td.headerbg:empty {{ background: transparent !important; padding: 0 !important; }}
+/* Empty cells are usually FBPB3 padding and look like holes once the skin is on, so they
+   are flattened - EXCEPT the ones carrying a bgcolor. Those are the ability swatches beside
+   every player (left = what he is now, right = what he could become), and they are empty on
+   purpose: the colour IS the value. Blanking them turned every swatch on every roster page
+   into an empty white box, which is what they looked like until somebody asked. */
+td:empty:not([bgcolor]), td.cv-blank:not([bgcolor]),
+td.teamheader:empty:not([bgcolor]), td.headerbg:empty:not([bgcolor]) {{
+  background: transparent !important; padding: 0 !important;
+}}
+
+/* The swatches themselves. FBPB3 wraps each in a 1px-bordered table of its own; give them a
+   consistent size and a border that belongs to this skin rather than 1996. */
+td[bgcolor] {{
+  padding: 0 !important;
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 2px !important;
+}}
+td.main > table {{ border-collapse: separate !important; }}
+td.main > table, td.main > table td {{ border-color: {crust} !important; }}
 
 /* team pages keep their own team colour on the big banner, but the chrome matches the league */
 td.teamheader {{ color: #FFF8E6 !important; letter-spacing: -.5px !important; }}
@@ -257,7 +276,12 @@ def _drop_empty_images(html):
         # Keep every attribute: colspan and width hold the table together, and dropping them
         # collapses the layout. Only the styling class is added.
         attrs = m.group(1)
-        return f"<td{attrs} class=cv-blank></td>" if "class=" not in attrs.lower()             else f"<td{attrs}></td>"
+        # A cell with a bgcolor is not blank, whatever is between its tags: it is an ability
+        # swatch and the colour is the whole point. Tagging it cv-blank is what hid them.
+        if "bgcolor" in attrs.lower():
+            return f"<td{attrs}></td>"
+        return (f"<td{attrs} class=cv-blank></td>" if "class=" not in attrs.lower()
+                else f"<td{attrs}></td>")
     html = re.sub(r"<td([^>]*)>(?:\s|&nbsp;)*</td>", blank, html, flags=re.I)
     # `background=<dir>` on <body> is the same empty-filename bug as the images.
     html = re.sub(BODY_BG, "", html, flags=re.I)
