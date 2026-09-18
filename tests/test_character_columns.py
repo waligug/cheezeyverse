@@ -17,7 +17,8 @@ That is not a theoretical failure. Four fields were missing at various points in
 Each one was found by accident, and each one failed silently in the direction of "nothing to do".
 This checks the whole set at once, by reading what the code actually asks for.
 
-Needs Supabase configured: the live table is what says which names are columns at all.
+Needs Supabase configured. It reads the column list from PostgREST's schema description, so
+it works on an empty universe - which is exactly when the old row-sampling version skipped.
 
     python tests/test_character_columns.py
 """
@@ -48,17 +49,30 @@ def fields_the_code_reads():
     return used
 
 
+def table_columns():
+    """The characters table's columns, from PostgREST's own schema description.
+
+    Read from the schema rather than from a row, because a row is not always there. The first
+    version of this test sampled one character and SKIPPED when the table was empty - which is
+    the state right after every rebuild, and the state the universe is in the moment before the
+    first person signs up. It exited 0 while checking nothing, and a skip that exits 0 is
+    indistinguishable from a pass to anything reading exit codes. A guard written against
+    silent failure should not have one.
+    """
+    d = store._request("GET", "/rest/v1/")
+    props = ((d.get("definitions") or {}).get("characters") or {}).get("properties") or {}
+    return set(props)
+
+
 def main():
     try:
-        sample = store._table("characters", {"select": "*", "limit": "1"})
+        columns = table_columns()
     except Exception as exc:
-        print(f"skipped: could not reach Supabase ({exc})")
-        return 0
-    if not sample:
-        print("skipped: no character exists, so the column set cannot be read")
-        return 0
-
-    columns = set(sample[0])
+        print(f"FAIL  could not read the characters schema from Supabase ({exc})")
+        return 1
+    if not columns:
+        print("FAIL  Supabase described no columns for `characters`")
+        return 1
     selected = set(re.findall(r"[a-z_]+", store.CHARACTER_COLUMNS))
     used = fields_the_code_reads()
 
