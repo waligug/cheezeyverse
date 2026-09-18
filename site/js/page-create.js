@@ -52,10 +52,35 @@ $('#curve').textContent = describeCurve();
 $('#signin').addEventListener('click', () => signIn().catch(
   (e) => showNote($('#notices'), 'bad', errorText(e))));
 
+// Declared before first use: `preview()` runs immediately below, and a `let` further down the
+// file would still be in its temporal dead zone at that point.
+let previewOnly = false;
+
 if (!isConfigured()) {
+  // Preview mode. Without Supabase there is nobody to save a character for, but the whole point
+  // of this page is the questions - so build the form anyway and let people play with it. Only
+  // the final save is blocked, and the button says so rather than failing when it is pressed.
   $('#notices').append(setupNeededNote());
+  preview();
 } else {
   boot().catch((err) => showNote($('#notices'), 'bad', errorText(err)));
+}
+
+function preview() {
+  previewOnly = true;
+  $('#gate').hidden = true;
+  $('#form').hidden = false;
+  $('#intro').textContent = `He turns ${START_AGE} this season and he is not good yet. That is `
+    + `the idea. You do not hand him stats - you answer questions about him, and the answers `
+    + `decide what he is. Nothing is saved until the site is connected to Supabase.`;
+  buildPositionPicker();
+  renderBuilds();
+  renderQuiz();
+  renderGoals();
+  renderSummer();
+  wireForm();
+  syncHeightRange();
+  draw();
 }
 
 async function boot() {
@@ -348,6 +373,10 @@ function refreshProblems() {
   const box = $('#problems');
   clear(box);
   $('#submit').disabled = busy || !result.ok;
+  if (previewOnly) {
+    $('#submit').disabled = true;
+    $('#submit').textContent = 'Preview only - connect Supabase to sign him';
+  }
   if (busy) return result;
   if (!result.ok) {
     box.append(note('bad', 'Not ready yet:', result.errors.slice(0, 6)));
