@@ -1,0 +1,164 @@
+/* Cheezeyverse skin over FBPB3 HTML Output. Every rule is !important because the game
+   writes its own <style> block into each page and we cannot control the order. */
+@font-face { font-family: 'CVFallback'; src: local('Trebuchet MS'), local('Verdana'); }
+
+html, body {
+  background: #FFF8E6 !important;
+  color: #2E2100 !important;
+  font-family: 'Trebuchet MS', Verdana, sans-serif !important;
+}
+
+/* ---- the left menu: a wedge of cheese, holes and all ---- */
+body.cv-menu {
+  background-color: #F2B705 !important;
+  background-image:
+    radial-gradient(circle at 22% 14%, #8A5A0022 0 9px, transparent 10px),
+    radial-gradient(circle at 74% 27%, #8A5A0022 0 6px, transparent 7px),
+    radial-gradient(circle at 34% 46%, #8A5A0022 0 11px, transparent 12px),
+    radial-gradient(circle at 80% 63%, #8A5A0022 0 7px, transparent 8px),
+    radial-gradient(circle at 26% 78%, #8A5A0022 0 8px, transparent 9px),
+    radial-gradient(circle at 66% 90%, #8A5A0022 0 5px, transparent 6px),
+    linear-gradient(160deg, #F2B705 0%, #D9901A 100%) !important;
+  background-repeat: no-repeat !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.cv-wordmark {
+  font: 700 17px/1.05 'Trebuchet MS', Verdana, sans-serif !important;
+  color: #2E2100 !important;
+  padding: 12px 10px 10px 12px !important;
+  letter-spacing: .5px !important;
+  text-shadow: 0 1px 0 #FFFFFF80 !important;
+  border-bottom: 2px solid #8A5A00 !important;
+  margin-bottom: 6px !important;
+}
+.cv-wordmark small {
+  display: block !important;
+  font: 600 10px/1.4 'Trebuchet MS', Verdana, sans-serif !important;
+  letter-spacing: 1.6px !important;
+  text-transform: uppercase !important;
+  color: #8A5A00 !important;
+  text-shadow: none !important;
+}
+body.cv-menu table { width: 100% !important; border-collapse: collapse !important; }
+body.cv-menu td { padding: 0 !important; }
+a.menulink {
+  display: block !important;
+  color: #2E2100 !important;
+  font: 600 11px/1 'Trebuchet MS', Verdana, sans-serif !important;
+  padding: 6px 10px 6px 12px !important;
+  text-decoration: none !important;
+  border-left: 3px solid transparent !important;
+}
+a.menulink:hover {
+  background: #FFFFFF55 !important;
+  border-left-color: #8A5A00 !important;
+}
+
+/* ---- the nav bar every content page carries ---- */
+.cv-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  gap: 4px 14px !important;
+  background: linear-gradient(170deg, #F2B705, #D9901A) !important;
+  border-bottom: 3px solid #8A5A00 !important;
+  padding: 7px 12px 8px !important;
+  margin: -8px -8px 12px !important;
+  font-family: 'Trebuchet MS', Verdana, sans-serif !important;
+}
+.cv-bar .cv-home {
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  color: #2E2100 !important;
+  text-decoration: none !important;
+  margin-right: 6px !important;
+}
+.cv-bar .cv-home small {
+  display: block !important;
+  font-weight: 600 !important;
+  font-size: 9.5px !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: #8A5A00 !important;
+}
+.cv-bar nav { display: flex !important; flex-wrap: wrap !important; gap: 2px 12px !important; }
+.cv-bar nav a {
+  color: #2E2100 !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  padding: 2px 0 !important;
+  border-bottom: 2px solid transparent !important;
+}
+.cv-bar nav a:hover { border-bottom-color: #8A5A00 !important; }
+.cv-bar nav a.on { border-bottom-color: #2E2100 !important; }
+.cv-universe {
+   display: flex !important; flex-wrap: wrap !important; gap: 2px 14px !important;
+   width: 100% !important; margin: 0 0 6px 0 !important; padding: 0 0 5px 0 !important;
+   border-bottom: 1px solid #8A5A00 !important; font-size: 9pt !important;
+}
+.cv-universe a {
+   color: #2E2100 !important; text-decoration: none !important; opacity: .75 !important;
+}
+.cv-universe a:hover { opacity: 1 !important; text-decoration: underline !important; }
+.cv-universe a.on { opacity: 1 !important; font-weight: 700 !important; }
+.cv-universe .cv-up { font-weight: 700 !important; opacity: 1 !important; }
+body.cv-menu .cv-universe {
+   flex-direction: column !important; gap: 3px !important; margin: 0 0 8px 0 !important;
+   padding: 0 8px 8px 8px !important;
+}
+
+/* ---- data pages ---- */
+td.main, td.header, td.plainheader, td.headerbg, td.teamheader, td.teamheader2,
+td.tableheader, td.newheader { font-family: 'Trebuchet MS', Verdana, sans-serif !important; }
+
+td.plainheader, td.newheader {
+  background: transparent !important;
+  color: #8A5A00 !important;
+  font-size: 21px !important;
+  letter-spacing: -.4px !important;
+  padding: 10px 0 6px 0 !important;
+}
+td.header, td.headerbg {
+  background: #D9901A !important;
+  color: #2E2100 !important;
+  font-weight: 700 !important;
+  padding: 3px 5px !important;
+  border-bottom: 2px solid #8A5A00 !important;
+}
+td.tableheader { color: #8A5A00 !important; }
+tr.row1 { background: #FFF8E6 !important; }
+tr.row2 { background: #F3E4BE !important; }
+tr.teamcolor { background: #8A5A00 !important; color: #FFF8E6 !important; }
+td.main { padding: 2px 5px !important; }
+a.linkmain { color: #7A4B00 !important; font-weight: 600 !important; }
+a.linkhuman { color: #1D5C8A !important; font-weight: 700 !important; }
+a:hover { text-decoration: underline !important; }
+
+/* Dropping the missing player photos leaves the cell that held them behind; an empty cell with a
+   team-coloured background reads as a rendering fault. */
+/* Empty cells are usually FBPB3 padding and look like holes once the skin is on, so they
+   are flattened - EXCEPT the ones carrying a bgcolor. Those are the ability swatches beside
+   every player (left = what he is now, right = what he could become), and they are empty on
+   purpose: the colour IS the value. Blanking them turned every swatch on every roster page
+   into an empty white box, which is what they looked like until somebody asked. */
+td:empty:not([bgcolor]), td.cv-blank:not([bgcolor]),
+td.teamheader:empty:not([bgcolor]), td.headerbg:empty:not([bgcolor]) {
+  background: transparent !important; padding: 0 !important;
+}
+
+/* The swatches themselves. FBPB3 wraps each in a 1px-bordered table of its own; give them a
+   consistent size and a border that belongs to this skin rather than 1996. */
+td[bgcolor] {
+  padding: 0 !important;
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 2px !important;
+}
+td.main > table { border-collapse: separate !important; }
+td.main > table, td.main > table td { border-color: #8A5A00 !important; }
+
+/* team pages keep their own team colour on the big banner, but the chrome matches the league */
+td.teamheader { color: #FFF8E6 !important; letter-spacing: -.5px !important; }
+td.teamheader2 { color: #FFF8E6 !important; }

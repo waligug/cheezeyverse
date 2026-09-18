@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create your player &middot; The Cheezeyverse</title>
+<meta name="description" content="Answer fourteen questions about a fourteen year old and find out who he turns out to be.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F2B705'/%3E%3Ccircle cx='10' cy='11' r='3' fill='%238A5A00'/%3E%3Ccircle cx='21' cy='17' r='4' fill='%238A5A00'/%3E%3Ccircle cx='12' cy='23' r='2.5' fill='%238A5A00'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<main class="cv-page">
+
+  <h1>Create your player</h1>
+  <p class="cv-muted" id="intro">He turns 14 this season and he is not good yet. That is the idea.</p>
+
+  <div id="notices"></div>
+
+  <div id="gate" hidden>
+    <div class="cv-card">
+      <h2>Sign in first</h2>
+      <p>Characters belong to a Discord account, so we know whose player is whose.</p>
+      <div class="cv-actions">
+        <button class="cv-btn cv-big" type="button" id="signin">Sign in with Discord</button>
+      </div>
+    </div>
+  </div>
+
+  <form id="form" hidden>
+
+    <section class="cv-card">
+      <div class="cv-card-head">
+        <h2>Who he is</h2>
+        <span class="cv-muted">the facts. Nothing here is a stat.</span>
+      </div>
+      <div class="cv-fields">
+        <div class="cv-field">
+          <label for="first">First name</label>
+          <input id="first" name="first" type="text" maxlength="20" autocomplete="off" required>
+        </div>
+        <div class="cv-field">
+          <label for="last">Last name</label>
+          <input id="last" name="last" type="text" maxlength="20" autocomplete="off" required>
+        </div>
+        <div class="cv-field">
+          <label for="hometown">Hometown</label>
+          <input id="hometown" name="hometown" type="text" maxlength="40" autocomplete="off"
+                 placeholder="Scarborough, ON" required>
+        </div>
+        <div class="cv-field">
+          <label for="jersey">Jersey number</label>
+          <input id="jersey" name="jersey" type="number" min="0" max="99" step="1" inputmode="numeric" required>
+          <div class="cv-hint">0 to 99. If it is taken on the team he lands on, the
+            commissioner gives him the nearest free one.</div>
+        </div>
+        <div class="cv-field">
+          <label for="position">Listed position</label>
+          <select id="position" name="position"></select>
+          <div class="cv-hint" id="position-note"></div>
+        </div>
+        <div class="cv-field">
+          <label for="height">Height at 14</label>
+          <input id="height" name="height" type="range" step="1">
+          <div class="cv-hint" id="height-read"></div>
+        </div>
+      </div>
+      <h3>Build</h3>
+      <div class="cv-choices cv-choices-tight" id="builds"></div>
+    </section>
+
+    <section class="cv-card">
+      <div class="cv-card-head">
+        <h2>Fourteen questions</h2>
+        <span class="cv-muted" id="quiz-progress"></span>
+      </div>
+      <p class="cv-hint">There is no right answer and no best answer &mdash; every one of them
+        is better at something and worse at something else. Answer as him, not as a
+        min&ndash;maxer, and he will come out looking like somebody you recognise.</p>
+      <div id="quiz"></div>
+    </section>
+
+    <section class="cv-card">
+      <div class="cv-card-head">
+        <h2>What does he want out of this?</h2>
+        <span class="cv-muted">shows on his page, and makes four things a little cheaper</span>
+      </div>
+      <div class="cv-choices" id="goals"></div>
+      <p class="cv-hint" id="goal-note"></p>
+    </section>
+
+    <section class="cv-card">
+      <div class="cv-card-head">
+        <h2>And what did he do last summer?</h2>
+        <span class="cv-muted">the one thing you get to hand him directly</span>
+      </div>
+      <div class="cv-choices" id="summer"></div>
+    </section>
+
+    <section class="cv-card">
+      <div class="cv-card-head">
+        <h2>What the scouts say</h2>
+        <span class="cv-muted" id="curve"></span>
+      </div>
+      <p class="cv-hint">Nobody gets exact numbers on a fourteen year old, including you.
+        The shaded band is everywhere he could land, and it is real: how good he actually
+        turns out is rolled from who he is, not from what you answered. Sign him and you
+        find out.</p>
+      <div id="review"></div>
+    </section>
+
+    <section class="cv-card">
+      <div class="cv-card-head"><h2>Sign him</h2></div>
+      <div id="problems"></div>
+      <div class="cv-actions">
+        <button class="cv-btn cv-big" type="submit" id="submit">Sign him and roll the numbers</button>
+        <button class="cv-btn cv-ghost" type="button" id="reset">Start over</button>
+      </div>
+      <p class="cv-hint">He arrives as <b>pending</b>. The commissioner puts him on a Prep
+        roster at the next sim, and from then on he is in the league site with everybody
+        else. His skill points start banked: one per simmed week, spent on <a href="me.html">My
+        players</a> whenever you like.</p>
+    </section>
+
+  </form>
+
+  <div id="signed" hidden></div>
+
+</main>
+
+<script type="module" src="js/page-create.js"></script>
+</body>
+</html>
