@@ -151,12 +151,25 @@ def main():
         dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)     # LOGPIXELSX
         user32.ReleaseDC(0, hdc)
         w, h = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+        on_rdp = session_name.upper().startswith("RDP")
+        where = "this RDP session" if on_rdp else "the console"
         check("display scaling is 100%", dpi == 96,
-              f"{dpi} dpi ({dpi / 96 * 100:.0f}%), screen {w}x{h}",
+              f"{dpi} dpi ({dpi / 96 * 100:.0f}%), {where} is {w}x{h}",
               "Settings > System > Display > Scale = 100%. The control positions the driver "
               "clicks were measured at 100%; anything else moves them and every click misses.")
         check("screen is big enough for the game window", w >= 1024 and h >= 720,
               f"{w}x{h}", "FBPB3's window needs about 1024x720 to lay out as the driver expects")
+        if on_rdp:
+            # This number is true of the session it was measured in and NOT of the one a sim
+            # will run in after a disconnect. A headless console falls back to whatever the
+            # card reports with nothing plugged in - 1024x768 on the Quadro K620 here - while
+            # RDP negotiates the client's own size. Reporting the RDP figure as though it were
+            # the machine's is how a check passes and the thing it checks still fails.
+            print(f"        NOTE: {w}x{h} is THIS RDP session. Once you disconnect, the sim")
+            print("        runs on the console, which on a headless box is usually smaller")
+            print("        (1024x768 is common). Check it with the session on the console:")
+            print("        the game window needs to fit, or clicks land off-screen.")
+            print("        A dummy HDMI/DP plug makes the console match a real monitor.")
     except Exception as exc:
         check("display metrics readable", False, str(exc)[:60])
 
