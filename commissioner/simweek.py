@@ -82,9 +82,25 @@ def _league_status(spec, st):
         "players": None, "games_played": None,
         "day": st.get_settings().get("current_week", 0) * 7,
     }
-    row["games_played"] = _games_played(site / "standings.htm")
+    # Read how far the season has got from the GAME'S OWN export, not from the published copy.
+    # They are usually the same file one step apart, but not always, and the difference matters
+    # exactly when things are least clear: create_universe --force deletes the save's html
+    # folder, so straight after a rebuild the game has exported nothing while site/leagues/
+    # still holds the last publish of the OLD universe. The panel then reported a brand-new
+    # Preseason save as "Regular season, 30 games" - the previous season's numbers, presented
+    # as this one's, at the one moment somebody most needs to know what state the save is in.
+    #
+    # Same story after restoring a backup. The save is the truth; the published site is a
+    # photograph of it.
+    own = save_dir / "html" / "standings.htm"
+    if own.exists():
+        row["games_played"] = _games_played(own)
+        row["stage"] = "Preseason" if not row["games_played"] else "Regular season"
+    else:
+        row["games_played"] = None
+        row["stage"] = "not exported yet"
+    row["published_games"] = _games_played(site / "standings.htm")
     row["players"] = _player_count(save_dir / "league.dat")
-    row["stage"] = "Preseason" if not row["games_played"] else "Regular season"
     return row
 
 
