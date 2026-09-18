@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 import shutil
 import struct
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -159,6 +160,14 @@ class LeagueDat:
             q = d.find(b"\x01\x00", q + 1, limit)
         return out
 
+    def _id_marked(self, p, pid):
+        """Does this record carry `pid` as its own (id, id) int16 pair before the name?"""
+        for o in range(p.S - 60, p.S - 2, 2):
+            a, b = struct.unpack_from("<2h", self.data, o)
+            if a == b == pid:
+                return True
+        return False
+
     def _assign_ids(self, players):
         """Player ids are not stored at any fixed offset and are not contiguous once a save has aged, so they
         are recovered from the team roster arrays: records are written in ascending id order, the teams'
@@ -176,6 +185,18 @@ class LeagueDat:
             counts[p.values["Team"]] = counts.get(p.values["Team"], 0) + 1
         want = [counts[t] for t in sorted(counts)]
         arrays = self._roster_arrays(limit=players[0].S)
+
+        # Drop the league's TEAM-ID list. _roster_arrays accepts any VB6 array of distinct
+        # positive int16 behind a leading zero, and one of those is the league's own list of
+        # team ids - 20 entries in pro, 16 in prep and college. Arrays are matched to teams by
+        # SIZE in file order and the team list comes first, so the moment the FIRST team happens
+        # to hold exactly as many players as the league has teams, that list is taken as its
+        # roster. The AI padded pro's team 5 to exactly 20 and the save stopped parsing.
+        #
+        # Matched on the exact set of team ids, not on any "looks like small contiguous ints"
+        # rule - that heuristic also throws away a genuine roster and breaks the match entirely.
+        team_ids = sorted(counts)
+        arrays = [a for a in arrays if sorted(a[2]) != team_ids]
         chosen, i = [], 0
         for size in want:  # walk the arrays in file order, taking the next one with the right size
             while i < len(arrays) and arrays[i][1] - 1 != size:
@@ -210,6 +231,23 @@ class LeagueDat:
                     f"team {t} has {len(pool)} ids in its roster array but more rostered records")
             p.id = pool[k]
             cursor[t] = k + 1
+
+        # Sanity-check the assignment against each record's own (id, id) marker, PER TEAM.
+        #
+        # Not per player: the marker is about 94% reliable on a long-aged save (244 of 260 on
+        # Chung), so a single disagreement means nothing and failing on one would refuse to read
+        # perfectly good files. But when a team's array is the WRONG array the mismatch is total
+        # - every one of its players gets an id from somewhere else - and that is the case worth
+        # stopping for, because wrong ids are assigned silently and the next write edits the
+        # wrong players. A whole team scoring zero is the signature.
+        for t, pool in by_team.items():
+            mine = [p for p in rostered if p.values["Team"] == t]
+            if len(mine) < 5:
+                continue
+            if not any(self._id_marked(p, p.id) for p in mine):
+                raise CodecError(
+                    f"team {t}'s {len(mine)} players were all assigned ids that their own records "
+                    f"do not carry ({pool[:4]}...) - that array is not this team's roster")
         if [p.id for p in rostered] != ids:
             # Not an error. It means this save's records are not in global id order, which is
             # exactly the case the old code could not read at all. Worth knowing it happened.
@@ -226,7 +264,15 @@ class LeagueDat:
                 a, b = struct.unpack_from("<2h", self.data, o)
                 if a == b and lo < a < hi and a not in taken:
                     found = a
-            p.id = found if found else next(v for v in range(lo + 1, hi) if v not in taken)
+            if found is None:
+                # No free number between its neighbours. That used to raise StopIteration out of
+                # a generator, which says nothing at all about what went wrong.
+                found = next((v for v in range(lo + 1, hi) if v not in taken), None)
+            if found is None:
+                raise CodecError(
+                    f"no id left for {p.name}: the gap between {lo} and {hi} is full. The roster "
+                    "arrays are probably not the ones this file actually uses.")
+            p.id = found
             taken.add(p.id)
         self.by_id = {p.id: p for p in players}
         self._roster_choice = dict(zip(sorted(counts), chosen))
@@ -507,4 +553,20 @@ class LeagueDat:
         except CodecError:
             tmp.unlink()
             raise
-        tmp.replace(self.path)
+        # A bounded retry, because the failure is environmental rather than ours: a virus
+        # scanner or the search indexer opening a freshly written 4 MB file holds it for a
+        # moment and the replace comes back WinError 5. That is exactly what happened after
+        # one Sim Week - the post-sim roster tidy lost its write and prep went untidied,
+        # reported only as a line in the log. Every writer goes through this one call, so
+        # one retry here covers the apply, the guard, the scrub, stamping and the offseason.
+        # It cannot change semantics: the replace either succeeds or raises as before.
+        delay = 0.2
+        for attempt in range(10):
+            try:
+                tmp.replace(self.path)
+                break
+            except PermissionError:
+                if attempt == 9:
+                    raise
+                time.sleep(delay)
+                delay = min(delay * 2, 1.0)

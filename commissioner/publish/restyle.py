@@ -496,12 +496,62 @@ def _unlink_dead_boxes(html, page_dir, src_root):
     return BOX_LINK.sub(swap, html)
 
 
+ROSTER_ROW = re.compile(
+    r"<a class=\"?linkmain cv-ours\"? href=[^>]*?players/player(\d+)\.htm[^>]*>.*?(?=<tr|\Z)",
+    re.S | re.I)
+
+
+def _live_roster_row(html, ours):
+    """Fix our characters' numbers in a roster page's Attributes table, and their swatches.
+
+    A friend opens his team's page as readily as his own, and there his player was a row of 5s
+    and red swatches beside teammates on 30s - same stale season-start snapshot as the player
+    page, same fix. The row is found by the badge _mark_ours has already put on his name, which
+    is why this runs after it.
+    """
+    if not ours:
+        return html
+
+    def row(m):
+        pid = int(m.group(1))
+        live = ours.get(pid)
+        block = m.group(0)
+        if not isinstance(live, dict) or not live.get("ratings"):
+            return block
+        ratings = live["ratings"]
+        cells = re.findall(r"<td class=main[^>]*align=center>\s*\d+\s*</td>", block)
+        if len(cells) < len(ATTR_COLUMNS):
+            return block
+        out, i = block, 0
+        for cell in cells[:len(ATTR_COLUMNS)]:
+            name = ATTR_COLUMNS[i]
+            if name in ratings:
+                out = out.replace(
+                    cell, f'<td class=main width=40 align=center>{int(ratings[name])}</td>', 1)
+            i += 1
+        # The two swatches are the colour of the stale snapshot too. Recolour them from the live
+        # sheet on the scale established from the Stabbyverse sample.
+        best = max(ratings.get(k, 0) for k in ATTR_COLUMNS if k in ratings)
+        pots = live.get("potentials") or {}
+        ceiling = max(pots.values()) if pots else best
+        for value, nth in ((best, 0), (ceiling, 1)):
+            colour = SWATCH_SCALE[min(len(SWATCH_SCALE) - 1, max(0, int(value) // 13))][0]
+            out = re.sub(r"(bgcolor=)#[0-9A-Fa-f]{6}", r"\1" + colour, out, count=1) if nth == 0 \
+                else re.sub(r"(bgcolor=#[0-9A-Fa-f]{6}[^>]*></td>.*?bgcolor=)#[0-9A-Fa-f]{6}",
+                            r"\1" + colour, out, count=1, flags=re.S)
+        return out
+
+    return ROSTER_ROW.sub(row, html)
+
+
 def _skin_page(html, league, season, prefix, current, key=None, ours=None,
                page_dir=None, src_root=None, player_id=None):
     """Put the nav bar just inside <body> so the page reads the same wherever it was opened."""
     html = _mark_ours(html, ours)
     if player_id is not None and ours and player_id in ours:
         html = _live_attributes(html, ours[player_id])
+    elif current.startswith("roster"):
+        html = _live_roster_row(html, ours)
     if page_dir is not None and src_root is not None:
         html = _unlink_dead_boxes(html, page_dir, src_root)
     bar = FRAME_TEST + _nav_bar(league, season, prefix, current, key)
