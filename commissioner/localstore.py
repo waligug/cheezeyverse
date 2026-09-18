@@ -40,7 +40,8 @@ def _now():
 
 
 def _blank():
-    return {"characters": [], "requests": [], "ledger": [], "runs": [], "settings": dict(DEFAULTS)}
+    return {"characters": [], "requests": [], "ledger": [], "runs": [], "snapshots": [],
+            "settings": dict(DEFAULTS)}
 
 
 def _read():
@@ -174,6 +175,28 @@ def set_character_status(character_id, status):
     raise KeyError(character_id)
 
 
+def retire_character(character_id, season, reason, release_slot=True):
+    """End a career, and say when and why in the same write.
+
+    `release_slot` is the whole of the slot bookkeeping: **a character holds his reserve row
+    for exactly as long as `claimed_slot` is set on him.** The offseason clears it only after
+    `offseason.refill` has really handed the row back its manifest name. When FBPB3 has
+    deleted the record itself there is no row to hand back, so the claim stays and nobody is
+    offered a slot that no longer exists.
+    """
+    with _LOCK:
+        d = _read()
+        for c in d["characters"]:
+            if c["id"] == character_id:
+                c.update(status="retired", retired_season=int(season),
+                         retired_reason=reason, retired_at=_now())
+                if release_slot:
+                    c["claimed_slot"] = None
+                _write(d)
+                return c
+    raise KeyError(character_id)
+
+
 # ---- upgrade requests ------------------------------------------------------------------------
 def add_request(character_id, rating, delta, kind_="rating", cost=None, note=""):
     with _LOCK:
@@ -261,6 +284,36 @@ def grant_week_points(league=None, weeks=1, reason="week simmed"):
         grant_points(c["id"], per * weeks, reason)
         granted += 1
     return granted
+
+
+# ---- rating history --------------------------------------------------------------------------
+def add_snapshot(character_id, season, week, ratings, potentials,
+                 height_inches=None, league=None):
+    """Write down one character's sheet as league.dat held it this week.
+
+    The characters row carries a single live sheet that every Sim Week overwrites, so without
+    this nothing in the universe can say what anybody used to be. One row per character per
+    run, not one per rating.
+    """
+    with _LOCK:
+        d = _read()
+        row = {"id": uuid.uuid4().hex, "character_id": character_id,
+               "season": int(season), "week": int(week),
+               "ratings": dict(ratings or {}), "potentials": dict(potentials or {}),
+               "height_inches": height_inches, "league": league, "taken_at": _now()}
+        d.setdefault("snapshots", []).append(row)
+        _write(d)
+    return row
+
+
+def snapshots(character_id=None, league=None):
+    """Every recorded sheet, oldest first. Filter by character for one career's line."""
+    rows = _read().get("snapshots", [])
+    if character_id:
+        rows = [r for r in rows if r.get("character_id") == character_id]
+    if league:
+        rows = [r for r in rows if r.get("league") == league]
+    return sorted(rows, key=lambda r: (r.get("season", 0), r.get("week", 0)))
 
 
 # ---- run history -----------------------------------------------------------------------------

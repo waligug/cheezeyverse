@@ -1,6 +1,6 @@
 """The Sim Week pipeline: everything that happens between one set of results and the next.
 
-    pull work -> back up -> apply -> sim -> export -> publish -> grant points
+    pull work -> back up -> apply -> sim -> export -> snapshot -> publish -> grant points
 
 Two rules shape the whole thing:
 
@@ -25,7 +25,7 @@ from pathlib import Path
 
 from . import characters as ch
 from . import localstore
-from .codec.league_dat import LeagueDat
+from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
 from .driver.fbpb3 import DOCS, FBPB3
 from .publish.publish import publish
 from .universe import config as cfg
@@ -62,7 +62,10 @@ def _league_status(spec, st):
     save_dir = DOCS / "leaguedata" / spec.save_name
     site = ROOT / "site" / "leagues" / spec.key
     chars = [c for c in st.characters(league=spec.key) if c.get("status") == "active"]
-    claimed = [c.get("claimed_slot") or {} for c in chars]
+    # A slot is held by whoever still claims it, not by whoever is still playing: a career the
+    # game ended keeps its claim, because that row is gone from the save and handing it out
+    # again would only fail later. See the note at the top of offseason.py.
+    claimed = [c["claimed_slot"] for c in st.characters(league=spec.key) if c.get("claimed_slot")]
     free = ch.free_slots(_manifest(), spec.key,
                          [{"name": s.get("name"), "dob": s.get("dob")} for s in claimed])
     row = {
@@ -172,9 +175,11 @@ def _activate_pending(league_key, L, st, log):
     pending = [c for c in st.pending_characters() if c.get("league", "prep") == league_key]
     if not pending:
         return [], []
-    active = [c for c in st.characters(league=league_key) if c.get("status") == "active"]
-    taken = [{"name": (c.get("claimed_slot") or {}).get("name"),
-              "dob": (c.get("claimed_slot") or {}).get("dob")} for c in active]
+    # Held by whoever still claims it, whatever his status - a retired character only lets go
+    # of his slot once the row really has its manifest name back (offseason.refill).
+    holders = [c for c in st.characters(league=league_key) if c.get("claimed_slot")]
+    taken = [{"name": c["claimed_slot"].get("name"),
+              "dob": c["claimed_slot"].get("dob")} for c in holders]
     slots = ch.free_slots(_manifest(), league_key, taken)
     done, expect = [], []
     for c in pending:
@@ -227,6 +232,38 @@ def _apply_requests(league_key, L, st, log):
     return applied, expect
 
 
+def _snapshot_league(league_key, st, season, week, log):
+    """Record what the save now says about every active character in this league.
+
+    `characters.ratings` is one live sheet that the next Sim Week overwrites, so this is the
+    only place a career's shape is ever written down - the career page's growth chart reads
+    it, and the offseason's decline test decides a veteran is finished by comparing his live
+    sheet against the best one in here. One row per character per run, not one per rating.
+    """
+    if not hasattr(st, "add_snapshot"):
+        return 0
+    live = [c for c in st.characters(league=league_key) if c.get("status") == "active"]
+    if not live:
+        return 0
+    L = LeagueDat(ch.save_path(league_key))
+    written = 0
+    for c in live:
+        name = f'{c["first_name"]} {c["last_name"]}'
+        try:
+            pl = L.find(name, c.get("game_dob") or (c.get("claimed_slot") or {}).get("dob"))
+        except Exception as exc:
+            # Not fatal and not a verdict: the offseason is where a character the save has
+            # lost is investigated and his career formally ended.
+            log(f"no sheet for {name}: {exc}")
+            continue
+        st.add_snapshot(character_id=c["id"], season=season, week=week,
+                        ratings={f: pl.values[f] for f in RATINGS},
+                        potentials={f: pl.values[f] for f in POTENTIALS},
+                        height_inches=pl.values["Height"], league=league_key)
+        written += 1
+    return written
+
+
 # ---- the run ---------------------------------------------------------------------------------
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
     """Apply everything owed, sim `days` in each league, export, publish, grant points."""
@@ -249,7 +286,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
     _RUNNING.update(active=True, started=datetime.now().isoformat(timespec="seconds"), steps=[])
     st = store()
     result = {"ok": False, "leagues": keys, "days": days, "dry_run": dry_run, "applied": 0,
-              "activated": 0, "errors": []}
+              "activated": 0, "snapshots": 0, "errors": []}
     game = None
     try:
         if FBPB3.is_running():
@@ -327,19 +364,37 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
         game.exit_game(save=False)
         game = None
 
-        # ---- 3. publish and pay ---------------------------------------------------------------
+        # ---- 3. write down everybody's sheet ---------------------------------------------------
+        # After the game has closed, never while it is open: CONVENTIONS forbids reading
+        # league.dat under a running FBPB3, which rewrites it whenever it saves. Wrapped per
+        # league because a missing snapshot is cosmetic and a missing publish is not.
+        weeks = max(1, round(days / 7))
+        s = st.get_settings()
+        season = int(s.get("current_season", cfg.START_YEAR))
+        # The week just completed, i.e. what current_week will read once this run finishes -
+        # it is bumped at the end, so the stale value would date every snapshot a week early.
+        week_done = int(s.get("current_week", 0)) + weeks
+        for key in keys:
+            try:
+                n = _snapshot_league(key, st, season, week_done,
+                                     lambda m: emit("snapshot", m, key))
+                result["snapshots"] += n
+                if n:
+                    emit("snapshot", f"{n} sheet(s) written down", key)
+            except Exception as exc:
+                emit("snapshot", f"no snapshots for {key}: {exc}", key)
+
+        # ---- 4. publish and pay ---------------------------------------------------------------
         emit("publish", "skinning and staging the sites")
         rows = publish(keys)
         for row in rows:
             emit("publish", f'{row["league"]}: {row["pages"]} pages', row["league"])
 
-        weeks = max(1, round(days / 7))
         for key in keys:
             n = st.grant_week_points(league=key, weeks=weeks)
             if n:
                 emit("points", f"{weeks} point(s) to {n} character(s) in {key}", key)
-        s = st.get_settings()
-        st.set_setting("current_week", int(s.get("current_week", 0)) + weeks)
+        st.set_setting("current_week", week_done)
 
         result["ok"] = True
         emit("done", f"done in {round(time.time() - started)}s", pct=100)

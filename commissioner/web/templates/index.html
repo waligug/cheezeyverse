@@ -117,6 +117,108 @@
     </div>
   </div>
 
+  <!-- ------------------------------------------------------------------ offseason -->
+  <div class="card" id="offseason-card">
+    <header>
+      <h2>Offseason</h2>
+      <span class="spacer"></span>
+      <span class="chip" id="os-season-chip">
+        {% if plan.season %}next: season {{ plan.season }}{% else %}season unknown{% endif %}
+      </span>
+      <span class="chip" id="os-last-chip">
+        {% if plan.last_offseason %}last run: {{ plan.last_offseason }}{% else %}never run{% endif %}
+      </span>
+    </header>
+    <div class="body">
+      {% if not offseason.ok %}
+      <div class="banner">
+        <strong>commissioner.offseason did not import, so the offseason cannot run.</strong>
+        The sim is unaffected. Nothing below will do anything until this imports.
+        <div style="margin-top:4px"><code>{{ offseason.error }}</code></div>
+      </div>
+      {% elif plan.error %}
+      <div class="banner warn">
+        <strong>The offseason plan could not be read from the store.</strong>
+        <div style="margin-top:4px"><code>{{ plan.error }}</code></div>
+      </div>
+      {% endif %}
+
+      <p class="os-blurb">
+        Everyone gets a year older: this year's inches are written into the saves, a prep player
+        who has finished his age-17 season moves to college, a college player who declared (or
+        has used up four years) enters the draft the app runs itself, every departing character
+        hands his reserve slot back, and every active character is paid the offseason lump sum.
+        <b>All of it is cumulative</b>, which is why it refuses to run the same season twice.
+      </p>
+
+      <div id="os-plan">
+        {% if plan.available %}
+        <div class="os-cols">
+          <div class="os-col">
+            <h3>Up to college <span class="chip">{{ plan.to_college|length }}</span></h3>
+            {% for who in plan.to_college %}
+            <div class="os-row"><b>{{ who.name }}</b> <span class="muted">{{ who.position }}
+              {{ who.team }}</span>
+              {% if who.conversion %}<span class="chip">carries {{ who.conversion.percent }}%</span>{% endif %}
+            </div>
+            {% else %}<div class="empty-note">nobody has finished his age-17 season</div>{% endfor %}
+          </div>
+          <div class="os-col">
+            <h3>Into the draft <span class="chip">{{ plan.to_draft|length }}</span></h3>
+            {% for who in plan.to_draft %}
+            <div class="os-row"><b>{{ who.name }}</b> <span class="muted">{{ who.position }}
+              {{ who.team }}</span>
+              {% if who.conversion %}<span class="chip{% if who.conversion.early_years %} warn{% endif %}">carries
+                {{ who.conversion.percent }}%{% if who.conversion.early_years %},
+                {{ who.conversion.early_years }}y early{% endif %}</span>{% endif %}
+            </div>
+            {% else %}<div class="empty-note">nobody has declared or run out of eligibility</div>{% endfor %}
+          </div>
+          <div class="os-col">
+            <h3>Staying <span class="chip">{{ plan.staying if plan.staying is not none else '?' }}</span></h3>
+            <div class="empty-note">
+              {{ plan.characters if plan.characters is not none else '?' }} characters in the store.
+              Everyone active is paid the lump sum; a college year that is seen through also pays
+              the development bonus.
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-note">The plan is unavailable, so nothing below can be trusted.</div>
+        {% endif %}
+      </div>
+
+      <div class="controls" style="margin-top:8px">
+        <button id="btn-os-preview" type="button" class="plain"
+                {% if not offseason.ok %}disabled{% endif %}>Dry run</button>
+        <span class="muted" style="font-size:11.5px">reads the three saves, writes nothing,
+          changes nobody</span>
+        <span class="spacer"></span>
+        <button id="btn-os-run" type="button" class="danger-solid"
+                {% if not offseason.ok %}disabled{% endif %}>Run the offseason for real</button>
+      </div>
+
+      <div id="os-result"><div class="empty-note">No dry run yet. Start there: it shows exactly
+        who moves, what he carries across and who could not be found, and it cannot break
+        anything.</div></div>
+
+      <div id="os-force" hidden>
+        <div class="os-danger">
+          <strong>Force this season anyway</strong>
+          <p>Only for a run that <b>started and did not finish</b>. The offseason is cumulative:
+            forcing a season that really did complete grows everybody a second time, pays the
+            lump sum a second time, and banks another college year for everyone still in
+            college. There is no undo other than the timestamped copies in <code>backups/</code>.</p>
+          <label><input type="checkbox" id="os-force-ack">
+            I know the {{ plan.last_offseason if plan.last_offseason else 'previous' }} run did not
+            finish.</label>
+          <button id="btn-os-force" type="button" class="danger-solid small" disabled>
+            Force the offseason</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="two-col">
     <!-- ---------------------------------------------------------------- approvals -->
     <div class="card">

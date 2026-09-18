@@ -30,7 +30,7 @@
    },
    "status": "active",
    "id": "b5beefeb5585408db065c99f74c53597",
-   "points_available": 219,
+   "points_available": 220,
    "points_spent": 0,
    "created_at": "2026-09-18T00:02:38+00:00",
    "team_abbrev": "EDM",
@@ -75,7 +75,7 @@
    },
    "status": "active",
    "id": "933851e53b534bd984316b612d69acfe",
-   "points_available": 228,
+   "points_available": 229,
    "points_spent": 0,
    "created_at": "2026-09-18T00:57:47+00:00",
    "team_abbrev": "GOU",
@@ -122,7 +122,7 @@
    },
    "status": "active",
    "id": "59c5ae1e543141ce8763bca229395642",
-   "points_available": 180,
+   "points_available": 181,
    "points_spent": 0,
    "created_at": "2026-09-18T01:10:49+00:00",
    "team_abbrev": "GOU",
@@ -161,7 +161,7 @@
    },
    "status": "active",
    "id": "49009b05695349fcaf78bf660550614b",
-   "points_available": 15,
+   "points_available": 16,
    "points_spent": 0,
    "created_at": "2026-09-18T01:20:21+00:00",
    "team_abbrev": "MJW",
@@ -580,9 +580,69 @@
    "amount": 15,
    "reason": "offseason",
    "created_at": "2026-09-18T01:20:26+00:00"
+  },
+  {
+   "id": "99689495fc5149fbb6023cc5b9e9b726",
+   "character_id": "49009b05695349fcaf78bf660550614b",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "id": "1f0e6b2e2c97423ea4c440824f468c90",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "id": "19265a8bef90453d885718a9e1d9147c",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "id": "56185338a0424bbca9c2209fe1da913b",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T01:40:04+00:00"
   }
  ],
  "runs": [
+  {
+   "ok": true,
+   "leagues": [
+    "prep",
+    "college",
+    "pro"
+   ],
+   "days": 7,
+   "dry_run": false,
+   "applied": 0,
+   "activated": 0,
+   "errors": [],
+   "seconds": 464,
+   "at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "ok": false,
+   "leagues": [
+    "prep",
+    "college",
+    "pro"
+   ],
+   "days": 7,
+   "dry_run": false,
+   "applied": 0,
+   "activated": 0,
+   "errors": [
+    "0 players match 'Mauricio Babin' dob=None"
+   ],
+   "seconds": 4,
+   "at": "2026-09-18T01:31:14+00:00"
+  },
   {
    "ok": true,
    "leagues": [
@@ -601,7 +661,7 @@
   "max_characters": 2,
   "auto_approve": true,
   "current_season": 2047,
-  "current_week": 0,
+  "current_week": 1,
   "points_per_week": 1,
   "offseason_points": 15,
   "college_development_bonus": 12,

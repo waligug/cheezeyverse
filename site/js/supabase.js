@@ -31,6 +31,8 @@ export const CHARACTER_COLUMNS = [
   // cannot name a team he has left or link to his page on that league's site
   'college_years', 'declared', 'level_history', 'league_player_ids',
   'draft_round', 'draft_pick', 'draft_season',
+  // how the career ended, both null while he is still playing
+  'retired_season', 'retired_reason',
 ].join(',');
 
 export const LEAGUE_LABELS = { prep: 'Prep', college: 'College', pro: 'Pro' };

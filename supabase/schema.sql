@@ -111,6 +111,12 @@ create table if not exists public.characters (
   draft_pick       int,
   draft_season     int,
   status           text not null default 'pending' check (status in ('pending','active','declared','retired')),
+  -- How the career ended. The offseason writes both together with status = 'retired'; a
+  -- career that ends without them is a career nobody can explain, and the two ways it ends
+  -- (our age/decline rule, or FBPB3 aging him out of the save itself) look identical from
+  -- here unless the reason says which. See commissioner/offseason.py.
+  retired_season   int,
+  retired_reason   text,
   game_dob         date,
   -- all 18 ratings, keyed by the names in cv_ratings()
   ratings          jsonb not null default '{}'::jsonb,
@@ -171,6 +177,8 @@ alter table public.characters add column if not exists quiz_answers jsonb not nu
 alter table public.characters add column if not exists growth_bias  jsonb not null default '{}'::jsonb;
 alter table public.characters add column if not exists height_seed  bigint;
 alter table public.characters add column if not exists expected_adult_height int;
+alter table public.characters add column if not exists retired_season int;
+alter table public.characters add column if not exists retired_reason text;
 
 create index if not exists characters_owner_idx   on public.characters(owner);
 create index if not exists characters_status_idx  on public.characters(status);
@@ -204,6 +212,32 @@ create table if not exists public.point_ledger (
 );
 
 create index if not exists point_ledger_char_idx on public.point_ledger(character_id, created_at desc);
+
+-- What a character's sheet looked like on a given week.
+--
+-- `characters.ratings` is one live sheet that the commissioner overwrites from league.dat,
+-- so last season's value is gone the moment it changes and no page can draw a line. This is
+-- the history. One row per active character per Sim Week - not one per rating, which would
+-- be eighteen times the rows for a chart that reads whole sheets anyway - written by
+-- commissioner/simweek.py after the game has closed its save.
+--
+-- It is also what lets a career END on evidence rather than on age alone: the offseason
+-- compares a veteran's live sheet against his best recorded one to decide he is declining.
+create table if not exists public.rating_snapshots (
+  id            uuid primary key default gen_random_uuid(),
+  character_id  uuid not null references public.characters(id) on delete cascade,
+  season        int  not null,
+  -- the in-game week just completed, i.e. what settings.current_week reads after the run
+  week          int  not null default 0,
+  ratings       jsonb not null default '{}'::jsonb,
+  potentials    jsonb not null default '{}'::jsonb,
+  height_inches int,
+  league        text check (league is null or league in ('prep','college','pro')),
+  taken_at      timestamptz not null default now()
+);
+
+create index if not exists rating_snapshots_char_idx
+  on public.rating_snapshots(character_id, season, week);
 
 -- One row per config key. See the SEED section at the bottom for the defaults.
 create table if not exists public.settings (
@@ -715,6 +749,7 @@ alter table public.characters       enable row level security;
 alter table public.upgrade_requests enable row level security;
 alter table public.point_ledger     enable row level security;
 alter table public.settings         enable row level security;
+alter table public.rating_snapshots enable row level security;
 
 -- ---- profiles ----
 drop policy if exists profiles_read       on public.profiles;
@@ -795,6 +830,20 @@ create policy point_ledger_admin_all on public.point_ledger
   for all to authenticated using (public.cv_is_admin()) with check (public.cv_is_admin());
 -- no insert/update/delete policy for plain users: the ledger is service-role only.
 
+-- ---- rating_snapshots ----
+drop policy if exists rating_snapshots_read      on public.rating_snapshots;
+drop policy if exists rating_snapshots_admin_all on public.rating_snapshots;
+
+-- Public, like the ratings themselves: `characters.ratings` is already readable by anon, so
+-- keeping its own history private would hide nothing and would blank the career page for
+-- every visitor who is not the owner.
+create policy rating_snapshots_read on public.rating_snapshots
+  for select to anon, authenticated using (true);
+
+create policy rating_snapshots_admin_all on public.rating_snapshots
+  for all to authenticated using (public.cv_is_admin()) with check (public.cv_is_admin());
+-- no insert/update/delete policy for plain users: only the commissioner writes history.
+
 -- ---- settings ----
 drop policy if exists settings_read      on public.settings;
 drop policy if exists settings_admin_all on public.settings;
@@ -829,7 +878,9 @@ grant  select (id, owner, first_name, last_name, "position", height_inches, arch
                growth_bias, height_seed, expected_adult_height,
                -- the career page's thread between levels; the commissioner writes all of these
                college_years, declared, level_history, league_player_ids,
-               draft_round, draft_pick, draft_season)
+               draft_round, draft_pick, draft_season,
+               -- how the career ended; null on everybody who is still playing
+               retired_season, retired_reason)
   on public.characters to anon, authenticated;
 
 -- height_seed is NOT insertable: it is derived from the row's own id, which does not exist
@@ -850,6 +901,13 @@ grant  delete on public.upgrade_requests to authenticated;
 
 revoke insert, update, delete on public.point_ledger from anon, authenticated;
 grant  select on public.point_ledger to authenticated;
+
+-- rating_snapshots is read-only to everybody but the service role. The revoke is what makes
+-- that true: Supabase's default privileges hand `authenticated` a table-wide ALL, and the
+-- admin policy above would otherwise be the only thing standing between a signed-in user and
+-- rewriting his own history.
+revoke insert, update, delete on public.rating_snapshots from anon, authenticated;
+grant  select on public.rating_snapshots to anon, authenticated;
 
 revoke insert, update, delete on public.settings from anon;
 grant  select on public.settings to anon, authenticated;

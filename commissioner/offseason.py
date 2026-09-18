@@ -1,15 +1,24 @@
-"""The offseason: everyone gets a year older, and some of them move up.
+"""The offseason: everyone gets a year older, some of them move up, and some are done.
 
-Four things happen between seasons, in this order, because each depends on the last:
+Five things happen between seasons, in this order, because each depends on the last:
 
+0. **Who is still here.** Every active character is looked for in his own save before anything
+   pays or moves anybody. A career that is over ends here, and a character FBPB3 has aged out
+   of the file is found out here rather than surfacing later as an unexplained growth error.
 1. **Growth.** Every character gets the inches his curve says he gets this year. `growth.py` owns
    the curve; this only writes the result into the save.
 2. **Promotion.** A prep character who has finished his age-17 season moves to College; a college
    character who declared (or who has used up his eligibility) enters the pro draft.
 3. **The draft.** The app runs it, not FBPB3 - the league files ship with the rookie draft off.
    Declared players are picked in reverse standings order and stamped onto pro rosters.
-4. **Refill.** The reserve slot a departing character leaves behind is handed back its filler
-   identity, so the level he left can take somebody new.
+4. **Refill.** The reserve slot a departing character leaves behind - promoted, drafted or
+   retired - is handed back its filler identity, so the level he left can take somebody new.
+
+**A character holds his reserve row for exactly as long as `claimed_slot` is set on him.** That
+is the one rule the slot bookkeeping runs on: the store clears it only once the row has really
+been renamed back, so "free" always means a row that exists and answers to its manifest name.
+`tools/protect_rosters.py` reads the same field and would release a refilled row as an intruder
+if a character who no longer holds it still claimed it.
 
 **A move between levels is not a trade.** The three leagues live in three separate saves that
 cannot see each other, so a promotion is: claim a reserve slot in the destination, stamp the
@@ -41,6 +50,22 @@ NEXT_LEVEL = {"prep": "college", "college": "pro"}
 # A prep player is done after his age-17 season; college eligibility runs four years.
 PREP_LAST_AGE = 17
 COLLEGE_MAX_YEARS = 4
+
+# ---- when a career ends ---------------------------------------------------------------------
+# Only the pros retire. Prep and College are levels a character is promoted OUT of, so an
+# eighteen year old still in prep is a promotion bug, not a retiree.
+#
+# The age cap is the backstop, not the rule. 34 is the oldest a generated pro filler is
+# (`universe/config.py`), so from the season he turns 35 a character is older than anybody the
+# universe made, and from there the decline test asks the better question: is he still the
+# player he was? That test needs recorded history, which only exists from the first Sim Week
+# after `rating_snapshots` was added - so the cap is what guarantees that a career ends at all
+# for a veteran with nothing written down.
+PRO_DECLINE_AGE = 35
+PRO_RETIREMENT_AGE = 38
+# How far below his best recorded sheet counts as done. A tenth of the whole eighteen-rating
+# average is a large, unmistakable fall; anything tighter and ordinary wobble ends careers.
+DECLINE_DROP = 0.10
 
 # ---- conversion -----------------------------------------------------------------------------
 # Moving up a level always costs something. The same skill is worth less against bigger, older,
@@ -79,6 +104,166 @@ def age_of(character, season):
     except ValueError:
         return 14
     return int(season) - born
+
+
+# ---- 0. who is still here ---------------------------------------------------------------------
+def _locate(L, name, dob):
+    """Find a character's record, and say what its absence means.
+
+    This is the distinction the whole retirement path turns on, because a career FBPB3 has
+    ended and a record we simply cannot match look identical from the store's side, and
+    guessing wrong either loses a career or strands a slot forever.
+
+    `LeagueDat.find` raises the same error for nobody and for two people, and CONVENTIONS
+    records that duplicate names exist in these saves, so the matches are counted here instead:
+
+    * ``here``      - exactly one record at the birthday we hold. Nothing to see.
+    * ``moved``     - the name is there under a different birthday. FBPB3 rewrites a DOB to
+                      12/1/<year> at season rollover, so this is drift, not death.
+    * ``ambiguous`` - more than one record answers to the name. He is present but unidentifiable;
+                      that is a failure to report, never a reason to end a career.
+    * ``gone``      - the name is nowhere in a save that parsed perfectly well. The game has
+                      aged him out, and there is no row left to grow, promote or hand back.
+    """
+    exact = [p for p in L.players if p.name == name and (dob is None or p.dob == dob)]
+    if len(exact) == 1:
+        return exact[0], "here"
+    by_name = [p for p in L.players if p.name == name]
+    if not by_name:
+        return None, "gone"
+    if len(by_name) == 1:
+        return by_name[0], "moved"
+    return None, "ambiguous"
+
+
+def _mean(values, fields=RATINGS):
+    got = [values[f] for f in fields if f in values]
+    return sum(got) / len(got) if got else 0.0
+
+
+def declining(store, character, live_mean, season):
+    """How far he has fallen from his best recorded sheet, or None if he has not.
+
+    The peak has to come from an EARLIER season than the one being judged. Ratings wobble
+    week to week and FBPB3 runs its own progression on top of ours, so a peak set inside the
+    season we are deciding proves nothing; requiring a previous one makes this a career arc
+    rather than a bad fortnight.
+    """
+    if not hasattr(store, "snapshots"):
+        return None
+    try:
+        rows = store.snapshots(character_id=character["id"])
+    except Exception:
+        return None                       # no history is not evidence of decline
+    best = None
+    for row in rows or []:
+        mean = _mean(row.get("ratings") or {})
+        if mean > 0 and (best is None or mean > best[0]):
+            best = (mean, int(row.get("season") or 0))
+    if best is None or best[1] >= int(season):
+        return None
+    if live_mean > best[0] * (1 - DECLINE_DROP):
+        return None
+    return {"peak": round(best[0], 1), "peak_season": best[1], "now": round(live_mean, 1)}
+
+
+def retirement_for(character, pl, season, store):
+    """Why this career ends now, in one line, or None if it does not end."""
+    if character.get("league") != "pro":
+        return None
+    age = age_of(character, season)
+    if age >= PRO_RETIREMENT_AGE:
+        return f"aged out at {age}"
+    if age < PRO_DECLINE_AGE:
+        return None
+    fall = declining(store, character, _mean(pl.values), season)
+    if fall is None:
+        return None
+    return (f'declining at {age}: his sheet averages {fall["now"]}, '
+            f'down from {fall["peak"]} in {fall["peak_season"]}')
+
+
+def retire(character, season, reason, store, log=print, dry_run=False, slot_exists=True):
+    """End one career, and give the level its reserve slot back.
+
+    The refill is why this is not a one-line status update. A slot that is never handed back
+    looks taken forever and the ceiling on concurrent characters ratchets down one person at a
+    time - the same bug a promotion without a refill causes, which has already bitten this
+    project twice.
+
+    `slot_exists` is False when the game deleted the record itself. There is nothing left to
+    rename, so his claim stays on him: better a slot that is honestly unavailable than one
+    offered to somebody who then cannot be stamped into a row that is not in the file.
+    """
+    name = f'{character["first_name"]} {character["last_name"]}'
+    row = {"character": character, "league": character.get("league"), "season": season,
+           "reason": reason, "slot_refilled": False}
+    if dry_run:
+        log(f"   would retire {name}: {reason}")
+        return {**row, "dry_run": True}
+
+    if slot_exists:
+        row["slot_refilled"] = refill(character["league"], character, log=log)
+    store.retire_character(character["id"], season, reason, release_slot=row["slot_refilled"])
+    log(f"   {name} retired: {reason}")
+    if slot_exists and not row["slot_refilled"]:
+        log(f"   ! {name}'s slot did not come back; run tools/protect_rosters.py")
+    elif not slot_exists:
+        log(f'   ! {name}\'s row is gone from the {character.get("league")} save, so that slot '
+            "cannot be handed to anybody until the save is repaired")
+    return row
+
+
+def run_retirements(characters, store, season, log=print, dry_run=False):
+    """End the careers that are over, and notice the ones the game ended for us.
+
+    First, before anything is grown, moved or paid: a retiree must not be given a year's
+    inches, an offseason lump sum or a promotion out of a league he has left, and a character
+    the game has already deleted would otherwise reappear further down as an unexplained
+    codec error with no decision attached to it.
+    """
+    retired, failed = [], []
+    for key in ("prep", "college", "pro"):
+        live = [c for c in characters
+                if c.get("league") == key and c.get("status") == "active"]
+        if not live:
+            continue
+        try:
+            L = LeagueDat(ch.save_path(key))
+        except Exception as exc:
+            # A save that will not open is our problem, not a career-ending event. "The game
+            # retired him" here would end every career in the league on one bad read.
+            log(f"   ! cannot read the {key} save, so nobody in it is judged: {exc}")
+            failed.append({"character": None, "stage": "retire", "league": key,
+                           "error": str(exc)})
+            continue
+        for c in live:
+            name = f'{c["first_name"]} {c["last_name"]}'
+            try:
+                dob = c.get("game_dob") or (c.get("claimed_slot") or {}).get("dob")
+                pl, state = _locate(L, name, dob)
+                if state == "ambiguous":
+                    raise OffseasonError(f"more than one record in the {key} save answers to "
+                                         f"{name!r}; leaving him alone")
+                if state == "gone":
+                    retired.append(retire(
+                        c, season,
+                        f"retired by the game: no record left in the "
+                        f"{cfg.BY_KEY[key].save_name} save",
+                        store, log=log, dry_run=dry_run, slot_exists=False))
+                    continue
+                if state == "moved":
+                    log(f"   {name}: the game moved his birthday to {pl.dob}")
+                    if not dry_run and hasattr(store, "set_character_field"):
+                        store.set_character_field(c["id"], "game_dob", pl.dob)
+                        c["game_dob"] = pl.dob
+                reason = retirement_for(c, pl, season, store)
+                if reason:
+                    retired.append(retire(c, season, reason, store, log=log, dry_run=dry_run))
+            except Exception as exc:
+                log(f"   ! {name}: {exc}")
+                failed.append({"character": c, "stage": "retire", "error": str(exc)})
+    return retired, failed
 
 
 # ---- 1. growth ------------------------------------------------------------------------------
@@ -185,10 +370,12 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
         note = f' ({conv["early_years"]} year(s) early)' if conv["early_years"] else ""
         log(f'   {name}: carries {int(conv["factor"] * 100)}% across{note}, -{lost} rating points')
 
-    # a free slot at the new level
-    active = [c for c in store.characters(league=to_league) if c.get("status") == "active"]
-    taken = [{"name": (c.get("claimed_slot") or {}).get("name"),
-              "dob": (c.get("claimed_slot") or {}).get("dob")} for c in active]
+    # A free slot at the new level. Held by whoever still claims it, whatever his status: a
+    # retired character whose row the game deleted keeps his claim precisely so that dead slot
+    # is never handed to anybody.
+    holders = [c for c in store.characters(league=to_league) if c.get("claimed_slot")]
+    taken = [{"name": c["claimed_slot"].get("name"),
+              "dob": c["claimed_slot"].get("dob")} for c in holders]
     slots = ch.free_slots(_manifest(), to_league, taken)
     slot = ch.pick_slot(slots, character.get("position"))
     if slot is None:
@@ -355,8 +542,16 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
         raise OffseasonError(
             f"the {season} offseason has already been run (last completed: {done}). "
             "Pass force=True only if you know the first run did not finish.")
+    result = {"season": season, "grown": 0, "promoted": [], "drafted": [], "retired": [],
+              "failed": [], "dry_run": dry_run}
+
+    log("who is still here")
+    retired, failed = run_retirements(store.characters(), store, season, log=log, dry_run=dry_run)
+    result["retired"] += retired
+    result["failed"] += failed
+    # Re-read rather than filter: retiring rewrote status and claimed_slot, and everything
+    # below decides what to do from those two fields.
     characters = store.characters()
-    result = {"season": season, "grown": 0, "promoted": [], "drafted": [], "dry_run": dry_run}
 
     for key in ("prep", "college", "pro"):
         path = ch.save_path(key)
@@ -376,7 +571,6 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
     # One character the codec cannot find must not abort an offseason that has already moved
     # other people - a half-run offseason is far worse than a reported failure, because the
     # save and the store disagree from then on.
-    result["failed"] = []
     for c in moving["college"]:
         try:
             result["promoted"].append(promote(
@@ -426,5 +620,5 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
         store.set_setting("current_season", season + 1)
         store.set_setting("current_week", 0)
     log(f"offseason complete: {result['grown']} grew, {len(result['promoted'])} promoted, "
-        f"{len(result['drafted'])} drafted")
+        f"{len(result['drafted'])} drafted, {len(result['retired'])} retired")
     return result

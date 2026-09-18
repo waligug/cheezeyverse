@@ -28,8 +28,8 @@ from . import settings as cfg
 __all__ = [
     "StoreNotConfigured", "StoreError",
     "pending_requests", "mark_applied", "pending_characters", "activate_character",
-    "grant_points", "grant_week_points", "get_settings", "set_setting",
-    "characters_for_export",
+    "retire_character", "grant_points", "grant_week_points", "get_settings", "set_setting",
+    "add_snapshot", "snapshots", "characters_for_export",
 ]
 
 # The character columns the public career pages need. Kept explicit rather than `*` so a
@@ -231,6 +231,57 @@ def set_character_status(character_id, status):
                     prefer="return=representation")
 
 
+def retire_character(character_id, season, reason, release_slot=True):
+    """End a career: status, the season it happened and a one-line reason, in one write.
+
+    `release_slot` is the slot bookkeeping, and it is the same rule the local store keeps: a
+    character holds his reserve row for exactly as long as `claimed_slot` is set on him. The
+    offseason clears it only once `offseason.refill` has really given the row its manifest
+    name back, so when FBPB3 has deleted the record itself the claim stays and nobody is
+    handed a slot that no longer exists in the save.
+    """
+    body = {"status": "retired", "retired_season": int(season), "retired_reason": reason}
+    if release_slot:
+        body["claimed_slot"] = None
+    return _request("PATCH", "/rest/v1/characters",
+                    params={"id": f"eq.{character_id}"}, body=body,
+                    prefer="return=representation")
+
+
+# ---------------------------------------------------------------------------------------
+# rating history
+# ---------------------------------------------------------------------------------------
+
+def add_snapshot(character_id, season, week, ratings, potentials,
+                 height_inches=None, league=None):
+    """Record one character's sheet as league.dat held it this week.
+
+    `characters.ratings` is a single live sheet the commissioner overwrites every Sim Week,
+    so this table is the only thing that can answer what he used to be. One row per
+    character per run - the career page reads whole sheets, so a row per rating would be
+    eighteen times the writes for the same chart.
+    """
+    return _request("POST", "/rest/v1/rating_snapshots", body=[{
+        "character_id": str(character_id),
+        "season": int(season),
+        "week": int(week),
+        "ratings": dict(ratings or {}),
+        "potentials": dict(potentials or {}),
+        "height_inches": height_inches,
+        "league": league,
+    }], prefer="return=representation")
+
+
+def snapshots(character_id=None, league=None):
+    """Recorded sheets, oldest first. Filter by character for one career's line."""
+    params = {"select": "*", "order": "season.asc,week.asc"}
+    if character_id:
+        params["character_id"] = f"eq.{character_id}"
+    if league:
+        params["league"] = f"eq.{league}"
+    return _table("rating_snapshots", params)
+
+
 def characters_for_export():
     """Everything the public career pages need, in one call.
 
@@ -348,6 +399,13 @@ def _selftest():
             "2016-03-14")),
         ("set_character_status(..., 'retired')", lambda: set_character_status(
             "55555555-5555-5555-5555-555555555555", "retired")),
+        ("retire_character(...)", lambda: retire_character(
+            "55555555-5555-5555-5555-555555555555", 2048, "declining at 35")),
+        ("add_snapshot(...)", lambda: add_snapshot(
+            "55555555-5555-5555-5555-555555555555", 2048, 12,
+            {"InsideScoring": 61}, {"PotInside": 84}, 78, "pro")),
+        ("snapshots(character_id=...)", lambda: snapshots(
+            "55555555-5555-5555-5555-555555555555")),
         ("grant_points(..., 1, 'week simmed')", lambda: grant_points(
             "55555555-5555-5555-5555-555555555555", 1, "week simmed")),
         ("grant_week_points('prep')", lambda: grant_week_points("prep")),

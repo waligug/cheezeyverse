@@ -246,18 +246,44 @@ class LeagueDat:
         owner = {pid: t for t, ids in members.items() for pid in ids}
         order = sorted(teams)
         n_blocks = self.DEPTH_PER_TEAM * len(order)
-        starts = []
+        # Score the candidates rather than demanding a perfect match. A depth block can hold a
+        # stale id - somebody released or retired since the chart was last rebuilt - and on a save
+        # that has actually been played exactly one such id used to disqualify the whole region,
+        # so teams() failed on every aged save. An id belonging to ANOTHER team is still fatal; an
+        # id belonging to nobody is not.
         span = self.DEPTH_BLOCK * n_blocks
-        for p0 in range(max(self.players[-1].R, len(d) - span - 65536), len(d) - span + 1):
+        best = None
+        for p0 in range(max(self.players[-1].R, len(d) - span - 262144), len(d) - span + 1):
+            hits = total = 0
             for k in range(n_blocks):
                 q = p0 + self.DEPTH_BLOCK * k
-                vals = struct.unpack_from("<80h", d, q + 2)
-                if d[q:q + 2] != b"\0\0" or not vals[0] or {owner.get(v) for v in vals if v} != {order[k // self.DEPTH_PER_TEAM]}:
+                if d[q:q + 2] != b"\0\0":
+                    total = -1
                     break
-            else:
-                starts.append(p0)
-        if len(starts) != 1:
-            raise CodecError(f"depth-chart region: {len(starts)} candidate starts")
+                vals = struct.unpack_from("<80h", d, q + 2)
+                want = order[k // self.DEPTH_PER_TEAM]
+                if not vals[0]:
+                    total = -1
+                    break
+                for v in vals:
+                    if not v:
+                        continue
+                    if owner.get(v) == want:
+                        hits += 1
+                        total += 1
+                    elif owner.get(v) is None:
+                        total += 1
+                    else:
+                        total = -1
+                        break
+                if total < 0:
+                    break
+            if total > 0 and (best is None or hits / total > best[0]):
+                best = (hits / total, p0)
+        if best is None or best[0] < 0.95:
+            raise CodecError("depth-chart region: nothing scored above 0.95"
+                             + (f" (best {best[0]:.3f})" if best else ""))
+        starts = [best[1]]
         for k in range(n_blocks):
             teams[order[k // self.DEPTH_PER_TEAM]]["depth_at"].append(starts[0] + self.DEPTH_BLOCK * k)
         return teams

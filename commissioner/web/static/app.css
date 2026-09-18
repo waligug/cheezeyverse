@@ -175,6 +175,16 @@ input[type=checkbox] { accent-color: var(--crust); }
   background: #F7E0DE !important; border-left-color: var(--bad); color: #5E1712;
 }
 #log .row.step-error .s { color: var(--bad); }
+/* A character the offseason could not move is not the run failing - it keeps going, on
+   purpose - so it gets the red without the progress bar's "we stopped here". */
+#log .row.step-failed { background: #F7E0DE !important; border-left-color: var(--bad); color: #5E1712; }
+#log .row.step-failed .s { color: var(--bad); }
+#log .row.step-warn { border-left-color: var(--warn); }
+#log .row.step-warn .s { color: var(--warn); }
+#log .row.step-refused {
+  background: #FBEFD0 !important; border-left-color: var(--warn); color: #4A3200;
+}
+#log .row.step-refused .s { color: var(--warn); }
 #log .row.step-done, #log .row.step-end { border-left-color: var(--good); }
 #log .row.step-done .s, #log .row.step-end .s { color: var(--good); }
 #log .row.meta { color: #8A7A55; font-style: italic; }
@@ -187,6 +197,71 @@ input[type=checkbox] { accent-color: var(--crust); }
   animation: pulse 1.1s ease-in-out infinite;
 }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+
+/* ---- the offseason ------------------------------------------------------------------ */
+/* Same card, louder edges. The two buttons are deliberately not twins: the dry run is the
+   quiet one you are meant to press first, the real run is the only solid red thing on the
+   page, and the force button lives inside a box that explains itself before it is reachable. */
+.os-blurb { margin: 0 0 8px; font-size: 12px; color: #5C4E2C; max-width: 88ch; }
+.os-blurb b { color: var(--crust); }
+
+.os-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 860px) { .os-cols { grid-template-columns: 1fr; } }
+.os-col {
+  border: 1px solid var(--line); border-top: 3px solid var(--deep);
+  border-radius: var(--radius); padding: 6px 8px 8px; background: #FFFDF6;
+}
+.os-col h3 { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.os-row { font-size: 12px; padding: 2px 0; border-bottom: 1px solid #EFE6CE; }
+.os-row:last-child { border-bottom: 0; }
+.chip.warn { background: #FBEFD0; border-color: #D9B86A; color: var(--warn); }
+
+button.danger-solid {
+  background: linear-gradient(180deg, #B4332B, #8E241D); border-color: #5E1712; color: #FFF3F2;
+}
+
+.os-danger {
+  border: 2px solid var(--bad); border-left-width: 6px; background: #FBF0EF;
+  border-radius: var(--radius); padding: 8px 10px; margin-top: 10px; font-size: 12px;
+  color: #5E1712;
+}
+.os-danger strong { display: block; font-size: 13px; }
+.os-danger p { margin: 4px 0 6px; }
+.os-danger label { display: block; margin-bottom: 6px; font-weight: 700; }
+
+#os-result { margin-top: 10px; }
+.os-headline {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  border-top: 1px solid var(--line); padding-top: 8px; font-size: 12.5px; font-weight: 700;
+  color: var(--crust);
+}
+.os-section { margin-top: 10px; }
+.os-section > h3 { margin-bottom: 3px; }
+.os-lines {
+  font-family: var(--mono); font-size: 11.5px; background: #FFFDF6;
+  border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px;
+  max-height: 200px; overflow-y: auto; white-space: pre-wrap;
+}
+.os-safe {
+  background: #E4F0E2; border: 1px solid #A9C7A4; color: var(--good);
+  border-radius: var(--radius); padding: 6px 10px; font-size: 12px; font-weight: 700;
+}
+/* The one thing on this page that must never be missed: a character the codec could not find
+   means the save and the store now disagree about where he is, and only a person can fix it. */
+.os-trouble {
+  border: 3px solid var(--bad); background: #F7E0DE; color: #5E1712;
+  border-radius: var(--radius); padding: 8px 10px; margin-top: 10px;
+}
+.os-trouble > strong { display: block; font-size: 14px; text-transform: uppercase; letter-spacing: .5px; }
+.os-trouble p { margin: 4px 0; font-size: 12px; }
+.os-trouble td, .os-trouble th { border-bottom-color: #E0BCB8; }
+.os-trouble .err { font-family: var(--mono); font-size: 11.5px; }
+.os-refused {
+  border: 2px solid var(--warn); border-left-width: 6px; background: #FBEFD0; color: #4A3200;
+  border-radius: var(--radius); padding: 8px 10px; font-size: 12.5px;
+}
+.os-refused strong { display: block; font-size: 13px; }
+td.bad-cell { color: var(--bad); font-weight: 700; }
 
 /* ---- tables ------------------------------------------------------------------------ */
 table { border-collapse: collapse; width: 100%; font-size: 12.5px; }

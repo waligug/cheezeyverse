@@ -392,3 +392,26 @@ leaves his renamed row stranded in the save: the manifest name it used to answer
 nobody claims it, so that slot can never be handed to anybody again. `protect_rosters.py` now
 detects them - a player the manifest does not name whose birth year is inside our band, since the
 game's own free agents are all adults - and gives the row its manifest identity back.
+
+## The AI signs free agents during every sim
+Measured after the first three-league Sim Week (7 days each): college rosters came back at 19-20 and
+pro at 17-20, with **73 and 79** of the game's own players signed onto them. Prep was untouched that
+run, but has been hit before. This is FBPB3's AI doing its job - the roster limit is 15 *active*, and
+a team may carry more with the extras inactive.
+
+`protect_rosters.py` runs at the top of every Sim Week and releases them, so the system is
+self-healing across runs. What it cannot do is repair *between* the sim and the export, because the
+game holds the save open for all three leagues in one session: the pages published by a run therefore
+show that run's AI signings, and the next run cleans them up. If that ever matters more than the
+extra game time, the fix is a second pass - exit, repair, re-export - not a codec write while FBPB3
+has the file open.
+
+## The depth-chart matcher has to tolerate a stale id
+`teams()` located the depth-chart region by demanding that every id in every block belong to the
+expected team. On a save that had actually been played, **one** stale id - a player released since
+the chart was last rebuilt - disqualified the entire region and `teams()` raised
+"0 candidate starts", which broke `verify_save`, `release` and `sign` on any aged save.
+
+It now scores candidates instead: an id belonging to another team is still fatal, an id belonging to
+nobody is not, and the best offset above 0.95 wins. The search window also went from 64 KB to 256 KB
+from the end, because game history pushes the region further forward as a season is played.

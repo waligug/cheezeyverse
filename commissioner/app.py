@@ -25,6 +25,12 @@ so a mid-sim page refresh replays the whole log and then keeps streaming.
 
 **It degrades instead of exploding.** `simweek` may not import (it is written separately) and
 Supabase may not be configured. Either way the app starts, serves, and says so in a banner.
+
+**The offseason is the one exception to "only simweek".** `commissioner.offseason` is its own
+entry point (`run_offseason`), so the panel calls it directly - but it gets the store from
+`simweek.store()`, the same object the sim writes through, and it runs under the same
+`_SIM_LOCK`. An offseason drives the same three saves a sim does; the two must never overlap.
+It imports separately from `simweek`, so the offseason panel can be dark while the sim works.
 """
 from __future__ import annotations
 
@@ -46,6 +52,10 @@ WEB = Path(__file__).resolve().parent / "web"
 
 class SimweekUnavailable(RuntimeError):
     """`commissioner.simweek` did not import. Every button that needs it says so."""
+
+
+class OffseasonUnavailable(RuntimeError):
+    """`commissioner.offseason` (or the store behind it) did not import. Same deal."""
 
 
 # ---------------------------------------------------------------------------------------
@@ -80,6 +90,39 @@ except Exception as _exc:  # noqa: BLE001 - any import failure at all is a banne
 
 
 # ---------------------------------------------------------------------------------------
+# the offseason contract - imported apart from simweek, on purpose
+# ---------------------------------------------------------------------------------------
+# Four names from `offseason` plus the store from `simweek`, and this fails as its own thing:
+# the sim can be perfectly healthy while the offseason is unimportable, and the panel should
+# then still sim. `OffseasonError` is re-declared in the failure branch only so the `except`
+# clauses further down stay valid - it can never be raised there, because nothing runs.
+OFFSEASON_OK = True
+OFFSEASON_ERROR = ""
+try:  # pragma: no cover - exercised by importing with commissioner.offseason blocked
+    from .offseason import (  # type: ignore
+        OffseasonError,
+        conversion_for,
+        movers,
+        run_offseason,
+    )
+    from .simweek import store as offseason_store  # type: ignore
+except Exception as _exc:  # noqa: BLE001
+    OFFSEASON_OK = False
+    OFFSEASON_ERROR = f"{type(_exc).__name__}: {_exc}"
+
+    class OffseasonError(Exception):  # type: ignore[no-redef]
+        """Placeholder. Unreachable: nothing that could raise it is importable."""
+
+    def _no_offseason(*_a, **_k):
+        raise OffseasonUnavailable(
+            "commissioner.offseason is not importable, so the offseason cannot be previewed or "
+            "run. " + OFFSEASON_ERROR
+        )
+
+    conversion_for = movers = run_offseason = offseason_store = _no_offseason  # type: ignore
+
+
+# ---------------------------------------------------------------------------------------
 # fallback league list
 # ---------------------------------------------------------------------------------------
 # Read-only, and only so the page still shows the three leagues when `universe_status()` is
@@ -111,28 +154,38 @@ STEP_ORDER = ("backup", "apply", "sim", "export", "publish", "points", "done")
 
 
 class SimRun:
-    """A single `run_sim` call: its parameters, its event log, and its subscribers.
+    """A single `run_sim` *or* `run_offseason` call: parameters, event log, subscribers.
 
     The event list is append-only, so a browser that reconnects mid-sim replays everything it
     missed and then carries on live. Each subscriber gets its own `queue.Queue`; registering a
     queue and snapshotting the backlog happen under the same lock, so an event can be neither
     dropped between the two nor delivered twice.
+
+    One class for both kinds deliberately: an offseason takes minutes and drives the same saves,
+    so it wants the same live log, the same stream, the same "busy" chip and the same lock. Only
+    `kind` and a couple of fields differ.
     """
 
-    def __init__(self, leagues, days, dry_run):
+    def __init__(self, leagues, days, dry_run, kind="sim", season=None, force=False):
         self.id = uuid.uuid4().hex[:12]
+        self.kind = kind          # "sim" | "offseason"
         self.leagues = list(leagues) if leagues else None
         self.days = int(days)
         self.dry_run = bool(dry_run)
+        self.season = season      # offseason only; None means "whatever the store says"
+        self.force = bool(force)  # offseason only
+        self.refused = False      # offseason only: the already-run guard said no
         self.started_at = time.time()
         self.finished_at = None
-        self.status = "running"   # running | ok | error
+        self.status = "running"   # running | ok | error | refused
         self.error = ""
         self.result = None
         self.events = []
         self._subs = set()
         self._seq = 0
         self._lock = threading.Lock()
+        self._log_league = None   # the league the offseason's log lines are currently about
+        self._log_pct = 0.0
 
     # -- events ------------------------------------------------------------------------
     def emit(self, payload):
@@ -161,6 +214,23 @@ class SimRun:
         """The `on_step` callback handed to `run_sim`. Tolerates anything it is given."""
         return self.emit(_coerce_step(step))
 
+    def log_line(self, *parts):
+        """The `log=` callable handed to `run_offseason`, adapted to the same event stream.
+
+        `run_offseason` has no `on_step`: it takes `log`, which is `print` by default and gets
+        one already-indented string per thing that happened. So this is the whole adapter -
+        read the line, guess which stage it belongs to, and emit the same shape the sim emits.
+        The guessing is display only: the log line itself is always passed through verbatim, so
+        a mis-guessed step costs a wrong colour and nothing else.
+        """
+        text = " ".join(str(p) for p in parts)
+        step, league, pct = _offseason_step(text, self._log_league, self._log_pct)
+        self._log_league = league
+        if pct is not None:
+            self._log_pct = pct
+        return self.emit({"kind": "step", "step": step, "league": league,
+                          "message": text.strip(), "pct": pct})
+
     def subscribe(self, after=0):
         """(backlog, queue). Backlog is every event past `after` at the moment of joining."""
         q = queue.Queue(maxsize=2000)
@@ -178,11 +248,16 @@ class SimRun:
         end = self.finished_at or time.time()
         return {
             "id": self.id,
+            "kind": self.kind,
             "status": self.status,
             "running": self.finished_at is None,
             "leagues": self.leagues,
             "days": self.days,
             "dry_run": self.dry_run,
+            "season": self.season,
+            "force": self.force,
+            "refused": self.refused,
+            "has_result": self.result is not None,
             "started_at": datetime.fromtimestamp(self.started_at).isoformat(timespec="seconds"),
             "finished_at": (datetime.fromtimestamp(self.finished_at).isoformat(timespec="seconds")
                             if self.finished_at else None),
@@ -220,6 +295,53 @@ def _coerce_step(step):
     return event
 
 
+# The offseason's log is prose, not steps, so the stage has to be read back out of the line.
+# These are the literal `log(...)` calls in offseason.py, in the order they happen. The bar is
+# an estimate and the panel says so: nothing in `run_offseason` reports progress.
+_OFFSEASON_PCT = {"start": 0, "growth": 12, "movers": 40, "promote": 52, "convert": 50,
+                  "refill": 56, "draft": 72, "points": 90, "done": 98}
+
+
+def _offseason_step(line, league=None, pct=0.0):
+    """(step, league, pct) for one `log=` line. Guessing only - the text is never changed."""
+    text = str(line).strip()
+    low = text.lower()
+
+    head = low.split(":", 1)[0]
+    if head in ("prep", "college", "pro") and "growth" in low:
+        league = head
+        step = "growth"
+    elif text.startswith("!"):
+        # Every failure offseason.py reports to the log starts with "!": a character the codec
+        # could not find, a promotion with no slot left, a pick that blew up. Never quiet.
+        step = "failed"
+    elif text.startswith("("):
+        step = "warn"                     # "(could not record the level for ...)"
+    elif " grew " in low:
+        step = "growth"
+    elif low.startswith("moving up:"):
+        league, step = None, "movers"
+    elif low.startswith("draft order") or text.startswith("#"):
+        step = "draft"
+    elif "% across" in low or "carries" in low:
+        step = "convert"
+    elif "is free again" in low:
+        step = "refill"
+    elif "->" in text:
+        step = "promote"
+    elif low.startswith("paid "):
+        step = "points"
+    elif low.startswith("offseason complete"):
+        step = "done"
+    else:
+        step = "info"
+
+    want = _OFFSEASON_PCT.get(step)
+    if want is None or step in ("failed", "warn"):
+        return step, league, None         # a failure must not move the bar, in either direction
+    return step, league, max(float(pct or 0.0), float(want))
+
+
 # ---------------------------------------------------------------------------------------
 # the one-sim-at-a-time lock
 # ---------------------------------------------------------------------------------------
@@ -242,14 +364,32 @@ def sim_busy():
     return bool(run and run.finished_at is None)
 
 
+def _acquire_or_refuse():
+    """Take `_SIM_LOCK` or explain, in words, who has it. Returns "" on success.
+
+    The offseason holds it too: growth, promotions and the draft all write the same three saves
+    a sim does, so "one at a time" means one of *either*, not one of each.
+    """
+    if _SIM_LOCK.acquire(blocking=False):
+        return ""
+    running = current_run()
+    if running is not None and running.finished_at is None:
+        what = "An offseason" if running.kind == "offseason" else "A sim"
+        where = f" (run {running.id}, started {running.summary()['started_at']})"
+    else:
+        # The lock is held by something with no run behind it - a dry-run preview, or a run in
+        # the half-second between taking the lock and being registered.
+        what, where = "Something else", " (a preview, or a run that has just started)"
+    return (what + " is already using the saves" + where + ". Only one may run at a time - two "
+            "would drive the same FBPB3 window and corrupt a save. Wait for it to finish.")
+
+
 def start_sim(leagues=None, days=7, dry_run=False):
     """Kick off a background sim. Returns (run, None) or (None, refusal message)."""
     global _CURRENT
-    if not _SIM_LOCK.acquire(blocking=False):
-        running = current_run()
-        where = f" (run {running.id}, started {running.summary()['started_at']})" if running else ""
-        return None, ("A sim is already running" + where + ". Only one sim may run at a time - two "
-                      "would drive the same FBPB3 window and corrupt a save. Wait for it to finish.")
+    refusal = _acquire_or_refuse()
+    if refusal:
+        return None, refusal
     run = SimRun(leagues, days, dry_run)
     try:
         thread = threading.Thread(target=_worker, args=(run,), name=f"simweek-{run.id}", daemon=True)
@@ -257,6 +397,31 @@ def start_sim(leagues=None, days=7, dry_run=False):
     except Exception as exc:  # noqa: BLE001 - never leak the lock
         _SIM_LOCK.release()
         return None, f"Could not start the sim thread: {exc}"
+    with _STATE_LOCK:
+        _CURRENT = run
+        _HISTORY_HINT.insert(0, run)
+        del _HISTORY_HINT[12:]
+    return run, None
+
+
+def start_offseason(season=None, force=False):
+    """Kick off a background offseason for real. Returns (run, None) or (None, refusal).
+
+    Never a dry run: a dry run is `/api/offseason/preview`, which answers in one request
+    because it takes half a second and writes nothing. This is the one that changes the world.
+    """
+    global _CURRENT
+    refusal = _acquire_or_refuse()
+    if refusal:
+        return None, refusal
+    run = SimRun(None, 0, False, kind="offseason", season=season, force=force)
+    try:
+        thread = threading.Thread(target=_offseason_worker, args=(run,),
+                                  name=f"offseason-{run.id}", daemon=True)
+        thread.start()
+    except Exception as exc:  # noqa: BLE001 - never leak the lock
+        _SIM_LOCK.release()
+        return None, f"Could not start the offseason thread: {exc}"
     with _STATE_LOCK:
         _CURRENT = run
         _HISTORY_HINT.insert(0, run)
@@ -304,13 +469,222 @@ def _worker(run):
                       "message": run.error,
                       "traceback": traceback.format_exc(limit=8)})
     finally:
-        run.finished_at = time.time()
-        _invalidate_status()
-        run.emit({"kind": "end", "step": "end", "league": None, "pct": 100,
-                  "status": run.status, "error": run.error,
-                  "message": ("Finished" if run.status == "ok" else "Stopped with an error")
-                             + f" after {round(run.finished_at - run.started_at, 1)}s"})
-        _SIM_LOCK.release()
+        _finish(run)
+
+
+def _finish(run):
+    """End one run: timestamp, terminal event, lock released. Always runs, for both kinds.
+
+    A leaked lock bricks the panel until restart and a missing `end` leaves every attached
+    browser spinning, so this is the only place either of those can be got wrong.
+    """
+    run.finished_at = time.time()
+    _invalidate_status()
+    took = f" after {round(run.finished_at - run.started_at, 1)}s"
+    headline = {"ok": "Finished", "refused": "Refused"}.get(run.status, "Stopped with an error")
+    run.emit({"kind": "end", "step": "end", "league": None, "pct": 100,
+              "status": run.status, "error": run.error, "refused": run.refused,
+              "kind_of_run": run.kind, "message": headline + took})
+    _SIM_LOCK.release()
+
+
+def _offseason_worker(run):
+    """Run one real offseason to completion. Same rules as `_worker`: never leak, never crash.
+
+    The refusal is the interesting path. `run_offseason` raises `OffseasonError` when that
+    season has already been run, because every part of it is cumulative - inches, points,
+    college years, promotions - so a second run pays everybody twice. That is a *message*, not
+    an error page and not a traceback: the panel says what it says and offers the force button.
+    """
+    try:
+        run.emit({
+            "kind": "step", "step": "start", "league": None, "pct": 0,
+            "message": "offseason for season {}{} - {}".format(
+                run.season if run.season is not None else "(the store's current season)",
+                ", FORCED" if run.force else "",
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        })
+        store = offseason_store()
+        result = run_offseason(store, season=run.season, log=run.log_line,
+                               dry_run=False, force=run.force)
+        run.result = _offseason_view(result)
+        if isinstance(result, dict) and result.get("season") is not None:
+            run.season = result["season"]     # what it actually ran, not what was asked for
+        if run.status == "running":
+            run.status = "ok"
+    except OffseasonError as exc:
+        run.status = "refused"
+        run.refused = True
+        run.error = str(exc)
+        run.emit({"kind": "step", "step": "refused", "league": None, "pct": None,
+                  "message": str(exc)})
+    except OffseasonUnavailable as exc:
+        run.status = "error"
+        run.error = str(exc)
+        run.emit({"kind": "step", "step": "error", "league": None, "message": str(exc),
+                  "pct": None})
+    except BaseException as exc:  # noqa: BLE001 - a crash in offseason.py is a log line
+        run.status = "error"
+        run.error = f"{type(exc).__name__}: {exc}"
+        run.emit({"kind": "step", "step": "error", "league": None, "pct": None,
+                  "message": run.error, "traceback": traceback.format_exc(limit=8)})
+    finally:
+        _finish(run)
+
+
+# ---------------------------------------------------------------------------------------
+# reading what the offseason says
+# ---------------------------------------------------------------------------------------
+# `run_offseason` answers with live character dicts - ratings, potentials, claimed slots, the
+# lot. None of that belongs on the wire, and `grown` is a count rather than a list, so these
+# turn the result into exactly what the panel draws and nothing else.
+def _person(character):
+    if not isinstance(character, dict):
+        return {"name": str(character)}
+    name = " ".join(str(character.get(k) or "").strip()
+                    for k in ("first_name", "last_name")).strip()
+    return {
+        "id": character.get("id"),
+        "name": name or character.get("name") or character.get("id") or "?",
+        "position": character.get("position") or "",
+        "league": character.get("league") or "",
+        "team": character.get("team_abbrev") or "",
+        "college_years": character.get("college_years"),
+        "declared": bool(character.get("declared")),
+    }
+
+
+def _conversion_for(character, to_league, season):
+    """`conversion_for`, but never a reason for the page to fail."""
+    if not to_league:
+        return None
+    try:
+        return conversion_for(character, to_league, season)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _conversion(conv, projected=False):
+    if not isinstance(conv, dict):
+        return None
+    try:
+        factor = float(conv.get("factor"))
+    except (TypeError, ValueError):
+        return None
+    return {
+        "factor": factor,
+        "percent": int(round(factor * 100)),
+        "early_years": int(conv.get("early_years") or 0),
+        "early_penalty": conv.get("early_penalty"),
+        "base": conv.get("base"),
+        # True when the panel worked it out with `conversion_for` instead of reading it off a
+        # completed promotion - a dry run never calls `promote`, so its picks carry no
+        # conversion of their own.
+        "projected": bool(projected),
+    }
+
+
+def _offseason_view(result):
+    """The result dict, slimmed for the page. Every key it is given survives; none is invented.
+
+    `paid` and `developed` are absent from a dry run (nobody is paid), so they come through as
+    null rather than a misleading 0.
+    """
+    if not isinstance(result, dict):
+        return {"error": f"run_offseason returned {type(result).__name__}, expected dict"}
+    season = result.get("season")
+    out = {
+        "season": season,
+        "dry_run": bool(result.get("dry_run")),
+        "grown": result.get("grown", 0),
+        "paid": result.get("paid"),
+        "developed": result.get("developed"),
+        "promoted": [],
+        "drafted": [],
+        "failed": [],
+    }
+    for row in result.get("promoted") or []:
+        row = row if isinstance(row, dict) else {}
+        character = row.get("character") or {}
+        conv = row.get("conversion")
+        out["promoted"].append({
+            "character": _person(character),
+            "to": row.get("to") or "",
+            "team": row.get("team") or "",
+            "slot": row.get("slot") or None,
+            "conversion": _conversion(conv or _conversion_for(character, row.get("to"), season),
+                                      projected=not conv),
+        })
+    for pick in result.get("drafted") or []:
+        pick = pick if isinstance(pick, dict) else {}
+        character = pick.get("character") or {}
+        conv = pick.get("conversion")
+        out["drafted"].append({
+            "pick": pick.get("pick"),
+            "round": pick.get("round"),
+            "team": pick.get("team") or "",
+            "character": _person(character),
+            "conversion": _conversion(conv or _conversion_for(character, "pro", season),
+                                      projected=not conv),
+            "slot": pick.get("slot") or None,
+            "error": str(pick.get("error") or ""),
+        })
+    # `run_draft` returns the failures last; the board reads in pick order, failures in place.
+    out["drafted"].sort(key=lambda p: (p.get("pick") is None, p.get("pick") or 0))
+    for row in result.get("failed") or []:
+        row = row if isinstance(row, dict) else {}
+        out["failed"].append({
+            "character": _person(row.get("character") or {}),
+            "stage": str(row.get("stage") or ""),
+            "error": str(row.get("error") or ""),
+        })
+    # One number the page can shout with: anybody the save and the store now disagree about.
+    out["trouble"] = len(out["failed"]) + sum(1 for p in out["drafted"] if p["error"])
+    return json.loads(json.dumps(out, default=str))
+
+
+def offseason_plan():
+    """What the offseason is about to be asked to do - without opening a single save.
+
+    `movers()` and `conversion_for()` need only the store, so this is cheap enough to render on
+    every page load and safe while a sim is running: it never touches `league.dat`. The dry run,
+    which does read the saves, is a button.
+    """
+    plan = {"available": False, "error": "", "season": None, "last_offseason": None,
+            "already_run": False, "to_college": [], "to_draft": [], "staying": None,
+            "characters": None, "store": None}
+    if not OFFSEASON_OK:
+        plan["error"] = OFFSEASON_ERROR or "commissioner.offseason is unavailable"
+        return plan
+    try:
+        st = offseason_store()
+        settings = st.get_settings() or {}
+        season = settings.get("current_season")
+        last = settings.get("last_offseason")
+        plan["season"] = int(season) if season is not None else None
+        plan["last_offseason"] = int(last) if last is not None else None
+        plan["store"] = st.kind() if hasattr(st, "kind") else None
+        if plan["season"] is None:
+            plan["error"] = "the store has no current_season, so there is no season to run"
+            return plan
+        plan["already_run"] = (plan["last_offseason"] is not None
+                               and plan["last_offseason"] >= plan["season"])
+        rows = list(st.characters() or [])
+        plan["characters"] = len(rows)
+        split = movers(rows, plan["season"]) or {}
+        for character in split.get("college") or []:
+            plan["to_college"].append(dict(
+                _person(character),
+                conversion=_conversion(_conversion_for(character, "college", plan["season"]))))
+        for character in split.get("draft") or []:
+            plan["to_draft"].append(dict(
+                _person(character),
+                conversion=_conversion(_conversion_for(character, "pro", plan["season"]))))
+        plan["staying"] = len(split.get("stay") or [])
+        plan["available"] = True
+    except Exception as exc:  # noqa: BLE001 - the plan is informational; never fail the page
+        plan["error"] = f"{type(exc).__name__}: {exc}"
+    return json.loads(json.dumps(plan, default=str))
 
 
 # ---------------------------------------------------------------------------------------
@@ -416,6 +790,8 @@ def api(fn):
             return fn(*a, **kw)
         except SimweekUnavailable as exc:
             return jsonify({"ok": False, "error": str(exc), "simweek": False}), 503
+        except OffseasonUnavailable as exc:
+            return jsonify({"ok": False, "error": str(exc), "offseason": False}), 503
         except Exception as exc:  # noqa: BLE001
             app.logger.exception("%s failed", fn.__name__)
             return jsonify({"ok": False, "error": f"{type(exc).__name__}: {exc}"}), 500
@@ -431,13 +807,20 @@ def _simweek_block():
     return {"ok": SIMWEEK_OK, "error": SIMWEEK_ERROR}
 
 
+def _offseason_block():
+    return {"ok": OFFSEASON_OK, "error": OFFSEASON_ERROR}
+
+
 @app.get("/")
 def index():
     """The whole product. Rendered server-side so the leagues are on the page without JS."""
     status = universe_snapshot()
     run = current_run()
+    plan = offseason_plan()
     boot = {
         "simweek": _simweek_block(),
+        "offseason": _offseason_block(),
+        "plan": plan,
         "universe": status,
         "run": run.summary() if run else None,
         "busy": sim_busy(),
@@ -445,7 +828,8 @@ def index():
     }
     return render_template("index.html", boot=boot, status=status, run=boot["run"],
                            busy=boot["busy"],
-                           simweek=boot["simweek"], defaults=boot["defaults"],
+                           simweek=boot["simweek"], offseason=boot["offseason"], plan=plan,
+                           defaults=boot["defaults"],
                            now=datetime.now().strftime("%Y-%m-%d %H:%M"))
 
 
@@ -456,6 +840,8 @@ def api_state():
     return jsonify({
         "ok": True,
         "simweek": _simweek_block(),
+        "offseason": _offseason_block(),
+        "plan": offseason_plan(),
         "universe": universe_snapshot(force=request.args.get("refresh") == "1"),
         "run": run.summary() if run else None,
         "busy": sim_busy(),
@@ -564,6 +950,120 @@ def api_sim_log():
         after = 0
     return jsonify({"ok": True, "run": run.summary(),
                     "events": [e for e in run.events if e["seq"] > after]})
+
+
+# -- the offseason ----------------------------------------------------------------------
+@app.get("/api/offseason/plan")
+@api
+def api_offseason_plan():
+    """Who has outgrown his level, read from the store alone. No save is opened."""
+    plan = offseason_plan()
+    return jsonify({"ok": bool(plan.get("available")), "plan": plan,
+                    "error": plan.get("error") or ""})
+
+
+@app.post("/api/offseason/preview")
+@api
+def api_offseason_preview():
+    """A dry run, answered in this request. Reads the three saves, writes absolutely nothing.
+
+    `dry_run=True` stages nothing: no backup is taken, `apply_growth` measures without writing,
+    `promote` reports the slot it would claim and returns before stamping it, the draft is
+    listed and not run, and no point, setting or college year is banked. It still takes the
+    lock, because it *reads* `league.dat` and a sim has the game holding that file open.
+    """
+    if not OFFSEASON_OK:
+        return jsonify({"ok": False, "offseason": False, "error": (
+            "commissioner.offseason is not importable, so there is nothing to preview. "
+            + OFFSEASON_ERROR)}), 503
+    season = _season_arg(_body().get("season"))
+    if season is False:
+        return jsonify({"ok": False, "error": "season must be a year, e.g. 2047"}), 400
+
+    refusal = _acquire_or_refuse()
+    if refusal:
+        existing = current_run()
+        return jsonify({"ok": False, "error": refusal, "busy": True,
+                        "run": existing.summary() if existing else None}), 409
+    lines = []
+    try:
+        result = run_offseason(offseason_store(), season=season, log=lines.append, dry_run=True)
+    except OffseasonError as exc:   # the guard is skipped for a dry run, but never assume it
+        return jsonify({"ok": False, "refused": True, "error": str(exc), "log": lines}), 409
+    except Exception as exc:  # noqa: BLE001 - a readable sentence beats a 500 and a type name
+        return jsonify({"ok": False, "log": lines, "error": (
+            f"The dry run could not read the saves: {type(exc).__name__}: {exc}. FBPB3 rewrites "
+            "league.dat as it saves, so the usual cause is the game being mid-save (or a league "
+            "file that is not where the config says it is).")}), 500
+    finally:
+        _SIM_LOCK.release()
+    return jsonify({"ok": True, "result": _offseason_view(result), "log": lines,
+                    "plan": offseason_plan()})
+
+
+@app.post("/api/offseason/start")
+@api
+def api_offseason_start():
+    """Run the offseason for real, in the background, streaming to the same log as a sim.
+
+    `confirm` is required. The browser asks first, but this endpoint is on an unauthenticated
+    port and a stray POST must not age a universe by a year - so the confirmation is part of
+    the request, not only part of the page.
+
+    `force` skips the already-run guard and is for exactly one situation: a run that started
+    and did not finish. Everything the offseason does is cumulative, so forcing a season that
+    really did complete pays everybody twice and grows everybody twice. The panel only offers
+    it after a refusal, behind its own checkbox and its own confirm.
+    """
+    if not OFFSEASON_OK:
+        return jsonify({"ok": False, "offseason": False, "error": (
+            "commissioner.offseason is not importable, so the offseason cannot run. "
+            + OFFSEASON_ERROR)}), 503
+    body = _body()
+    if not body.get("confirm"):
+        return jsonify({"ok": False, "error": (
+            "The offseason writes to all three saves and pays every character. Send "
+            '{"confirm": true} to mean it.')}), 400
+    season = _season_arg(body.get("season"))
+    if season is False:
+        return jsonify({"ok": False, "error": "season must be a year, e.g. 2047"}), 400
+    force = bool(body.get("force"))
+
+    run, refusal = start_offseason(season=season, force=force)
+    if run is None:
+        existing = current_run()
+        return jsonify({"ok": False, "error": refusal, "busy": True,
+                        "run": existing.summary() if existing else None}), 409
+    return jsonify({"ok": True, "run": run.summary()}), 202
+
+
+@app.get("/api/offseason/result")
+@api
+def api_offseason_result():
+    """The most recent offseason run of this process: its summary, its result, its refusal.
+
+    Separate from `/api/sim/log` because a sim started afterwards replaces `current_run()`, and
+    the offseason panel still has to show what the offseason did.
+    """
+    wanted = request.args.get("run") or ""
+    with _STATE_LOCK:
+        runs = [r for r in _HISTORY_HINT if r.kind == "offseason"]
+    run = next((r for r in runs if r.id == wanted), None) if wanted else (runs[0] if runs else None)
+    if run is None:
+        return jsonify({"ok": True, "run": None, "result": None, "refused": False, "error": "",
+                        "note": "No offseason has been run in this process."})
+    return jsonify({"ok": run.status in ("ok", "running"), "run": run.summary(),
+                    "result": run.result, "refused": run.refused, "error": run.error})
+
+
+def _season_arg(raw):
+    """None (use the store's season), an int, or False meaning "that is not a year"."""
+    if raw is None or raw == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return False
 
 
 @app.get("/api/history")
@@ -708,6 +1208,9 @@ def main(argv=None):
     if not SIMWEEK_OK:
         print(f"  ! commissioner.simweek is unavailable: {SIMWEEK_ERROR}")
         print("    The panel will start and explain itself, but nothing can touch a save.")
+    if not OFFSEASON_OK:
+        print(f"  ! commissioner.offseason is unavailable: {OFFSEASON_ERROR}")
+        print("    The offseason panel will say so; everything else still works.")
 
     # 127.0.0.1, never 0.0.0.0: this panel has no authentication of any kind, and every button
     # on it can rewrite a save file or spend somebody's points. Binding the loopback interface
