@@ -498,7 +498,8 @@ function renderOffseasonResult(result, lines, wasDry) {
   head.appendChild(el('span', 'muted',
     (dry ? 'would grow ' : 'grew ') + result.grown + ' - ' +
     (dry ? 'would promote ' : 'promoted ') + (result.promoted || []).length + ' - ' +
-    (dry ? 'would draft ' : 'drafted ') + (result.drafted || []).length));
+    (dry ? 'would draft ' : 'drafted ') + (result.drafted || []).length + ' - ' +
+    (dry ? 'would retire ' : 'retired ') + (result.retired || []).length));
   if (dry) {
     head.appendChild(el('span', 'chip', 'nothing was written'));
   }
@@ -509,9 +510,54 @@ function renderOffseasonResult(result, lines, wasDry) {
 
   host.appendChild(promotionsBlock(result, dry));
   host.appendChild(draftBlock(result, dry));
+  host.appendChild(retiredBlock(result, dry));
   host.appendChild(growthBlock(result, lines, dry));
   host.appendChild(pointsBlock(result, dry));
+  if (result.other) {
+    // run_offseason grew a stage this panel does not draw yet. Say so rather than quietly
+    // showing a result that is missing part of what happened.
+    var extra = [];
+    Object.keys(result.other).forEach(function (key) {
+      extra.push(key + ': ' + result.other[key]);
+    });
+    var note = el('div', 'os-section');
+    note.appendChild(el('div', 'empty-note',
+      'run_offseason also reported ' + extra.join(', ') +
+      ', which this panel has no table for yet.'));
+    host.appendChild(note);
+  }
   if (lines && lines.length) { host.appendChild(logBlock(lines)); }
+}
+
+function retiredBlock(result, dry) {
+  var rows = result.retired || [];
+  var section = el('div', 'os-section');
+  section.appendChild(el('h3', null, dry ? 'Careers that would end' : 'Careers that ended'));
+  if (!rows.length) {
+    section.appendChild(el('div', 'empty-note', 'nobody retired'));
+    return section;
+  }
+  var t = table(['Character', 'Level', 'Why', 'Reserve slot']);
+  var body = t.tBodies[0];
+  rows.forEach(function (row) {
+    var who = row.character || {};
+    var tr = document.createElement('tr');
+    tr.appendChild(el('td', null, who.name || '?'));
+    tr.appendChild(el('td', null, row.league || who.league || ''));
+    tr.appendChild(el('td', null, row.reason || ''));
+    if (dry) {
+      tr.appendChild(el('td', null, ''));
+    } else if (row.slot_refilled) {
+      tr.appendChild(el('td', null, 'handed back'));
+    } else {
+      // A slot that never comes back lowers the ceiling on concurrent characters by one,
+      // permanently, and nothing else on the page would ever mention it.
+      tr.appendChild(el('td', 'bad-cell', 'NOT handed back - run tools/protect_rosters.py'));
+    }
+    body.appendChild(tr);
+  });
+  section.appendChild(t);
+  return section;
 }
 
 function troubleBlock(result, dry) {
@@ -538,7 +584,7 @@ function troubleBlock(result, dry) {
   failed.forEach(function (row) {
     var tr = document.createElement('tr');
     tr.appendChild(el('td', null, (row.character || {}).name || '?'));
-    tr.appendChild(el('td', null, row.stage || ''));
+    tr.appendChild(el('td', null, (row.stage || '') + (row.league ? ' (' + row.league + ')' : '')));
     tr.appendChild(el('td', 'err', row.error || ''));
     body.appendChild(tr);
   });

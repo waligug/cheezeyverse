@@ -61,11 +61,12 @@ def _manifest():
 def _league_status(spec, st):
     save_dir = DOCS / "leaguedata" / spec.save_name
     site = ROOT / "site" / "leagues" / spec.key
-    chars = [c for c in st.characters(league=spec.key) if c.get("status") == "active"]
+    rows = st.characters(league=spec.key)
+    chars = [c for c in rows if c.get("status") == "active"]
     # A slot is held by whoever still claims it, not by whoever is still playing: a career the
     # game ended keeps its claim, because that row is gone from the save and handing it out
     # again would only fail later. See the note at the top of offseason.py.
-    claimed = [c["claimed_slot"] for c in st.characters(league=spec.key) if c.get("claimed_slot")]
+    claimed = [c["claimed_slot"] for c in rows if c.get("claimed_slot")]
     free = ch.free_slots(_manifest(), spec.key,
                          [{"name": s.get("name"), "dob": s.get("dob")} for s in claimed])
     row = {

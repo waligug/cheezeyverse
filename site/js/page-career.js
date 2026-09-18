@@ -599,16 +599,29 @@ function ratingHistory(character) {
 
 /** Drawn only if `rating_snapshots` ever appears: overall sheet average per season. */
 function snapshotChart(snaps) {
-  const rows = snaps
-    .map((s) => ({
-      season: Number(s.season),
-      mean: mean(RATINGS.map((r) => Number((s.ratings || {})[r])).filter(Number.isFinite)),
-    }))
-    .filter((r) => Number.isFinite(r.season) && Number.isFinite(r.mean))
-    .sort((a, b) => a.season - b.season);
-  if (rows.length < 2) return note(null, 'Only one snapshot so far. Two make a line.');
+  // One snapshot is written per Sim Week, so a played season leaves about 26 rows. Plotting them
+  // raw stacks 26 points on one x and draws a vertical scribble; a season is the unit anybody
+  // reads a career in, so each season becomes one point: where he finished it.
+  const bySeason = new Map();
+  for (const s of snaps) {
+    const season = Number(s.season);
+    const value = mean(RATINGS.map((r) => Number((s.ratings || {})[r])).filter(Number.isFinite));
+    if (!Number.isFinite(season) || !Number.isFinite(value)) continue;
+    const week = Number(s.week);
+    const seen = bySeason.get(season);
+    // keep the latest week in each season - where he ended it, not where he started
+    if (!seen || !Number.isFinite(seen.week) || (Number.isFinite(week) && week >= seen.week)) {
+      bySeason.set(season, { season, mean: value, week });
+    }
+  }
+  const rows = [...bySeason.values()].sort((a, b) => a.season - b.season);
+  if (rows.length < 2) {
+    return note(null, rows.length
+      ? 'One season on record so far. Two make a line.'
+      : 'Nothing recorded yet. A snapshot is written every Sim Week.');
+  }
   return lineChart(rows.map((r) => ({ x: r.season, y: r.mean })),
-    'Average of all eighteen ratings, by season');
+    'Average of all eighteen ratings, where he finished each season');
 }
 
 /* ------------------------------------------------------------ what he was / what he is */

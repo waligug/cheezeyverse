@@ -202,7 +202,11 @@ export async function characterById(characterId) {
   if (!characterId) return null;
   const { data, error } = await client()
     .from('characters')
-    .select(`${CHARACTER_COLUMNS},owner_profile:profiles(display_name)`)
+    // The snapshot embed lives here and NOT in CHARACTER_COLUMNS: that list is also used by the
+    // front page's roll call and by the insert that creates a character, and either would pull
+    // hundreds of history rows it has no use for.
+    .select(`${CHARACTER_COLUMNS},owner_profile:profiles(display_name),`
+      + 'rating_snapshots(season,week,ratings,potentials,height_inches,league,taken_at)')
     .eq('id', characterId)
     .limit(1);
   if (error) throw error;

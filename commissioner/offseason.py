@@ -254,9 +254,11 @@ def run_retirements(characters, store, season, log=print, dry_run=False):
                     continue
                 if state == "moved":
                     log(f"   {name}: the game moved his birthday to {pl.dob}")
+                    # Corrected in hand whatever the store can persist: `refill` looks him up
+                    # by this birthday moments later and would not find him under the old one.
+                    c["game_dob"] = pl.dob
                     if not dry_run and hasattr(store, "set_character_field"):
                         store.set_character_field(c["id"], "game_dob", pl.dob)
-                        c["game_dob"] = pl.dob
                 reason = retirement_for(c, pl, season, store)
                 if reason:
                     retired.append(retire(c, season, reason, store, log=log, dry_run=dry_run))

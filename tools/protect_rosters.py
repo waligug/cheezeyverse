@@ -72,10 +72,21 @@ def protect(key, dry_run=False, store_characters=None):
     # in the store (deleted, or a store restored from an older backup). The manifest name it used
     # to answer to is missing and nobody claims the row, so the slot is stranded - it can never be
     # handed to anybody again. Give it its manifest identity back.
+    # `keep` already has each live character swapped in for the manifest row he holds, so a slot
+    # that is legitimately claimed is NOT missing. Computing this against the raw manifest instead
+    # made every claimed slot look orphaned and set the restore loop cascading through the whole
+    # reserve list - it renamed a row, saw the name it had just written as the next orphan, and
+    # renamed that too.
     known = {(p.name, p.dob) for p in L.players}
+    claimed = set()
+    for c in store_characters or []:
+        slot = c.get("claimed_slot") or {}
+        if c.get("league") == key and slot:
+            claimed.add((slot.get("name"), slot.get("dob")))
     missing = [r for r in man["players"]
                if r["league"] == key and r["role"] == "reserve"
-               and (r["name"], r["dob"]) not in known]
+               and (r["name"], r["dob"]) not in known
+               and (r["name"], r["dob"]) not in claimed]
     # Rostered or not: an earlier pass may already have released the orphan as an intruder,
     # which leaves it stranded in free agency instead of on a roster.
     unclaimed = [p for p in L.players if (p.name, p.dob) not in keep

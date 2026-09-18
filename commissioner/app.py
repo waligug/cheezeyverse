@@ -298,8 +298,8 @@ def _coerce_step(step):
 # The offseason's log is prose, not steps, so the stage has to be read back out of the line.
 # These are the literal `log(...)` calls in offseason.py, in the order they happen. The bar is
 # an estimate and the panel says so: nothing in `run_offseason` reports progress.
-_OFFSEASON_PCT = {"start": 0, "growth": 12, "movers": 40, "promote": 52, "convert": 50,
-                  "refill": 56, "draft": 72, "points": 90, "done": 98}
+_OFFSEASON_PCT = {"start": 0, "retire": 6, "growth": 14, "movers": 40, "promote": 52,
+                  "convert": 50, "refill": 56, "draft": 72, "points": 90, "done": 98}
 
 
 def _offseason_step(line, league=None, pct=0.0):
@@ -317,6 +317,11 @@ def _offseason_step(line, league=None, pct=0.0):
         step = "failed"
     elif text.startswith("("):
         step = "warn"                     # "(could not record the level for ...)"
+    elif low.startswith("offseason complete"):
+        # Checked before the retirement rule: the closing line ends "... , 1 retired".
+        step = "done"
+    elif low.startswith("who is still here") or " retire" in low:
+        step = "retire"                   # careers the offseason (or the game) has ended
     elif " grew " in low:
         step = "growth"
     elif low.startswith("moving up:"):
@@ -331,8 +336,6 @@ def _offseason_step(line, league=None, pct=0.0):
         step = "promote"
     elif low.startswith("paid "):
         step = "points"
-    elif low.startswith("offseason complete"):
-        step = "done"
     else:
         step = "info"
 
@@ -362,6 +365,17 @@ def current_run():
 def sim_busy():
     run = current_run()
     return bool(run and run.finished_at is None)
+
+
+def busy_run():
+    """The run that is actually going, or None. A *finished* run is not a reason to be busy.
+
+    A refusal answers with the run that is in the way, and the browser reattaches to whatever it
+    is handed - so handing it the last finished run would leave the panel showing a live sim
+    that ended ten minutes ago.
+    """
+    run = current_run()
+    return run if (run is not None and run.finished_at is None) else None
 
 
 def _acquire_or_refuse():
@@ -539,6 +553,11 @@ def _offseason_worker(run):
 # lot. None of that belongs on the wire, and `grown` is a count rather than a list, so these
 # turn the result into exactly what the panel draws and nothing else.
 def _person(character):
+    if character is None:
+        # `failed` can carry no character at all: a save that would not open is a failure
+        # about a whole league, not about a person.
+        return {"name": "(no character - the whole league)", "position": "", "league": "",
+                "team": "", "id": None, "college_years": None, "declared": False}
     if not isinstance(character, dict):
         return {"name": str(character)}
     name = " ".join(str(character.get(k) or "").strip()
@@ -599,10 +618,19 @@ def _offseason_view(result):
         "grown": result.get("grown", 0),
         "paid": result.get("paid"),
         "developed": result.get("developed"),
+        "retired": [],
         "promoted": [],
         "drafted": [],
         "failed": [],
     }
+    for row in result.get("retired") or []:
+        row = row if isinstance(row, dict) else {}
+        out["retired"].append({
+            "character": _person(row.get("character")),
+            "league": row.get("league") or "",
+            "reason": str(row.get("reason") or ""),
+            "slot_refilled": bool(row.get("slot_refilled")),
+        })
     for row in result.get("promoted") or []:
         row = row if isinstance(row, dict) else {}
         character = row.get("character") or {}
@@ -634,12 +662,24 @@ def _offseason_view(result):
     for row in result.get("failed") or []:
         row = row if isinstance(row, dict) else {}
         out["failed"].append({
-            "character": _person(row.get("character") or {}),
+            "character": _person(row.get("character")),
+            "league": row.get("league") or "",
             "stage": str(row.get("stage") or ""),
             "error": str(row.get("error") or ""),
         })
     # One number the page can shout with: anybody the save and the store now disagree about.
     out["trouble"] = len(out["failed"]) + sum(1 for p in out["drafted"] if p["error"])
+    # Anything `run_offseason` grew that this panel has not been taught to draw. Counted, not
+    # dropped: a stage that appears in the result and nowhere on the page is how a panel starts
+    # lying. Lists become lengths so a future stage cannot dump character sheets onto the wire.
+    known = set(out) | {"dry_run"}
+    other = {}
+    for key, value in result.items():
+        if key in known:
+            continue
+        other[key] = len(value) if isinstance(value, (list, tuple, dict)) else value
+    if other:
+        out["other"] = other
     return json.loads(json.dumps(out, default=str))
 
 
@@ -867,7 +907,7 @@ def api_sim_start():
 
     run, refusal = start_sim(leagues=leagues, days=days, dry_run=bool(body.get("dry_run")))
     if run is None:
-        existing = current_run()
+        existing = busy_run()
         return jsonify({"ok": False, "error": refusal, "busy": True,
                         "run": existing.summary() if existing else None}), 409
     return jsonify({"ok": True, "run": run.summary()}), 202
@@ -982,7 +1022,7 @@ def api_offseason_preview():
 
     refusal = _acquire_or_refuse()
     if refusal:
-        existing = current_run()
+        existing = busy_run()
         return jsonify({"ok": False, "error": refusal, "busy": True,
                         "run": existing.summary() if existing else None}), 409
     lines = []
@@ -1027,11 +1067,20 @@ def api_offseason_start():
     season = _season_arg(body.get("season"))
     if season is False:
         return jsonify({"ok": False, "error": "season must be a year, e.g. 2047"}), 400
+    # A season the store has not reached yet is always a typo, and it is a dangerous one: the
+    # already-run guard only refuses seasons that *have* run, so "2407" would sail past it,
+    # age everybody and leave current_season at 2408. The store decides what is next; this can
+    # only ever be that season or an earlier one (which is what force is for).
+    current = offseason_plan().get("season")
+    if season is not None and current is not None and season > int(current):
+        return jsonify({"ok": False, "error": (
+            f"The store's current season is {current}, so {season} cannot be run. The offseason "
+            "runs the season the store is on, or - with force - one it has already done.")}), 400
     force = bool(body.get("force"))
 
     run, refusal = start_offseason(season=season, force=force)
     if run is None:
-        existing = current_run()
+        existing = busy_run()
         return jsonify({"ok": False, "error": refusal, "busy": True,
                         "run": existing.summary() if existing else None}), 409
     return jsonify({"ok": True, "run": run.summary()}), 202
