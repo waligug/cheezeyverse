@@ -23,13 +23,16 @@ import sys
 
 import requests
 
+from datetime import datetime, timezone
+from pathlib import Path
+
 from . import settings as cfg
 
 __all__ = [
     "StoreNotConfigured", "StoreError",
     "pending_requests", "mark_applied", "pending_characters", "activate_character",
     "retire_character", "grant_points", "grant_week_points", "get_settings", "set_setting",
-    "add_snapshot", "snapshots", "characters_for_export",
+    "add_snapshot", "snapshots", "characters_for_export", "characters", "add_character", "set_character_field", "record_level", "queued_requests", "record_run", "runs", "kind",
 ]
 
 # The character columns the public career pages need. Kept explicit rather than `*` so a
@@ -307,6 +310,134 @@ def characters(league=None, status=None):
     if status:
         params["status"] = f"eq.{status}"
     return _table("characters", params)
+
+
+def add_character(payload):
+    """Insert a character. The commissioner's own path; the website inserts as the signed-in user.
+
+    `owner` is required and must be a real profiles.id - the table's foreign key says so, and a
+    character with no owner is one nobody can ever sign in and see. The database trigger forces
+    `status`, the point columns and the rest of the plumbing whatever we send, so this only has
+    to send what a person actually chose.
+    """
+    row = dict(payload)
+    if not row.get("owner"):
+        raise StoreError(
+            "add_character needs an `owner` (a profiles.id). Sign in on the site once to create "
+            "the profile row, or pass the id of an existing one.")
+    return _one(_request("POST", "/rest/v1/characters", body=row,
+                         prefer="return=representation"))
+
+
+# Columns the commissioner may set directly. Everything absent from this list is either the
+# owner's to choose, or the database's to compute - and a typo'd field name silently does
+# NOTHING over PostgREST if it is not validated here, which is the kind of bug that only shows
+# up a season later when a draft pick is missing.
+SETTABLE_FIELDS = {
+    "game_dob", "team_abbrev", "league", "college_years", "declared",
+    "draft_round", "draft_pick", "draft_season",
+    "retired_season", "retired_reason", "archetype", "height_inches",
+    "ratings", "potentials", "league_player_ids", "level_history",
+}
+
+
+def set_character_field(character_id, field, value):
+    """Set one column on a character. The offseason banks college years and draft slots here."""
+    if field not in SETTABLE_FIELDS:
+        raise StoreError(f"{field!r} is not a field the commissioner may set directly; "
+                         f"allowed: {', '.join(sorted(SETTABLE_FIELDS))}")
+    if hasattr(value, "isoformat"):
+        value = value.isoformat()
+    return _one(_request("PATCH", "/rest/v1/characters",
+                         params={"id": f"eq.{character_id}"}, body={field: value},
+                         prefer="return=representation"))
+
+
+def record_level(character_id, entry):
+    """Append one level to a character's history, and remember his id in that league's save.
+
+    The career page needs this: each league's generated site knows a player only inside that
+    league, so the thread between Prep, College and Pro is ours to keep. `player_id` is what
+    makes a direct link to `leagues/<level>/players/player<id>.htm` possible.
+
+    Read-modify-write on a jsonb column. That is safe here and only here: every caller runs
+    inside simweek's _SIM_LOCK, so there is exactly one writer.
+    """
+    rows = _table("characters", {"select": "id,level_history,league_player_ids",
+                                 "id": f"eq.{character_id}"})
+    if not rows:
+        raise StoreError(f"no character {character_id}")
+    current = rows[0]
+    history = list(current.get("level_history") or [])
+    for row in history:                      # close the level he is leaving
+        if row.get("to_season") is None and row.get("level") != entry.get("level"):
+            row["to_season"] = entry.get("from_season")
+            row["how_it_ended"] = entry.get("how_it_started")
+    history.append(entry)
+    ids = dict(current.get("league_player_ids") or {})
+    if entry.get("player_id") is not None:
+        ids[entry["level"]] = entry["player_id"]
+    return _one(_request("PATCH", "/rest/v1/characters",
+                         params={"id": f"eq.{character_id}"},
+                         body={"level_history": history, "league_player_ids": ids},
+                         prefer="return=representation"))
+
+
+def queued_requests():
+    """Requests still waiting on the owner to approve them."""
+    return _table("upgrade_requests", {
+        "select": f"*,character:characters({CHARACTER_COLUMNS})",
+        "status": "eq.pending",
+        "order": "requested_at.asc",
+    })
+
+
+# ---------------------------------------------------------------------------------------
+# the sim log
+#
+# Deliberately NOT in Supabase. A run row is operational: how long the week took, what the
+# driver did, what it emitted. The website never reads one, no player ever sees one, and
+# putting it in the database would mean a schema migration before a sim could run at all.
+# It lives next to the save files, where the rest of the commissioner's own state lives.
+# ---------------------------------------------------------------------------------------
+
+RUNS_FILE = Path(__file__).resolve().parents[1] / "universe" / "sim_runs.json"
+RUNS_KEPT = 100
+
+
+def _read_runs():
+    try:
+        return json.loads(RUNS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+
+
+def record_run(row):
+    """Log one sim run. Never raises: a full disk must not be able to fail a week that worked."""
+    try:
+        log = [{**row, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}]
+        log.extend(_read_runs())
+        RUNS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        RUNS_FILE.write_text(json.dumps(log[:RUNS_KEPT], indent=1, default=str), encoding="utf-8")
+        return log[0]
+    except OSError as exc:
+        print(f"could not write the sim log: {exc}")
+        return None
+
+
+def runs(limit=20):
+    return _read_runs()[:limit]
+
+
+def kind():
+    return "supabase"
+
+
+def _one(result):
+    """PostgREST returns a list even for a single-row write."""
+    if isinstance(result, list):
+        return result[0] if result else None
+    return result
 
 
 def characters_for_export():

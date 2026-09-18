@@ -330,6 +330,36 @@ class FBPB3:
         raise DriverError(f"no control at window-relative {rel} after {timeout}s"
                           + (f" ({last})" if last else ""))
 
+    def _open_html_screen(self, attempts=3):
+        """Tools -> HTML Output, checked, and retried if the screen did not actually open.
+
+        Clicking a menu is not the same as arriving somewhere. A click lands on whatever window
+        is topmost, so a leftover message box from the previous league swallows it and the game
+        simply stays where it was - which is how the THIRD export of a session died on a control
+        that the first two found instantly. Waiting longer cannot fix that; the screen is not
+        coming. Dismiss whatever is in the way, click again, and confirm arrival by finding the
+        first control the caller is about to use.
+        """
+        last = None
+        for attempt in range(attempts):
+            self.dismiss_all()
+            self.click(TOP_TOOLS, 2)
+            self.click(TOOLS_HTML_OUTPUT, 3)
+            try:
+                self._control_at(self.HTML_PLAYER_PAGES, timeout=10)
+                return
+            except DriverError as exc:
+                last = exc
+                # Back out to a known place before trying again: an Escape on the wrong screen
+                # is harmless, an unnoticed dialog is not.
+                self.dismiss_all()
+                try:
+                    self.main.type_keys("{ESC}", set_foreground=True)
+                except Exception:
+                    pass
+                time.sleep(1.5)
+        raise DriverError(f"Tools -> HTML Output would not open after {attempts} attempts ({last})")
+
     def html_output(self, save_name, player_pages=True, coach_pages=True, box_links=True,
                     style=None, timeout=900):
         """Tools -> Commish Tools -> HTML Output, with player pages on. Returns the html folder.
@@ -339,8 +369,7 @@ class FBPB3:
         """
         out = DOCS / "leaguedata" / save_name / "html"
         before = max((p.stat().st_mtime for p in out.glob("*.htm")), default=0) if out.exists() else 0
-        self.click(TOP_TOOLS, 2)
-        self.click(TOOLS_HTML_OUTPUT, 3)
+        self._open_html_screen()
 
         yes_no = {True: "Yes", False: "No"}
         for rel, want in ((self.HTML_PLAYER_PAGES, yes_no[player_pages]),
