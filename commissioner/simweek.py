@@ -74,15 +74,48 @@ def _league_status(spec, st):
         "site_pages": len(list(site.rglob("*.htm"))) if site.exists() else 0,
         "exists": (save_dir / "league.dat").exists(),
         "players": None, "games_played": None,
-        "stage": "Preseason", "day": st.get_settings().get("current_week", 0) * 7,
+        "day": st.get_settings().get("current_week", 0) * 7,
     }
-    standings = site / "standings.htm"
-    if standings.exists():
-        import re
-        text = standings.read_text(encoding="latin-1", errors="replace")
-        wins = re.findall(r"<td class=main[^>]*>&nbsp;(\d+)</td>", text)
-        row["games_played"] = sum(int(w) for w in wins[:40]) or 0
+    row["games_played"] = _games_played(site / "standings.htm")
+    row["players"] = _player_count(save_dir / "league.dat")
+    row["stage"] = "Preseason" if not row["games_played"] else "Regular season"
     return row
+
+
+def _games_played(standings):
+    """Total games from the generated standings: every game appears as one W and one L."""
+    if not standings.exists():
+        return 0
+    import re
+    text = standings.read_text(encoding="latin-1", errors="replace")
+    total = 0
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", text, re.S):
+        cells = [re.sub(r"\s+", " ", re.sub(r"<[^>]*>", "", c)).replace("&nbsp;", "").strip()
+                 for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)]
+        cells = [c for c in cells if c]
+        if len(cells) >= 3 and cells[1].isdigit() and cells[2].isdigit():
+            total += int(cells[1]) + int(cells[2])
+    return total // 2
+
+
+_PLAYER_COUNT = {}
+
+
+def _player_count(path):
+    """Cached, because parsing a 4 MB save on every status poll would make the panel crawl."""
+    try:
+        stamp = path.stat().st_mtime
+    except OSError:
+        return None
+    hit = _PLAYER_COUNT.get(path)
+    if hit and hit[0] == stamp:
+        return hit[1]
+    try:
+        n = len(LeagueDat(path).players)
+    except Exception:
+        return None
+    _PLAYER_COUNT[path] = (stamp, n)
+    return n
 
 
 def universe_status():

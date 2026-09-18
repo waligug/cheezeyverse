@@ -444,6 +444,7 @@ def index():
         "defaults": {"week": 7, "chunk": 35},
     }
     return render_template("index.html", boot=boot, status=status, run=boot["run"],
+                           busy=boot["busy"],
                            simweek=boot["simweek"], defaults=boot["defaults"],
                            now=datetime.now().strftime("%Y-%m-%d %H:%M"))
 

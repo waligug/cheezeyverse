@@ -19,7 +19,7 @@
   <span class="chip" id="game-chip">
     {% if status.get('game_running') %}FBPB3 running{% elif status.get('game_running') is none %}FBPB3 unknown{% else %}FBPB3 closed{% endif %}
   </span>
-  <span class="chip" id="busy-chip" {% if not run or not run.running %}hidden{% endif %}>sim running</span>
+  <span class="chip" id="busy-chip" {% if not busy %}hidden{% endif %}>sim running</span>
 </div>
 
 <div class="wrap">
