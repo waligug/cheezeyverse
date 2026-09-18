@@ -481,14 +481,24 @@ def grant_points(character_id, amount, reason="admin grant"):
     })
 
 
-def grant_week_points(league=None, reason="week simmed"):
+def grant_week_points(league=None, weeks=1, reason="week simmed"):
     """The weekly payout: one point (settings.points_per_week) to every live character.
 
     Pass a league to pay only that save's characters - a Sim Week is three separate
     launch/sim/save cycles, so the three leagues are paid as each one finishes.
     Returns the number of characters paid.
+
+    `weeks` exists because run_sim can sim more than seven days at once, and localstore has
+    always taken it. This signature did not, so every single Sim Week raised TypeError on the
+    Supabase path at the moment it went to pay people. The RPC pays exactly one week and takes
+    no count, so call it once per week rather than migrate the schema: the ledger then carries
+    one row per week, which reads better than a single lump anyway.
     """
-    return _rpc("grant_week_points", {"p_league": league, "p_reason": reason})
+    weeks = max(1, int(weeks or 1))
+    paid = 0
+    for _ in range(weeks):
+        paid = _rpc("grant_week_points", {"p_league": league, "p_reason": reason})
+    return paid
 
 
 # ---------------------------------------------------------------------------------------
