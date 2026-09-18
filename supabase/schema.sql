@@ -319,11 +319,11 @@ begin
   insert into public.profiles (id, discord_username, display_name)
   values (
     new.id,
-    coalesce(meta ->> 'user_name', meta ->> 'preferred_username', meta ->> 'name',
-             meta ->> 'full_name', new.email),
-    coalesce(meta -> 'custom_claims' ->> 'global_name', meta ->> 'global_name',
-             meta ->> 'full_name', meta ->> 'name', meta ->> 'user_name',
-             meta ->> 'preferred_username', split_part(coalesce(new.email, 'gm@cheezey'), '@', 1))
+    coalesce(nullif(btrim(meta ->> 'user_name'), ''), nullif(btrim(meta ->> 'preferred_username'), ''), nullif(btrim(meta ->> 'name'), ''),
+             nullif(btrim(meta ->> 'full_name'), ''), new.email),
+    coalesce(nullif(btrim(meta -> 'custom_claims' ->> 'global_name'), ''), nullif(btrim(meta ->> 'global_name'), ''),
+             nullif(btrim(meta ->> 'full_name'), ''), nullif(btrim(meta ->> 'name'), ''), nullif(btrim(meta ->> 'user_name'), ''),
+             nullif(btrim(meta ->> 'preferred_username'), ''), split_part(coalesce(new.email, 'gm@cheezey'), '@', 1))
   )
   on conflict (id) do nothing;
   return new;
@@ -337,6 +337,12 @@ $fn$;
 
 -- The website calls this right after sign-in. The auth.users trigger above normally has
 -- already done the work; this covers a project where creating that trigger was refused.
+-- Blank is not the same as missing, and coalesce cannot tell the difference.
+-- Discord sent custom_claims.global_name = '' (an EMPTY STRING, not null) for a real account on
+-- 2026-09-18. coalesce took it, stopped there, and never reached that user's perfectly good
+-- full_name - so their profile was created with display_name = '' and the site rendered them as
+-- "somebody". Hence nullif(btrim(...), '') on every candidate below: a blank name is an absent
+-- name.
 create or replace function public.cv_ensure_profile() returns public.profiles
 language plpgsql security definer set search_path = public as $fn$
 declare meta jsonb; pr public.profiles%rowtype;
@@ -346,11 +352,11 @@ begin
   insert into public.profiles (id, discord_username, display_name)
   values (
     auth.uid(),
-    coalesce(meta ->> 'user_name', meta ->> 'preferred_username', meta ->> 'name',
-             meta ->> 'full_name', meta ->> 'email'),
-    coalesce(meta -> 'custom_claims' ->> 'global_name', meta ->> 'global_name',
-             meta ->> 'full_name', meta ->> 'name', meta ->> 'user_name',
-             meta ->> 'preferred_username', 'Cheezeyverse GM')
+    coalesce(nullif(btrim(meta ->> 'user_name'), ''), nullif(btrim(meta ->> 'preferred_username'), ''), nullif(btrim(meta ->> 'name'), ''),
+             nullif(btrim(meta ->> 'full_name'), ''), meta ->> 'email'),
+    coalesce(nullif(btrim(meta -> 'custom_claims' ->> 'global_name'), ''), nullif(btrim(meta ->> 'global_name'), ''),
+             nullif(btrim(meta ->> 'full_name'), ''), nullif(btrim(meta ->> 'name'), ''), nullif(btrim(meta ->> 'user_name'), ''),
+             nullif(btrim(meta ->> 'preferred_username'), ''), 'Cheezeyverse GM')
   )
   on conflict (id) do update
     set discord_username = coalesce(excluded.discord_username, public.profiles.discord_username),
