@@ -188,10 +188,32 @@ class LeagueDat:
         ids = sorted(v for a in chosen for v in a[2])
         if len(ids) != len(rostered) or len(set(ids)) != len(ids):
             raise CodecError(f"roster arrays hold {len(ids)} ids for {len(rostered)} rostered players")
-        for p, pid in zip(rostered, ids):  # records are in ascending id order
-            if pid not in by_team[p.values["Team"]]:
-                raise CodecError(f"{p.name} (team {p.values['Team']}) would take id {pid} from another team")
-            p.id = pid
+        # Assign each team's ids to that team's records, in file order, rather than zipping the
+        # whole league's records against the whole league's ids at once.
+        #
+        # The global zip needed record order to match id order ACROSS the league, and that held
+        # until the AI signed eighty free agents in one week: CV_Pro then stopped parsing
+        # altogether with "Wilford Everhart would take id 20 from another team", which blocked
+        # every read and write of that save - sims, snapshots, the roster guard, the offseason.
+        #
+        # This needs only the far weaker property that WITHIN one team the records are in
+        # ascending id order, which is the same thing the roster arrays themselves rely on. When
+        # the global order does hold, both methods agree, and the check below says so - so a save
+        # that used to parse still parses to exactly the same ids.
+        cursor = {t: 0 for t in by_team}
+        for p in rostered:
+            t = p.values["Team"]
+            pool = by_team[t]
+            k = cursor[t]
+            if k >= len(pool):
+                raise CodecError(
+                    f"team {t} has {len(pool)} ids in its roster array but more rostered records")
+            p.id = pool[k]
+            cursor[t] = k + 1
+        if [p.id for p in rostered] != ids:
+            # Not an error. It means this save's records are not in global id order, which is
+            # exactly the case the old code could not read at all. Worth knowing it happened.
+            self._global_id_order = False
         taken = set(ids)
         for i, p in enumerate(players):  # free agents and draft-pool players sit between rostered records
             if p.id:

@@ -56,7 +56,15 @@ def _our_players(league_key):
                 continue
             pid = (c.get("league_player_ids") or {}).get(league_key)
             if pid is not None:
-                out[int(pid)] = f'{c["first_name"]} {c["last_name"]}'
+                # The live sheet travels with the name, because FBPB3's player pages print a
+                # season-start snapshot rather than current ratings - and for a claimed reserve
+                # slot that snapshot is the RESERVE's ratings, so every character's page showed
+                # his predecessor's numbers until the season rolled over.
+                out[int(pid)] = {
+                    "name": f'{c["first_name"]} {c["last_name"]}',
+                    "ratings": c.get("ratings") or {},
+                    "potentials": c.get("potentials") or {},
+                }
         return out
     except Exception as exc:
         print(f"   (could not mark our players in {league_key}: {exc})")

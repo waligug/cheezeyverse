@@ -385,6 +385,64 @@ PLAYER_LINK = re.compile(
     r'<a\s+class=linkmain\s+href=([^>\s]*?players/player(\d+)\.htm)>([^<]+)</a>', re.I)
 
 
+# The sixteen columns FBPB3 prints in a player page's Attributes table, in order, mapped to the
+# codec's own names. 3pUsage and Fouling are not shown by the game.
+ATTR_COLUMNS = [
+    "InsideScoring", "JumpShot", "FtShot", "3pShot", "Handling", "Passing", "OReb", "DReb",
+    "PostDefense", "PerimeterDefense", "Stealing", "Blocking", "Quickness", "Strength",
+    "Jumping", "Stamina",
+]
+# The Potential row only carries the twelve that have one, in the same left-to-right order.
+POT_COLUMNS = [
+    "InsideScoring", "JumpShot", "FtShot", "3pShot", "Handling", "Passing", "OReb", "DReb",
+    "PostDefense", "PerimeterDefense", "Stealing", "Blocking",
+]
+
+ATTR_ROW = re.compile(
+    r"(<tr[^>]*>\s*<td[^>]*>&nbsp;(Current|Potential):</td>)(.*?)(</tr>)", re.S | re.I)
+CELL = re.compile(r"<td class=main[^>]*>.*?</td>", re.S | re.I)
+
+
+def _live_attributes(html, live):
+    """Replace the Attributes rows with what the SAVE says, for one of our characters.
+
+    FBPB3's player pages do not print the live sheet. They print a season-start snapshot out of
+    the ratings-history block, and for a character who claimed a dormant reserve slot that
+    snapshot is THE RESERVE'S OWN RATINGS - the 3-12 junk the slot was built with. So every
+    character's page showed his predecessor's numbers, Current all under ten and Potential
+    straight F, for the whole of his first season, while the game itself played him off the real
+    values. It is the single most visible thing on the site and it was wrong for everybody.
+
+    CONVENTIONS forbids writing the history rows in the save, and it is right to: they are the
+    game's own record and rewriting them is how a save gets quietly corrupted. So this is fixed
+    where it is displayed rather than where it is stored.
+
+    Potentials are printed as numbers rather than the game's letter grades, deliberately. A
+    person who spent points on a ceiling should be able to see the ceiling move.
+    """
+    ratings = live.get("ratings") or {}
+    potentials = live.get("potentials") or {}
+    if not ratings:
+        return html
+
+    def row(m):
+        head, kind, body, tail = m.group(1), m.group(2).lower(), m.group(3), m.group(4)
+        cells = CELL.findall(body)
+        want = ATTR_COLUMNS if kind == "current" else POT_COLUMNS
+        if len(cells) < len(want):
+            return m.group(0)          # not the table we think it is; leave it alone
+        source = ratings if kind == "current" else potentials
+        out = []
+        for i, cell in enumerate(cells):
+            if i < len(want) and want[i] in source:
+                out.append(f'<td class=main width=40 align=center>{int(source[want[i]])}</td>')
+            else:
+                out.append(cell)
+        return head + "".join(out) + tail
+
+    return ATTR_ROW.sub(row, html, count=2)
+
+
 def _mark_ours(html, ours):
     """Badge every link to a character's player page, so his owner can spot him on a roster.
 
@@ -399,7 +457,9 @@ def _mark_ours(html, ours):
         href, pid, name = m.group(1), int(m.group(2)), m.group(3)
         if pid not in ours:
             return m.group(0)
-        return f'<a class="linkmain cv-ours" href={href} title="{ours[pid]}">{name}</a>'
+        who = ours[pid]
+        label = who.get("name") if isinstance(who, dict) else who
+        return f'<a class="linkmain cv-ours" href={href} title="{label}">{name}</a>'
 
     return PLAYER_LINK.sub(swap, html)
 
@@ -437,9 +497,11 @@ def _unlink_dead_boxes(html, page_dir, src_root):
 
 
 def _skin_page(html, league, season, prefix, current, key=None, ours=None,
-               page_dir=None, src_root=None):
+               page_dir=None, src_root=None, player_id=None):
     """Put the nav bar just inside <body> so the page reads the same wherever it was opened."""
     html = _mark_ours(html, ours)
+    if player_id is not None and ours and player_id in ours:
+        html = _live_attributes(html, ours[player_id])
     if page_dir is not None and src_root is not None:
         html = _unlink_dead_boxes(html, page_dir, src_root)
     bar = FRAME_TEST + _nav_bar(league, season, prefix, current, key)
@@ -495,8 +557,12 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
         if name == "menu.htm":
             html = _skin_menu(html, league, season, key or dst.name)
         elif name != "index.htm":
+            pid = None
+            m = re.fullmatch(r"player(\d+)\.htm", name)
+            if m:
+                pid = int(m.group(1))
             html = _skin_page(html, league, season, prefix, name, key or dst.name, ours,
-                              page_dir=path.parent, src_root=src.resolve())
+                              page_dir=path.parent, src_root=src.resolve(), player_id=pid)
         target.write_text(html, encoding="latin-1", errors="replace")
         pages += 1
 
