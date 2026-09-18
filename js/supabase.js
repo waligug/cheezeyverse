@@ -214,6 +214,22 @@ export async function recentCharacters(limit = 12) {
   return data || [];
 }
 
+/**
+ * Every character in the universe, for the roll call. Public, like the league sites.
+ *
+ * `league_player_ids` is what makes each name a link into the generated league site, so it is
+ * selected explicitly - CHARACTER_COLUMNS leaves it out, and its absence reads as "never
+ * placed" rather than as "not asked for".
+ */
+export async function allCharacters() {
+  const { data, error } = await client()
+    .from('characters')
+    .select(`${CHARACTER_COLUMNS},league_player_ids,owner_profile:profiles(display_name)`)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
 export async function characterCounts() {
   const { data, error } = await client().from('characters').select('id,status,league');
   if (error) throw error;

@@ -79,6 +79,7 @@ export function statusPill(status) {
 const NAV = [
   { href: 'index.html', label: 'The Universe' },
   { href: 'create.html', label: 'Create a player' },
+  { href: 'players.html', label: 'Roll call' },
   { href: 'me.html', label: 'My players' },
 ];
 

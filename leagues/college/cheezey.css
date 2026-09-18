@@ -56,6 +56,49 @@ a.menulink:hover {
 }
 
 /* ---- the nav bar every content page carries ---- */
+/* Inside the frameset, FBPB3's own menu is already down the left-hand side and this bar
+   repeats it - two navigations doing the same job, which is what it looked like. The bar
+   exists for pages opened DIRECTLY: a shared link, a search result, any of the 600-odd
+   player pages, none of which carry a menu of their own. So: show it when the page stands
+   alone, hide it when it is framed. The class is set by the snippet _skin_page injects. */
+html.cv-framed .cv-bar { display: none !important; }
+
+/* A real person's player, among four hundred the game invented. Without this they are
+   indistinguishable on a roster page, which is the opposite of the point: the whole site
+   exists so somebody can find THEIR guy. */
+a.cv-ours {
+  background: #F2B705 !important;
+  color: #2E2100 !important;
+  font-weight: 700 !important;
+  padding: 1px 5px 1px 4px !important;
+  border-radius: 3px !important;
+  border: 1px solid #8A5A00 !important;
+  text-decoration: none !important;
+}
+a.cv-ours:hover { background: #D9901A !important; }
+/* No ::before glyph here on purpose. The obvious cheese-emoji escape is a trap twice
+   over: STYLESHEET is an ordinary Python string, so a CSS escape beginning with a digit
+   is read as an OCTAL escape and the generated CSS ends up holding a real 0x01 byte; and
+   these pages are served as iso-8859-1, which a linked stylesheet inherits, so a literal
+   emoji would not survive either. The gold pill and border say 'this one is a person'
+   perfectly well on their own. */
+
+.cv-legend {
+  font: 11px 'Trebuchet MS', Verdana, sans-serif !important;
+  color: #8A5A00 !important;
+  margin: 2px 0 10px 0 !important;
+  display: flex !important; flex-wrap: wrap !important;
+  align-items: center !important; gap: 4px 6px !important;
+}
+.cv-legend i {
+  width: 11px !important; height: 11px !important; display: inline-block !important;
+  border: 1px solid #8A5A00 !important; border-radius: 2px !important;
+}
+.cv-legend b { font-weight: 700 !important; margin-right: 3px !important; }
+
+/* A result with no box score behind it. Left looking like data rather than a broken link. */
+.cv-noscore { color: #2E2100 !important; }
+
 .cv-bar {
   display: flex !important;
   flex-wrap: wrap !important;
