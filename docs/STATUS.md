@@ -43,8 +43,13 @@ and are not in git. `backups/` in this project holds timestamped copies of every
 
 ## Amber — built but not yet proven end to end
 
-- **The Sim Week pipeline.** Every piece is proven separately (apply edits, sim, export, save) but
-  nothing has run the whole loop yet. It also cannot be tested for real until Supabase exists.
+- **The Sim Week pipeline has run end to end** (2026-09-17): a character was stamped into CV_Prep,
+  two point spends applied as deltas, 7 days simmed, 605 pages exported and published, points
+  granted — 160 seconds. Run it from the panel (`python -m commissioner.app`, port 5095) or call
+  `commissioner.simweek.run_sim`. It is proven against the local JSON store, not yet against Supabase.
+- **The AI will cut a 14-year-old** for an adult free agent given the chance; it took 80 of our 240
+  Prep players on the first sim. `tools/protect_rosters.py` runs at the top of every Sim Week and
+  undoes it. If characters ever vanish, that is the first thing to check.
 - **The site has now been rendered in a browser** (2026-09-17) and four bugs were found and fixed
   that static checks could not see: the create page was blank without Supabase, a temporal-dead-zone
   error that threw at module load with no console message, a heading reading "He scouting report",
@@ -54,13 +59,15 @@ and are not in git. `backups/` in this project holds timestamped copies of every
   a signed-in account there is nothing to show.
 - **`supabase/schema.sql` has never been run against a real Postgres.**
 
-## Red — the one thing actually broken
+## Red — nothing is broken right now
 
-**HTML Output produces no files.** The screen drives correctly (options set, colours set, OUTPUT
-HTML clicked) and the html folder stays empty. Next step: restore the two background-image fields
-to their stock values (`smallshadedcourt.jpg`, `smallcourt.jpg`) instead of blanking them, and read
-the **Output Status** panel on that screen, which reports what the generator is doing. Until this
-works there are no league pages to publish.
+The HTML Output problem is fixed: it was writing into the wrong save, because `load_save` picked a
+row using `league.dat`'s file mtime while the game orders that list by its own last-save time in
+`saveinfo.dat`. All three league sites generate, including per-player pages, and publish into
+`site/leagues/<key>/`.
+
+The remaining gap is not a bug, it is unbuilt: **the offseason** — promotions, declarations, the
+app-run draft and applying a year of height growth. Nothing has aged yet.
 
 ## Waiting on you
 
