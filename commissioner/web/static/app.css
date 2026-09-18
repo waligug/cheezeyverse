@@ -221,3 +221,9 @@ details.create input, details.create select { width: 100%; }
 }
 #toast[hidden] { display: none; }
 #toast.bad { background: var(--bad); }
+
+/* An author rule like `.chip { display: inline-block }` outranks the user agent's
+   `[hidden] { display: none }`, so anything hidden via the attribute stays on screen.
+   The panel hides the "sim running" chip that way, which made it claim a sim was running
+   forever. One rule fixes it for every element on the page. */
+[hidden] { display: none !important; }
