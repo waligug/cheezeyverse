@@ -370,7 +370,15 @@ def _snapshot_league(league_key, st, season, week, log):
     for c in live:
         name = f'{c["first_name"]} {c["last_name"]}'
         try:
-            pl = L.find(name, c.get("game_dob") or (c.get("claimed_slot") or {}).get("dob"))
+            # codec_dob, like every other place a birthday reaches the codec. game_dob is a
+            # Postgres date and comes back as 2015-11-27, while LeagueDat.find compares the
+            # string the save builds: 11/27/2015. Without this the lookup matches nobody, the
+            # snapshot is skipped with a one-line log nobody reads, and the career graph has no
+            # points in it - which is invisible until somebody opens their player's page weeks
+            # later and finds a flat line. Fourteen call sites were fixed and this was the
+            # fifteenth.
+            pl = L.find(name, ch.codec_dob(c.get("game_dob")
+                                           or (c.get("claimed_slot") or {}).get("dob")))
         except Exception as exc:
             # Not fatal and not a verdict: the offseason is where a character the save has
             # lost is investigated and his career formally ended.
@@ -516,6 +524,25 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
         rows = publish(keys)
         for row in rows:
             emit("publish", f'{row["league"]}: {row["pages"]} pages', row["league"])
+
+        # ...and then actually put it where people can see it. `publish()` only re-skins the
+        # game's HTML into site/leagues/; the deploy is a separate push to the gh-pages branch.
+        # Leaving that manual meant Sim Week finished, reported success, and the public site
+        # still showed last week - the one part of "press the button and everything else
+        # happens" that did not happen. Nobody would notice from the panel, which reports the
+        # staging as "published".
+        #
+        # A failed push must not fail the week: the sim is done, the saves are written, and
+        # every other outcome is already recorded. It is retried by simply running the publish
+        # again, so say so and carry on.
+        if st.get_settings().get("auto_publish", True):
+            emit("publish", "pushing to the public site")
+            try:
+                from .publish.publish import git_push
+                git_push(f"Sim Week {datetime.now():%Y-%m-%d %H:%M}")
+                emit("publish", "the public site is live")
+            except Exception as exc:
+                emit("publish", f"the site did NOT publish ({exc}); the week itself is saved")
 
         for key in keys:
             n = st.grant_week_points(league=key, weeks=weeks)
