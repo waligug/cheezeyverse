@@ -44,6 +44,50 @@
    },
    "game_dob": "4/2/2016",
    "activated_at": "2026-09-18T00:02:52+00:00"
+  },
+  {
+   "first_name": "Wheel",
+   "last_name": "Gouda",
+   "league": "college",
+   "position": "SF",
+   "height_inches": 76,
+   "dob": "3/9/2013",
+   "traits": {
+    "height_genes": 72
+   },
+   "hometown": "Gouda, NLD",
+   "jersey_preference": 33,
+   "ratings": {
+    "InsideScoring": 34,
+    "JumpShot": 31,
+    "Handling": 28,
+    "Passing": 26,
+    "PerimeterDefense": 30,
+    "DReb": 29,
+    "Quickness": 30,
+    "Stamina": 60
+   },
+   "potentials": {
+    "PotInside": 74,
+    "PotJumpShot": 70,
+    "PotHandling": 62
+   },
+   "status": "active",
+   "id": "933851e53b534bd984316b612d69acfe",
+   "points_available": 0,
+   "points_spent": 0,
+   "created_at": "2026-09-18T00:57:47+00:00",
+   "team_abbrev": "MJW",
+   "claimed_slot": {
+    "league": "college",
+    "team": "MJW",
+    "name": "Lenard Lickteig",
+    "dob": "4/2/2012",
+    "position": "SF",
+    "uniform": 24
+   },
+   "game_dob": "3/9/2013",
+   "activated_at": "2026-09-18T00:57:50+00:00"
   }
  ],
  "requests": [
@@ -106,8 +150,8 @@
  "settings": {
   "max_characters": 2,
   "auto_approve": true,
-  "current_season": 2030,
-  "current_week": 1,
+  "current_season": 2031,
+  "current_week": 0,
   "points_per_week": 1
  }
 }

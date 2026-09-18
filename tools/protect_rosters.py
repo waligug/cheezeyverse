@@ -108,8 +108,14 @@ def protect(key, dry_run=False, store_characters=None):
             print(f"   ! no team for {p.name}; left in free agency")
             continue
         if len(L.teams().get(team_id, {}).get("ids", ())) >= spec.roster_size:
-            print(f"   ! {abbrev} is full; {p.name} left in free agency")
-            continue
+            # His own team filled up while he was out. Anywhere is better than free agency,
+            # where the AI will not re-sign a defanged 14-year-old and he never plays again.
+            room = [t for t, v in L.teams().items() if len(v["ids"]) < spec.roster_size]
+            if not room:
+                print(f"   ! every roster is full; {p.name} left in free agency")
+                continue
+            team_id = room[0]
+            print(f"   {abbrev} was full, {p.name} goes to team {team_id} instead")
         L.sign(L.find(p.name, p.dob), team_id)
         signed += 1
 

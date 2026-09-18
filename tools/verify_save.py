@@ -26,6 +26,25 @@ def verify(key):
     want = [p for p in manifest["players"] if p["league"] == key]
     reserves = [p for p in want if p["role"] == "reserve"]
 
+    # A slot a character has claimed no longer answers to its manifest name - he does. Swap the
+    # claimed rows for the characters holding them, or every created player reads as a missing one.
+    try:
+        from commissioner import simweek
+        for c in simweek.store().characters():
+            slot = c.get("claimed_slot") or {}
+            if not slot or c.get("status") != "active":
+                continue
+            claimed = {"league": slot.get("league"), "team": slot.get("team"), "role": "reserve",
+                       "name": f'{c["first_name"]} {c["last_name"]}',
+                       "dob": c.get("game_dob") or slot.get("dob"),
+                       "position": c.get("position"), "uniform": slot.get("uniform")}
+            for pool in (want, reserves):
+                for i, row in enumerate(pool):
+                    if row["name"] == slot.get("name") and row["dob"] == slot.get("dob")                             and row["league"] == c.get("league"):
+                        pool[i] = claimed
+    except Exception:
+        pass
+
     L = LeagueDat(path)
     teams = L.teams()
     by_name_dob = {(p.name, p.dob): p for p in L.players}

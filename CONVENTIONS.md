@@ -287,3 +287,27 @@ site will not show it until the season rolls over. Our own character pages read 
 the store, so the person who spent the point sees it immediately; the FBPB3 page is the one that
 lags. Do not "fix" this by writing the archive rows: CONVENTIONS already forbids touching the
 ratings-history block, and the game rebuilds it.
+
+## The offseason (built 2026-09-17)
+`commissioner/offseason.py`, in this order because each step depends on the last:
+
+1. **Growth** - `growth.grew_this_offseason` says how many inches; this writes them into the save.
+2. **Promotion** - prep after the age-17 season, college on declaring or at the four-year cap.
+3. **The draft** - the app runs it (the league files ship with FBPB3's rookie draft off): declared
+   players ranked by current ratings plus ceiling, teams picking in reverse standings order read
+   from the published `standings.htm`.
+4. **Refill** - the departing character's reserve slot is handed back its manifest name, birthday
+   and floor ratings, so the level he left can take somebody new. Without this the ceiling on
+   concurrent characters ratchets down by one every time anyone is promoted.
+
+A move between levels is **not** a trade: the three saves cannot see each other, so it is a claim of
+a reserve slot in the destination, a stamp carrying his ratings and height, and a refill behind him.
+Verified end to end 2026-09-17: a 17-year-old grew 2 inches, moved from Saskatoon to the Moose Jaw
+Mandibles carrying Inside 34 / PotInside 74, and his old slot came back as Bret Fenner.
+
+**The AI keeps signing free agents even after the pool is defanged.** A 7-day sim put 27 of the
+game's own players back onto Prep rosters. `protect_rosters.py` runs at the top of every Sim Week and
+undoes it, so the system is self-healing, but a character can miss games in between. If somebody's
+player stops appearing, that is the first thing to check. When a displaced player's own team has
+filled up, he is signed to any team with room rather than left in free agency - the AI will not
+re-sign a defanged 14-year-old, so free agency is where a career goes to die.
