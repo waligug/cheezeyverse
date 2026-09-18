@@ -88,6 +88,46 @@ a.menulink:hover {{
 }}
 
 /* ---- the nav bar every content page carries ---- */
+/* Inside the frameset, FBPB3's own menu is already down the left-hand side and this bar
+   repeats it - two navigations doing the same job, which is what it looked like. The bar
+   exists for pages opened DIRECTLY: a shared link, a search result, any of the 600-odd
+   player pages, none of which carry a menu of their own. So: show it when the page stands
+   alone, hide it when it is framed. The class is set by the snippet _skin_page injects. */
+html.cv-framed .cv-bar {{ display: none !important; }}
+
+/* A real person's player, among four hundred the game invented. Without this they are
+   indistinguishable on a roster page, which is the opposite of the point: the whole site
+   exists so somebody can find THEIR guy. */
+a.cv-ours {{
+  background: {gold} !important;
+  color: {ink} !important;
+  font-weight: 700 !important;
+  padding: 1px 5px 1px 4px !important;
+  border-radius: 3px !important;
+  border: 1px solid {crust} !important;
+  text-decoration: none !important;
+}}
+a.cv-ours:hover {{ background: {deep} !important; }}
+/* No ::before glyph here on purpose. The obvious cheese-emoji escape is a trap twice
+   over: STYLESHEET is an ordinary Python string, so a CSS escape beginning with a digit
+   is read as an OCTAL escape and the generated CSS ends up holding a real 0x01 byte; and
+   these pages are served as iso-8859-1, which a linked stylesheet inherits, so a literal
+   emoji would not survive either. The gold pill and border say 'this one is a person'
+   perfectly well on their own. */
+
+.cv-legend {{
+  font: 11px 'Trebuchet MS', Verdana, sans-serif !important;
+  color: {crust} !important;
+  margin: 2px 0 10px 0 !important;
+  display: flex !important; flex-wrap: wrap !important;
+  align-items: center !important; gap: 4px 6px !important;
+}}
+.cv-legend i {{
+  width: 11px !important; height: 11px !important; display: inline-block !important;
+  border: 1px solid {crust} !important; border-radius: 2px !important;
+}}
+.cv-legend b {{ font-weight: 700 !important; margin-right: 3px !important; }}
+
 .cv-bar {{
   display: flex !important;
   flex-wrap: wrap !important;
@@ -241,7 +281,24 @@ def _universe_strip(prefix, current_key):
 
 
 def _css_text():
-    return STYLESHEET.format(**PALETTE)
+    """The stylesheet, proven free of control characters before it is written.
+
+    STYLESHEET is an ordinary Python string, so a CSS escape that starts with a digit is read
+    as an OCTAL escape and silently becomes a 0x01 byte in the output. That happened: a badge
+    rendered as the literal text "F9C0 A0" instead of a glyph, and nothing else anywhere
+    showed a symptom. tests/test_no_control_chars.py cannot catch it, because that scans
+    tracked source and this file is generated at publish time. So it is checked here, where it
+    is made, on every single publish.
+    """
+    css = STYLESHEET.format(**PALETTE)
+    bad = sorted({ord(c) for c in css if ord(c) < 0x20 and c not in "\t\n\r"})
+    if bad:
+        raise ValueError(
+            "the stylesheet contains control character(s) "
+            + ", ".join(f"0x{b:02X}" for b in bad)
+            + " - almost certainly a CSS escape read as a Python octal escape. "
+              "Use a raw string, or drop the escape.")
+    return css
 
 
 def _inject_link(html, prefix):
@@ -296,9 +353,60 @@ def _nav_bar(league, season, prefix, current, key=None):
                           universe=_universe_strip(prefix, key))
 
 
-def _skin_page(html, league, season, prefix, current, key=None):
+# Runs before the bar is painted, so a framed page never flashes two navigations. Kept inline
+# and tiny on purpose: these are 600+ static files per league and an external script would be
+# 600 more requests.
+# The swatch scale, worst to best. FBPB3 documents none of this; the order was established
+# empirically by correlating every swatch on every roster page in all three leagues (780 rows)
+# against the mean of that row's fourteen ability ratings. The ranges overlap - the game
+# evidently grades relative to position rather than on a flat average - so this is the ORDER,
+# not a set of thresholds. Purple has so far only ever appeared as a potential.
+SWATCH_SCALE = [
+    ("#B0040C", "poor"), ("#F2662A", "fair"), ("#EDBE30", "decent"),
+    ("#307B1A", "good"), ("#0052C3", "excellent"), ("#9402B8", "elite"),
+]
+
+
+def _legend():
+    dots = "".join(f'<i style="background:{c}" title="{w}"></i>' for c, w in SWATCH_SCALE)
+    return ('<div class="cv-legend"><b>Ability</b>'
+            f'<span>left = now, right = ceiling</span>{dots}'
+            f'<span>{SWATCH_SCALE[0][1]} to {SWATCH_SCALE[-1][1]}</span></div>')
+
+
+FRAME_TEST = ('<script>if(window.top!==window.self)'
+              "document.documentElement.className+=' cv-framed';</script>")
+
+
+PLAYER_LINK = re.compile(
+    r'<a\s+class=linkmain\s+href=([^>\s]*?players/player(\d+)\.htm)>([^<]+)</a>', re.I)
+
+
+def _mark_ours(html, ours):
+    """Badge every link to a character's player page, so his owner can spot him on a roster.
+
+    Matched on FBPB3's own player id rather than on the name: two players can share a name -
+    the stock rosters have several - and a name match would badge the wrong man. The id comes
+    from `league_player_ids`, recorded when the character claimed his slot.
+    """
+    if not ours:
+        return html
+
+    def swap(m):
+        href, pid, name = m.group(1), int(m.group(2)), m.group(3)
+        if pid not in ours:
+            return m.group(0)
+        return f'<a class="linkmain cv-ours" href={href} title="{ours[pid]}">{name}</a>'
+
+    return PLAYER_LINK.sub(swap, html)
+
+
+def _skin_page(html, league, season, prefix, current, key=None, ours=None):
     """Put the nav bar just inside <body> so the page reads the same wherever it was opened."""
-    bar = _nav_bar(league, season, prefix, current, key)
+    html = _mark_ours(html, ours)
+    bar = FRAME_TEST + _nav_bar(league, season, prefix, current, key)
+    if "bgcolor=#" in html.replace(" ", ""):        # a page that actually shows swatches
+        bar += _legend()
     if re.search(r"<body[^>]*>", html, re.I):
         return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + bar, html, count=1, flags=re.I)
     return re.sub(r"(<html[^>]*>)", lambda m: m.group(1) + bar, html, count=1, flags=re.I)
@@ -316,7 +424,7 @@ def _skin_index(html, league, season):
     return re.sub(r"cols\s*=\s*\d+", "cols=178", html, count=1, flags=re.I)
 
 
-def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None):
+def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ours=None):
     """Copy an FBPB3 html output folder to `dst` wearing the Cheezeyverse skin.
 
     Returns the number of pages skinned. `src` is left untouched.
@@ -349,7 +457,7 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None):
         if name == "menu.htm":
             html = _skin_menu(html, league, season, key or dst.name)
         elif name != "index.htm":
-            html = _skin_page(html, league, season, prefix, name, key or dst.name)
+            html = _skin_page(html, league, season, prefix, name, key or dst.name, ours)
         target.write_text(html, encoding="latin-1", errors="replace")
         pages += 1
 

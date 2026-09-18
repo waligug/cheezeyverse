@@ -41,13 +41,36 @@ def season_label(key):
     return f"Season {cfg.START_YEAR}"
 
 
+def _our_players(league_key):
+    """{fbpb3 player id: owner-facing name} for the real people's characters in this league.
+
+    Keyed by the game's own player id rather than by name, because two players can share a
+    name - the stock rosters do - and badging by name would decorate the wrong man. Returns
+    empty on any failure: a missing badge is cosmetic, a publish that will not run is not.
+    """
+    try:
+        from ..simweek import store
+        out = {}
+        for c in store().characters(league=league_key):
+            if c.get("status") == "retired":
+                continue
+            pid = (c.get("league_player_ids") or {}).get(league_key)
+            if pid is not None:
+                out[int(pid)] = f'{c["first_name"]} {c["last_name"]}'
+        return out
+    except Exception as exc:
+        print(f"   (could not mark our players in {league_key}: {exc})")
+        return {}
+
+
 def publish_league(key):
     spec = cfg.BY_KEY[key]
     src = DOCS / "leaguedata" / spec.save_name / "html"
     dst = SITE / "leagues" / key
     if not (src / "index.htm").exists():
         raise FileNotFoundError(f"{spec.save_name} has no HTML output yet - run the driver's html_output() first")
-    pages = restyle(src, dst, league=spec.name, season=season_label(key), key=key)
+    pages = restyle(src, dst, league=spec.name, season=season_label(key), key=key,
+                    ours=_our_players(key))
     return {"league": key, "name": spec.name, "pages": pages, "path": str(dst)}
 
 

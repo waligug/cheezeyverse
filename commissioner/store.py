@@ -39,7 +39,11 @@ __all__ = [
 # new column added to the table does not silently start leaking into the export.
 CHARACTER_COLUMNS = (
     "id,owner,first_name,last_name,position,height_inches,archetype,league,team_abbrev,"
-    "status,game_dob,ratings,potentials,points_available,points_spent,claimed_slot,created_at"
+    "status,game_dob,ratings,potentials,points_available,points_spent,claimed_slot,"
+    # league_player_ids is how anything outside the codec finds a character in the
+    # generated league site: it maps each level to his FBPB3 player id. Leaving it out
+    # of the select made every caller see None and conclude he had never been placed.
+    "league_player_ids,level_history,created_at"
 )
 
 DRY_RUN = False  # set by --selftest; makes every call describe itself instead of firing
