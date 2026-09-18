@@ -254,7 +254,7 @@ def _sync_teams(league_key, L, st, log):
         if c.get("status") != "active":
             continue
         try:
-            pl = L.find(f'{c["first_name"]} {c["last_name"]}', c.get("game_dob"))
+            pl = L.find(f'{c["first_name"]} {c["last_name"]}', ch.codec_dob(c.get("game_dob")))
         except Exception:
             continue
         now = by_id.get(pl.values["Team"])
@@ -279,8 +279,12 @@ def _dress_characters(league_key, L, st, log):
             continue
         name = f'{c["first_name"]} {c["last_name"]}'
         try:
-            pl = L.find(name, c.get("game_dob"))
-        except Exception:
+            pl = L.find(name, ch.codec_dob(c.get("game_dob")))
+        except Exception as exc:
+            # This used to swallow the exception entirely. The weekly re-dress is what keeps a
+            # character on the depth chart after the AI coach reshuffles it, so silently
+            # skipping it meant a character slowly stopped playing and nothing ever said so.
+            log(f"could not re-dress {name}: {exc}")
             continue
         try:
             if L.dress(pl):

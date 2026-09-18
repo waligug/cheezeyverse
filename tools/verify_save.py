@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from commissioner.codec.league_dat import LeagueDat  # noqa: E402
+from commissioner import characters as ch
 from commissioner.universe import config as cfg  # noqa: E402
 
 DOCS = Path(r"C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3")
@@ -36,7 +37,7 @@ def verify(key):
                 continue
             claimed = {"league": slot.get("league"), "team": slot.get("team"), "role": "reserve",
                        "name": f'{c["first_name"]} {c["last_name"]}',
-                       "dob": c.get("game_dob") or slot.get("dob"),
+                       "dob": ch.codec_dob(c.get("game_dob") or slot.get("dob")),
                        "position": c.get("position"), "uniform": slot.get("uniform")}
             for pool in (want, reserves):
                 for i, row in enumerate(pool):

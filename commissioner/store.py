@@ -285,6 +285,39 @@ def snapshots(character_id=None, league=None):
     return _table("rating_snapshots", params)
 
 
+def _normalise_dobs(rows):
+    """Hand back every character with `game_dob` in the form the SAVE FILE uses.
+
+    game_dob is a Postgres `date`. Whatever string goes in, PostgREST hands back `2015-11-27`,
+    while LeagueDat.find() compares the string the save itself builds from its own bytes:
+    `11/27/2015`. The two never match.
+
+    Normalising here rather than at each call site is the whole point. This bug was found once
+    and fixed at fourteen places, and FOUR more were still wrong a day later - the weekly
+    re-dress, the trade sync, the rating snapshot and verify_save - three of them inside
+    `except Exception: continue`, so they failed in total silence. Every one of those callers
+    got its birthday from this module. Fixing the source means no future caller can get it
+    wrong, which a convention spread across twenty call sites can never promise.
+
+    The local JSON store keeps whatever string it was given, which is why the end-to-end test
+    passed on the desktop and the bug only ever appeared against Supabase.
+    """
+    from .characters import codec_dob
+    for row in rows or []:
+        if isinstance(row, dict) and row.get("game_dob"):
+            try:
+                row["game_dob"] = codec_dob(row["game_dob"])
+            except Exception:
+                pass          # an unreadable date is the caller's problem, not a reason to fail
+        slot = isinstance(row, dict) and row.get("claimed_slot")
+        if isinstance(slot, dict) and slot.get("dob"):
+            try:
+                slot["dob"] = codec_dob(slot["dob"])
+            except Exception:
+                pass
+    return rows
+
+
 def characters(league=None, status=None):
     """Every character, with `claimed_slot` - the roster-protection view.
 
@@ -309,7 +342,7 @@ def characters(league=None, status=None):
         params["league"] = f"eq.{league}"
     if status:
         params["status"] = f"eq.{status}"
-    return _table("characters", params)
+    return _normalise_dobs(_table("characters", params))
 
 
 def add_character(payload):
