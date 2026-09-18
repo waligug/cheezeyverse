@@ -157,6 +157,41 @@ def main():
     check("the published site has his player page", bool(ids.get(LEAGUE)) and page.exists(),
           str(page) if ids.get(LEAGUE) else "no league_player_ids recorded")
 
+    # ---- the spend path ------------------------------------------------------------------
+    # This is what somebody does EVERY week, and until now the test never exercised it: the
+    # first run reported "applied: 0". Buy a rating and its ceiling on the same skill in the
+    # same week, then read both bytes back. A potential purchase used to be applied as a
+    # rating purchase, which apply_deltas caps at the very ceiling the buyer was raising - so
+    # it did nothing at all and the points were spent anyway.
+    if pl and c:
+        localstore.grant_points(c["id"], 40, reason="end-to-end test")
+        before_rating = pl.values["InsideScoring"]
+        before_pot = pl.values["PotInside"]
+        queued = False
+        try:
+            localstore.add_request(c["id"], "InsideScoring", 3, "potential")
+            localstore.add_request(c["id"], "InsideScoring", 2, "rating")
+            queued = True
+        except Exception as exc:
+            check("two upgrades could be queued", False, str(exc))
+        if queued:
+            print("")
+            print("simming a second week, to spend the points...")
+            spent = simweek.run_sim([LEAGUE])
+            check("the sim applied the queued upgrades", spent.get("applied", 0) == 2,
+                  f'applied {spent.get("applied")}')
+            after = LeagueDat(ch.save_path(LEAGUE)).find(f"{NAME[0]} {NAME[1]}")
+            check("the ceiling he bought went up by exactly 3",
+                  after.values["PotInside"] == before_pot + 3,
+                  f'PotInside {before_pot} -> {after.values["PotInside"]}')
+            check("the rating he bought went up by exactly 2",
+                  after.values["InsideScoring"] == before_rating + 2,
+                  f'InsideScoring {before_rating} -> {after.values["InsideScoring"]}')
+            left = find_existing()
+            check("the points were actually charged",
+                  int(left.get("points_spent", 0)) > 0,
+                  f'spent {left.get("points_spent")}, available {left.get("points_available")}')
+
     print(f"\n{len(ok)} passed, {len(bad)} failed")
     if bad:
         print("failed: " + ", ".join(bad))

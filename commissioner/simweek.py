@@ -310,11 +310,25 @@ def _apply_requests(league_key, L, st, log):
         # does not exist, or the locked one - used to raise straight through run_sim and abort
         # the week for EVERYBODY. A bad request is one person's problem; it must never be
         # everyone's. Rejecting it also returns the points it reserved.
+        # Potentials first, then ratings. apply_deltas will not push a rating above its own
+        # potential - that is the game's rule - so buying +5 potential and +5 rating in the same
+        # week only works if the ceiling is raised before the rating is pushed at it. Applied the
+        # other way round the rating silently stops at the old ceiling and the points are gone.
+        rows = sorted(rows, key=lambda r: 0 if (r.get("kind") or "rating") == "potential" else 1)
         deltas, keep = {}, []
         for r in rows:
+            # A request names the RATING it is about and says in `kind` whether it is buying the
+            # rating or its ceiling: cv_potentials() returns rating names, so the name alone
+            # cannot tell them apart. Reading only r["rating"] meant every potential purchase was
+            # applied as a rating purchase - which apply_deltas then caps at the potential the
+            # buyer was trying to raise, so it did nothing at all while the points were spent.
+            kind = (r.get("kind") or "rating").lower()
             field = r["rating"]
+            if kind == "potential":
+                field = ch.POT_BY_RATING.get(field, field)
             if field in ch.LOCKED or (field not in RATINGS_SET and field not in POTENTIALS_SET):
-                why = "that rating cannot be spent on" if field in ch.LOCKED                     else f"there is no rating called {field}"
+                why = ("that rating cannot be spent on" if field in ch.LOCKED
+                       else f'there is no {kind} called {r["rating"]}')
                 log(f"{name}: rejected {field} - {why}")
                 try:
                     st.reject_request(r["id"], why)
@@ -326,11 +340,12 @@ def _apply_requests(league_key, L, st, log):
         if not deltas:
             continue
         try:
-            moved = ch.apply_deltas(L, name, c.get("game_dob") or slot.get("dob"), deltas)
+            moved = ch.apply_deltas(L, name, ch.codec_dob(c.get("game_dob") or slot.get("dob")),
+                                    deltas)
         except Exception as exc:
             log(f"{name}: none of his requests could be applied - {exc}")
             continue
-        expect.append((name, c.get("game_dob") or slot.get("dob"),
+        expect.append((name, ch.codec_dob(c.get("game_dob") or slot.get("dob")),
                        {k: v[1] for k, v in moved.items()}))
         applied += [r["id"] for r in keep]
         log(f"{name}: " + ", ".join(f"{k} {v[0]}->{v[1]}" for k, v in moved.items()))

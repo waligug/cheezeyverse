@@ -253,9 +253,15 @@ def add_request(character_id, rating, delta, kind_="rating", cost=None, note="")
 
         # Price it here, from his real ratings plus whatever is already queued for the same
         # rating, and ignore whatever `cost` the caller passed.
-        current = int((character.get("ratings") or {}).get(rating, 0))
+        # Price a potential off the POTENTIAL, not off the rating underneath it. Both are keyed
+        # by the rating name, so reading the wrong one is easy and silent - and since a potential
+        # always sits above its rating, it made every ceiling cheaper than the curve says. The
+        # database trigger already reads ch.potentials for this; the two have to agree.
+        book = "potentials" if kind_ == "potential" else "ratings"
+        current = int((character.get(book) or {}).get(rating, 0))
         for queued in d["requests"]:
             if (queued["character_id"] == character_id and queued["rating"] == rating
+                    and queued.get("kind", "rating") == kind_
                     and queued["status"] in ("pending", "approved")):
                 current += int(queued["delta"])
         price = upgrade_cost(current, delta, kind_)
