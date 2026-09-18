@@ -384,6 +384,11 @@ class FBPB3:
 
         Player pages are off by default in FBPB3 (which is why the reference Stabbyverse site has
         none). Turning them on is what gives every character a page of his own.
+
+        `old_boxes` drives the dialog's "Output old boxes" control. It is exposed rather than
+        hardcoded so the box-score question can be tested rather than assumed - and it is known
+        to change nothing today, because our saves contain no `.box` files for it to convert
+        (see CONVENTIONS). Left False, which is the value that was hardcoded before.
         """
         out = DOCS / "leaguedata" / save_name / "html"
         before = max((p.stat().st_mtime for p in out.glob("*.htm")), default=0) if out.exists() else 0
@@ -395,9 +400,23 @@ class FBPB3:
                           (self.HTML_BOX_LINKS, yes_no[box_links]),
                           (self.HTML_OLD_BOXES, yes_no[old_boxes])):
             combo = self._control_at(rel)
-            if want in combo.item_texts():
-                combo.select(want)
-                time.sleep(0.3)
+            # Read it back. `if want in item_texts(): select(want)` skips silently when the
+            # option is not there - and _control_at matches purely on window position with no
+            # class filter, so it can hand back a control that is not the combo, or one that
+            # has not finished populating. The export then runs with the OLD setting and
+            # html_output returns success, which is how an experiment can "prove" a negative
+            # about a setting that was never applied. newgame.combo() has always verified;
+            # this did not.
+            options = combo.item_texts()
+            if want not in options:
+                raise DriverError(
+                    f"the control at {rel} offers {options!r}, which does not include {want!r} - "
+                    "either the screen is not the one expected, or it had not finished loading")
+            combo.select(want)
+            time.sleep(0.3)
+            got = combo.selected_text()
+            if got != want:
+                raise DriverError(f"the control at {rel} stayed on {got!r} instead of {want!r}")
 
         for key, value in (style if style is not None else self.CHEEZEY_STYLE).items():
             box = self._control_at(self.HTML_STYLE[key])
@@ -414,7 +433,12 @@ class FBPB3:
         while time.time() < end:
             try:
                 self.dismiss_message(timeout=2)
-            except DriverError:
+            except Exception:
+                # Not just DriverError. dismiss_message takes the first visible #32770 and
+                # clicks its OK button; a Yes/No confirmation or an Abort/Retry/Ignore box has
+                # no OK child, so pywinauto raises ElementNotFoundError, which is not a
+                # DriverError and would abort the whole export mid-week with the game still
+                # open. dismiss_all already wraps every dialog this way; this did not.
                 pass
             if index.exists() and index.stat().st_mtime > before:
                 time.sleep(5)  # the per-player pages keep landing after index.htm does
