@@ -286,6 +286,11 @@ function renderReview() {
   const derived = deriveCharacter(state);
   const name = `${state.firstName || 'He'} ${state.lastName || ''}`.trim();
 
+  function possessive(who) {
+    if (!state.firstName && !state.lastName) return 'The';
+    return who.endsWith('s') ? `${who}'` : `${who}'s`;
+  }
+
   if (!progress.complete) {
     box.append(note(null,
       `${progress.total - progress.done} question`
@@ -293,12 +298,23 @@ function renderReview() {
       + 'so far, and it moves with every answer.'));
   }
 
-  /* the class, live */
-  box.append(el('div', { class: 'cv-readout cv-cheese' },
-    el('b', {}, classLine(derived.klass)),
-    el('span', {}, derived.klass.blurb),
-    el('span', {}, `Second closest: ${derived.klass.runnerUp.label}. `
-      + 'This is a label, not a cage - it has no caps and it changes as he does.')));
+  /* The class, live - but only once the answers are actually shaping it. Naming a type before a
+     single question is answered reads as though the quiz is decoration. */
+  const CLASS_AFTER = 3;
+  if (progress.done < CLASS_AFTER) {
+    box.append(el('div', { class: 'cv-readout cv-cheese' },
+      el('b', {}, 'No read yet'),
+      el('span', {}, `Answer ${CLASS_AFTER - progress.done} more question`
+        + `${CLASS_AFTER - progress.done === 1 ? '' : 's'} and the scouts will call him something.`),
+      el('span', {}, 'Whatever they land on is a label, not a cage - it has no caps and it '
+        + 'changes as he does.')));
+  } else {
+    box.append(el('div', { class: 'cv-readout cv-cheese' },
+      el('b', {}, classLine(derived.klass)),
+      el('span', {}, derived.klass.blurb),
+      el('span', {}, `Second closest: ${derived.klass.runnerUp.label}. `
+        + 'This is a label, not a cage - it has no caps and it changes as he does.')));
+  }
 
   /* height: a band, not a number, until he is signed */
   const o = derived.outlook;
@@ -321,7 +337,9 @@ function renderReview() {
   box.append(traits);
 
   /* the sheet, as a scout would give it: bands and opinions, no numbers */
-  box.append(el('h3', {}, `${name || 'The'} scouting report`));
+  // `name` falls back to the pronoun "He" when the fields are empty, which reads as
+  // "He scouting report"; and a real name needs its possessive.
+  box.append(el('h3', {}, possessive(name) + ' scouting report'));
   box.append(el('p', { class: 'cv-hint' },
     'He is fourteen, so all of this is bad in absolute terms and that is the point. '
     + 'Where the band is narrow, the answers were emphatic and there is not much doubt; '
