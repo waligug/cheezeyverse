@@ -159,9 +159,16 @@ def stamp_character(L, slot, character):
     for field, value in (character.get("ratings") or {}).items():
         if field in RATINGS:
             L.set(pl, field, max(0, min(RATING_MAX, int(value))))
-    for field, value in (character.get("potentials") or {}).items():
-        if field in POTENTIALS:
-            L.set(pl, field, max(0, min(RATING_MAX, int(value))))
+
+    wanted_pots = codec_potentials(character.get("potentials"))
+    if (character.get("potentials") or {}) and not wanted_pots:
+        raise ApplyError(
+            f'{character.get("first_name")} {character.get("last_name")} has potentials keyed '
+            f'{sorted(character["potentials"])[:3]}..., none of which name a rating this game '
+            "has a potential for. Stamping him would leave the reserve slot's floor potentials "
+            "in place and the game would pull his ratings down to them.")
+    for field, value in wanted_pots.items():
+        L.set(pl, field, max(0, min(RATING_MAX, int(value))))
 
     # The slot he just took over was built to be unused. Put him in the lineup and give him a
     # share of the depth chart, or he is a name on a roster who never plays a minute.
@@ -195,7 +202,7 @@ def apply_deltas(L, name, dob, deltas):
     return moved
 
 
-_POT_BY_RATING = {
+POT_BY_RATING = {
     "InsideScoring": "PotInside", "JumpShot": "PotJumpShot", "FtShot": "PotFtShot",
     "3pShot": "Pot3pShot", "Handling": "PotHandling", "Passing": "PotPassing",
     "OReb": "PotOReb", "DReb": "PotDReb", "PostDefense": "PotPostDefense",
@@ -204,7 +211,39 @@ _POT_BY_RATING = {
 
 
 def _potential_for(rating):
-    return _POT_BY_RATING.get(rating)
+    return POT_BY_RATING.get(rating)
+
+
+RATING_BY_POT = {v: k for k, v in POT_BY_RATING.items()}
+
+
+def codec_potentials(given):
+    """Potentials keyed however the caller had them, keyed the way the SAVE FILE needs them.
+
+    Everything outside the codec keys a potential by the rating it belongs to - the website
+    does (`startingSheet` fills `potentials[rating]`), and so does the database, whose
+    cv_potentials() returns rating names. The codec alone calls them PotInside, PotJumpShot
+    and so on, because that is what the bytes are.
+
+    Nothing translated between the two. `stamp_character` filtered the incoming potentials
+    with `if field in POTENTIALS`, which is false for every rating name, so it wrote NONE of
+    them and left the reserve slot's floor potentials in place. FBPB3 then did exactly what it
+    is supposed to do and pulled each rating down to its potential - so every character came
+    out of his first sim with his ratings crushed to a dormant filler's ceiling, and nothing
+    anywhere said so. Accept both keyings; return the codec's.
+    """
+    out = {}
+    for field, value in (given or {}).items():
+        if field in RATING_BY_POT:          # already PotInside / PotJumpShot / ...
+            out[field] = value
+        elif field in POT_BY_RATING:        # InsideScoring / JumpShot / ...
+            out[POT_BY_RATING[field]] = value
+    return out
+
+
+def store_potentials(values):
+    """The other direction: a codec player's values, keyed by rating name for the store."""
+    return {rating: values[pot] for rating, pot in POT_BY_RATING.items() if pot in values}
 
 
 def commit(L, expect):

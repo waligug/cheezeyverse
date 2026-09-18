@@ -47,7 +47,7 @@ def publish_league(key):
     dst = SITE / "leagues" / key
     if not (src / "index.htm").exists():
         raise FileNotFoundError(f"{spec.save_name} has no HTML output yet - run the driver's html_output() first")
-    pages = restyle(src, dst, league=spec.name, season=season_label(key))
+    pages = restyle(src, dst, league=spec.name, season=season_label(key), key=key)
     return {"league": key, "name": spec.name, "pages": pages, "path": str(dst)}
 
 

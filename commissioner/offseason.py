@@ -525,7 +525,11 @@ def _promise(character):
     if not ratings:
         return 0
     now = sum(ratings.get(f, 0) for f in RATINGS) / max(1, len(RATINGS))
-    ceiling = sum((character.get("potentials") or {}).get(f, 0) for f in POTENTIALS)
+    # A stored potential is keyed by its RATING, not by the codec's PotInside name - reading it
+    # with the codec's names scored every character's ceiling as zero, which on draft night is
+    # the difference between a lottery pick and going undrafted.
+    pots = ch.codec_potentials(character.get("potentials"))
+    ceiling = sum(pots.get(f, 0) for f in POTENTIALS)
     return now * 2 + ceiling / max(1, len(POTENTIALS))
 
 

@@ -124,6 +124,16 @@ def main():
         wrong = {k: (pl.values[k], v) for k, v in stamped.items() if pl.values[k] != v}
         check("his ratings are the ones the quiz produced", not wrong,
               f"{len(wrong)} differ: {dict(list(wrong.items())[:3])}" if wrong else "")
+        # Potentials are keyed by rating everywhere except the codec, and nothing translated:
+        # they were written nowhere at all, and FBPB3 then pulled every rating down to the
+        # reserve slot's floor ceiling. Check the save holds them, not just that we sent them.
+        want_pots = ch.codec_potentials(row["potentials"])
+        wrong_p = {k: (pl.values.get(k), v) for k, v in want_pots.items()
+                   if pl.values.get(k) != v}
+        check("his potentials reached the save file", not wrong_p,
+              f"{len(wrong_p)} differ: {dict(list(wrong_p.items())[:3])}" if wrong_p else
+              f"{len(want_pots)} written")
+
         teams = L.teams()
         mine = teams.get(pl.values["Team"], {})
         check("he is on the roster", pl.id in (mine.get("ids") or ()),

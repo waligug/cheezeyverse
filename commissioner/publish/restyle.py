@@ -125,6 +125,21 @@ a.menulink:hover {{
 }}
 .cv-bar nav a:hover {{ border-bottom-color: {crust} !important; }}
 .cv-bar nav a.on {{ border-bottom-color: {ink} !important; }}
+.cv-universe {{
+   display: flex !important; flex-wrap: wrap !important; gap: 2px 14px !important;
+   width: 100% !important; margin: 0 0 6px 0 !important; padding: 0 0 5px 0 !important;
+   border-bottom: 1px solid {crust} !important; font-size: 9pt !important;
+}}
+.cv-universe a {{
+   color: {ink} !important; text-decoration: none !important; opacity: .75 !important;
+}}
+.cv-universe a:hover {{ opacity: 1 !important; text-decoration: underline !important; }}
+.cv-universe a.on {{ opacity: 1 !important; font-weight: 700 !important; }}
+.cv-universe .cv-up {{ font-weight: 700 !important; opacity: 1 !important; }}
+body.cv-menu .cv-universe {{
+   flex-direction: column !important; gap: 3px !important; margin: 0 0 8px 0 !important;
+   padding: 0 8px 8px 8px !important;
+}}
 
 /* ---- data pages ---- */
 td.main, td.header, td.plainheader, td.headerbg, td.teamheader, td.teamheader2,
@@ -176,11 +191,34 @@ NAV_LINKS = [
 ]
 NAV_BAR = (
     '<div class="cv-bar">'
+    '{universe}'
     '<a class="cv-home" href="{prefix}index.htm" target="_top">{league}'
     '<small>{season}</small></a>'
     '<nav>{links}</nav>'
     '</div>'
 )
+
+# The three league sites and the character site are one universe to a visitor and three
+# unrelated framesets to a browser. Without this strip, clicking into Prep is a dead end:
+# FBPB3's own menu knows nothing outside its own league, so there is no way back to the hub
+# and no way across to College or Pro except the back button.
+UNIVERSE = [("prep", "Prep"), ("college", "College"), ("pro", "Pro")]
+
+
+def _universe_strip(prefix, current_key):
+    """Links out of this league: the hub, and the other two levels.
+
+    `prefix` walks up to the league root, so the site root is two more levels above that -
+    `site/leagues/<key>/` . Every link is target="_top" because these pages live inside a
+    frameset and a plain link would load the hub into the 178px menu frame.
+    """
+    root = f"{prefix}../../"
+    out = [f'<a class="cv-up" href="{root}index.html" target="_top">The Cheezeyverse</a>']
+    for key, label in UNIVERSE:
+        on = " class=on" if key == current_key else ""
+        out.append(f'<a href="{root}leagues/{key}/index.htm"{on} target="_top">{label}</a>')
+    return f'<div class="cv-universe">{"".join(out)}</div>'
+
 
 
 def _css_text():
@@ -226,25 +264,26 @@ def _drop_empty_images(html):
     return html
 
 
-def _nav_bar(league, season, prefix, current):
+def _nav_bar(league, season, prefix, current, key=None):
     links = "".join(
         f'<a href="{prefix}{href}"{" class=on" if href == current else ""} target="_top">{label}</a>'
         for href, label in NAV_LINKS)
-    return NAV_BAR.format(prefix=prefix, league=league, season=season, links=links)
+    return NAV_BAR.format(prefix=prefix, league=league, season=season, links=links,
+                          universe=_universe_strip(prefix, key))
 
 
-def _skin_page(html, league, season, prefix, current):
+def _skin_page(html, league, season, prefix, current, key=None):
     """Put the nav bar just inside <body> so the page reads the same wherever it was opened."""
-    bar = _nav_bar(league, season, prefix, current)
+    bar = _nav_bar(league, season, prefix, current, key)
     if re.search(r"<body[^>]*>", html, re.I):
         return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + bar, html, count=1, flags=re.I)
     return re.sub(r"(<html[^>]*>)", lambda m: m.group(1) + bar, html, count=1, flags=re.I)
 
 
-def _skin_menu(html, league, season):
+def _skin_menu(html, league, season, key=None):
     html = re.sub(r"<body[^>]*>", '<body class="cv-menu">', html, count=1, flags=re.I)
-    mark = MENU_MARK.format(league=league, season=season)
-    return re.sub(r"(<body[^>]*>)", r"\1" + mark, html, count=1, flags=re.I)
+    mark = MENU_MARK.format(league=league, season=season) + _universe_strip("", key)
+    return re.sub(r"(<body[^>]*>)", lambda m: m.group(1) + mark, html, count=1, flags=re.I)
 
 
 def _skin_index(html, league, season):
@@ -253,7 +292,7 @@ def _skin_index(html, league, season):
     return re.sub(r"cols\s*=\s*\d+", "cols=178", html, count=1, flags=re.I)
 
 
-def restyle(src, dst, league="Cheezeyverse", season="", clean=True):
+def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None):
     """Copy an FBPB3 html output folder to `dst` wearing the Cheezeyverse skin.
 
     Returns the number of pages skinned. `src` is left untouched.
@@ -284,9 +323,9 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True):
         html = _drop_empty_images(html)
         html = _inject_link(html, prefix)
         if name == "menu.htm":
-            html = _skin_menu(html, league, season)
+            html = _skin_menu(html, league, season, key or dst.name)
         elif name != "index.htm":
-            html = _skin_page(html, league, season, prefix, name)
+            html = _skin_page(html, league, season, prefix, name, key or dst.name)
         target.write_text(html, encoding="latin-1", errors="replace")
         pages += 1
 

@@ -363,7 +363,10 @@ def _snapshot_league(league_key, st, season, week, log):
             continue
         st.add_snapshot(character_id=c["id"], season=season, week=week,
                         ratings={f: pl.values[f] for f in RATINGS},
-                        potentials={f: pl.values[f] for f in POTENTIALS},
+                        # keyed by the RATING, which is how the website, the database and
+                        # the career graph all name a potential. POTENTIALS holds the codec's
+                        # own names (PotInside...), which nothing outside the codec reads.
+                        potentials=ch.store_potentials(pl.values),
                         height_inches=pl.values["Height"], league=league_key)
         written += 1
     return written
