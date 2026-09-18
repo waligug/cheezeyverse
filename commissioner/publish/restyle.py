@@ -496,52 +496,90 @@ def _unlink_dead_boxes(html, page_dir, src_root):
     return BOX_LINK.sub(swap, html)
 
 
-ROSTER_ROW = re.compile(
-    r"<a class=\"?linkmain cv-ours\"? href=[^>]*?players/player(\d+)\.htm[^>]*>.*?(?=<tr|\Z)",
-    re.S | re.I)
+# The roster table's sixteen columns are NOT in the same order as the player page's. Its header
+# runs Ins Jps Fts 3ps Hnd Pas Orb Drb Psd Prd Stl Blk Qkn Jmp Str Sta - JUMPING BEFORE STRENGTH,
+# where the player page has Strength first. Verified against the codec on unchanged fillers.
+# Reusing the other list here silently swaps two of a character's ratings.
+ROSTER_ATTR_COLUMNS = [
+    "InsideScoring", "JumpShot", "FtShot", "3pShot", "Handling", "Passing", "OReb", "DReb",
+    "PostDefense", "PerimeterDefense", "Stealing", "Blocking", "Quickness", "Jumping",
+    "Strength", "Stamina",
+]
+
+# FBPB3's roster markup defeats row-splitting: each ability swatch is a NESTED table carrying
+# its own </tr>, so "<tr> ... </tr>" stops six cells early, and even splitting on <tr is fragile.
+# So this does not try to isolate a row. It finds the player's own link, walks forward past his
+# two swatches, and rewrites the sixteen numeric cells that follow - which is exactly the run of
+# cells the Attributes table puts after them.
+NUM_CELL = re.compile(r"<td class=main>\s*(\d+)\s*</font></td>", re.I)
+
+
+def _swatch_colour(value):
+    """Which of the six ability colours a number falls in, worst to best."""
+    for edge, (colour, _) in zip((25, 35, 45, 55, 65), SWATCH_SCALE):
+        if value < edge:
+            return colour
+    return SWATCH_SCALE[-1][0]
 
 
 def _live_roster_row(html, ours):
-    """Fix our characters' numbers in a roster page's Attributes table, and their swatches.
+    """Put the live sheet into our characters' rows on a team's roster page.
 
     A friend opens his team's page as readily as his own, and there his player was a row of 5s
-    and red swatches beside teammates on 30s - same stale season-start snapshot as the player
-    page, same fix. The row is found by the badge _mark_ours has already put on his name, which
-    is why this runs after it.
+    beside teammates on 30s, with two red swatches - the same stale season-start snapshot that
+    the player page carried.
+
+    The ratings do not begin at the first number after the name: position, age, height and weight
+    come first, and age and weight are numbers too. The two swatch tables sit between them and the
+    ratings, so the anchor is the second `</table></td>` after the link.
     """
     if not ours:
         return html
+    live_by_pid = {pid: v for pid, v in ours.items()
+                   if isinstance(v, dict) and v.get("ratings")}
+    if not live_by_pid:
+        return html
 
-    def row(m):
-        pid = int(m.group(1))
-        live = ours.get(pid)
-        block = m.group(0)
-        if not isinstance(live, dict) or not live.get("ratings"):
-            return block
-        ratings = live["ratings"]
-        cells = re.findall(r"<td class=main[^>]*align=center>\s*\d+\s*</td>", block)
-        if len(cells) < len(ATTR_COLUMNS):
-            return block
-        out, i = block, 0
-        for cell in cells[:len(ATTR_COLUMNS)]:
-            name = ATTR_COLUMNS[i]
-            if name in ratings:
-                out = out.replace(
-                    cell, f'<td class=main width=40 align=center>{int(ratings[name])}</td>', 1)
-            i += 1
-        # The two swatches are the colour of the stale snapshot too. Recolour them from the live
-        # sheet on the scale established from the Stabbyverse sample.
-        best = max(ratings.get(k, 0) for k in ATTR_COLUMNS if k in ratings)
-        pots = live.get("potentials") or {}
-        ceiling = max(pots.values()) if pots else best
-        for value, nth in ((best, 0), (ceiling, 1)):
-            colour = SWATCH_SCALE[min(len(SWATCH_SCALE) - 1, max(0, int(value) // 13))][0]
-            out = re.sub(r"(bgcolor=)#[0-9A-Fa-f]{6}", r"\1" + colour, out, count=1) if nth == 0 \
-                else re.sub(r"(bgcolor=#[0-9A-Fa-f]{6}[^>]*></td>.*?bgcolor=)#[0-9A-Fa-f]{6}",
-                            r"\1" + colour, out, count=1, flags=re.S)
-        return out
+    for pid, live in live_by_pid.items():
+        ratings, pots = live["ratings"], live.get("potentials") or {}
+        marker = f"players/player{pid}.htm"
+        at = 0
+        while True:
+            at = html.find(marker, at)
+            if at == -1:
+                break
+            at += len(marker)
+            # Two swatches follow the name, then the ratings. If there are not two within a
+            # short reach this is the plain Roster table rather than the Attributes one.
+            first = html.find("</table></td>", at)
+            second = html.find("</table></td>", first + 1) if first != -1 else -1
+            if second == -1 or second - at > 900:
+                continue
+            after = second + len("</table></td>")
+            cells = list(NUM_CELL.finditer(html, after))[:len(ROSTER_ATTR_COLUMNS)]
+            if len(cells) < len(ROSTER_ATTR_COLUMNS) or cells[0].start() - after > 60:
+                continue
 
-    return ROSTER_ROW.sub(row, html)
+            pieces, cursor = [html[:after]], after
+            for column, cell in zip(ROSTER_ATTR_COLUMNS, cells):
+                pieces.append(html[cursor:cell.start()])
+                value = ratings.get(column)
+                pieces.append(cell.group(0) if value is None
+                              else f"<td class=main>{int(value)}</font></td>")
+                cursor = cell.end()
+            pieces.append(html[cursor:])
+            new_html = "".join(pieces)
+
+            # Recolour his two swatches, which were painted from the same stale numbers.
+            best = max((ratings[k] for k in ROSTER_ATTR_COLUMNS if k in ratings), default=0)
+            ceiling = max(pots.values()) if pots else best
+            head, rest = new_html[:at], new_html[at:]
+            colours = iter((_swatch_colour(best), _swatch_colour(ceiling)))
+            rest = re.sub(r"bgcolor=#[0-9A-Fa-f]{6}",
+                          lambda _: f"bgcolor={next(colours)}", rest, count=2)
+            html = head + rest
+            at = second
+    return html
 
 
 def _skin_page(html, league, season, prefix, current, key=None, ours=None,
