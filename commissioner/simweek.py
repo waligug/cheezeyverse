@@ -258,6 +258,33 @@ def _sync_teams(league_key, L, st, log):
     return moved
 
 
+def _dress_characters(league_key, L, st, log):
+    """Make sure every character is dressed and on the depth chart before the week is simmed.
+
+    The AI coach rewrites depth charts constantly and will bench the worst man on the roster, so
+    doing this once at creation is not enough: a character drops off the chart the first time the
+    coach reshuffles, and from then on he silently never plays again. Re-asserting it every week
+    is the difference between a career and a name on a bench.
+    """
+    fixed = []
+    for c in st.characters(league=league_key):
+        if c.get("status") != "active":
+            continue
+        name = f'{c["first_name"]} {c["last_name"]}'
+        try:
+            pl = L.find(name, c.get("game_dob"))
+        except Exception:
+            continue
+        try:
+            if L.dress(pl):
+                fixed.append(name)
+        except Exception as exc:
+            log(f"could not dress {name}: {exc}")
+    if fixed:
+        log(f"dressed {len(fixed)}: {', '.join(fixed[:4])}")
+    return fixed
+
+
 def _apply_requests(league_key, L, st, log):
     """Apply approved point spends as deltas on the live values."""
     reqs = [r for r in st.pending_requests(league=league_key) if r.get("status") == "approved"]
@@ -398,13 +425,14 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
             traded = _sync_teams(key, L, st, lambda m: emit("apply", m, key))
             if traded:
                 emit("apply", f"{traded} character(s) had been traded since last week", key)
+            dressed = _dress_characters(key, L, st, lambda m: emit("apply", m, key))
             activated, expect_a = _activate_pending(key, L, st, lambda m: emit("apply", m, key))
             applied, expect_b = _apply_requests(key, L, st, lambda m: emit("apply", m, key))
             if dry_run:
                 emit("apply", f"dry run: {len(activated)} characters, {len(applied)} requests "
                               f"would be written to {spec.save_name}", key)
                 continue
-            if activated or applied:
+            if activated or applied or dressed:
                 try:
                     ch.commit(L, expect_a + expect_b)
                 except Exception as exc:

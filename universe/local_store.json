@@ -30,8 +30,8 @@
    },
    "status": "active",
    "id": "b5beefeb5585408db065c99f74c53597",
-   "points_available": 239,
-   "points_spent": 20,
+   "points_available": 240,
+   "points_spent": -19,
    "created_at": "2026-09-18T00:02:38+00:00",
    "team_abbrev": "EDM",
    "claimed_slot": {
@@ -45,7 +45,7 @@
    "game_dob": "4/2/2016",
    "activated_at": "2026-09-18T01:15:20+00:00",
    "college_years": 3,
-   "points_reserved": -39
+   "points_reserved": 42
   },
   {
    "first_name": "Wheel",
@@ -76,7 +76,7 @@
    },
    "status": "active",
    "id": "933851e53b534bd984316b612d69acfe",
-   "points_available": 229,
+   "points_available": 230,
    "points_spent": 0,
    "created_at": "2026-09-18T00:57:47+00:00",
    "team_abbrev": "GOU",
@@ -123,7 +123,7 @@
    },
    "status": "active",
    "id": "59c5ae1e543141ce8763bca229395642",
-   "points_available": 181,
+   "points_available": 182,
    "points_spent": 0,
    "created_at": "2026-09-18T01:10:49+00:00",
    "team_abbrev": "GOU",
@@ -162,7 +162,7 @@
    },
    "status": "active",
    "id": "49009b05695349fcaf78bf660550614b",
-   "points_available": 16,
+   "points_available": 17,
    "points_spent": 0,
    "created_at": "2026-09-18T01:20:21+00:00",
    "team_abbrev": "MJW",
@@ -202,6 +202,95 @@
    "league_player_ids": {
     "prep": 53,
     "college": 53
+   }
+  },
+  {
+   "first_name": "Gouda",
+   "last_name": "Kid",
+   "league": "prep",
+   "position": "SF",
+   "height_inches": 74,
+   "dob": "6/6/2033",
+   "hometown": "Gouda, NLD",
+   "jersey_preference": 12,
+   "traits": {
+    "touch": 47,
+    "handle": 55,
+    "vision": 46,
+    "motor": 83,
+    "frame": 68,
+    "explosiveness": 44,
+    "discipline": 77,
+    "confidence": 50,
+    "coachability": 60,
+    "basketball_iq": 61,
+    "height_genes": 66
+   },
+   "ratings": {
+    "InsideScoring": 29,
+    "JumpShot": 28,
+    "FtShot": 23,
+    "3pUsage": 11,
+    "3pShot": 26,
+    "Handling": 27,
+    "Passing": 20,
+    "Quickness": 23,
+    "PostDefense": 19,
+    "PerimeterDefense": 29,
+    "Stealing": 26,
+    "Blocking": 20,
+    "OReb": 27,
+    "DReb": 23,
+    "Jumping": 21,
+    "Strength": 22,
+    "Stamina": 21,
+    "Fouling": 25
+   },
+   "potentials": {
+    "PotInsideScoring": 68,
+    "PotJumpShot": 65,
+    "PotFtShot": 63,
+    "Pot3pShot": 64,
+    "PotHandling": 69,
+    "PotPassing": 51,
+    "PotOReb": 71,
+    "PotDReb": 69,
+    "PotPostDefense": 65,
+    "PotPerimeterDefense": 76,
+    "PotStealing": 65,
+    "PotBlocking": 54
+   },
+   "status": "active",
+   "id": "2087485d68964a908f7baf708acdafd7",
+   "points_available": 1,
+   "points_spent": 0,
+   "points_reserved": 0,
+   "created_at": "2026-09-18T02:36:29+00:00",
+   "team_abbrev": "SAS",
+   "claimed_slot": {
+    "league": "prep",
+    "team": "SAS",
+    "name": "Bret Fenner",
+    "dob": "11/24/2016",
+    "position": "SF",
+    "uniform": 17
+   },
+   "game_dob": "6/6/2033",
+   "activated_at": "2026-09-18T02:36:30+00:00",
+   "level_history": [
+    {
+     "level": "prep",
+     "team_abbrev": "SAS",
+     "player_id": 54,
+     "from_season": 2047,
+     "from_age": null,
+     "to_season": null,
+     "how_it_started": "created",
+     "how_it_ended": null
+    }
+   ],
+   "league_player_ids": {
+    "prep": 54
    }
   }
  ],
@@ -273,9 +362,9 @@
    "delta": 1,
    "kind": "rating",
    "cost": 3,
-   "status": "approved",
+   "status": "applied",
    "requested_at": "2026-09-18T02:09:31+00:00",
-   "applied_at": null,
+   "applied_at": "2026-09-18T02:30:31+00:00",
    "note": ""
   },
   {
@@ -285,9 +374,9 @@
    "delta": -5,
    "kind": "rating",
    "cost": -50,
-   "status": "approved",
+   "status": "applied",
    "requested_at": "2026-09-18T02:13:35+00:00",
-   "applied_at": null,
+   "applied_at": "2026-09-18T02:30:31+00:00",
    "note": ""
   },
   {
@@ -297,9 +386,9 @@
    "delta": 5,
    "kind": "rating",
    "cost": 0,
-   "status": "approved",
+   "status": "applied",
    "requested_at": "2026-09-18T02:13:35+00:00",
-   "applied_at": null,
+   "applied_at": "2026-09-18T02:30:31+00:00",
    "note": ""
   },
   {
@@ -309,9 +398,9 @@
    "delta": 5,
    "kind": "rating",
    "cost": 0,
-   "status": "approved",
+   "status": "applied",
    "requested_at": "2026-09-18T02:13:35+00:00",
-   "applied_at": null,
+   "applied_at": "2026-09-18T02:30:31+00:00",
    "note": ""
   },
   {
@@ -321,9 +410,9 @@
    "delta": 5,
    "kind": "rating",
    "cost": 0,
-   "status": "approved",
+   "status": "applied",
    "requested_at": "2026-09-18T02:13:35+00:00",
-   "applied_at": null,
+   "applied_at": "2026-09-18T02:30:31+00:00",
    "note": ""
   },
   {
@@ -333,9 +422,9 @@
    "delta": 5,
    "kind": "rating",
    "cost": 5,
-   "status": "approved",
+   "status": "applied",
    "requested_at": "2026-09-18T02:14:06+00:00",
-   "applied_at": null,
+   "applied_at": "2026-09-18T02:30:31+00:00",
    "note": ""
   },
   {
@@ -345,9 +434,9 @@
    "delta": 3,
    "kind": "rating",
    "cost": 3,
-   "status": "approved",
+   "status": "applied",
    "requested_at": "2026-09-18T02:14:06+00:00",
-   "applied_at": null,
+   "applied_at": "2026-09-18T02:30:31+00:00",
    "note": ""
   }
  ],
@@ -729,9 +818,73 @@
    "amount": 1,
    "reason": "week simmed",
    "created_at": "2026-09-18T01:40:04+00:00"
+  },
+  {
+   "id": "186a924266c140109669043737d438a2",
+   "character_id": "49009b05695349fcaf78bf660550614b",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:35:42+00:00"
+  },
+  {
+   "id": "a9203c5442ed4d67b509467e103eee80",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:35:42+00:00"
+  },
+  {
+   "id": "1e8623a9ee504a99b22bfed7c1ae3c11",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:35:42+00:00"
+  },
+  {
+   "id": "735ca934e567417dbd27f6bf716492b9",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:35:42+00:00"
+  },
+  {
+   "id": "fbcca0895d8048f8bd387f43bc44e562",
+   "character_id": "2087485d68964a908f7baf708acdafd7",
+   "amount": 1,
+   "reason": "week simmed",
+   "created_at": "2026-09-18T02:40:05+00:00"
   }
  ],
  "runs": [
+  {
+   "ok": true,
+   "leagues": [
+    "prep"
+   ],
+   "days": 10,
+   "dry_run": false,
+   "applied": 0,
+   "activated": 0,
+   "snapshots": 1,
+   "errors": [],
+   "seconds": 201,
+   "at": "2026-09-18T02:40:05+00:00"
+  },
+  {
+   "ok": true,
+   "leagues": [
+    "college",
+    "pro"
+   ],
+   "days": 7,
+   "dry_run": false,
+   "applied": 7,
+   "activated": 0,
+   "snapshots": 4,
+   "errors": [],
+   "seconds": 315,
+   "at": "2026-09-18T02:35:42+00:00"
+  },
   {
    "ok": true,
    "leagues": [
@@ -778,12 +931,228 @@
    "at": "2026-09-18T00:14:13+00:00"
   }
  ],
- "snapshots": [],
+ "snapshots": [
+  {
+   "id": "08e9b7d7d1a34f379f9e55bb2f5e2e13",
+   "character_id": "49009b05695349fcaf78bf660550614b",
+   "season": 2047,
+   "week": 2,
+   "ratings": {
+    "InsideScoring": 39,
+    "JumpShot": 12,
+    "FtShot": 9,
+    "3pUsage": 43,
+    "3pShot": 10,
+    "Handling": 18,
+    "Passing": 8,
+    "Quickness": 11,
+    "PostDefense": 4,
+    "PerimeterDefense": 11,
+    "Stealing": 4,
+    "Blocking": 12,
+    "OReb": 5,
+    "DReb": 37,
+    "Jumping": 4,
+    "Strength": 7,
+    "Stamina": 58,
+    "Fouling": 39
+   },
+   "potentials": {
+    "PotInside": 80,
+    "PotJumpShot": 25,
+    "PotFtShot": 15,
+    "Pot3pShot": 15,
+    "PotHandling": 18,
+    "PotPassing": 14,
+    "PotOReb": 14,
+    "PotDReb": 76,
+    "PotPostDefense": 21,
+    "PotPerimeterDefense": 16,
+    "PotStealing": 23,
+    "PotBlocking": 20
+   },
+   "height_inches": 79,
+   "league": "college",
+   "taken_at": "2026-09-18T02:35:40+00:00"
+  },
+  {
+   "id": "35b6c4ce186f402f87063cb27d508ad2",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "season": 2047,
+   "week": 2,
+   "ratings": {
+    "InsideScoring": 7,
+    "JumpShot": 15,
+    "FtShot": 8,
+    "3pUsage": 40,
+    "3pShot": 14,
+    "Handling": 28,
+    "Passing": 40,
+    "Quickness": 20,
+    "PostDefense": 1,
+    "PerimeterDefense": 15,
+    "Stealing": 16,
+    "Blocking": 1,
+    "OReb": 3,
+    "DReb": 3,
+    "Jumping": 10,
+    "Strength": 4,
+    "Stamina": 50,
+    "Fouling": 37
+   },
+   "potentials": {
+    "PotInside": 7,
+    "PotJumpShot": 66,
+    "PotFtShot": 16,
+    "Pot3pShot": 61,
+    "PotHandling": 78,
+    "PotPassing": 82,
+    "PotOReb": 6,
+    "PotDReb": 11,
+    "PotPostDefense": 7,
+    "PotPerimeterDefense": 17,
+    "PotStealing": 18,
+    "PotBlocking": 4
+   },
+   "height_inches": 68,
+   "league": "pro",
+   "taken_at": "2026-09-18T02:35:41+00:00"
+  },
+  {
+   "id": "20da49a926484c36b7c65681c936124f",
+   "character_id": "933851e53b534bd984316b612d69acfe",
+   "season": 2047,
+   "week": 2,
+   "ratings": {
+    "InsideScoring": 32,
+    "JumpShot": 29,
+    "FtShot": 6,
+    "3pUsage": 15,
+    "3pShot": 6,
+    "Handling": 26,
+    "Passing": 12,
+    "Quickness": 28,
+    "PostDefense": 8,
+    "PerimeterDefense": 19,
+    "Stealing": 7,
+    "Blocking": 4,
+    "OReb": 5,
+    "DReb": 13,
+    "Jumping": 11,
+    "Strength": 5,
+    "Stamina": 56,
+    "Fouling": 60
+   },
+   "potentials": {
+    "PotInside": 74,
+    "PotJumpShot": 70,
+    "PotFtShot": 15,
+    "Pot3pShot": 13,
+    "PotHandling": 62,
+    "PotPassing": 12,
+    "PotOReb": 19,
+    "PotDReb": 13,
+    "PotPostDefense": 19,
+    "PotPerimeterDefense": 19,
+    "PotStealing": 17,
+    "PotBlocking": 18
+   },
+   "height_inches": 80,
+   "league": "pro",
+   "taken_at": "2026-09-18T02:35:41+00:00"
+  },
+  {
+   "id": "3a190da947c14756b8089d5f338b611d",
+   "character_id": "59c5ae1e543141ce8763bca229395642",
+   "season": 2047,
+   "week": 2,
+   "ratings": {
+    "InsideScoring": 5,
+    "JumpShot": 12,
+    "FtShot": 9,
+    "3pUsage": 26,
+    "3pShot": 35,
+    "Handling": 45,
+    "Passing": 42,
+    "Quickness": 40,
+    "PostDefense": 1,
+    "PerimeterDefense": 24,
+    "Stealing": 6,
+    "Blocking": 3,
+    "OReb": 3,
+    "DReb": 3,
+    "Jumping": 10,
+    "Strength": 4,
+    "Stamina": 47,
+    "Fouling": 50
+   },
+   "potentials": {
+    "PotInside": 8,
+    "PotJumpShot": 12,
+    "PotFtShot": 26,
+    "Pot3pShot": 72,
+    "PotHandling": 88,
+    "PotPassing": 85,
+    "PotOReb": 6,
+    "PotDReb": 11,
+    "PotPostDefense": 7,
+    "PotPerimeterDefense": 24,
+    "PotStealing": 19,
+    "PotBlocking": 3
+   },
+   "height_inches": 74,
+   "league": "pro",
+   "taken_at": "2026-09-18T02:35:41+00:00"
+  },
+  {
+   "id": "853a043d7e9e4f1a9840d1c1bd42ef95",
+   "character_id": "2087485d68964a908f7baf708acdafd7",
+   "season": 2047,
+   "week": 3,
+   "ratings": {
+    "InsideScoring": 5,
+    "JumpShot": 28,
+    "FtShot": 23,
+    "3pUsage": 11,
+    "3pShot": 26,
+    "Handling": 27,
+    "Passing": 20,
+    "Quickness": 23,
+    "PostDefense": 19,
+    "PerimeterDefense": 29,
+    "Stealing": 26,
+    "Blocking": 20,
+    "OReb": 27,
+    "DReb": 23,
+    "Jumping": 21,
+    "Strength": 22,
+    "Stamina": 21,
+    "Fouling": 25
+   },
+   "potentials": {
+    "PotInside": 5,
+    "PotJumpShot": 65,
+    "PotFtShot": 63,
+    "Pot3pShot": 64,
+    "PotHandling": 69,
+    "PotPassing": 51,
+    "PotOReb": 71,
+    "PotDReb": 69,
+    "PotPostDefense": 65,
+    "PotPerimeterDefense": 76,
+    "PotStealing": 65,
+    "PotBlocking": 54
+   },
+   "height_inches": 74,
+   "league": "prep",
+   "taken_at": "2026-09-18T02:40:05+00:00"
+  }
+ ],
  "settings": {
   "max_characters": 2,
   "auto_approve": true,
   "current_season": 2047,
-  "current_week": 1,
+  "current_week": 3,
   "points_per_week": 1,
   "offseason_points": 15,
   "college_development_bonus": 12,

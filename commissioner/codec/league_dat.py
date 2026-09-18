@@ -387,6 +387,46 @@ class LeagueDat:
         self._roster_count_add(info, +1)
         self._splice(info["roster_at"] + 2 * info["size"], 0, struct.pack("<h", pl.id))
 
+    def dress(self, pl, take_minutes_from_weakest=True):
+        """Put an already-rostered player in the lineup and on the depth chart.
+
+        A reserve slot is created deliberately unused: floor ratings and no depth-chart minutes.
+        When a character takes one over he inherits that emptiness, so however good his ratings
+        are he starts the season dressed as nobody and never appears in a box score. `sign` does
+        this work for a free agent joining a roster; a character claiming a slot needs the same
+        thing without the roster move.
+
+        Returns True if anything changed.
+        """
+        t = pl.values["Team"]
+        if t < 1:
+            raise CodecError(f"{pl.name} is not on a team")
+        info = self.teams()[t]
+        changed = False
+        if pl.values.get("Inactive") != 0:
+            self.set(pl, "Inactive", 0)
+            changed = True
+
+        lineup = list(struct.unpack_from(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"]))
+        if pl.id not in lineup:
+            if 0 in lineup:
+                lineup[lineup.index(0)] = pl.id
+                changed = True
+            struct.pack_into(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"], *lineup)
+
+        blk = info["depth_at"][pl.values["Position"] - 1]
+        used = [v for v in struct.unpack_from("<80h", self.data, blk + 2) if v]
+        if pl.id not in used and take_minutes_from_weakest and used:
+            weakest = min(set(used), key=used.count)
+            # take half of the least-used player's slots, not all of them: a fourteen year old
+            # earning a rotation spot is the story, replacing somebody outright is not.
+            share = [i for i, v in enumerate(struct.unpack_from("<80h", self.data, blk + 2))
+                     if v == weakest]
+            for i in share[: max(1, len(share) // 2)]:
+                struct.pack_into("<h", self.data, blk + 2 + 2 * i, pl.id)
+            changed = True
+        return changed
+
     def _slots(self, pl):
         """Map every editable field name to its absolute int16 offset for this player."""
         slots = {name: pl.bio_at + 2 * i for i, name in enumerate(BIO_INTS) if not name.startswith("_")}

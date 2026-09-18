@@ -436,3 +436,22 @@ without starting, which is what a fourteen year old should be. The progression m
 Re-measure both of these together after any change to either side: `node tools/progression_model.mjs`
 for the arc, and compare a batch of `deriveCharacter` sheets against the league's own averages for
 the percentile. One without the other is how this was missed.
+
+### Getting a character onto the floor (settled 2026-09-18)
+Three things have to be true or a created character never plays, and the first two are not enough
+on their own:
+
+1. **He has to be dressed and on the depth chart.** A reserve slot is built unused - floor ratings
+   and no depth-chart minutes - so a character taking one over inherits that emptiness. `LeagueDat.
+   dress()` puts him in the lineup and gives him half the least-used player's slots at his position
+   (half, not all: earning a rotation spot is the story). `stamp_character` calls it, and Sim Week
+   re-asserts it every week, because the AI coach rewrites depth charts constantly.
+2. **He must not be the worst man on the roster.** This is the one that actually decides it. The AI
+   benches from the bottom, and writing the depth chart before a sim does not survive the sim if the
+   coach disagrees. See the percentile note above: a median new character now sits 44th percentile
+   of prep instead of 21st.
+3. **He has to be in a league he belongs in.** A fourteen year old stamped into the pro league is
+   benched no matter what, and correctly so.
+
+Proven end to end 2026-09-18: Gouda Kid, created through the real quiz rules, 6th of 15 on the
+Saskatoon Berries, played 18 minutes with 5 rebounds and 0 points in his first simmed week.

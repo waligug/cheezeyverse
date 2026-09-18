@@ -124,6 +124,10 @@ def stamp_character(L, slot, character):
     for field, value in (character.get("potentials") or {}).items():
         if field in POTENTIALS:
             L.set(pl, field, max(0, min(RATING_MAX, int(value))))
+
+    # The slot he just took over was built to be unused. Put him in the lineup and give him a
+    # share of the depth chart, or he is a name on a roster who never plays a minute.
+    L.dress(pl)
     return pl
 
 
