@@ -247,8 +247,26 @@ class FBPB3:
         self.click(SAVE_NAME_OK, wait)
 
     def exit_game(self, save=False):
+        """Close the game. With save=False this cannot fail - closing is the whole job.
+
+        The quit confirmation does not always appear: the game sometimes exits outright, and
+        sometimes the box is already gone by the time we look. This used to raise, which killed
+        run_sim at line 491 - AFTER the week had been simmed, saved and exported, but BEFORE the
+        snapshots, the publish, the weekly points and current_week. A whole week of work thrown
+        away over a dialog that was not needed, at the one point in the pipeline where failing is
+        most expensive. If the box never shows, dismiss whatever is open and end the process.
+
+        With save=True it still raises, because there a missing confirmation means the work was
+        never written and pretending otherwise would lose it.
+        """
         self.click(TOP_EXIT, 2)
-        self.dismiss_message("Fast Break Pro Basketball 3", button="Yes" if save else "No", timeout=15)
+        try:
+            self.dismiss_message("Fast Break Pro Basketball 3",
+                                 button="Yes" if save else "No", timeout=15)
+        except DriverError:
+            if save:
+                raise
+            self.dismiss_all()
         end = time.time() + 30
         while self.is_running() and time.time() < end:
             time.sleep(0.5)
