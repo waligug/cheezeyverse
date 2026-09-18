@@ -271,7 +271,14 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
             # the pool and put anyone it already took back, before anything else is applied.
             if not dry_run:
                 from tools.protect_rosters import protect as _protect
-                guard = _protect(key, store_characters=st.characters())
+                # The guard repairs the roster; it must never be able to stop the week from
+                # running. A sim that skips the repair is recoverable, a sim that refuses to
+                # start because the repair threw is not.
+                try:
+                    guard = _protect(key, store_characters=st.characters())
+                except Exception as exc:
+                    emit("apply", f"roster guard failed for {key} ({exc}); continuing", key)
+                    guard = {}
                 if guard.get("released") or guard.get("signed"):
                     emit("apply", f'AI roster churn undone: {guard["released"]} out, '
                                   f'{guard["signed"]} of ours back in', key)

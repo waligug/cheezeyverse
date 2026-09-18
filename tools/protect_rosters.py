@@ -81,16 +81,39 @@ def protect(key, dry_run=False, store_characters=None):
     unclaimed = [p for p in L.players if (p.name, p.dob) not in keep
                  and _looks_like_ours(p, man, key)]
     if missing and unclaimed and not dry_run:
-        for orphan, original in zip(unclaimed, missing):
+        # One rename at a time, re-finding by name each pass. `rename` splices the file and the
+        # codec re-parses, so every Player object captured before it - including the rest of this
+        # list - points at an offset that has moved. Holding them across a splice is how this
+        # loop renamed the wrong records and then failed to find the name it had just written.
+        restored = 0
+        for original in missing:
+            names = [p.name for p in unclaimed]
+            if not names:
+                break
+            target = names[0]
+            unclaimed = unclaimed[1:]
+            try:
+                orphan = L.find(target)
+            except Exception as exc:
+                print(f"   ! could not re-find orphan {target}: {exc}")
+                continue
             first, _, last = original["name"].partition(" ")
             L.rename(orphan, first, last)
-            back = L.find(original["name"])
+            try:
+                back = L.find(original["name"])
+            except Exception as exc:
+                print(f"   ! renamed {target} but could not re-find it: {exc}")
+                continue
             month, day, year = (int(v) for v in original["dob"].split("/"))
             L.set(back, "BirthMonth", month)
             L.set(back, "BirthDay", day)
             L.set(back, "BirthYear", year)
-            print(f"   orphaned slot {orphan.name} restored to {original['name']}")
-        L.save(backup_dir=BACKUPS)
+            print(f"   orphaned slot {target} restored to {original['name']}")
+            restored += 1
+            unclaimed = [p for p in L.players if (p.name, p.dob) not in keep
+                         and _looks_like_ours(p, man, key)]
+        if not restored:
+            L = LeagueDat(path)
         L = LeagueDat(path)
         keep, man = ours(key)
         for c in store_characters or []:
