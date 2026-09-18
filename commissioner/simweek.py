@@ -164,12 +164,29 @@ def reject(request_id, note=""):
 
 
 # ---- creating a character --------------------------------------------------------------------
+class NameTaken(ValueError):
+    pass
+
+
 def create_character(payload):
-    """Record a character. It gets a reserve slot at the next sim, not immediately."""
+    """Record a character. It gets a reserve slot at the next sim, not immediately.
+
+    Names have to be unique within a league: the codec finds a player by name and birthday, so two
+    characters called the same thing in the same save are indistinguishable - `find` raises
+    "2 players match" and NEITHER of them can ever be upgraded, promoted or retired again.
+    """
     st = store()
     payload = dict(payload)
     payload.setdefault("league", "prep")
     payload.setdefault("status", "pending")
+    wanted = f'{payload.get("first_name", "")} {payload.get("last_name", "")}'.strip().lower()
+    for other in st.characters():
+        if other.get("status") == "retired":
+            continue
+        if other.get("league") != payload["league"]:
+            continue
+        if f'{other.get("first_name", "")} {other.get("last_name", "")}'.strip().lower() == wanted:
+            raise NameTaken(f"{wanted.title()} is already playing in {payload['league']}")
     return st.add_character(payload)
 
 
@@ -209,6 +226,36 @@ def _activate_pending(league_key, L, st, log):
                        {"Height": int(c["height_inches"])}))
         log(f'{c["first_name"]} {c["last_name"]} claimed {slot.team} (was {slot.name})')
     return done, expect
+
+
+def _sync_teams(league_key, L, st, log):
+    """Write back the team FBPB3 says each character is on.
+
+    CPU trades are left on deliberately - the AI moving players around is flavour - so the team a
+    character was placed on is not the team he is on next week. Nothing else updates it, so the
+    site would show a player at a club he left a season ago.
+    """
+    spec = cfg.BY_KEY[league_key]
+    try:
+        ids = sorted(L.teams())
+    except Exception as exc:
+        log(f"could not read teams for {league_key}: {exc}")
+        return 0
+    by_id = {tid: spec.teams[i].abbrev for i, tid in enumerate(ids) if i < len(spec.teams)}
+    moved = 0
+    for c in st.characters(league=league_key):
+        if c.get("status") != "active":
+            continue
+        try:
+            pl = L.find(f'{c["first_name"]} {c["last_name"]}', c.get("game_dob"))
+        except Exception:
+            continue
+        now = by_id.get(pl.values["Team"])
+        if now and now != c.get("team_abbrev") and hasattr(st, "set_character_field"):
+            st.set_character_field(c["id"], "team_abbrev", now)
+            log(f'{c["first_name"]} {c["last_name"]} is on {now} now, not {c.get("team_abbrev")}')
+            moved += 1
+    return moved
 
 
 def _apply_requests(league_key, L, st, log):
@@ -348,6 +395,9 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
             # would hold a stale copy and overwrite the repair on save.
             emit("apply", f"applying pending work to {spec.name}", key)
             L = LeagueDat(path)
+            traded = _sync_teams(key, L, st, lambda m: emit("apply", m, key))
+            if traded:
+                emit("apply", f"{traded} character(s) had been traded since last week", key)
             activated, expect_a = _activate_pending(key, L, st, lambda m: emit("apply", m, key))
             applied, expect_b = _apply_requests(key, L, st, lambda m: emit("apply", m, key))
             if dry_run:

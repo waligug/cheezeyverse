@@ -203,6 +203,35 @@ class NotEnoughPoints(ValueError):
     pass
 
 
+class BadRequest(ValueError):
+    pass
+
+
+# The cost curve, mirroring COST_BANDS in site/js/rules.js. It lives here as well because a price
+# that arrives from a browser is a claim, not a fact: a request carrying cost=-50 minted points and
+# cost=0 bought free upgrades. The client's number is now ignored entirely and this is the price.
+COST_BANDS = ((50, 1), (70, 2), (85, 3), (10 ** 9, 5))
+POTENTIAL_MULTIPLIER = 2
+LOCKED_RATINGS = ("Fouling",)
+
+
+def step_cost(value):
+    for ceiling, price in COST_BANDS:
+        if value < ceiling:
+            return price
+    return COST_BANDS[-1][1]
+
+
+def upgrade_cost(current, delta, kind="rating"):
+    """What it really costs to move `current` up by `delta`, priced step by step."""
+    total = 0
+    value = int(current)
+    for _ in range(int(delta)):
+        total += step_cost(value) * (POTENTIAL_MULTIPLIER if kind == "potential" else 1)
+        value += 1
+    return total
+
+
 def add_request(character_id, rating, delta, kind_="rating", cost=None, note=""):
     """Queue an upgrade, RESERVING its cost immediately.
 
@@ -211,12 +240,25 @@ def add_request(character_id, rating, delta, kind_="rating", cost=None, note="")
     somebody queue ten times what he has and have it all land. Reserved points are returned if
     the request is rejected or cancelled, and become `points_spent` once it is applied.
     """
-    price = int(cost if cost is not None else delta)
+    delta = int(delta)
+    if delta <= 0:
+        raise BadRequest("an upgrade has to be at least +1")
+    if rating in LOCKED_RATINGS:
+        raise BadRequest(f"{rating} cannot be spent on")
     with _LOCK:
         d = _read()
         character = next((c for c in d["characters"] if c["id"] == character_id), None)
         if character is None:
             raise KeyError(character_id)
+
+        # Price it here, from his real ratings plus whatever is already queued for the same
+        # rating, and ignore whatever `cost` the caller passed.
+        current = int((character.get("ratings") or {}).get(rating, 0))
+        for queued in d["requests"]:
+            if (queued["character_id"] == character_id and queued["rating"] == rating
+                    and queued["status"] in ("pending", "approved")):
+                current += int(queued["delta"])
+        price = upgrade_cost(current, delta, kind_)
         available = int(character.get("points_available", 0))
         if price > available:
             raise NotEnoughPoints(

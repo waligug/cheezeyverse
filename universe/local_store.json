@@ -30,7 +30,7 @@
    },
    "status": "active",
    "id": "b5beefeb5585408db065c99f74c53597",
-   "points_available": 197,
+   "points_available": 239,
    "points_spent": 20,
    "created_at": "2026-09-18T00:02:38+00:00",
    "team_abbrev": "EDM",
@@ -45,7 +45,7 @@
    "game_dob": "4/2/2016",
    "activated_at": "2026-09-18T01:15:20+00:00",
    "college_years": 3,
-   "points_reserved": 3
+   "points_reserved": -39
   },
   {
    "first_name": "Wheel",
@@ -275,6 +275,78 @@
    "cost": 3,
    "status": "approved",
    "requested_at": "2026-09-18T02:09:31+00:00",
+   "applied_at": null,
+   "note": ""
+  },
+  {
+   "id": "0ef8070304df4e829eea1b54d6c43447",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": -5,
+   "kind": "rating",
+   "cost": -50,
+   "status": "approved",
+   "requested_at": "2026-09-18T02:13:35+00:00",
+   "applied_at": null,
+   "note": ""
+  },
+  {
+   "id": "73e6f886a47d4ff49504975c3913ff23",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Passing",
+   "delta": 5,
+   "kind": "rating",
+   "cost": 0,
+   "status": "approved",
+   "requested_at": "2026-09-18T02:13:35+00:00",
+   "applied_at": null,
+   "note": ""
+  },
+  {
+   "id": "d416d2b20e5743e1adb71757a3ec65d3",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Passing",
+   "delta": 5,
+   "kind": "rating",
+   "cost": 0,
+   "status": "approved",
+   "requested_at": "2026-09-18T02:13:35+00:00",
+   "applied_at": null,
+   "note": ""
+  },
+  {
+   "id": "a9d6a004ff304c14bc1c8e13d809146b",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Passing",
+   "delta": 5,
+   "kind": "rating",
+   "cost": 0,
+   "status": "approved",
+   "requested_at": "2026-09-18T02:13:35+00:00",
+   "applied_at": null,
+   "note": ""
+  },
+  {
+   "id": "82e1ecd03eb749548e71e283c9d59048",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": 5,
+   "kind": "rating",
+   "cost": 5,
+   "status": "approved",
+   "requested_at": "2026-09-18T02:14:06+00:00",
+   "applied_at": null,
+   "note": ""
+  },
+  {
+   "id": "5b80adc666cb4424b9b5bf84da4ee755",
+   "character_id": "b5beefeb5585408db065c99f74c53597",
+   "rating": "Handling",
+   "delta": 3,
+   "kind": "rating",
+   "cost": 3,
+   "status": "approved",
+   "requested_at": "2026-09-18T02:14:06+00:00",
    "applied_at": null,
    "note": ""
   }

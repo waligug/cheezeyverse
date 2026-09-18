@@ -95,6 +95,17 @@ def stamp_character(L, slot, character):
     `character` needs: first_name, last_name, ratings {name: value}, potentials {name: value},
     dob "M/D/YYYY", height_inches, position. Returns the player record.
     """
+    # A character with no ratings would be stamped over the reserve row and silently keep ITS
+    # floor ratings - 3 to 12 across the board, an unplayable player nobody would notice until
+    # he had been on a roster for a season. Refuse instead.
+    given = {f: v for f, v in (character.get("ratings") or {}).items() if f in RATINGS}
+    if not given:
+        raise ApplyError(
+            f'{character.get("first_name")} {character.get("last_name")} has no ratings; '
+            "stamping him would leave the reserve row's floor ratings in place")
+    if not character.get("position"):
+        raise ApplyError(f'{character.get("first_name")} {character.get("last_name")} has no position')
+
     pl = L.find(slot.name, slot.dob)
     L.rename(pl, character["first_name"], character["last_name"])
     pl = L.find(f'{character["first_name"]} {character["last_name"]}', slot.dob)
