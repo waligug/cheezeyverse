@@ -17,7 +17,7 @@ just happen to share a machine today. Almost all of this is copying files.
 | The three saves | Copy the folder | `C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3\leaguedata\` |
 | `.env` | Copy by hand | Gitignored on purpose. Holds the Supabase **service_role** key |
 | Python packages | `pip install -r requirements.txt` | |
-| GitHub access | `gh auth login`, once | So the server can publish the site |
+| GitHub access | install `gh`, then `gh auth login` **and** `gh auth setup-git` | So the server can publish the site |
 
 Nothing in Supabase moves. It is already remote, and both machines talk to the same project.
 
@@ -83,6 +83,22 @@ C:\claude\hoops-universe\.env
 Copy `leaguedata` while **FBPB3 is closed on both machines**. The game holds `league.dat` in
 memory and writes it back on exit, so copying a save out from under a running copy gets you a
 file that is half one state and half another.
+
+### GitHub, with the two steps people miss
+
+`gh` is not on a fresh Windows box, and `winget install GitHub.cli` wants administrator. If the
+account is not an admin, the portable zip works and needs no elevation: unpack it to
+`%LOCALAPPDATA%\Programs\GitHubCLIin` and add that folder to the user PATH.
+
+```
+gh auth login            # device code; you complete it in a browser
+gh auth setup-git        # makes git itself use that login
+```
+
+The second one matters. `gh auth login` run without a terminal skips the "authenticate Git with
+your GitHub credentials?" prompt, and without `setup-git` the plain `git push` inside
+`publish.py` does not necessarily use the login you just did - the site then fails to publish at
+the end of a Sim Week, after all the work.
 
 Then check the machine can actually do the job:
 

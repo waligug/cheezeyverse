@@ -108,17 +108,15 @@ def protect(key, dry_run=False, store_characters=None):
             except Exception as exc:
                 print(f"   ! could not re-find orphan {target}: {exc}")
                 continue
-            first, _, last = original["name"].partition(" ")
-            L.rename(orphan, first, last)
             try:
-                back = L.find(original["name"])
+                # Name, birthday AND floor ratings. This used to restore only the first two,
+                # so the recycled slot kept the departed character's ratings and became a
+                # fully developed player masquerading as dormant filler - taking rotation
+                # minutes from real characters, one more of them after every departure.
+                ch.reset_reserve(L, orphan, original)
             except Exception as exc:
                 print(f"   ! renamed {target} but could not re-find it: {exc}")
                 continue
-            month, day, year = (int(v) for v in original["dob"].split("/"))
-            L.set(back, "BirthMonth", month)
-            L.set(back, "BirthDay", day)
-            L.set(back, "BirthYear", year)
             print(f"   orphaned slot {target} restored to {original['name']}")
             restored += 1
             unclaimed = [p for p in L.players if (p.name, p.dob) not in keep

@@ -176,6 +176,53 @@ def stamp_character(L, slot, character):
     return pl
 
 
+# A dormant reserve is deliberately terrible so the AI coach gives it no minutes. These are the
+# bands commissioner/universe/generate.py used to create them (RESERVE_RATINGS,
+# RESERVE_POTENTIALS); they are repeated rather than imported because generate.py builds CSVs
+# for the New Game wizard and importing it here would drag the whole universe builder into
+# every codec call.
+RESERVE_RATINGS = (3, 12)
+RESERVE_POTENTIALS = (10, 25)
+
+# Tendencies and stamina are habits, not ability. Floor-rating them makes a filler behave
+# strangely rather than merely badly, so generate.py left them alone and so does this.
+NOT_ABILITY = ("3pUsage", "Fouling", "Stamina")
+
+
+def reset_reserve(L, pl, original):
+    """Put a vacated reserve slot back to dormant: its name, its birthday, and its floor ratings.
+
+    Handing the slot its identity back is only half the job. A character who leaves - promoted,
+    retired, or deleted - leaves his RATINGS behind on the row, so without this the recycled
+    filler is a fully developed copy of him. He then takes rotation minutes from real characters,
+    and every departure adds another one. Over a few seasons every vacated slot in all three
+    leagues is a ghost of whoever used to hold it.
+
+    Two places hand a slot back - offseason.refill and tools/protect_rosters - and only one of
+    them scrubbed. Same scrub, called from both, seeded off the slot's own identity so the result
+    is deterministic and a slot recycled twice looks the same both times.
+    """
+    import random
+
+    first, _, last = original["name"].partition(" ")
+    L.rename(pl, first, last)
+    pl = L.find(original["name"])
+
+    month, day, year = (int(v) for v in codec_dob(original["dob"]).split("/"))
+    L.set(pl, "BirthMonth", month)
+    L.set(pl, "BirthDay", day)
+    L.set(pl, "BirthYear", year)
+
+    rng = random.Random(f'{original["name"]}|{original["dob"]}')
+    for field in RATINGS:
+        if field in NOT_ABILITY:
+            continue
+        L.set(pl, field, rng.randint(*RESERVE_RATINGS))
+    for field in POTENTIALS:
+        L.set(pl, field, rng.randint(*RESERVE_POTENTIALS))
+    return pl
+
+
 def apply_deltas(L, name, dob, deltas):
     """Add `deltas` ({field: +n}) to what the save currently holds. Returns {field: (was, now)}.
 

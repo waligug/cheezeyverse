@@ -102,11 +102,16 @@ def main():
     r = subprocess.run(["git", "remote", "get-url", "origin"], cwd=ROOT,
                        capture_output=True, text=True)
     check("git remote set", r.returncode == 0, r.stdout.strip())
-    r = subprocess.run(["git", "ls-remote", "--heads", "origin"], cwd=ROOT,
-                       capture_output=True, text=True, timeout=60)
-    check("can reach GitHub", r.returncode == 0,
-          "push access confirmed" if r.returncode == 0 else r.stderr.strip()[:80],
-          "run: gh auth login")
+    # `git ls-remote` succeeds ANONYMOUSLY on a public repo, so it reported "push access
+    # confirmed" on a machine where gh was not even installed yet. A read test cannot prove a
+    # write. --dry-run contacts receive-pack, which requires real credentials, and sends nothing.
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
+    r = subprocess.run(["git", "push", "--dry-run", "origin", "HEAD:refs/heads/cv-auth-probe"],
+                       cwd=ROOT, capture_output=True, text=True, timeout=90, env=env)
+    check("can PUSH to GitHub", r.returncode == 0,
+          "credentials work (dry run, nothing was sent)" if r.returncode == 0
+          else (r.stderr.strip().splitlines() or [""])[-1][:90],
+          "install gh, then: gh auth login && gh auth setup-git")
 
     # ---- the one that actually matters ----------------------------------------------------
     section("The desktop (this is the one that breaks)")

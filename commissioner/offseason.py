@@ -441,20 +441,7 @@ def refill(league_key, character, log=print):
         log(f"   ! {slot.get('name')} is not in the manifest; slot left as is")
         return False
 
-    first, _, last = original["name"].partition(" ")
-    L.rename(pl, first, last)
-    pl = L.find(original["name"])
-    month, day, year = (int(v) for v in original["dob"].split("/"))
-    L.set(pl, "BirthMonth", month)
-    L.set(pl, "BirthDay", day)
-    L.set(pl, "BirthYear", year)
-    rng = random.Random(f'{original["name"]}|{original["dob"]}')
-    for field in RATINGS:
-        if field in ("3pUsage", "Fouling", "Stamina"):
-            continue
-        L.set(pl, field, rng.randint(3, 12))
-    for field in POTENTIALS:
-        L.set(pl, field, rng.randint(10, 25))
+    ch.reset_reserve(L, pl, original)
     L.save(backup_dir=BACKUPS)
     log(f'   slot {original["name"]} is free again in {league_key}')
     return True
