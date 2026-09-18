@@ -225,10 +225,11 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
                 if guard.get("released") or guard.get("signed"):
                     emit("apply", f'AI roster churn undone: {guard["released"]} out, '
                                   f'{guard["signed"]} of ours back in', key)
-                L = LeagueDat(path)
 
+            # Opened AFTER the guard, which writes the file itself - an object opened before it
+            # would hold a stale copy and overwrite the repair on save.
             emit("apply", f"applying pending work to {spec.name}", key)
-            L = locals().get("L") or LeagueDat(path)
+            L = LeagueDat(path)
             activated, expect_a = _activate_pending(key, L, st, lambda m: emit("apply", m, key))
             applied, expect_b = _apply_requests(key, L, st, lambda m: emit("apply", m, key))
             if dry_run:
