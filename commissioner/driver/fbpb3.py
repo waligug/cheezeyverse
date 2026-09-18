@@ -130,6 +130,29 @@ class FBPB3:
         finally:
             win32gui.SetWindowPos(hwnd, win32con.HWND_NOTOPMOST, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
 
+    # How many rows of the Load Career grid this driver can click without scrolling.
+    LOAD_ROWS_VISIBLE = 12
+
+    def _dismiss_affirmative(self):
+        """Answer a dialog with OK or Yes if it has one, and report what it said.
+
+        Affirmative only, and only while an operation we want to COMPLETE is in flight.
+        dismiss_all presses the first of OK / No / Cancel, which is right for tearing down
+        leftovers and wrong here: No and Cancel are how you abort the very export being waited
+        on. Returns the dialog's text, or None.
+
+        The text is returned rather than discarded so the caller can say what it answered. This
+        is the only place the driver presses an affirmative button on a dialog it has not
+        identified by title, and CONVENTIONS records no Yes/No prompt during HTML Output at all
+        - so whatever this answers is worth knowing about.
+        """
+        for label in ("OK", "Yes"):
+            try:
+                return self.dismiss_message(button=label, timeout=1)
+            except DriverError:
+                continue
+        return None
+
     def combo(self, rel, value, timeout=20):
         """Set a dropdown by window-relative position and PROVE it took. Returns the value.
 
@@ -175,13 +198,23 @@ class FBPB3:
         end = time.time() + timeout
         while time.time() < end:
             for w in self.app.windows(class_name="#32770", visible_only=True):
-                if title and w.window_text() != title:
+                # Everything that touches the window goes inside the guard. Reading the caption
+                # and the body happened OUTSIDE it, and message boxes are transient - the game
+                # closes its own, and a person may click one - so a handle going stale here
+                # raised a raw pywinauto error straight past every `except DriverError`. The
+                # export loop calls this about twice a second for up to fifteen minutes, so it
+                # is a race that gets hundreds of chances per run.
+                try:
+                    if title and w.window_text() != title:
+                        continue
+                    dlg = self.app.window(handle=w.handle)
+                    text = " ".join(c.window_text() for c in dlg.children()
+                                    if c.class_name() == "Static")
+                except Exception:
                     continue
-                dlg = self.app.window(handle=w.handle)
-                text = " ".join(c.window_text() for c in dlg.children() if c.class_name() == "Static")
                 try:
                     dlg.child_window(title_re=f"&?{button}", class_name="Button").click()
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - see below
                     # A Yes/No confirmation or an Abort/Retry/Ignore box has no OK, and
                     # pywinauto raises ElementNotFoundError - which is NOT a DriverError, so
                     # every `except DriverError` wrapped around this call was a hole that let
@@ -246,8 +279,19 @@ class FBPB3:
         try:
             frac, serial = struct.unpack_from("<2d", info.read_bytes(), 0)
         except (OSError, struct.error):
-            return 0.0
-        return serial + frac
+            # None, not 0.0. A read failure is NOT "very old": returning a timestamp for a file
+            # that could not be read sorts that save to the bottom while the game's own list
+            # still shows it in its real place, and every row below it shifts by one - so
+            # load_save asks for CV_Pro and clicks CV_Prep. Silent, and precisely the wrong-save
+            # load this ordering exists to get right. The file is readable in the normal case
+            # and unreadable mainly when the running game holds it, which is exactly when this
+            # is called.
+            return None
+        value = serial + frac
+        # NaN would defeat every comparison below it: sorted() would emit an arbitrary
+        # permutation without raising, and NaN != NaN means two identically corrupt saves would
+        # not even register as tied.
+        return None if value != value else value
 
     def save_rows(self):
         """Save names in the order the Load Career list shows them: newest game-save first.
@@ -263,19 +307,46 @@ class FBPB3:
         but not impossible during a three-league Sim Week. Better to stop and say so than to pick
         one.
         """
-        saves = [d for d in (DOCS / "leaguedata").iterdir() if (d / "league.dat").exists()]
-        times = {}
-        for d in saves:
-            times.setdefault(self.save_time(d), []).append(d.name)
-        tied = {t: names for t, names in times.items() if len(names) > 1}
-        if tied:
-            groups = "; ".join(", ".join(sorted(n)) for n in tied.values())
-            raise DriverError(
-                f"these saves report the same save time, so the load list order is ambiguous: "
-                f"{groups}. Open one in the game and save it, or remove the duplicate, before "
-                "loading by name.")
-        saves.sort(key=self.save_time, reverse=True)
-        return [d.name for d in saves]
+        rows, unreadable = [], []
+        for d in (DOCS / "leaguedata").iterdir():
+            if not (d / "league.dat").exists():
+                continue
+            t = self.save_time(d)
+            (unreadable if t is None else rows).append((t, d.name))
+        # An unreadable save cannot be placed, and guessing a position for it shifts every row
+        # after it. Report it and put it last, so load_save can refuse for the right reason.
+        rows.sort(key=lambda r: r[0], reverse=True)
+        self._unreadable_saves = [n for _, n in unreadable]
+        return [n for _, n in rows] + self._unreadable_saves
+
+    def ambiguous_saves(self):
+        """Save names whose row in the load list cannot be trusted, and why.
+
+        Two saves reporting the same time sort arbitrarily against each other. Copying a save
+        folder copies saveinfo.dat with it, so a clone ties with its original immediately - and
+        a save whose saveinfo.dat could not be read has no position at all.
+
+        This REPORTS rather than refuses, because equal keys sort adjacently: a tie between two
+        other saves cannot move a third save's row. The earlier version raised from save_rows
+        for any tie anywhere, which failed every caller over an ambiguity that did not concern
+        them - including the codec's own test copy, which CONVENTIONS requires to exist. Worse,
+        run_sim calls this AFTER committing point spends and marking them applied, so a refusal
+        there charged people for upgrades and then simmed nothing.
+        """
+        times, bad = {}, {}
+        for d in (DOCS / "leaguedata").iterdir():
+            if not (d / "league.dat").exists():
+                continue
+            t = self.save_time(d)
+            if t is None:
+                bad[d.name] = "its saveinfo.dat could not be read"
+                continue
+            times.setdefault(t, []).append(d.name)
+        for names in times.values():
+            if len(names) > 1:
+                for n in names:
+                    bad[n] = f"it reports the same save time as {', '.join(sorted(set(names) - {n}))}"
+        return bad
 
     def load_save_row(self, row, wait=20):
         """Load the save at list row `row` (0-based) on the Load Saved Game screen.
@@ -296,7 +367,21 @@ class FBPB3:
         rows = self.save_rows()
         if name not in rows:
             raise DriverError(f"no save named {name!r} (have {rows})")
-        self.load_save_row(rows.index(name), wait)
+        # Only the requested save's own ambiguity matters. Everything else in the folder can be
+        # as duplicated as it likes without moving this row.
+        why = self.ambiguous_saves().get(name)
+        if why:
+            raise DriverError(
+                f"refusing to load {name!r}: {why}, so its position in the load list is a guess. "
+                "Open it in the game and save it, or remove the duplicate.")
+        row = rows.index(name)
+        if row >= self.LOAD_ROWS_VISIBLE:
+            # The grid scrolls, and a VB6 grid keeps its previous selection when a click lands on
+            # blank space - so LOAD would load whatever was selected before, silently.
+            raise DriverError(
+                f"{name!r} is row {row} of the load list, past the {self.LOAD_ROWS_VISIBLE} rows "
+                "this driver can click without scrolling. Remove some old saves from leaguedata.")
+        self.load_save_row(row, wait)
 
     def sim_days(self, n=1, per_day_wait=8):
         self.click(NAV_HOT_SEAT, 3)
@@ -497,37 +582,54 @@ class FBPB3:
         self.click(self.HTML_OUTPUT_BTN, 3)
         end = time.time() + timeout
         index = out / "index.htm"
+        answered = []
         while time.time() < end:
-            # ONLY affirmative buttons while an export is in flight. The obvious-looking
-            # improvement here is dismiss_all(), which tries OK then "&No" then "Cancel" - and
-            # that is actively wrong in this loop, because FBPB3 asks a Yes/No question during
-            # the export and dismiss_all answers No, cancelling the thing we are waiting for.
-            # A smoke test caught it doing exactly that: the export then never produced a page
-            # and timed out after 420 seconds.
-            #
-            # So: click OK or Yes if either is there, and leave anything else alone. A dialog
-            # we cannot answer affirmatively is reported by the timeout below rather than
-            # dismissed into a cancelled export.
-            for label in ("OK", "Yes"):
-                try:
-                    self.dismiss_message(button=label, timeout=1)
-                    break
-                except DriverError:
-                    continue
+            # Affirmative buttons only: No and Cancel are how you abort the export being
+            # waited on. Whatever it answers is remembered, because the timeout below is
+            # otherwise unable to tell "the export was slow" from "a box was in the way" - and
+            # a box that blocked for ten minutes and was then cleared leaves nothing to see.
+            said = self._dismiss_affirmative()
+            if said:
+                answered.append(said.strip()[:120])
+            # A dead game looks exactly like a slow export to a loop that only watches for a
+            # file. FBPB3 has crashed mid-run before.
+            if not self.is_running():
+                raise DriverError(
+                    f"FBPB3 stopped while exporting {save_name}"
+                    + (f"; it had said: {answered}" if answered else ""))
             if index.exists() and index.stat().st_mtime > before:
                 time.sleep(5)  # the per-player pages keep landing after index.htm does
-                self.dismiss_all()
+                # NOT dismiss_all here. It clicks the first of OK / No / Cancel that exists, and
+                # by the comment five lines up the export is still writing per-player pages - so
+                # answering No or Cancel to a question asked mid-export truncates the site and
+                # this path RETURNS SUCCESS, which is worse than the loop failing loudly. Same
+                # affirmative-only policy as the wait loop.
+                self._dismiss_affirmative()
                 self.click(self.HTML_EXIT, 2)
                 return out
-        # Name the dialog if one is sitting there. "It was slow" and "a box was blocking it"
-        # are very different problems and the timeout alone cannot tell them apart.
+        # Say what was on screen, and what was answered along the way. A caption alone is
+        # useless here - FBPB3 titles its own boxes "Fast Break Pro Basketball 3", so an
+        # overwrite prompt, a disk error and a quit confirmation all look identical - so the
+        # body text collected while waiting is the part worth keeping.
         blocking = []
         try:
             for w in self.app.windows(class_name="#32770", visible_only=True):
-                blocking.append(w.window_text())
+                dlg = self.app.window(handle=w.handle)
+                body = " ".join(c.window_text() for c in dlg.children()
+                                if c.class_name() == "Static")
+                blocking.append(body.strip()[:120] or w.window_text())
+        except Exception:
+            pass
+        # Back out before raising, for the same reason the combo failure above does: a modal
+        # left open swallows the caller's exit_game clicks and costs another 45 seconds before
+        # it gives up and kills the process.
+        self.dismiss_all()
+        try:
+            self.main.type_keys("{ESC}", set_foreground=True)
         except Exception:
             pass
         extra = f"; a dialog is open: {blocking}" if blocking else ""
+        extra += f"; answered along the way: {answered}" if answered else ""
         raise DriverError(f"HTML output did not appear under {out} within {timeout}s{extra}")
 
     def dismiss_all(self):

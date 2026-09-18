@@ -482,6 +482,13 @@ What we know, from reading strings in FBPB3.exe and from testing on a throwaway 
   there - so the export may have run with the setting unchanged and the experiment proved
   nothing. The driver verifies now (`FBPB3.combo`), so repeating it would settle it; nobody has.
   The stronger evidence is simply that no `.box` files exist for it to convert.
+
+- **Those dropdowns have THREE options, not two**: `No`, `Yes`, `Human Coaches Only`.
+  Read off the real dialog, not inferred. The third value matters here rather than being
+  trivia: the standing hypothesis below is that FBPB3 only records games involving a
+  human-coached team, and `Human Coaches Only` sits on these very controls. The driver
+  cannot reach it yet - `html_output` maps its flags through `{True: "Yes", False: "No"}`,
+  so the parameter whose whole purpose is testing this question cannot express the answer.
 - It is **not** a League Option, as far as the form's controls show: Randomization, Attributes,
   Autosave, Staff, Finances, Historical Mods, Scouting, Fictional History, Draft Trade, 60 Day
   Rule and Rating Style. `FBPB3help.htm` does not mention storing box scores anywhere.
