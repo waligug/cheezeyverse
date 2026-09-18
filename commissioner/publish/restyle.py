@@ -153,6 +153,10 @@ a.linkmain {{ color: {link} !important; font-weight: 600 !important; }}
 a.linkhuman {{ color: {human} !important; font-weight: 700 !important; }}
 a:hover {{ text-decoration: underline !important; }}
 
+/* Dropping the missing player photos leaves the cell that held them behind; an empty cell with a
+   team-coloured background reads as a rendering fault. */
+td:empty {{ background: transparent !important; padding: 0 !important; }}
+
 /* team pages keep their own team colour on the big banner, but the chrome matches the league */
 td.teamheader {{ color: #FFF8E6 !important; letter-spacing: -.5px !important; }}
 td.teamheader2 {{ color: #FFF8E6 !important; }}
@@ -189,6 +193,21 @@ def _inject_link(html, prefix):
     if re.search(r"<html[^>]*>", html, re.I):
         return re.sub(r"(<html[^>]*>)", r"\1" + link, html, count=1, flags=re.I)
     return link + html
+
+
+# FBPB3 writes the player photo as src="<images>/<Picname>" and our generated players have no
+# Picname, so 352 pages per league carried an <img> pointing at the images DIRECTORY. Browsers
+# render that as a broken-image box. There is no photo to supply, so the tag goes.
+_EMPTY_IMG = re.compile(r"<img[^>]*src=[\"']?[^\"'\s>]*/[\"']?[\s>][^>]*>", re.I)
+
+
+def _drop_empty_images(html):
+    def keep(m):
+        tag = m.group(0)
+        src = re.search(r"src=[\"']?([^\"'\s>]*)", tag, re.I)
+        value = src.group(1) if src else ""
+        return "" if (not value or value.endswith("/")) else tag
+    return re.sub(r"<img[^>]*>", keep, html, flags=re.I)
 
 
 def _nav_bar(league, season, prefix, current):
@@ -246,6 +265,7 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True):
         name = rel.name.lower()
         if name == "index.htm":
             html = _skin_index(html, league, season)
+        html = _drop_empty_images(html)
         html = _inject_link(html, prefix)
         if name == "menu.htm":
             html = _skin_menu(html, league, season)
