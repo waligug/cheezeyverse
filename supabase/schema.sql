@@ -627,12 +627,19 @@ end;
 $fn$;
 
 -- Give every live character in a league its weekly point. Returns how many were paid.
-create or replace function public.grant_week_points(p_league text default null, p_reason text default 'week simmed')
+-- p_per is the resolved level rate, worked out by commissioner/points.py: prep pays 1 a week,
+-- college 2, the pros 3, because the cost curve charges 1/2/3 a step in the rating bands those
+-- levels sit in. It is passed in rather than recomputed here on purpose. The price curve IS
+-- duplicated in this file, because players submit upgrade requests and the browser must not be
+-- able to name its own price; weekly income is only ever granted by the commissioner under the
+-- service key, so a second implementation would buy nothing and could drift.
+-- Left null it falls back to points_per_week, so an older caller keeps the old behaviour.
+create or replace function public.grant_week_points(p_league text default null, p_reason text default 'week simmed', p_per int default null)
 returns int
 language plpgsql security definer set search_path = public as $fn$
 declare n int := 0; c record; per int;
 begin
-  per := public.cv_setting_int('points_per_week', 1);
+  per := coalesce(p_per, public.cv_setting_int('points_per_week', 1));
   for c in select id from public.characters
             where status in ('active','declared')
               and (p_league is null or league = p_league)
@@ -932,12 +939,12 @@ grant  update (display_name) on public.profiles to authenticated;
 -- Function grants
 -- -------------------------------------------------------------------------------------
 revoke all on function public.grant_points(uuid, int, text)                      from public, anon, authenticated;
-revoke all on function public.grant_week_points(text, text)                      from public, anon, authenticated;
+revoke all on function public.grant_week_points(text, text, int)                 from public, anon, authenticated;
 revoke all on function public.apply_upgrade_requests(uuid[])                     from public, anon, authenticated;
 revoke all on function public.activate_character(uuid, text, text, jsonb, date)  from public, anon, authenticated;
 
 grant execute on function public.grant_points(uuid, int, text)                     to service_role;
-grant execute on function public.grant_week_points(text, text)                     to service_role;
+grant execute on function public.grant_week_points(text, text, int)                to service_role;
 grant execute on function public.apply_upgrade_requests(uuid[])                    to service_role;
 grant execute on function public.activate_character(uuid, text, text, jsonb, date) to service_role;
 
@@ -959,7 +966,10 @@ commit;
 insert into public.settings (key, value) values
   ('max_characters',  '2'::jsonb),      -- live (non-retired) characters per Discord account
   ('starting_points', '20'::jsonb),     -- points a brand new 14 year old gets to spend
-  ('points_per_week', '1'::jsonb),      -- points granted per simmed in-game week
+  ('points_per_week', '1'::jsonb),      -- points granted per simmed in-game week (fallback)
+  ('points_per_week_prep', '1'::jsonb),     -- income scales with level, because the cost curve
+  ('points_per_week_college', '2'::jsonb),  -- does: 1/2/3 a step in the bands each level sits
+  ('points_per_week_pro', '3'::jsonb),      -- in. A flat rate halves a season on every promotion
   ('auto_approve',    'false'::jsonb),  -- true = upgrade requests skip the commissioner's queue
   ('current_season',  '2026'::jsonb),   -- must match START_YEAR in commissioner/universe/config.py
   ('current_week',    '0'::jsonb)

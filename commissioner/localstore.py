@@ -13,6 +13,8 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+
+from . import points
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -26,6 +28,12 @@ DEFAULTS = {
     "current_season": 2026,
     "current_week": 0,
     "points_per_week": 1,
+    # Income scales with level because the cost curve does: a step costs 1 under 50, 2 from
+    # 50-69 and 3 from 70-84, and characters sit in those bands at prep, college and pro. A
+    # flat rate means every promotion quietly halves what a season buys. See points.py.
+    "points_per_week_prep": 1,
+    "points_per_week_college": 2,
+    "points_per_week_pro": 3,
     # A season is about 26 in-game weeks, so this is roughly half a season on top,
     # paid at the rollover. It is what stops a young character feeling becalmed.
     "offseason_points": 15,
@@ -365,10 +373,17 @@ def grant_points(character_id, amount, reason="week simmed"):
 
 
 def grant_week_points(league=None, weeks=1, reason="week simmed"):
-    per = get_settings().get("points_per_week", 1)
+    """The weekly payout, at the rate this level pays. Mirrors the Supabase path exactly.
+
+    The rate comes from `points.per_week` rather than being read here, so the two stores cannot
+    drift: test_store_parity checks the signatures match, not the arithmetic behind them, and a
+    flat rate here against a level rate there would pay different amounts with nothing failing.
+    """
+    per = points.per_week(league, get_settings())
+    line = points.reason(league, per, reason)
     granted = 0
     for c in characters(league=league, status="active"):
-        grant_points(c["id"], per * weeks, reason)
+        grant_points(c["id"], per * weeks, line)
         granted += 1
     return granted
 

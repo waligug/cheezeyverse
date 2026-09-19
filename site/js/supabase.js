@@ -180,10 +180,29 @@ const SETTING_DEFAULTS = {
   max_characters: 2,
   starting_points: 20,
   points_per_week: 1,
+  // Income scales with level because the cost curve does: a step costs 1 under 50, 2 from
+  // 50-69, 3 from 70-84, and characters sit in those bands at prep, college and pro. Without
+  // per-level rates a promotion quietly halves what a season buys. See commissioner/points.py,
+  // which is where the rule actually lives; these are only for display.
+  points_per_week_prep: 1,
+  points_per_week_college: 2,
+  points_per_week_pro: 3,
   auto_approve: false,
   current_season: 2026,
   current_week: 0,
 };
+
+/** Points a simmed week is worth at `league`, falling back to the flat rate. Mirrors
+ *  commissioner/points.py per_week(); display only, since only the commissioner grants them. */
+export function pointsPerWeek(settings, league) {
+  const s = settings || {};
+  for (const key of [league ? `points_per_week_${league}` : null, 'points_per_week']) {
+    if (!key || s[key] === undefined || s[key] === null) continue;
+    const n = Number(s[key]);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return 1;
+}
 
 let _settings = null;
 

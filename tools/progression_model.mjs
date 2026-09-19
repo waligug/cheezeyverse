@@ -1,5 +1,5 @@
 /**
- * What eight seasons of points actually buy.
+ * What a whole career of points actually buys.
  *
  *   cd site/js && node ../../tools/progression_model.mjs
  *
@@ -17,12 +17,19 @@ const CORE = ['JumpShot','3pShot','Handling','Passing','PerimeterDefense','Quick
 
 let r = Object.fromEntries(CORE.map(k => [k, d.ratings[k]]));
 const cap = Object.fromEntries(CORE.map(k => [k, R.ratingCeiling(k, d.potentials, d.traits)]));
-const PER_SEASON = 26 + 15;   // weeks + offseason lump
+// Income scales with level, because the cost curve does - see commissioner/points.py. A season
+// is about 26 in-game weeks, plus the flat offseason lump, which does NOT scale.
+const PER_WEEK = { prep: 1, college: 2, pro: 3 };
+const OFFSEASON = 15;
+const levelOf = (season) => (season <= 4 ? 'prep' : season <= 8 ? 'college' : 'pro');
+const seasonBudget = (level) => 26 * PER_WEEK[level] + OFFSEASON;
 console.log(`start: ${CORE.map(k => `${k} ${r[k]}`).join(', ')}`);
 console.log(`ceilings: ${CORE.map(k => `${cap[k]}`).join(', ')}`);
 let total = 0;
-for (let season = 1; season <= 8; season++) {
-  let budget = PER_SEASON; total += PER_SEASON;
+for (let season = 1; season <= 12; season++) {
+  const level = levelOf(season);
+  const per = seasonBudget(level);
+  let budget = per; total += per;
   let moved = true;
   while (moved) {                       // spend evenly on whatever is furthest below its ceiling
     moved = false;
@@ -33,8 +40,14 @@ for (let season = 1; season <= 8; season++) {
       if (c <= budget) { budget -= c; r[k] += 1; moved = true; }
     }
   }
-  const level = season <= 4 ? 'prep' : season <= 8 ? 'college' : 'pro';
-  console.log(`after season ${season} (${level}, ${total} pts): ` +
-    CORE.map(k => `${r[k]}`).join('/') + `  avg ${Math.round(CORE.reduce((s,k)=>s+r[k],0)/CORE.length)}`);
+  const capped = CORE.every(k => r[k] >= cap[k]);
+  console.log(`after season ${season} (${level}, +${per}, ${total} pts): ` +
+    CORE.map(k => `${r[k]}`).join('/') +
+    `  avg ${Math.round(CORE.reduce((s,k)=>s+r[k],0)/CORE.length)}` +
+    (capped ? '   [every core skill at its ceiling]' : ''));
 }
+// Worth saying out loud: this model only ever buys RATINGS, and a prep-built character reaches
+// his ceilings around the end of college. Past that point the extra college and pro income is
+// not wasted, but it can only go on POTENTIALS (which cost double a rating step at the same
+// value) - so the later numbers here are a floor on what the scaling is worth, not a ceiling.
 console.log('\nfiller bands for comparison: prep 8-38, college 18-52, pro 28-62');

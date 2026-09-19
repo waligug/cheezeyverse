@@ -15,7 +15,7 @@ import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
   myCharacters, requestsFor, ledgerFor, requestUpgrade, cancelRequest,
   declareForDraft, deletePendingCharacter, LEAGUE_LABELS, errorText,
-  oauthErrorFromUrl,
+  oauthErrorFromUrl, pointsPerWeek,
 } from './supabase.js';
 import {
   $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
@@ -73,7 +73,14 @@ async function load() {
   const box = $('#characters');
   clear(box);
 
-  $('#intro').textContent = `You get ${cfg.points_per_week} point per simulated week, `
+  // Income scales with level, so a single number is wrong once anybody is promoted - and
+  // saying so is the point: it tells a friend in prep that the climb is worth something.
+  const rates = ['prep', 'college', 'pro'].map((k) => [k, pointsPerWeek(cfg, k)]);
+  const flat = rates.every(([, n]) => n === rates[0][1]);
+  const income = flat
+    ? `${rates[0][1]} point${rates[0][1] === 1 ? '' : 's'} per simulated week`
+    : rates.map(([k, n]) => `${n} a week in ${LEAGUE_LABELS[k] || k}`).join(', ');
+  $('#intro').textContent = `You get ${income}, `
     + `and you can hold up to ${cfg.max_characters} live characters. ${describeCurve()}.`;
 
   if (!characters.length) {

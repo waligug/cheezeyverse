@@ -338,24 +338,38 @@ filled up, he is signed to any team with room rather than left in free agency - 
 re-sign a defanged 14-year-old, so free agency is where a career goes to die.
 
 ## Point economy, and how it was balanced (2026-09-17)
-Model it, do not guess: `node tools/progression_model.mjs` prints what eight seasons of points buy.
+Model it, do not guess: `node tools/progression_model.mjs` prints what a career of points buys.
 Re-run it after touching the cost curve, points per week, the offseason lump sum or the potential
 constants.
 
 A season is **26 in-game weeks** (the prep calendar ran 2030-10-15 to 2031-04-17, 184 days, when
-the universe started in 2030; it now starts in 2026 and the same 184 days apply), so at
-1 point per week plus a **15-point offseason lump sum** a character earns about **41 points a year**.
+the universe started in 2030; it now starts in 2026 and the same 184 days apply).
+
+**Income scales with level (2026-09-19): prep 1, college 2, pro 3 points a week.** The cost curve
+charges by rating - 1 a step under 50, 2 from 50-69, 3 from 70-84, 5 from 85 up - and characters
+sit in those bands as they climb, so a flat rate meant every promotion quietly halved what a season
+was worth. With the flat 15-point offseason lump (which does NOT scale) a season is **41 points in
+prep, 67 in college, 93 in the pros**. The rule lives in `commissioner/points.py` and nowhere else;
+`grant_week_points` takes the resolved rate as an argument rather than recomputing it, because
+unlike the price curve nobody but the commissioner can grant income.
 
 Measured arc, spending evenly across six core skills:
 
 | | points so far | core average | population |
 |---|---|---|---|
-| End of season 1 | 41 | 24 | prep fillers 8-38 |
-| End of prep (season 4) | 164 | 44 | above every prep filler |
-| End of college (season 7) | 287 | 56 | pro fillers 28-62 |
+| End of season 1 | 41 | 33 | prep fillers 8-38 |
+| End of prep (season 4) | 164 | 52 | above every prep filler |
+| End of college (season 8) | 432 | 64 | pro fillers 28-62 |
 
-So four years to become the best kid in prep, four more to arrive pro-ready, and after that the only
-place left to spend is buying ceilings at double rate. FBPB3's own progression runs on top of all of
+So four years to become the best kid in prep, four more to arrive pro-ready.
+
+**The ceilings bind from season 7 (2026-09-19).** With level-scaled income this character has every
+core skill at its ceiling by mid-college, and the remaining six seasons earn 372 points the model
+cannot spend at all - because it only ever buys RATINGS. In a real career that surplus goes on
+POTENTIALS, which cost double a rating step at the same value and raise the ceiling that is doing
+the binding. So the later rows above are a FLOOR on what the scaling is worth, not a ceiling - but
+it does mean level-scaled income only pays off for somebody who buys ceilings, and a player who
+spends only on ratings will simply accumulate points he cannot use. FBPB3's own progression runs on top of all of
 this, and it develops a young player *toward his potential* - which is the second reason the ceilings
 matter.
 

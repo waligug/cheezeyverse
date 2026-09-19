@@ -26,6 +26,7 @@ import requests
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import points
 from . import settings as cfg
 
 __all__ = [
@@ -540,9 +541,15 @@ def grant_week_points(league=None, weeks=1, reason="week simmed"):
     one row per week, which reads better than a single lump anyway.
     """
     weeks = max(1, int(weeks or 1))
+    rate = points.per_week(league, get_settings())
+    line = points.reason(league, rate, reason)
     paid = 0
     for _ in range(weeks):
-        paid = _rpc("grant_week_points", {"p_league": league, "p_reason": reason})
+        # p_per carries the resolved level rate. The RPC still reads points_per_week when it is
+        # not given, so an older caller - or somebody running it by hand in the SQL editor -
+        # keeps the old behaviour instead of silently paying zero.
+        paid = _rpc("grant_week_points",
+                    {"p_league": league, "p_reason": line, "p_per": rate})
     return paid
 
 
@@ -556,6 +563,13 @@ def get_settings():
         "max_characters": 2,
         "starting_points": 20,
         "points_per_week": 1,
+        # Per-level income. Absent from the table until somebody sets them, and absent here
+        # would make per_week() fall back to the flat rate - which is the right behaviour for
+        # a live universe, but means the panel and the site cannot SHOW the rates. Defaulting
+        # them here makes the intended curve visible everywhere without a migration.
+        "points_per_week_prep": 1,
+        "points_per_week_college": 2,
+        "points_per_week_pro": 3,
         "auto_approve": False,
         "current_season": 2026,
         "current_week": 0,
