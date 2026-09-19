@@ -26,6 +26,7 @@ live prep export:
 """
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 import tempfile
@@ -186,6 +187,23 @@ def main():
         rows = sb.for_character("Our Guy", d, {"bonus_potm": 99, "bonus_cap": 500}, {})
         assert any(p == 99 for _, p in rows), rows
         assert sb.setting({"bonus_cap": "not a number"}, "bonus_cap") == 10
+
+        # ---- what the site is handed -------------------------------------------------------
+        # Same parse, same traps already proven above, written down once at publish time so the
+        # browser never has to fetch and parse four hundred player pages to say where somebody
+        # placed - which would be a second implementation of every trap in this file.
+        stats = sb.league_stats(d, elite_rank=5)
+        assert stats["count"] == 8 and len(stats["players"]) == 8, stats["count"]
+        assert all(p["team"] != "Draft" for p in stats["players"]), "draft pool reached the site"
+        assert [p["name"] for p in stats["players"]][0] == "Ace Elite", "not sorted by scoring"
+        ours = next(p for p in stats["players"] if p["name"] == "Our Guy")
+        assert ours["rank"]["PTS"] == sb.rank_in(totals, "PTS", ours["PTS"]), ours
+        # the page stem is the game's own player id, and it is what a link to the league site needs
+        assert ours["page"].startswith("player"), ours
+        assert stats["elite"] == sb.elite_lines(totals, 5), stats["elite"]
+        assert stats["teams"] == teams and stats["export_date"] == sb.export_date(d)
+        # it has to survive json.dumps, since that is the only thing ever done with it
+        assert json.loads(json.dumps(stats))["count"] == 8
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

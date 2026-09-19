@@ -79,7 +79,34 @@ def publish_league(key):
         raise FileNotFoundError(f"{spec.save_name} has no HTML output yet - run the driver's html_output() first")
     pages = restyle(src, dst, league=spec.name, season=season_label(key), key=key,
                     ours=_our_players(key))
-    return {"league": key, "name": spec.name, "pages": pages, "path": str(dst)}
+    stats = _write_stats(src, dst, key)
+    return {"league": key, "name": spec.name, "pages": pages, "path": str(dst),
+            "stats": stats}
+
+
+def _write_stats(src, dst, key):
+    """Emit `stats.json` beside the skinned pages: counting stats and league placings.
+
+    The site needs this to show anybody where they stand, and the alternative is the browser
+    fetching and parsing four hundred player pages - which would be a second implementation of
+    the export's four traps (the undefeated team reading 1.000, the repeated STL column, the
+    digits in the header, the draft pool's borrowed season lines). All four are already handled
+    and tested in seasonbonus; this just writes down what it works out.
+
+    Never fatal. A publish that produced every page is a good publish even if this file is
+    missing, and the pages are what people came for.
+    """
+    try:
+        from ..seasonbonus import league_stats
+        data = league_stats(src)
+        data["generated"] = datetime.now().isoformat(timespec="seconds")
+        data["league"] = key
+        data["season"] = season_label(key)
+        (dst / "stats.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+        return {"players": data["count"], "elite": data["elite"]}
+    except Exception as exc:
+        print(f"  no stats.json for {key} ({exc}); the pages themselves are fine")
+        return None
 
 
 def publish(keys=None):

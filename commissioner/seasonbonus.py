@@ -145,8 +145,45 @@ def season_totals(html_dir, teams=None):
             continue
         line = dict(zip(TOTAL_COLUMNS, values))
         line["team"] = team
+        # The page's own filename is the game's player id ("player53"), and it is the only
+        # stable handle on a player that survives a rename. Names are what the bonus joins on
+        # because that is what the store holds, but anything linking to the league site wants
+        # this instead.
+        line["page"] = page.stem
         out[re.sub(r"<[^>]+>", "", name.group(1)).strip()] = line
     return out
+
+
+def league_stats(html_dir, elite_rank=5):
+    """Everything the SITE wants from a season, as plain data, computed once at publish time.
+
+    The career page wants a character's counting stats and where they place; the front page
+    wants the same thing for everybody. Both could fetch and parse the four hundred player
+    pages in the browser, and both would then be a second implementation of the four traps
+    documented at the top of this module - the undefeated team, the repeated STL column, the
+    digits in the header, the draft pool. One emitter, already under test, instead.
+    """
+    teams = standings_teams(html_dir)
+    totals = season_totals(html_dir, teams)
+    lines = elite_lines(totals, elite_rank)
+    players = []
+    for name, row in totals.items():
+        players.append({
+            "name": name, "team": row["team"], "page": row.get("page"),
+            **{k: row.get(k, 0) for k in ("G", "GS", "MIN", *CATEGORIES)},
+            "rank": {cat: rank_in(totals, cat, row.get(cat, 0)) for cat in CATEGORIES},
+        })
+    players.sort(key=lambda p: -p["PTS"])
+    return {
+        "generated": None,          # publish fills this in; kept here so the shape is complete
+        "export_date": export_date(html_dir),
+        "categories": list(CATEGORIES),
+        "elite_rank": elite_rank,
+        "elite": lines,
+        "teams": teams,
+        "count": len(players),
+        "players": players,
+    }
 
 
 def elite_lines(totals, rank):
