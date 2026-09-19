@@ -345,21 +345,68 @@ def season_award_winners(html_dir):
     return set(_award_row_players(text[head:]))
 
 
+def playoff_bracket(html_dir):
+    """(qualifiers, champion) read from playoffs.htm, the only page that states either.
+
+    Returns (None, None) when there is no bracket - no file, or nothing parseable. NOT an empty
+    set: before the playoffs exist the file is absent, and an empty set would look exactly like
+    "nobody qualified" and silently pay the playoff bonus to no one.
+
+    WHY NOT THE PAGES THIS USED TO READ. Both earlier sources were wrong, and both were wrong
+    silently, and a season-end rehearsal on a copy of CV_Prep is what proved it:
+
+      * playoffstandings.htm marks DIVISION WINNERS with an asterisk, not qualifiers. Prep takes
+        the top four of each conference, so the real bracket was eight teams and the asterisks
+        found four. Half the qualifiers lost their bonus, every season, not merely at season end.
+      * champs.htm prints the season, the champion, the OPPONENT and both win counts on one row,
+        so "the first team whose name appears on the page" returned the LOSER. It also keeps one
+        row per season, so from year two every past finalist matches too. And it is empty for
+        some unknown window after the final - it was header-only at 5/1 and filled by 6/21.
+
+    playoffs.htm has neither problem. It is complete from the moment the final ends, it lists
+    every qualifier including the first-round losers, and it states who won each series.
+
+    HOW IT PARSES. The page is a rowspan bracket, so neither document order nor column position
+    tells you the round - the final is the fourth of seven pairs. What does hold is that the
+    "#seed Team wins" entries pair up CONSECUTIVELY into series. The champion is then simply the
+    team that won the most of them, which holds for any bracket shape: reaching the final means
+    winning one more series than anybody who did not.
+    """
+    text = _text(Path(html_dir) / "playoffs.htm")
+    if not text.strip():
+        return None, None
+    entry = re.compile("#([0-9]+) (" + NAME_REST + "+(?: " + NAME_REST + "+)*?) ([0-9]+)"
+                       "(?= #| Fast Break|$)")
+    found = entry.findall(text)
+    if len(found) < 2:
+        return None, None
+
+    qualifiers, wins, undecided = set(), {}, False
+    for i in range(0, len(found) - 1, 2):
+        (_s1, a, w1), (_s2, b, w2) = found[i], found[i + 1]
+        qualifiers.update((a, b))
+        if int(w1) == int(w2):
+            # a series still being played, or one that has not started. The bracket still names
+            # the qualifiers correctly; it just cannot yet say who won.
+            undecided = True
+            continue
+        wins[a if int(w1) > int(w2) else b] = wins.get(a if int(w1) > int(w2) else b, 0) + 1
+
+    if undecided or not wins:
+        return qualifiers or None, None
+    best = max(wins.values())
+    leaders = [t for t, n in wins.items() if n == best]
+    return qualifiers, (leaders[0] if len(leaders) == 1 else None)
+
+
 def playoff_teams(html_dir):
-    """Nicknames marked with a * on playoffstandings.htm, i.e. the ones that got in."""
-    text = _text(Path(html_dir) / "playoffstandings.htm")
-    pattern = ("&nbsp;" + r"\s*\*\s*" + f"({TEAM_CHARS}*?)"
-               + r"\s+\d+\s+\d+\s+\d*\.\d")
-    return {n.strip() for n in re.findall(pattern, text)}
+    """Every team that reached the playoffs, or None when there is no bracket to read."""
+    return playoff_bracket(html_dir)[0]
 
 
 def champion(html_dir, teams=None):
-    """The nickname on champs.htm, or None while nobody has won anything yet."""
-    text = _text(Path(html_dir) / "champs.htm")
-    for name in (teams or {}):
-        if re.search(rf"\b{re.escape(name)}\b", text):
-            return name
-    return None
+    """Who won it, or None. `teams` is accepted and ignored; the bracket needs no help."""
+    return playoff_bracket(html_dir)[1]
 
 
 # ---- the bonus ---------------------------------------------------------------------------
@@ -377,8 +424,7 @@ def for_character(name, html_dir, settings=None, cache=None):
         c["elite"] = elite_lines(c["totals"], setting(s, "stat_bonus_elite_rank"))
         c["awards"] = award_counts(html_dir)
         c["season_awards"] = season_award_winners(html_dir)
-        c["playoffs"] = playoff_teams(html_dir)
-        c["champion"] = champion(html_dir, c["teams"])
+        c["playoffs"], c["champion"] = playoff_bracket(html_dir)
 
     line = c["totals"].get(name)
     if not line:
@@ -387,7 +433,10 @@ def for_character(name, html_dir, settings=None, cache=None):
 
     # -- the team's season
     team = line["team"]
-    if team in c["playoffs"]:
+    # None is "there is no bracket to read", which is the normal state before the playoffs are
+    # played - and is NOT the same as an empty set. Treating the two alike is how a missing page
+    # would quietly pay the playoff bonus to nobody at the one moment it is owed.
+    if c["playoffs"] and team in c["playoffs"]:
         rows.append(("season bonus: made the playoffs", setting(s, "bonus_playoffs")))
     if c["champion"] and team == c["champion"]:
         rows.append(("season bonus: won the league", setting(s, "bonus_title")))

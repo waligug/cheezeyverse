@@ -71,7 +71,7 @@ def _player_page(name, team, g, pts, reb, ast, stl, blk):
       </body></html>"""
 
 
-def _build(tmp, *, champion=None, season_awards=False):
+def _build(tmp, *, champion=None, season_awards=False, postseason=True):
     d = Path(tmp)
     (d / "players").mkdir(parents=True, exist_ok=True)
     for i, p in enumerate(PLAYERS):
@@ -83,12 +83,27 @@ def _build(tmp, *, champion=None, season_awards=False):
         "<tr><td>&nbsp; Tulips</td><td>24</td><td>0</td><td>1.000</td></tr>"
         "<tr><td>&nbsp; Clams</td><td>17</td><td>7</td><td>.708</td></tr></table>",
         encoding="latin-1")
+    # The asterisk marks DIVISION WINNERS, not qualifiers - reading it is what found four of
+    # prep's eight playoff teams. Only Tulips is starred here, and both teams qualified.
     (d / "playoffstandings.htm").write_text(
         "<table><tr><td>&nbsp;* Tulips</td><td>24</td><td>0</td><td>1.000</td></tr>"
         "<tr><td>&nbsp; Clams</td><td>17</td><td>7</td><td>.708</td></tr></table>",
         encoding="latin-1")
+    # champs.htm names the champion AND the beaten opponent on one row, which is what made
+    # "the first team named on the page" return the loser.
     (d / "champs.htm").write_text(
-        f"<html><body>Champs {champion or ''}</body></html>", encoding="latin-1")
+        "<html><body><table><tr><td>Season</td><td>Champion</td><td>Wins</td>"
+        "<td>Opponent</td><td>Wins</td><td>MVP</td></tr>"
+        + ("<tr><td>&nbsp;2026</td><td>Clams</td><td>2</td><td>Tulips</td><td>0</td>"
+           "<td>PF Somebody</td></tr>" if champion else "")
+        + "</table></body></html>", encoding="latin-1")
+    # playoffs.htm is the only page that states the bracket: every qualifier, including the
+    # first-round losers, and who won each series. Written only once there IS a postseason.
+    if postseason:
+        (d / "playoffs.htm").write_text(
+            "<html><body>2026 Playoff Brackets League Finals "
+            "#1 Clams 2 #2 Tulips 0 Fast Break Pro Basketball 3</body></html>",
+            encoding="latin-1")
     (d / "awards.htm").write_text(
         "<div>Player of the Week</div><table>"
         "<tr><td>&nbsp;03/21/2027</td><td>SF</td><td>Our Guy</td><td>Tulips</td>"
@@ -132,8 +147,17 @@ def main():
         assert awards.get("Our Guy") == {"potw": 1, "potm": 1}, awards
         assert not any(" Tulips" in n for n in awards), f"team swallowed into a name: {awards}"
 
-        assert sb.playoff_teams(d) == {"Tulips"}, sb.playoff_teams(d)
-        assert sb.champion(d, teams) is None, "a champion appeared before anybody won"
+        # The bracket names every qualifier, including the team that lost the series.
+        assert sb.playoff_teams(d) == {"Clams", "Tulips"}, sb.playoff_teams(d)
+
+        # Before the playoffs are played there is NO playoffs.htm - and that is not the same as
+        # "nobody qualified". None stops the caller paying the bonus to an empty set, which is
+        # what an empty set would silently do at the one moment the bonus is owed.
+        nopost = _build(Path(tempfile.mkdtemp(prefix="nopost-")), postseason=False)
+        assert sb.playoff_teams(nopost) is None, sb.playoff_teams(nopost)
+        assert sb.champion(nopost) is None
+        assert not any("playoffs" in r for r, _ in sb.for_character("Our Guy", nopost, {}, {})),             "a league with no bracket paid a playoff bonus"
+        shutil.rmtree(nopost, ignore_errors=True)
 
         # The two AWARD components are off by default; the two TEAM ones pay 2 apiece. Assert
         # both explicitly: a component silently switching itself back on would pay real points
@@ -181,8 +205,15 @@ def main():
         # A finished season fills in the pages that were empty.
         d2 = _build(Path(tempfile.mkdtemp(prefix="bonus2-")), champion="Tulips",
                     season_awards=True)
+        # The bracket says Clams beat Tulips. Our Guy is a Tulip, so he made the playoffs and
+        # did NOT win the league - and champs.htm names both teams on its one row, so a parser
+        # that takes "the first name on the page" hands him the title he lost.
+        q, champ = sb.playoff_bracket(d2)
+        assert q == {"Clams", "Tulips"}, f"the bracket lost a qualifier: {q}"
+        assert champ == "Clams", f"the champion came out as {champ}; Clams won 2-0"
         rows = sb.for_character("Our Guy", d2, {}, {})
-        assert any("won the league" in r for r, _ in rows), rows
+        assert not any("won the league" in r for r, _ in rows),             f"the beaten finalist was paid the title: {rows}"
+        assert any("made the playoffs" in r for r, _ in rows), rows
         # The season award is off by default, but the page must still be READ correctly, or
         # turning it back on would quietly pay nobody.
         assert "Our Guy" in sb.season_award_winners(d2), sb.season_award_winners(d2)

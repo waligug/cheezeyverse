@@ -146,7 +146,8 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
 - 2026-09-19 **Bonus components: the two AWARD ones are off, the two TEAM ones pay 2.** Nate first removed the
   playoff bonus ("everyone makes it") along with player of the week and the season awards, then put the playoff
   one back at 2 and dropped the title from 3 to 2. So `bonus_playoffs` 2, `bonus_title` 2, `bonus_potw` 0,
-  `bonus_season_award` 0, `bonus_potm` 2. The premise for the removal was not right - the brackets take 8 of 16
+  `bonus_season_award` 0, `bonus_potm` 2. The premise for the removal was not right - a season-end rehearsal on a copy of CV_Prep
+  confirmed the bracket takes the top 4 of each of the 2 conferences, 8 of 16
   in prep and college and 8 of 20 in the pros - and at 3 + 3 a title was worth six points, which crowded out
   everything a player does himself; 2 + 2 leaves a good individual season competitive. Off components are zeroed
   rather than deleted: a zero-point row is dropped before anything is paid, so it costs a dictionary lookup,
@@ -160,6 +161,19 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   gone on paying 0, with the code, the tests and CONVENTIONS all saying 2. The fix was to DELETE the rows rather
   than add a second override, which is the right instinct generally - prefer no row to a row that happens to
   agree, because only one of those two can go stale. There are currently no bonus rows at all.
+- 2026-09-19 **The playoff bonus and the title were read off the wrong pages, both silently wrong.** Found by
+  simming a throwaway copy of CV_Prep through its own season end. `playoffstandings.htm`'s asterisk marks
+  DIVISION WINNERS, not qualifiers - it found 4 of the 8 teams in the bracket, so half of them lost the bonus
+  every season. `champs.htm` prints champion AND beaten opponent on one row, so "the first team named on the
+  page" returned the LOSER; it keeps a row per season, so from year two every past finalist matches too; and it
+  is header-only for some window after the final (empty at 5/1, filled by 6/21). `playoffs.htm` has none of
+  those problems: complete the moment the final ends, lists every qualifier including first-round losers, and
+  states who won each series. Parse it by pairing the "#seed Team wins" entries CONSECUTIVELY - document order
+  is not round order (the final was the 4th of 7 pairs) and it is a rowspan table, so column position means
+  nothing either. The champion is whoever won the most series.
+- 2026-09-19 **A missing page is not an empty answer.** `playoffs.htm` does not exist before the postseason, so
+  the bracket readers return None rather than an empty set. An empty set is indistinguishable from "nobody
+  qualified" and would pay the playoff bonus to nobody at the one moment it is owed.
 - 2026-09-19 **The elite-line half pays nothing yet, by design rather than by fault.** It needs the league's
   5th-best total in a category: prep is PTS 201 / REB 137 / AST 34 / STL 17 / BLK 6, and the characters' bests
   are 108 / 77 / 26 / 10 / 4. Unlike the top-10 rule that was rejected for being unreachable, this is close -
