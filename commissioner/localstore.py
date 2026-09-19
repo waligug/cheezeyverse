@@ -428,4 +428,6 @@ def record_run(row):
 
 
 def runs(limit=20):
-    return _read()["runs"][:limit]
+    """The run log, newest first. limit=None returns all of it - see store.runs()."""
+    rows = _read()["runs"]
+    return rows if limit is None else rows[:limit]

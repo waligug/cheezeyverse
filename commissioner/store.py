@@ -472,7 +472,14 @@ def record_run(row):
 
 
 def runs(limit=20):
-    return _read_runs()[:limit]
+    """The run log, newest first. limit=None returns all of it.
+
+    The default is a display limit. Anything DERIVING from history - head-to-head works out
+    each character's debut by summing days simmed before he existed - must pass limit=None, or
+    it silently computes against the newest twenty and makes everybody a day-one player.
+    """
+    rows = _read_runs()
+    return rows if limit is None else rows[:limit]
 
 
 def kind():

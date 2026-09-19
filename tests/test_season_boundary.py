@@ -76,6 +76,7 @@ def main():
     tmp = Path(tempfile.mkdtemp(prefix="boundary-"))
     real = ch.save_path
     real_post = None
+    real_store = None
     try:
         # ---- the same season in both date formats must give the same answer -----------------
         for iso in (False, True):
@@ -140,7 +141,28 @@ def main():
         simweek.ch.save_path = ch.save_path
 
         # ---- THE LOCK. One refusal must not brick the panel and the offseason with it -------
-        # Stub the notifier FIRST. This block calls run_sim for real, and on any machine with a
+        # Stub record_run FIRST, for the same reason the notifier is stubbed below: this block
+        # calls run_sim for real, and run_sim's `finally` logs every attempt - including a
+        # refused one - to universe/sim_runs.json, which is the LIVE run log. Running this suite
+        # had already filled that file with 999-day failures: on SERVERPC 18 of the newest 20
+        # entries were this test's, and on the desktop all 39 were. That log is not decoration -
+        # head-to-head derives each character's debut from it, so a test polluting it silently
+        # rewrote who owned which games.
+        real_store = simweek.store
+
+        class _NoLog:
+            def __init__(self, inner):
+                self._inner = inner
+
+            def __getattr__(self, name):
+                return getattr(self._inner, name)
+
+            def record_run(self, *_a, **_k):
+                return None
+
+        simweek.store = lambda: _NoLog(real_store())
+
+        # Stub the notifier too. This block calls run_sim for real, and on any machine with a
         # webhook configured - SERVERPC has one - the failure path posted "Sim stopped - 999
         # days would run past..." into the live Discord server. A test must never be able to
         # reach a real service, and the assertion below pins the other half of that fix: a
@@ -178,6 +200,8 @@ def main():
         # notifier replaced by a stub for whatever runs next in the same process
         if real_post is not None:
             simweek.notify.post = real_post
+        if real_store is not None:
+            simweek.store = real_store
         ch.save_path = real
         simweek.ch.save_path = real
         shutil.rmtree(tmp, ignore_errors=True)

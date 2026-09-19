@@ -22,7 +22,7 @@ import shutil
 import subprocess
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from . import characters as ch
@@ -646,8 +646,15 @@ def _write_games_json(key, st, emit):
     characters = [c for c in st.characters(league=key) if c.get("status") == "active"]
     if not characters:
         return
-    runs = st.runs() if hasattr(st, "runs") else []
-    data = headtohead.from_mdb(mdb, characters, runs=runs, league=key)
+    # The WHOLE log. runs() defaults to the newest twenty, which silently made every
+    # character a day-one player the moment the log had twenty entries in it.
+    runs = st.runs(limit=None) if hasattr(st, "runs") else []
+    season = None
+    try:
+        season = int(st.get_settings().get("current_season", 0)) or None
+    except Exception:
+        pass
+    data = headtohead.from_mdb(mdb, characters, runs=runs, league=key, season=season)
     data["generated"] = datetime.now().isoformat(timespec="seconds")
     dest = SITE / "leagues" / key
     dest.mkdir(parents=True, exist_ok=True)
@@ -960,6 +967,17 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             except Exception:
                 FBPB3.kill()
         _RUNNING.update(active=False)
-        st.record_run({**result, "seconds": round(time.time() - started)})
+        # started_at and season, both needed by head-to-head's arrival-day maths. `at` is
+        # stamped at the END of a run, and Seasonday restarts every year while this log does
+        # not - so without these two a character created mid-run loses a week, and after the
+        # first rollover everybody's debut is nonsense.
+        try:
+            this_season = int(st.get_settings().get("current_season", 0)) or None
+        except Exception:
+            this_season = None
+        st.record_run({**result, "seconds": round(time.time() - started),
+                       "started_at": datetime.fromtimestamp(started, timezone.utc)
+                       .isoformat(timespec="seconds"),
+                       "season": this_season})
         _SIM_LOCK.release()
     return result

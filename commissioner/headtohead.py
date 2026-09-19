@@ -25,7 +25,7 @@ THE JOINS, confirmed against a real MDB:
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 # The columns worth publishing, named as the site wants them rather than as Access does.
@@ -46,34 +46,69 @@ def _int(value, default=0):
         return default
 
 
-def first_game_day(character, runs):
+def run_started(run):
+    """When a run BEGAN, as an ISO string, or "" if it cannot be worked out.
+
+    `at` is stamped when a run FINISHES. A character created while a run was in flight is not in
+    that run - activation happens at its start - so comparing his birth to the finish time
+    credits him with days that were simmed before he existed. Liam was created six minutes into
+    a run that took eleven; the finish-time rule put his debut a week early.
+    """
+    started = str(run.get("started_at") or "").strip()
+    if started:
+        return started
+    at, seconds = str(run.get("at") or "").strip(), run.get("seconds")
+    if not at or seconds is None:
+        return at
+    try:
+        stamp = datetime.fromisoformat(at.replace("Z", "+00:00"))
+    except ValueError:
+        return at
+    return (stamp - timedelta(seconds=float(seconds))).isoformat()
+
+
+def first_game_day(character, runs, season=None):
     """The season day this character arrived on: 1 + every day simmed before he existed.
 
-    Derived rather than stored, because nothing was recording it and the information is already
-    there. `runs` is the store's own run log; only runs that actually simmed count, so a failed
-    one - and there has been at least one, killed by a locked desktop - does not push somebody's
-    debut a week later than it happened.
+    Derived rather than stored, from the store's own run log. Four things it has to get right,
+    three of them learned by getting them wrong:
 
-    Returns 1 when it cannot tell, which counts everything. That is the wrong answer in the safe
-    direction: a character sees a few games that were not his, rather than losing games that
-    were. The page says which day it is counting from so the discrepancy is visible rather than
-    mysterious.
+      * THE START, not the finish. See run_started.
+      * ONLY RUNS THAT SIMMED. A failed run and a dry run both advance nothing, and there has
+        been at least one of each - one killed by a locked desktop.
+      * ONLY THIS SEASON. Seasonday restarts at 1 every year while the run log goes on
+        accumulating, so summing across a rollover gives a debut somewhere in the middle of next
+        century. A character created before this season started was here for all of it, so his
+        answer is 1 - which is also what happens naturally when no run this season predates him.
+      * THE WHOLE LOG. The caller must not hand over a truncated `runs()`; the default limit is
+        twenty and quietly makes everybody a day-one player.
+
+    Returns 1 when it cannot tell, which counts everything. A character seeing a few games that
+    were not his is the safe direction against losing games that were, and the page shows the
+    day it is counting from so the discrepancy is visible rather than mysterious.
     """
     born = str(character.get("created_at") or "")
     if not born:
         return 1
     simmed = 0
     for run in runs or []:
-        when = str(run.get("at") or "")
-        if not when or when >= born:
+        if run.get("ok") is False or run.get("dry_run"):
             continue
-        if run.get("ok") is False:
+        if season is not None and run.get("season") is not None:
+            try:
+                if int(run["season"]) != int(season):
+                    continue
+            except (TypeError, ValueError):
+                pass
+        began = run_started(run)
+        if not began or began >= born:
             continue
         simmed += _int(run.get("days"))
     return simmed + 1
 
 
-def build(characters, games, schedule, teams, runs=None, league=None, opener=None):
+def build(characters, games, schedule, teams, runs=None, league=None, opener=None,
+          season=None):
     """The payload the site reads: one entry per character, with his own game lines.
 
     `games`, `schedule` and `teams` are the three MDB tables as lists of dicts - whatever
@@ -100,7 +135,7 @@ def build(characters, games, schedule, teams, runs=None, league=None, opener=Non
 
     out = []
     for pid, c in wanted.items():
-        since = first_game_day(c, runs)
+        since = first_game_day(c, runs, season)
         lines = []
         for row in games or []:
             if _int(row.get("ID")) != pid:
@@ -206,7 +241,7 @@ def query(mdb_path, sql, script=None):
     return rows
 
 
-def from_mdb(mdb_path, characters, runs=None, league=None, opener=None):
+def from_mdb(mdb_path, characters, runs=None, league=None, opener=None, season=None):
     """Everything `build` needs, read out of one LeagueOutput.mdb."""
     ids = [str(_int((c.get("league_player_ids") or {}).get(league)))
            for c in characters if (c.get("league_player_ids") or {}).get(league) is not None]
@@ -216,4 +251,4 @@ def from_mdb(mdb_path, characters, runs=None, league=None, opener=None):
                  query(mdb_path, MDB_SQL["games"].format(ids=", ".join(ids))),
                  query(mdb_path, MDB_SQL["schedule"]),
                  query(mdb_path, MDB_SQL["teams"]),
-                 runs=runs, league=league, opener=opener)
+                 runs=runs, league=league, opener=opener, season=season)

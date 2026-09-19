@@ -190,7 +190,9 @@ function draw() {
 
   card.append(el('p', { class: 'cv-hint' },
     'Per game, over those meetings only. Percentages are total makes over total attempts, not '
-    + 'an average of each night’s percentage - 1-for-1 and 0-for-10 is 9%, not 50%.'));
+    + 'an average of each night’s percentage - 1-for-1 and 0-for-10 is 9%, not 50%. '
+    + 'A game either of them missed is not counted at all, so this record can differ from '
+    + 'how often their teams have met.'));
 
   // the games themselves, so the averages are checkable rather than asserted
   const list = el('div', { class: 'cv-scroll' },

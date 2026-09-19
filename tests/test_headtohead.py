@@ -22,7 +22,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from commissioner.headtohead import build, day_to_date, first_game_day  # noqa: E402
+from commissioner.headtohead import (  # noqa: E402
+    build, day_to_date, first_game_day, run_started)
 
 TEAMS = [{"ID": "5", "Name": "Berries", "City": "Saskatoon"},
          {"ID": "16", "Name": "Generals", "City": "Jackson"},
@@ -94,6 +95,33 @@ def main():
     assert first_game_day(DODGER, RUNS) == 129, first_game_day(DODGER, RUNS)
     assert first_game_day({"created_at": None}, RUNS) == 1, "unknown arrival must count everything"
     assert first_game_day(CHRIS, []) == 1
+
+    # A RUN'S `at` IS ITS FINISH. Compare a birth to that and a character created while a run
+    # was in flight loses that run's days - but he was not activated by it, because activation
+    # happens at the START, before he existed. He is activated by the NEXT run, so the days it
+    # simmed happened before he played and must count. Liam was created six minutes into an
+    # eleven-minute run; the finish-time rule put his debut a week early.
+    mid = [{"days": 100, "ok": True, "at": "2026-09-19T04:11:43+00:00", "seconds": 659},
+           {"days": 13, "ok": True, "at": "2026-09-19T03:50:00+00:00", "seconds": 600}]
+    assert run_started(mid[0]) == "2026-09-19T04:00:44+00:00", run_started(mid[0])
+    during = {"created_at": "2026-09-19T04:05:22+00:00"}    # created while it ran
+    before = {"created_at": "2026-09-19T03:59:00+00:00"}    # created just before it started
+    assert first_game_day(during, mid) == 114, first_game_day(during, mid)
+    assert first_game_day(before, mid) == 14, first_game_day(before, mid)
+
+    # a dry run advances nothing, so it must not move anybody's debut
+    dry = mid + [{"days": 50, "ok": True, "dry_run": True,
+                  "at": "2026-09-19T03:00:00+00:00", "seconds": 5}]
+    assert first_game_day(during, dry) == 114, first_game_day(during, dry)
+
+    # ---- THE ROLLOVER. Seasonday restarts at 1 every year; the run log does not -------------
+    seasons = [{"days": 150, "ok": True, "season": 2026, "started_at": "2026-01-01T00:00:00+00:00"},
+               {"days": 40, "ok": True, "season": 2027, "started_at": "2027-01-05T00:00:00+00:00"}]
+    old_hand = {"created_at": "2026-02-01T00:00:00+00:00"}
+    assert first_game_day(old_hand, seasons, season=2027) == 1,         "a character who was here last season must own all of this one"
+    assert first_game_day(old_hand, seasons) == 151,         "without a season this sums across the rollover, which is the bug being guarded"
+    new_boy = {"created_at": "2027-01-20T00:00:00+00:00"}
+    assert first_game_day(new_boy, seasons, season=2027) == 41, first_game_day(new_boy, seasons, 2027)
 
     data = build([CHRIS, DODGER], GAMES, SCHEDULE, TEAMS, runs=RUNS, league="prep",
                  opener="2026-10-20")
