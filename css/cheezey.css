@@ -636,6 +636,33 @@ table.cv-table tr:nth-child(even) td { background: var(--cream2); }
 }
 .cv-tab:hover { background: var(--row-alt); }
 .cv-tab.is-on { background: var(--gold); color: var(--ink); border-color: var(--crust); }
+/* A folded-away block of writing. The summary carries the headline, so leaving it shut costs
+   the reader nothing; the arrow is drawn rather than the browser's default marker so it looks
+   the same on every platform. */
+.cv-meter-stat { display: inline-flex; align-items: baseline; gap: 7px; }
+
+.cv-fold { margin: 0 0 14px; border: 1px solid var(--crust); border-radius: 10px; background: var(--row-alt); }
+.cv-fold > summary {
+  list-style: none; cursor: pointer; padding: 11px 14px;
+  font-weight: 700; color: var(--crust); display: flex; align-items: center; gap: 8px;
+}
+.cv-fold > summary::-webkit-details-marker { display: none; }
+/* The arrow is drawn with borders, not a glyph. A character would need either a CSS escape -
+   and an escape written through a script is how this line first shipped a literal 0x15, the
+   backslash eaten so 25 was read as octal - or a raw character, which depends on the sheet
+   being served as UTF-8. Borders need neither. */
+.cv-fold > summary::after {
+  content: ''; margin-left: auto; width: 0; height: 0;
+  border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-top: 6px solid var(--crust); transition: transform .15s ease;
+}
+.cv-fold[open] > summary::after { transform: rotate(180deg); }
+.cv-fold > summary:hover { background: var(--cream); border-radius: 9px 9px 0 0; }
+.cv-fold > summary:focus-visible { outline: 2px solid var(--crust); outline-offset: -2px; }
+.cv-fold-body { padding: 0 14px 12px; }
+.cv-fold-body > :first-child { margin-top: 0; }
+.cv-fold-body > :last-child { margin-bottom: 0; }
+
 .cv-tab-badge {
   display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
   background: var(--crust); color: var(--cream); font-size: 11px; font-weight: 700;
