@@ -244,7 +244,18 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
 
   function drawSpend() {
     const queued = queuedCost();
-    renderMeter(meter, { free: freePoints(), reserved, queued });
+    // budget/spent/label are the OLD renderMeter's argument names, sent alongside the new
+    // ones on purpose. ui.js is shared by every page and carries its own 10-minute cache
+    // entry, so somebody who was just on the roll call has ui.js cached while me.html and
+    // page-me.js come down fresh - a new caller meeting an old renderMeter, which read
+    // undefined for both numbers and rendered "undefined POINTS LEFT undefined SPENT".
+    // Caught on the live site. Costs three keys; remove them once nobody can still be
+    // holding the September 19 ui.js, which in practice is the next time this file changes.
+    renderMeter(meter, {
+      free: freePoints(), reserved, queued,
+      budget: freePoints(), spent: queued,
+      label: reserved ? `${reserved} already asked for` : klass.label,
+    });
     renderSheet(sheet, {
       base,
       bias,
