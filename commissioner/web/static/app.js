@@ -879,7 +879,7 @@ function wire() {
     startSim(parseInt($('days-week').value, 10) || 7);
   });
   $('btn-chunk').addEventListener('click', function () {
-    startSim(parseInt($('days-chunk').value, 10) || 35);
+    startSim(parseInt($('days-chunk').value, 10) || 21);
   });
   $('btn-clear').addEventListener('click', function () {
     if (state.busy) { toast('Not while a sim is running - the log is the only record.', true); return; }

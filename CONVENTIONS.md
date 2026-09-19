@@ -173,8 +173,17 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   earned elsewhere (one showed 247 assists without playing a minute in the league). The standings team list is
   the draft-pool filter. Award rows have nothing between the player and his team but a space, so a name matched
   as "capitalised words" yields "Sid McFate Tulips", which matches nobody and pays nothing.
-- 2026-09-18 **A run pays `round(days / 7)` points.** 28 days pays 4, **35 days pays 5** and costs about three
-  minutes more - so 35 is the chunk to sim when the point of a long run is giving people something to spend.
+- 2026-09-18 **A run pays `round(days / 7)` points.** 28 days pays 4 and 35 pays 5, for about three minutes
+  more. **Superseded 2026-09-19: do not sim 35.** The regular season ends before that from where the universe
+  now stands, and `run_sim` refuses any run that would cross it - see the next entry.
+- 2026-09-19 **A sim must not cross the end of the regular season, and now cannot.** `sim_days` clicks SIM DAY
+  blind and `offseason.py` never drives FBPB3's own playoffs or rollover, so what the game does on the day after
+  the last one is unknown - a modal that eats later clicks, playoff games, its own aging and re-signing, any of
+  which is the game taking over a rollover we own. `run_sim` counts the scheduled dates after the last played one
+  and refuses to exceed them; `allow_season_end=True` lifts it for the code that eventually owns that path.
+  **Count date POSITIONS, never parsed dates.** FBPB3 is VB6 and renders the Windows short date, so the format
+  is a property of the machine: this desktop exports ISO (2030-10-15), SERVERPC exports 10/20/2026. A guard
+  written against one of them is silently inert on the other, and the first version of this was.
 - 2026-09-18 **Sim cost is ~480 s fixed + ~26 s per day** across three leagues; only the SIM DAY clicking scales,
   and it is linear at ~8.7 s per day per league. Measured: 4x7 days = 2663.1 s, 1x28 days = 1210.4 s, so one
   monthly run is **2.2x faster** than four weekly ones for the same basketball. `docs/SIM_SPEED.md`.

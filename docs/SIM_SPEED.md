@@ -32,15 +32,23 @@ make the work faster but to press the button less often.
 Type a bigger number into the panel.
 
 **35 WAS the number to type. It is not, from 2026-09-19 onward.** 35 days pays a clean five
-skill points, which is why it was recommended - but the regular season ends on 4/22/2027 in all
-three leagues, and only about 31 days of it are left. A 35-day run would sim past the end of the
-season, and nothing in this project has ever done that: `sim_days` clicks SIM DAY blind, and
+skill points, which is why it was recommended - but the regular season is running out. Nothing
+in this project has ever simmed past the end of one: `sim_days` clicks SIM DAY blind, and
 `offseason.py` moves everybody on through the codec without ever driving FBPB3's own playoffs or
-rollover. **28 is the number to type** until that path is designed and rehearsed on a copy.
+rollover.
 
-`run_sim` now refuses a run that would cross the boundary, reading the last played date and the
-last scheduled one out of schedule.htm, so nobody can do it by typing a number into the panel.
-`allow_season_end=True` lifts it for the code that eventually owns that path.
+`run_sim` refuses any run that would cross it, and **the panel tells you the number** rather than
+you having to look it up here - the refusal names the league with least room and how many days it
+has. As of 2026-09-19 that is **23** (prep; college 24, pro 31), so **21 is the number to type**:
+three clean weeks, safely inside it. `allow_season_end=True` lifts the guard for the code that
+eventually owns the season-end path.
+
+**The count is of scheduled dates after the last played one, not of calendar days**, and it is
+deliberately an under-estimate: one click advances one calendar day, and there are at least as
+many calendar days left as there are remaining game days. It also avoids parsing dates at all -
+FBPB3 is VB6 and renders the WINDOWS SHORT DATE, so the format belongs to the machine. This
+desktop exports `2030-10-15`; SERVERPC exports `10/20/2026`. The first version of this guard
+parsed `%m/%d/%Y` and would have been silently inert on any box set the other way.
 
 | | Wall clock |
 |---|---:|
@@ -136,10 +144,9 @@ changes. A realistic best case for a whole month is **550-600 s, call it ten min
 | 1 x 28-day run | 4 | 1 210 s measured |
 | 1 x 35-day run | 5 | ~1 392 s (~23 min) |
 
-**But not this season.** Only about 31 regular-season days are left, so 35 would cross the end
-of it and `run_sim` refuses. Five points in one press has to wait for a season with room in it,
-or for the season-end path to be designed. 28 is the largest length that is both safe and exact
-right now.
+**But not this season.** The guard's count stands at 23 days (prep), so 35 would cross the end
+and `run_sim` refuses. Five points in one press has to wait for a season with room in it, or for
+the season-end path to be designed. 21 is the largest clean multiple of seven that fits.
 
 A remainder bank is only needed if a variable-length calendar SIM MONTH is adopted, since 28
 and 35 are both exact - do not add one before then, because `current_week` dates every snapshot

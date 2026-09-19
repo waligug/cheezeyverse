@@ -525,40 +525,64 @@ class SeasonEnd(RuntimeError):
     """A run was asked for that would sim past the last day of the regular season."""
 
 
-def _regular_season_left(save_dir):
-    """Days from the last game PLAYED to the last scheduled regular-season date, or None.
+def _season_blocks(save_dir):
+    """[(date string, was it played)] for the regular season, in the order the page prints them.
 
-    None means "cannot tell" - no export yet, no regular-season section, nothing played - and
-    the caller treats that as no opinion rather than as zero. Refusing to sim because a page is
-    missing would be worse than the thing being guarded against.
+    NO DATE PARSING. The first version of this did `strptime(..., "%m/%d/%Y")`, which was read
+    off a published page from SERVERPC - and FBPB3 is VB6, so it renders the WINDOWS SHORT DATE
+    of whatever machine it runs on. This desktop's own export is ISO (2030-10-15); SERVERPC's is
+    10/20/2026. The guard would therefore have gone silently inert the day anybody changed a
+    regional setting or rebuilt the universe on a different box, which is the whole failure this
+    project keeps meeting: true of the context it was measured in, false of the one that matters.
+    A schedule is printed in date order by definition, so position in the document is all that is
+    needed and it cannot be wrong about a format.
+
+    "Played" is the presence of a box-score link, which is what `_stage` settled on after
+    "looks like a score" matched the Playoffs heading itself. The score pattern is kept only as a
+    fallback: `restyle` strips box links from the PUBLISHED copy, and while this reads the raw
+    export today, a reader pointed at the published one should degrade rather than see nothing.
     """
     schedule = Path(save_dir) / "html" / "schedule.htm"
     try:
-        text = re.sub(r"\s+", " ",
-                      re.sub(r"<[^>]+>", " ", schedule.read_text(encoding="latin-1",
-                                                                 errors="replace")))
+        raw = schedule.read_text(encoding="latin-1", errors="replace")
     except OSError:
         return None
+    text = re.sub("[ ]+", " ", re.sub("<[^>]+>", " ", raw.replace("./boxes/box", "boxes/box")))
     at = text.find("Regular Season")
     if at == -1:
         return None
-    # "Playoffs" also appears in the nav bar ABOVE the schedule, so search after the heading.
     nxt = text.find("Playoffs", at + 1)
     section = text[at:nxt if nxt != -1 else len(text)]
-    parts = re.split(r"&nbsp;(\d{1,2}/\d{1,2}/\d{4})", section)
-    scheduled, played = [], []
+    parts = re.split("&nbsp;([0-9]{1,4}[-/][0-9]{1,2}[-/][0-9]{1,4})", section)
+    out = []
     for i in range(1, len(parts), 2):
-        try:
-            when = datetime.strptime(parts[i], "%m/%d/%Y").date()
-        except ValueError:
-            continue
-        scheduled.append(when)
-        # a played game carries a score; an unplayed one is just two team names
-        if re.search(r"\d+\s*,\s*@?\w", parts[i + 1] if i + 1 < len(parts) else ""):
-            played.append(when)
-    if not scheduled or not played:
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+        played = ("boxes/box" in body) or bool(re.search("[0-9]+ ?, ?@?[A-Za-z]", body))
+        out.append((parts[i], played))
+    return out or None
+
+
+def _regular_season_left(save_dir):
+    """How many more SIM DAY clicks are certainly still inside the regular season, or None.
+
+    Counted as the number of scheduled dates AFTER the last one that has been played. That is a
+    deliberate under-estimate: one click advances one calendar day, there are at least as many
+    calendar days left as there are remaining game days, so spending the count can never reach
+    the end. It also sidesteps the fact that the game's CURRENT date is not in the export at all
+    - only days with games get a heading, so after a quiet stretch the save is already some days
+    ahead of the last played date, and any calendar-arithmetic answer is too generous by exactly
+    that much.
+
+    None means "no opinion": no export, no regular-season section, or nothing played yet. The
+    caller says so out loud rather than treating it as zero.
+    """
+    blocks = _season_blocks(save_dir)
+    if not blocks:
         return None
-    return (max(scheduled) - max(played)).days
+    last = max((i for i, (_d, played) in enumerate(blocks) if played), default=None)
+    if last is None:
+        return None
+    return len(blocks) - 1 - last
 
 
 def _refuse_to_cross_the_season(keys, days, emit):
@@ -567,32 +591,37 @@ def _refuse_to_cross_the_season(keys, days, emit):
     NOTHING HERE HAS EVER CROSSED THAT LINE. sim_days clicks SIM DAY blind - no stage check, no
     dialog check between clicks - and the offseason drives league.dat through the codec without
     ever putting FBPB3 through its own playoffs or rollover. So what the game does on the day
-    after the last one is genuinely unknown: whether it stops on a modal that eats every later
-    click, whether SIM DAY plays playoff games, whether it starts its own aging and re-signing.
-    Any of those would be FBPB3 taking over a season rollover that offseason.py is supposed to
-    own, on the live universe, with seven real people in it.
+    after the last one is unknown: a modal that eats every later click, playoff games, its own
+    aging and re-signing. Any of those is FBPB3 taking over a rollover offseason.py owns, on the
+    live universe, with seven real people in it.
 
-    Worth guarding rather than remembering: the panel takes a number from whoever is typing, and
-    the last advice given was to use 35-day runs - which from here would cross it.
-
-    Cheap to lift once the path is designed: pass allow_season_end=True.
+    Worth guarding rather than remembering: the panel takes a number from whoever is typing.
     """
-    limits = []
+    limits, blind = [], []
     for key in keys:
         left = _regular_season_left(ch.save_path(key).parent)
-        if left is not None:
-            limits.append((key, left))
+        (blind if left is None else limits).append(key if left is None else (key, left))
+    if blind:
+        # Never silent. A guard that cannot read its own boundary and says nothing is
+        # indistinguishable from one that is working, which is how the first version of this
+        # shipped believing itself tested.
+        emit("start", f"cannot read the season boundary for {', '.join(blind)}; "
+                      "not guarding those")
     if not limits:
         return
     key, left = min(limits, key=lambda kv: kv[1])
     if days <= left:
         return
-    emit("error", f"{days} days would sim past the end of {key}'s regular season")
+    if left <= 0:
+        raise SeasonEnd(
+            f"{key}'s regular season has no days left to sim - every remaining game has been "
+            "played. What comes next is the playoffs and the rollover, and nothing here has "
+            "ever driven either. That path has to be designed and rehearsed on a copy first.")
     raise SeasonEnd(
-        f"{days} days would run past the end of the regular season: {key} has {left} day(s) "
-        f"of it left. Nothing has ever simmed across that boundary - the driver clicks SIM DAY "
-        f"blind, and the offseason never drives the game's own rollover - so it needs designing "
-        f"and rehearsing on a copy first. Sim {left} days or fewer.")
+        f"{days} days would run past the end of the regular season: {key} has {left} more "
+        f"day(s) with games scheduled. Nothing has ever simmed across that boundary - the "
+        f"driver clicks SIM DAY blind, and the offseason never drives the game's own rollover - "
+        f"so it needs designing and rehearsing on a copy first. Sim {left} days or fewer.")
 
 
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
@@ -619,17 +648,26 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     result = {"ok": False, "leagues": keys, "days": days, "dry_run": dry_run, "applied": 0,
               "activated": 0, "snapshots": 0, "errors": []}
     game = None
-    # Before the backups, the apply, the launch - before anything at all is touched.
-    if not allow_season_end:
-        _refuse_to_cross_the_season(keys, days, emit)
-
-    # Told before anything happens, because the point of it is that people know a sim is running
-    # while it runs. Wrapped like every other notify call: Discord cannot fail a week.
-    if not dry_run:
-        notify.post(f'**Sim started** - {days} day(s) of {", ".join(keys)}. '
-                    f'About {notify.estimate_minutes(days, len(keys))} min.',
-                    log=lambda m: emit("start", m))
     try:
+        # INSIDE the try, and first. _SIM_LOCK was acquired above and the only thing that ever
+        # releases it is this try's finally - so raising above this line held the lock for the
+        # life of the process, and offseason.py deliberately shares that lock, meaning one
+        # mistyped number would have bricked Sim Week AND the rollover until a restart. The
+        # panel would have reported "another process is already simming", which would have been
+        # false and sent somebody to the server to hunt a process that did not exist.
+        #
+        # Also skipped for a dry run: that path never launches FBPB3 and never clicks anything,
+        # and it is the natural way to ask what a long run would do - refusing it defeats the
+        # one safe way to find out.
+        if not allow_season_end and not dry_run:
+            _refuse_to_cross_the_season(keys, days, emit)
+
+        # Told before anything happens, because the point of it is that people know a sim is
+        # running while it runs. Wrapped like every other notify call: Discord cannot fail a week.
+        if not dry_run:
+            notify.post(f'**Sim started** - {days} day(s) of {", ".join(keys)}. '
+                        f'About {notify.estimate_minutes(days, len(keys))} min.',
+                        log=lambda m: emit("start", m))
         if FBPB3.is_running():
             emit("backup", "closing a stray FBPB3 first")
             FBPB3.kill()

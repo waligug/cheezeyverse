@@ -473,7 +473,16 @@ def _worker(run):
         # simweek keeps a lock of its own, so a sim started outside this panel (a script, a
         # second process) refuses us. That is not a crash and it must not read like one: this
         # panel started nothing and nothing was written.
-        if type(exc).__name__ == "SimBusy":
+        # A deliberate refusal is not a crash. The offseason already established this shape
+        # (see `refused` below), and without it the useful sentence arrives dressed as a bug
+        # report, under a red banner, with a traceback.
+        if type(exc).__name__ == "SeasonEnd":
+            run.status = "refused"
+            run.refused = True
+            run.error = str(exc)
+            run.emit({"kind": "step", "step": "refused", "league": None, "pct": 100,
+                      "message": str(exc)})
+        elif type(exc).__name__ == "SimBusy":
             run.error = ("Another process is already simming - this panel did not start "
                          f"anything and nothing was written. ({exc})")
             run.emit({"kind": "step", "step": "error", "league": None, "pct": None,
@@ -864,7 +873,10 @@ def index():
         "universe": status,
         "run": run.summary() if run else None,
         "busy": sim_busy(),
-        "defaults": {"week": 7, "chunk": 35},
+        # 21, not 35. 35 was the old advice and the season boundary now refuses it; the
+        # box should not pre-fill a number that gets rejected. 21 is three clean weeks
+        # and sits under the tightest league's remaining room.
+        "defaults": {"week": 7, "chunk": 21},
     }
     return render_template("index.html", boot=boot, status=status, run=boot["run"],
                            busy=boot["busy"],
