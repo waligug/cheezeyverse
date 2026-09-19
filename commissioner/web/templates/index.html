@@ -112,15 +112,25 @@
              FBPB3's own rollover, which nothing here drives - so its box is disabled and says
              who won rather than offering a run the server would refuse. #}
           {% for lg in status.get('leagues') or [] %}
-          {% set left = lg.get('days_to_season_end') if lg.get('days_to_season_end') is not none
-                        else lg.get('regular_season_left') %}
+          {# TWO numbers, and each drives a different thing. Using one for both left a dead zone.
+               data-left   = regular_season_left, THE GUARD'S OWN. The crossing test must use
+                             exactly what the server refuses on, or the control appears at a
+                             different threshold than the refusal - which it did: prep was 8 and
+                             10, so 9 and 10 days were refused with no checkbox on screen to
+                             permit them. Nate hit precisely that, three times.
+               data-clicks = days_to_season_end, the SIM DAY clicks a person types. Drives the
+                             badge and the suggestion, because that is the number that reaches
+                             the end of the season. #}
+          {% set left = lg.get('regular_season_left') %}
+          {% set clicks = lg.get('days_to_season_end') if lg.get('days_to_season_end') is not none
+                          else left %}
           <label {% if lg.get('champion') %}class="is-done" {% endif %}title="{{ lg.get('key') }}: {{ lg.get('stage') or 'stage unknown' }}{% if lg.get('champion') %} - won by {{ lg.get('champion') }}. Nothing left to sim: what follows is the rollover, which is not built.{% endif %}">
             <input type="checkbox" class="league-pick" value="{{ lg.get('key') }}"
                    {% if lg.get('champion') %}disabled data-champion="{{ lg.get('champion') }}"
-                   {% elif left is not none %}data-left="{{ left }}"
+                   {% elif left is not none %}data-left="{{ left }}" data-clicks="{{ clicks }}"
                      {%- if lg.get('round_one_days') is not none %} data-round-one="{{ lg.get('round_one_days') }}"{% endif %} checked
                    {%- else %}checked{% endif %}>
-            {{ lg.get('key') }}<span class="days-left">{% if lg.get('champion') %}done{% elif left is not none %}{{ left }}d{% else %}?{% endif %}</span></label>
+            {{ lg.get('key') }}<span class="days-left">{% if lg.get('champion') %}done{% elif clicks is not none %}{{ clicks }}d{% else %}?{% endif %}</span></label>
           {% endfor %}
         </div>
         <div class="group">

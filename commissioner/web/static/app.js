@@ -220,7 +220,13 @@ function tightestLeague() {
     if (raw === null || raw === '') { continue; }   // no opinion: never guess one
     var left = parseInt(raw, 10);
     if (isNaN(left)) { continue; }
-    if (best === null || left < best.left) { best = { key: boxes[i].value, left: left }; }
+    // `left` is the GUARD'S number and decides when the playoff control appears; `clicks` is
+    // what reaches the end of the season and decides what the box suggests. They are different
+    // - 8 and 10 in prep - and conflating them is what put nine and ten days in a dead zone.
+    var clicks = parseInt(boxes[i].getAttribute('data-clicks'), 10);
+    if (best === null || left < best.left) {
+      best = { key: boxes[i].value, left: left, clicks: isNaN(clicks) ? left : clicks };
+    }
   }
   return best;
 }
@@ -257,7 +263,7 @@ function refreshSeasonEnd() {
     var box = document.querySelector('.league-pick[value="' + tight.key + '"]');
     var round1 = box ? parseInt(box.getAttribute('data-round-one'), 10) : NaN;
     hint.textContent = isNaN(round1) ? ''
-      : tight.left + ' finishes ' + tight.key + '’s season, ' + (tight.left + round1)
+      : tight.clicks + ' finishes ' + tight.key + '’s season, ' + (tight.clicks + round1)
         + ' plays its first round';
   }
 }
@@ -276,8 +282,9 @@ var daysTouched = false;
 function suggestDays() {
   var tight = tightestLeague();
   var box = $('days-chunk');
-  if (box && !daysTouched && tight !== null && tight.left > 0) {
-    box.value = tight.left;
+  // the CLICK count, not the guard's under-estimate: the guard's number stops short of the end
+  if (box && !daysTouched && tight !== null && tight.clicks > 0) {
+    box.value = tight.clicks;
   }
   refreshSeasonEnd();
 }
