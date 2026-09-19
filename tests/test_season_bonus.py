@@ -223,12 +223,24 @@ def main():
         tied = [{"name": "Waxheads", "w": 20, "l": 23, "games": 43, "pct": 0.465},
                 {"name": "Threshers", "w": 20, "l": 23, "games": 43, "pct": 0.465}]
         assert [t["name"] for t in sb.seeded(tied, top=2)] == ["Threshers", "Waxheads"]
-        assert [t["name"] for t in sb.seeded(tied, top=2, order=["Waxheads", "Threshers"])]             == ["Waxheads", "Threshers"], "the game's own order was ignored"
+        # SAME conference: take the game's own order, which is what it is there for.
+        assert [t["name"] for t in sb.seeded(tied, top=2, order={"Waxheads": 4, "Threshers": 5})]             == ["Waxheads", "Threshers"], "the game's own order was ignored"
+
+        # CROSS conference is the case that made this a dict of positions rather than a flat list
+        # down the page. Read flat, a tie went to whichever conference is PRINTED first, which is
+        # layout and not basketball - the game never ranks two conferences against each other.
+        # Position within your own conference does: 2nd in the South beats 5th in the North.
+        cross = [{"name": "Prospectors", "w": 15, "l": 10, "games": 25, "pct": 0.600},
+                 {"name": "Potatoes", "w": 15, "l": 10, "games": 25, "pct": 0.600}]
+        assert [t["name"] for t in sb.seeded(cross, top=2,
+                                             order={"Prospectors": 5, "Potatoes": 2})]             == ["Potatoes", "Prospectors"], "a cross-conference tie went the wrong way"
+
         # a team the order has never heard of sorts after the ones it knows, not before
-        assert [t["name"] for t in sb.seeded(tied, top=2, order=["Threshers"])]             == ["Threshers", "Waxheads"]
-        # record still beats the order: a better team is not demoted by where the page lists it
+        assert [t["name"] for t in sb.seeded(tied, top=2, order={"Threshers": 1})]             == ["Threshers", "Waxheads"]
+        # record still beats the order: a better team is not demoted by where he is seeded
         better = tied + [{"name": "Zebras", "w": 30, "l": 13, "games": 43, "pct": 0.698}]
-        assert sb.seeded(better, top=1, order=["Waxheads", "Threshers", "Zebras"])[0]["name"]             == "Zebras"
+        assert sb.seeded(better, top=1,
+                         order={"Waxheads": 1, "Threshers": 2, "Zebras": 8})[0]["name"] == "Zebras"
 
         # true shooting is computed, not read off the game's own Efficiency row - see the
         # docstring. 5 points on 3 attempts and no free throws is 5 / (2 * 3).

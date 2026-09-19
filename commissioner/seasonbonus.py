@@ -129,29 +129,46 @@ def seeded(rows, top=8, order=None):
     division winners first, so a division winner with a losing record can outrank a better team
     - college has exactly that today. The panel says "by record" rather than implying otherwise.
 
-    `order` is the team order FBPB3 itself prints on playoffstandings.htm, used as the LAST
-    tiebreaker. Two teams on an identical record were previously separated by the alphabet,
-    which decided 8th place in the pros between Threshers and Waxheads at 20-23 apiece - a
-    coin toss dressed up as a standing. Borrowing the game's own order costs nothing and gets
-    its tiebreakers for free; the name stays as the final fallback when it has no opinion.
+    `order` is {team: its position WITHIN ITS OWN CONFERENCE} from playoffstandings.htm, used as
+    the LAST tiebreaker. Two teams on an identical record were first separated by the alphabet,
+    which decided 8th in the pros between Threshers and Waxheads at 20-23 apiece. Borrowing the
+    game's order fixed that - and, read as one flat list down the page, immediately broke
+    something else: a cross-conference tie then went to whichever conference the page happens to
+    print first, which is layout, not basketball. The game never ranks two conferences against
+    each other, so its page order means nothing across that line.
+
+    Position within the conference is the honest version of the same idea. A same-conference tie
+    still gets the game's own tiebreakers; a cross-conference tie goes to whoever is doing better
+    where he actually plays. The name stays as the final fallback.
     """
-    where = {name: i for i, name in enumerate(order or [])}
+    where = dict(order or {})
+    unknown = max(where.values(), default=0) + 1
     best = sorted(rows, key=lambda r: (-r["pct"], -r["w"],
-                                       where.get(r["name"], len(where)), r["name"]))[:top]
+                                       where.get(r["name"], unknown), r["name"]))[:top]
     return [{**r, "seed": i + 1} for i, r in enumerate(best)]
 
 
 def playoff_order(html_dir):
-    """Team names in the order FBPB3 lists them on playoffstandings.htm, ties included."""
+    """{team: its 1-based position within its own conference} from playoffstandings.htm.
+
+    The page is one table per conference, each starting with a "W L Pct" header row, so the
+    counter resets at each header. Deliberately NOT the position down the whole page: that
+    ranks a conference against another conference, which the game never does and which would
+    hand a tie to whichever section happens to be printed first.
+    """
     text = _text(Path(html_dir) / "playoffstandings.htm")
-    pattern = ("&nbsp;" + r"\s*\*?\s*" + f"({TEAM_CHARS}*?)"
-               + r"\s+\d+\s+\d+\s+\d*\.\d")
-    seen, out = set(), []
-    for name in re.findall(pattern, text):
-        name = name.strip()
-        if name and name not in seen:
-            seen.add(name)
-            out.append(name)
+    row = ("&nbsp;" + r"\s*\*?\s*" + f"({TEAM_CHARS}*?)"
+           + r"\s+\d+\s+\d+\s+\d*\.\d")
+    heads = [m.start() for m in re.finditer(r"W\s+L\s+Pct", text)]
+    out = {}
+    for n, start in enumerate(heads):
+        end = heads[n + 1] if n + 1 < len(heads) else len(text)
+        seen = 0
+        for name in re.findall(row, text[start:end]):
+            name = name.strip()
+            if name and name not in out:
+                seen += 1
+                out[name] = seen
     return out
 
 
