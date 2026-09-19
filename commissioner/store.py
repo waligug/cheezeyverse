@@ -545,12 +545,36 @@ def grant_week_points(league=None, weeks=1, reason="week simmed"):
     line = points.reason(league, rate, reason)
     paid = 0
     for _ in range(weeks):
-        # p_per carries the resolved level rate. The RPC still reads points_per_week when it is
-        # not given, so an older caller - or somebody running it by hand in the SQL editor -
-        # keeps the old behaviour instead of silently paying zero.
-        paid = _rpc("grant_week_points",
-                    {"p_league": league, "p_reason": line, "p_per": rate})
+        paid = _grant_one_week(league, line, rate)
     return paid
+
+
+def _grant_one_week(league, reason, rate):
+    """One week's pay, tolerating a database that has not had level_income.sql run on it yet.
+
+    PostgREST matches an RPC by its ARGUMENT NAMES, so sending p_per to the old two-argument
+    grant_week_points is not ignored - it fails to resolve the function at all (PGRST202). A
+    deploy that lands before its migration would therefore not pay the flat rate, it would fail
+    the points step of every single Sim Week, and the sim would report an error at the very last
+    stage after all the basketball had already been played.
+
+    Code and schema cannot be deployed in the same instant, so the code has to survive the gap.
+    Fall back, say so loudly enough to be fixed, and pay people the old rate in the meantime -
+    underpaying for a week is recoverable, not paying at all is a broken universe.
+    """
+    try:
+        return _rpc("grant_week_points",
+                    {"p_league": league, "p_reason": reason, "p_per": rate})
+    except StoreError as exc:
+        # Match the "no such function" case only. A genuine failure inside the function must
+        # still raise: retrying it without p_per would just fail again, one message later and
+        # with the real cause buried under a misleading one about migrations.
+        if not any(m in str(exc) for m in ("PGRST202", "Could not find the function")):
+            raise
+        print(f"grant_week_points does not take p_per yet, so {league or 'everyone'} is being "
+              f"paid the flat points_per_week instead of {rate}. "
+              f"Run supabase/level_income.sql in the SQL editor.", flush=True)
+        return _rpc("grant_week_points", {"p_league": league, "p_reason": reason})
 
 
 # ---------------------------------------------------------------------------------------
