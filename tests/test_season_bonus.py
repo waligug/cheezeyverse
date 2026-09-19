@@ -127,13 +127,26 @@ def main():
         assert sb.playoff_teams(d) == {"Tulips"}, sb.playoff_teams(d)
         assert sb.champion(d, teams) is None, "a champion appeared before anybody won"
 
-        # Our Guy: playoffs 3, POTW 1, POTM 2, top-25 in all five (capped 2), elite line
-        # 90/100 + 90/100 + 45/50 + 9/10 + 4/5 = 0 (all just short) -> 8
+        # Three components are off by default (playoffs, player of the week, season awards).
+        # Assert that explicitly: a component silently switching itself back on would pay real
+        # points to real people, and "everyone got more than expected" is not a loud failure.
+        for key in ("bonus_playoffs", "bonus_potw", "bonus_season_award"):
+            assert sb.DEFAULTS[key] == 0, f"{key} came back on"
+
+        # Our Guy, on the defaults: POTM 2, top-25 in all five (capped to 2), and the elite line
+        # just out of reach in every category (90/100, 90/100, 45/50, 9/10, 4/5 all floor to 0).
         rows = sb.for_character("Our Guy", d, {}, {})
         got = dict((r.split(":")[1].strip(), p) for r, p in rows)
-        assert sum(rows_p for _, rows_p in rows) == 8, rows
-        assert got["made the playoffs"] == 3 and got["player of the month x1"] == 2, rows
+        assert sum(p for _, p in rows) == 4, rows
+        assert got["player of the month x1"] == 2, rows
         assert got[f"top {sb.DEFAULTS['stat_bonus_top_n']} in PTS, REB, AST, STL, BLK"] == 2, rows
+        assert not any("playoffs" in r or "week" in r for r, _ in rows), rows
+
+        # ...and the off components are off by VALUE, not deleted, so turning them back on in
+        # the settings table works without a deploy. That is the whole reason they were zeroed.
+        rows = sb.for_character("Our Guy", d, {"bonus_playoffs": 3, "bonus_potw": 1}, {})
+        got = dict((r.split(":")[1].strip(), p) for r, p in rows)
+        assert got["made the playoffs"] == 3 and got["player of the week x1"] == 1, rows
 
         # Ace Elite clears every elite line several times over, and the elite half still pays
         # only its maximum of 2 - that ceiling is the whole reason the rule is league-relative
@@ -141,13 +154,13 @@ def main():
         rows = sb.for_character("Ace Elite", d, {}, {})
         elite = [p for r, p in rows if "elite-line" in r]
         assert elite == [sb.DEFAULTS["stat_bonus_elite_max"]], rows
-        assert sum(p for _, p in rows) == 8, rows
+        assert sum(p for _, p in rows) == 4, rows
 
         # The overall cap, exercised by lowering it rather than by inventing a season nobody
         # could have: it must trim to exactly the cap AND say so, not pay less in silence.
-        rows = sb.for_character("Ace Elite", d, {"bonus_cap": 5}, {})
-        assert sum(p for _, p in rows) == 5, rows
-        assert any("capped at 5" in r for r, _ in rows), "the cap was applied silently"
+        rows = sb.for_character("Ace Elite", d, {"bonus_cap": 3}, {})
+        assert sum(p for _, p in rows) == 3, rows
+        assert any("capped at 3" in r for r, _ in rows), "the cap was applied silently"
 
         # Benched Kid: 4 of 24 games is under a quarter, so he is a development case.
         rows = sb.for_character("Benched Kid", d, {}, {})
@@ -160,11 +173,15 @@ def main():
                     season_awards=True)
         rows = sb.for_character("Our Guy", d2, {}, {})
         assert any("won the league" in r for r, _ in rows), rows
+        # The season award is off by default, but the page must still be READ correctly, or
+        # turning it back on would quietly pay nobody.
+        assert "Our Guy" in sb.season_award_winners(d2), sb.season_award_winners(d2)
+        rows = sb.for_character("Our Guy", d2, {"bonus_season_award": 3}, {})
         assert any("a season award" in r for r, _ in rows), rows
         shutil.rmtree(d2, ignore_errors=True)
 
         # Every number is tunable, and junk falls back rather than raising.
-        rows = sb.for_character("Our Guy", d, {"bonus_playoffs": 99, "bonus_cap": 500}, {})
+        rows = sb.for_character("Our Guy", d, {"bonus_potm": 99, "bonus_cap": 500}, {})
         assert any(p == 99 for _, p in rows), rows
         assert sb.setting({"bonus_cap": "not a number"}, "bonus_cap") == 10
     finally:

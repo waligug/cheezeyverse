@@ -143,6 +143,14 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   115 for the same achievement. Both halves are now measured against the league's own season - top 25 by total
   (max +2) and multiples of the 5th-best total (max +2) - which pays #1 -> 4, #10 -> 3, #25 -> 2, median -> 0 in
   every league. `commissioner/seasonbonus.py`; every number is a settings key.
+- 2026-09-19 **Three bonus components are OFF, by decision, not by deletion.** Nate: "remove the make playoffs
+  one since everyone makes it, and make it so only player of the month award rewards points". So
+  `bonus_playoffs`, `bonus_potw` and `bonus_season_award` default to 0; `bonus_title` stays at 3 because it is a
+  team result rather than an award. Zero-point rows are dropped before anything is paid, so an off component
+  costs a dictionary lookup and can be turned back on from the settings table without a deploy. For the record
+  the premise is not right - the brackets take 8 of 16 in prep and college and 8 of 20 in the pros, so not
+  everyone makes the playoffs - which makes this a balance choice rather than a correction. What remains pays
+  the seven prep characters Zach 2, Liam 3 (development), Johnny 1 and nothing at all to the other four.
 - 2026-09-19 **Four traps in FBPB3's exported HTML**, all found by running the parser against the live prep
   export and all silent: an undefeated team's percentage reads `1.000` not `.652` (the 24-0 Tulips vanished from
   the standings, which dropped their players from the ranking pool AND denied them a playoff bonus); the Season

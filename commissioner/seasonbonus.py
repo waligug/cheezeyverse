@@ -33,12 +33,18 @@ TOTAL_COLUMNS = ["G", "GS", "MIN", "FGM", "FGA", "FTM", "FTA", "3PM", "3PA", "PT
                  "REB", "AST", "STL", "TO", "STL_repeat", "BLK", "PF", "PM"]
 CATEGORIES = ["PTS", "REB", "AST", "STL", "BLK"]
 
+# Three components are OFF (2026-09-19), by Nate's decision: "remove the make playoffs one since
+# everyone makes it, and make it so only player of the month award rewards points". They are
+# zeroed rather than deleted, because a zero-point row is dropped before anything is paid, so an
+# off component costs one dictionary lookup and can be turned back on from the settings table
+# without a deploy. For the record, not everyone does make the playoffs - the brackets take 8 of
+# 16 in prep and college and 8 of 20 in the pros - so this is a balance choice, not a fix.
 DEFAULTS = {
-    "bonus_playoffs": 3,
-    "bonus_title": 3,
-    "bonus_potw": 1,
-    "bonus_potm": 2,
-    "bonus_season_award": 3,
+    "bonus_playoffs": 0,        # was 3
+    "bonus_title": 3,           # a team RESULT, not an award, so it stays
+    "bonus_potw": 0,            # was 1
+    "bonus_potm": 2,            # the only award that pays
+    "bonus_season_award": 0,    # was 3 (MVP, All-League)
     "bonus_catchup": 3,
     "catchup_share": 0.25,      # played in fewer than this share of his team's games
     "stat_bonus_top_n": 25,
