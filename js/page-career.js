@@ -597,31 +597,50 @@ function ratingHistory(character) {
      + 'sheet now. That is the comparison below.']);
 }
 
-/** Drawn only if `rating_snapshots` ever appears: overall sheet average per season. */
+const WEEKS_IN_SEASON = 26;   // the prep calendar is 184 days; CONVENTIONS has the working
+
+/**
+ * The sheet average over time, one point per Sim Week.
+ *
+ * This used to collapse each season to a single point - where he finished it - on the reasoning
+ * that a season is the unit a career is read in. True of a long career and wrong for a new
+ * universe: with one season played it had exactly one point, refused to draw, and told everybody
+ * "One season on record so far. Two make a line." while twenty-two weeks of real snapshots sat
+ * in the table unused. Nobody was going to see this chart for a year.
+ *
+ * The objection to plotting raw was that twenty-six rows land on one x and draw a vertical
+ * scribble. That is only true when x IS the season. On a continuous week axis they spread out
+ * properly, and the same code keeps working when there are five seasons of them.
+ */
 function snapshotChart(snaps) {
-  // One snapshot is written per Sim Week, so a played season leaves about 26 rows. Plotting them
-  // raw stacks 26 points on one x and draws a vertical scribble; a season is the unit anybody
-  // reads a career in, so each season becomes one point: where he finished it.
-  const bySeason = new Map();
+  const byX = new Map();
+  let firstSeason = Infinity;
   for (const s of snaps) {
     const season = Number(s.season);
+    if (Number.isFinite(season)) firstSeason = Math.min(firstSeason, season);
+  }
+  for (const s of snaps) {
+    const season = Number(s.season);
+    const week = Number(s.week);
     const value = mean(RATINGS.map((r) => Number((s.ratings || {})[r])).filter(Number.isFinite));
     if (!Number.isFinite(season) || !Number.isFinite(value)) continue;
-    const week = Number(s.week);
-    const seen = bySeason.get(season);
-    // keep the latest week in each season - where he ended it, not where he started
-    if (!seen || !Number.isFinite(seen.week) || (Number.isFinite(week) && week >= seen.week)) {
-      bySeason.set(season, { season, mean: value, week });
-    }
+    const x = (season - firstSeason) * WEEKS_IN_SEASON + (Number.isFinite(week) ? week : 0);
+    // two snapshots for the same week means the later write won; keep it
+    byX.set(x, { x, y: value, season, week });
   }
-  const rows = [...bySeason.values()].sort((a, b) => a.season - b.season);
+  const rows = [...byX.values()].sort((a, b) => a.x - b.x);
   if (rows.length < 2) {
     return note(null, rows.length
-      ? 'One season on record so far. Two make a line.'
+      ? 'One week on record so far. Two make a line.'
       : 'Nothing recorded yet. A snapshot is written every Sim Week.');
   }
-  return lineChart(rows.map((r) => ({ x: r.season, y: r.mean })),
-    'Average of all eighteen ratings, where he finished each season');
+  const label = (x) => {
+    const r = rows.find((q) => q.x === x) || rows[0];
+    return firstSeason === rows[rows.length - 1].season
+      ? `week ${r.week}` : `${r.season} wk ${r.week}`;
+  };
+  return lineChart(rows.map((r) => ({ x: r.x, y: r.y })),
+    'Average of all eighteen ratings, every Sim Week', label, { zeroBased: false });
 }
 
 /* ------------------------------------------------------------ what he was / what he is */
@@ -929,7 +948,7 @@ function svg(tag, attrs, ...kids) {
 }
 
 /** A plain x/y line chart. Used by the two sections that have dated history to draw. */
-function lineChart(points, label, fmtX) {
+function lineChart(points, label, fmtX, { zeroBased = true } = {}) {
   const W = 560;
   const H = 170;
   const padL = 44;
@@ -940,7 +959,10 @@ function lineChart(points, label, fmtX) {
   const ys = points.map((p) => p.y);
   const xLo = Math.min(...xs);
   const xHi = Math.max(...xs);
-  const yLo = Math.min(0, ...ys);
+  // Anchoring at zero is right for "points applied", where zero means none. It is wrong for a
+  // rating average: a line moving 25 to 29 over a season is the whole story, and squashed into
+  // the top seventh of a chart that starts at zero it looks like nothing happened at all.
+  const yLo = zeroBased ? Math.min(0, ...ys) : Math.min(...ys) - 2;
   const yHi = Math.max(...ys) || 1;
   const x = (v) => padL + (xHi === xLo ? 0.5 : (v - xLo) / (xHi - xLo)) * (W - padL - padR);
   const y = (v) => padT + (1 - (v - yLo) / (yHi - yLo || 1)) * (H - padT - padB);
