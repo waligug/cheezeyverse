@@ -29,7 +29,8 @@ renderFooter();
 
 const LEAGUES = ['prep', 'college', 'pro'];
 const DATA = new Map();
-let people = [];          // [{name, league, games}]
+let people = [];          // pickable: [{id, name, league, games}], he has games on record
+let absent = [];          // on record but with nothing to compare, and the reason why
 let left = null;
 let right = null;
 
@@ -70,6 +71,29 @@ function trueShooting(t) {
 
 const per = (v, n) => (n ? (v / n).toFixed(1) : '0.0');
 
+/* WHY A CHARACTER HAS NO GAMES. Two different things, and they must not be run together.
+ *
+ * `since_source: "unknown"` means the commissioner could not work out which day he arrived, so
+ * it could not tell his games from those of the dormant filler whose roster slot he was renamed
+ * into - the history stays under the one player id. Rather than hand him a stranger's season it
+ * publishes none of them. That is a gap in the record somebody can go and fix.
+ *
+ * An arrival day with no games after it is just a man who has not played yet. Nothing is wrong.
+ *
+ * Silence was the old behaviour for both: he simply was not in the dropdown, with no way to tell
+ * whether he had never played or whether his games had been withheld. */
+function whyAbsent(p) {
+  if (p.since_source === 'unknown') {
+    return `${p.name} — the day he joined was never recorded, so his games cannot be told apart `
+      + 'from those of the player whose slot he took. None are shown, rather than credit him '
+      + 'with somebody else’s nights.';
+  }
+  if (p.since_day) {
+    return `${p.name} — joined on day ${p.since_day} and has not played since.`;
+  }
+  return `${p.name} — no games on record yet.`;
+}
+
 function picker(id, value, onchange) {
   const sel = el('select', { class: 'cv-select', id, onchange: (e) => onchange(e.target.value) });
   sel.append(el('option', { value: '' }, 'Pick a player...'));
@@ -87,13 +111,21 @@ function renderPickers() {
   const box = $('#pickers');
   clear(box);
   if (!people.length) {
-    box.append(note(null, 'No game-by-game data published yet. It is written by the '
-      + 'commissioner after each Sim Week, from the game’s own export.'));
+    // "nothing published yet" and "published, but none of it could be attributed" look identical
+    // on an empty page and are not the same problem at all.
+    box.append(absent.length
+      ? note(null, 'Nobody has games that can be compared yet:', absent.map(whyAbsent))
+      : note(null, 'No game-by-game data published yet. It is written by the '
+        + 'commissioner after each Sim Week, from the game’s own export.'));
     return;
   }
   box.append(el('div', { class: 'cv-fields' },
     el('label', {}, el('span', {}, 'Player one'), picker('one', left, (v) => { left = v; draw(); })),
     el('label', {}, el('span', {}, 'Player two'), picker('two', right, (v) => { right = v; draw(); }))));
+  if (absent.length) {
+    box.append(note(null, absent.length === 1 ? 'One player is not in the lists:'
+      : `${absent.length} players are not in the lists:`, absent.map(whyAbsent)));
+  }
 }
 
 function statRow(label, a, b, better) {
@@ -142,11 +174,17 @@ function draw() {
   }
   const one = people.find((p) => p.id === left);
   const two = people.find((p) => p.id === right);
-  // A shared link can name somebody who has been retired, renamed or never existed. Say so,
-  // rather than throwing on one.league and showing a red error notice.
+  // A shared link can name somebody with no games - or nobody at all. Name WHICH of the two, and
+  // why: "not on record" and "on record with his games withheld" are different problems, and only
+  // one of them is anybody's to fix. The old text guessed at both in one sentence.
   if (!one || !two) {
-    box.append(note(null, 'That link points at a player who is not on record - he may have '
-      + 'retired, or he may not have played a game yet. Pick two from the lists above.'));
+    const why = [[left, one], [right, two]].filter(([, found]) => !found).map(([id]) => {
+      const known = absent.find((p) => p.id === id);
+      return known ? whyAbsent(known)
+        : `${id} — not on record. He may have retired, or the link may be an old one.`;
+    });
+    box.append(note(null, 'That link points at somebody with no games to compare. Pick two from '
+      + 'the lists above.', why));
     return;
   }
 
@@ -263,13 +301,20 @@ async function boot() {
 
   const loaded = await Promise.all(LEAGUES.map(leagueGames));
   people = [];
+  absent = [];
   loaded.forEach((data, i) => {
     if (!data) return;
     for (const c of data.characters || []) {
-      if (c.games && c.games.length) people.push({ ...c, league: LEAGUES[i] });
+      // A man with no games must NOT go in the pickable list. Picked, he would fall through to
+      // the empty-days branch and be told "they have not met yet - the schedule will bring them
+      // round", which for an unattributed character is simply false: no schedule will produce
+      // games that were deliberately withheld. He goes in `absent` and gets the real reason.
+      const where = (c.games && c.games.length) ? people : absent;
+      where.push({ ...c, league: LEAGUES[i] });
     }
   });
   people.sort((x, y) => x.name.localeCompare(y.name));
+  absent.sort((x, y) => x.name.localeCompare(y.name));
 
   const note0 = $('#league-note');
   if (note0) {
@@ -282,12 +327,15 @@ async function boot() {
   // ?one=<id>&two=<id> makes a comparison linkable, which is the whole point of an argument
   // settler. Ids rather than names, so a rename does not break every link already shared.
   const params = new URLSearchParams(window.location.search);
-  const byId = new Map(people.map((p) => [p.id, p]));
+  // both lists: a name-style link to somebody with no games should still resolve to him, so the
+  // page can say what is wrong with him instead of echoing the raw name back as a stranger
+  const everyone = [...people, ...absent];
+  const byId = new Map(everyone.map((p) => [p.id, p]));
   const resolve = (v) => {
     if (!v) return null;
     if (byId.has(v)) return v;
     // old links used names; honour them rather than showing a stranger an error
-    const match = people.find((p) => p.name === v);
+    const match = everyone.find((p) => p.name === v);
     return match ? match.id : v;
   };
   left = resolve(params.get('one'));
