@@ -1,23 +1,53 @@
 {
- "published_at": "2026-09-19T09:48:04",
+ "published_at": "2026-09-19T10:02:19",
  "leagues": [
   {
    "league": "prep",
    "name": "Cheezeyverse Prep",
    "pages": 605,
-   "path": "C:\\claude\\hoops-universe\\site\\leagues\\prep"
+   "path": "C:\\claude\\hoops-universe\\site\\leagues\\prep",
+   "stats": {
+    "players": 184,
+    "elite": {
+     "PTS": 201,
+     "REB": 137,
+     "AST": 34,
+     "STL": 17,
+     "BLK": 6
+    }
+   }
   },
   {
    "league": "college",
    "name": "Cheezeyverse College",
    "pages": 610,
-   "path": "C:\\claude\\hoops-universe\\site\\leagues\\college"
+   "path": "C:\\claude\\hoops-universe\\site\\leagues\\college",
+   "stats": {
+    "players": 191,
+    "elite": {
+     "PTS": 530,
+     "REB": 239,
+     "AST": 60,
+     "STL": 27,
+     "BLK": 25
+    }
+   }
   },
   {
    "league": "pro",
    "name": "Cheezeyverse",
    "pages": 750,
-   "path": "C:\\claude\\hoops-universe\\site\\leagues\\pro"
+   "path": "C:\\claude\\hoops-universe\\site\\leagues\\pro",
+   "stats": {
+    "players": 252,
+    "elite": {
+     "PTS": 1127,
+     "REB": 448,
+     "AST": 312,
+     "STL": 69,
+     "BLK": 91
+    }
+   }
   }
  ]
 }
