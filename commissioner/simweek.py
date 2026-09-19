@@ -636,9 +636,18 @@ def _champion(save_dir):
 
 
 _SEASON_END_CACHE = {}
+_SEASON_END_WORKING = {}
 
 
-def days_to_regular_end(key):
+def _fill_season_end(key):
+    """Work the answer out in the background and leave it in the cache for the next poll."""
+    try:
+        days_to_regular_end(key, compute=True)
+    finally:
+        _SEASON_END_WORKING[key] = False
+
+
+def days_to_regular_end(key, compute=False):
     """SIM DAY clicks from where the save sits to the last day of the regular season, or None.
 
     EXACT, unlike `_regular_season_left`, which counts remaining dates that have GAMES and is
@@ -662,6 +671,17 @@ def days_to_regular_end(key):
     cached = _SEASON_END_CACHE.get(key)
     if cached and cached[0] == stamp:
         return cached[1]
+    # NEVER BLOCK THE PANEL. Reading the MDB means launching the 32-bit PowerShell, about two
+    # seconds a league, which made the first /api/state after a restart take sixteen. Callers
+    # ask without `compute` and get the cached answer or None; the work happens on a background
+    # thread and lands before the next poll. None is already rendered as "cannot tell" rather
+    # than as a number, so a moment of not knowing is honest rather than wrong. (Flask serves
+    # requests on worker threads, so "is this the main thread?" cannot be the test here.)
+    if not compute:
+        if not _SEASON_END_WORKING.get(key):
+            _SEASON_END_WORKING[key] = True
+            threading.Thread(target=_fill_season_end, args=(key,), daemon=True).start()
+        return cached[1] if cached else None
     value = None
     try:
         from .codec.league_dat import find_season_day
