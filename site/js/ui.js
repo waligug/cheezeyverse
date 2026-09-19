@@ -312,16 +312,34 @@ function ratingRow(rating, state, onStep) {
 }
 
 /** The sticky points readout above a sheet. */
-export function renderMeter(container, { budget, spent, label }) {
+/**
+ * The points meter. Three numbers that mean three different things, said plainly.
+ *
+ * It used to read "0 POINTS LEFT / 10 ALREADY WAITING ON THE COMMISSIONER / 0 SPENT", which is
+ * how somebody with ten points concludes he has none. Two separate problems: "points left" was
+ * really "free to spend right now", with the rest held against requests already sent; and
+ * "spent" meant "queued in this session and not sent yet", not the lifetime figure the same
+ * word means everywhere else on the page.
+ *
+ * `free` is what you can actually click with, `reserved` is held against requests the
+ * commissioner has not applied yet, and `queued` is what is staged here and not sent.
+ */
+export function renderMeter(container, { free, reserved = 0, queued = 0 }) {
   clear(container);
   container.className = 'cv-meter cv-cheese';
-  container.append(
-    el('b', {}, String(budget)),
-    el('span', {}, budget === 1 ? 'point left' : 'points left'),
-    el('span', { class: 'cv-meter-sep' }, label || ''),
-    el('b', {}, String(spent)),
-    el('span', {}, 'spent'),
-  );
+  // Each number and its words are ONE child, because the meter is a wrapping flex row: as two
+  // children they wrapped apart, leaving a bare "10" on one line and "already asked for" on the
+  // next, which is a worse sentence than the one this function exists to fix.
+  const stat = (n, words) => el('span', { class: 'cv-meter-stat' },
+    el('b', {}, String(n)), el('span', {}, words));
+  // .filter(Boolean), because this is a NATIVE append, not el(). el() skips null kids; the DOM
+  // stringifies them, so a conditional stat that was not wanted printed the word "null" into the
+  // meter in yellow-on-yellow capitals.
+  container.append(...[
+    stat(free, free === 1 ? 'point free to spend' : 'points free to spend'),
+    reserved ? stat(reserved, 'already asked for') : null,
+    queued ? stat(queued, 'staged below, not sent') : null,
+  ].filter(Boolean));
 }
 
 /** A read-only stat sheet, for someone else's player or a character you cannot edit. */

@@ -162,18 +162,26 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
     el('span', { class: 'cv-muted' },
       'prep, college and pro on one page, with the growth and the spending')));
 
-  card.append(el('div', { class: 'cv-readout cv-cheese' },
-    el('b', {}, classLine(klass)),
-    el('span', {}, klass.blurb),
-    el('span', {}, `Second closest: ${klass.runnerUp.label}. `
-      + 'It is a label, not a cage - spend differently and it changes.')));
+  /* ---- who he is, folded away ---------------------------------------------------------
+     This is the nicest writing on the site and on a phone it was in the way: about 600px of
+     class readout, position note, career goal and height projection sat between the card's
+     header and the first thing you can press. It does not change week to week, so it does not
+     need to be open week to week - but the headline does the summarising, so what you give up
+     by leaving it shut is nothing.
 
-  card.append(el('p', { class: 'cv-muted' }, positionLine(character)));
-
+     <details> rather than a button: it opens without JavaScript, the browser handles the
+     keyboard and screen-reader behaviour, and find-in-page still reaches the text inside. */
   const goal = goalLine(character.career_goal);
-  if (goal) card.append(el('p', {}, el('b', {}, 'What he wants: '), goal));
-
-  card.append(heightBlock(character, age));
+  const about = el('details', { class: 'cv-fold' },
+    el('summary', {}, classLine(klass)),
+    el('div', { class: 'cv-fold-body' },
+      el('p', {}, klass.blurb),
+      el('p', { class: 'cv-muted' }, `Second closest: ${klass.runnerUp.label}. `
+        + 'It is a label, not a cage - spend differently and it changes.'),
+      el('p', { class: 'cv-muted' }, positionLine(character)),
+      goal ? el('p', {}, el('b', {}, 'What he wants: '), goal) : null,
+      heightBlock(character, age)));
+  card.append(about);
 
   if (character.status === 'pending') {
     card.append(note(null, 'Waiting for a roster spot. The commissioner drops pending '
@@ -236,11 +244,7 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
 
   function drawSpend() {
     const queued = queuedCost();
-    renderMeter(meter, {
-      budget: freePoints(),
-      spent: queued,
-      label: reserved ? `${reserved} already waiting on the commissioner` : klass.label,
-    });
+    renderMeter(meter, { free: freePoints(), reserved, queued });
     renderSheet(sheet, {
       base,
       bias,
