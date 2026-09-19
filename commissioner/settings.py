@@ -28,6 +28,12 @@ _DEFAULTS = {
     # where `python -m commissioner.publish` drops the skinned league sites, and where the
     # player-facing site lives. Only used for messages today; kept here so there is one place.
     "SITE_DIR": str(ROOT / "site"),
+    # Where the published site lives, for links in Discord messages. Empty means "do not link".
+    "SITE_URL": "",
+    # A Discord incoming webhook (Server Settings -> Integrations -> Webhooks). Anybody holding
+    # this URL can post to the server as the commissioner, so it belongs in .env and nowhere
+    # else. Empty means no notifications, which is a normal state and not an error.
+    "DISCORD_WEBHOOK_URL": "",
 }
 
 _dotenv_cache = None

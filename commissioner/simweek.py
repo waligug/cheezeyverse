@@ -26,6 +26,8 @@ from datetime import datetime
 from pathlib import Path
 
 from . import characters as ch
+from . import notify
+from . import settings as cfgenv
 from . import localstore
 from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
 from .driver.fbpb3 import DOCS, FBPB3
@@ -492,6 +494,33 @@ def _snapshot_league(league_key, st, season, week, log):
 
 
 # ---- the run ---------------------------------------------------------------------------------
+def _discord_report(steps, result, seconds):
+    """The end-of-run message, built from the step log rather than from new plumbing.
+
+    Everything worth telling people was already emitted during the run - who got placed, how
+    many points were paid, whether the push landed - so this reads the log instead of threading
+    return values back through five stages that do not otherwise need them.
+    """
+    placed = [r["message"] for r in steps
+              if r.get("step") == "apply" and " claimed " in str(r.get("message", ""))]
+    points = [r["message"] for r in steps if r.get("step") == "points"]
+    published = any("the public site is live" == r.get("message") for r in steps)
+
+    weeks = max(1, round(int(result.get("days") or 7) / 7))
+    lines = [f'**Sim done** - {weeks} week(s) of '
+             f'{", ".join(result.get("leagues") or [])} in {round(seconds / 60)} min']
+    for line in placed:
+        lines.append(f"- {line}")
+    for line in points:
+        lines.append(f"- {line}")
+    if published:
+        site = (cfgenv.get("SITE_URL", "") or "").strip()
+        lines.append(f"- the site is live{': ' + site if site else ''}")
+    elif not result.get("dry_run"):
+        lines.append("- the site did NOT publish; the week itself is saved")
+    return "\n".join(lines)
+
+
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
     """Apply everything owed, sim `days` in each league, export, publish, grant points."""
     if not _SIM_LOCK.acquire(blocking=False):
@@ -515,6 +544,12 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
     result = {"ok": False, "leagues": keys, "days": days, "dry_run": dry_run, "applied": 0,
               "activated": 0, "snapshots": 0, "errors": []}
     game = None
+    # Told before anything happens, because the point of it is that people know a sim is running
+    # while it runs. Wrapped like every other notify call: Discord cannot fail a week.
+    if not dry_run:
+        notify.post(f'**Sim started** - {days} day(s) of {", ".join(keys)}. '
+                    f'About {notify.estimate_minutes(days, len(keys))} min.',
+                    log=lambda m: emit("start", m))
     try:
         if FBPB3.is_running():
             emit("backup", "closing a stray FBPB3 first")
@@ -721,9 +756,19 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
 
         result["ok"] = True
         emit("done", f"done in {round(time.time() - started)}s", pct=100)
+        if not dry_run:
+            notify.post(_discord_report(steps, result, time.time() - started),
+                        log=lambda m: emit("done", m))
     except Exception as exc:
         result["errors"].append(str(exc))
         emit("error", str(exc), pct=100)
+        if not dry_run:
+            # The last step is the useful part: "stopped" on its own sends somebody to the
+            # server to find out what, which is exactly the trip this is meant to save.
+            where = next((r["message"] for r in reversed(steps)
+                          if r.get("step") not in ("error",)), "before it started")
+            notify.post(f"**Sim stopped** - {exc}\nLast step: {where}",
+                        log=lambda m: None)
         raise
     finally:
         if game is not None:

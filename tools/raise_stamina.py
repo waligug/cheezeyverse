@@ -104,13 +104,20 @@ def raise_stamina(key, characters, floor=FLOOR, apply=False):
 
 
 def sync_store(key, characters, st):
-    """Write the save's sheet back to `characters.ratings`, which is what the website reads.
+    """Write the save's sheet back to `characters.ratings`, AND record it in the history.
 
-    NOT `add_snapshot`. That appends to rating_snapshots, which is the career history: it has no
-    upsert, so calling it outside the weekly cadence puts a second point on the growth chart at
-    a week that already has one, and it does not touch the live sheet at all - so the site would
-    have gone on showing the old number while the graph grew a duplicate. `ratings` is in
-    SETTABLE_FIELDS precisely so the commissioner can correct the live sheet directly.
+    Two different tables, doing two different jobs, and the first version of this only wrote one.
+
+    `characters.ratings` is the live sheet the player page and the roster swatches read, and it
+    is in SETTABLE_FIELDS precisely so the commissioner can correct it directly. Writing only
+    that is what the earlier version did, on the reasoning that add_snapshot has no upsert and
+    would put a second point on the growth chart at a week that already has one.
+
+    True, and it missed the bigger problem. rating_snapshots is the ONLY record of what somebody
+    used to be, and a correction applied between Sim Weeks moved the live sheet without moving
+    the history - so the next sim's snapshot carried the jump instead. Every character stepping
+    up two and a half points of average on the same week, with nothing on the page able to say
+    why. A duplicate point at a known week is a much smaller lie than a step in the wrong place.
     """
     L = LeagueDat(ch.save_path(key))
     done = 0
@@ -123,7 +130,24 @@ def sync_store(key, characters, st):
                                            or (c.get("claimed_slot") or {}).get("dob")))
         except Exception:
             continue
-        st.set_character_field(c["id"], "ratings", {f: pl.values[f] for f in RATINGS})
+        sheet = {f: pl.values[f] for f in RATINGS}
+        st.set_character_field(c["id"], "ratings", sheet)
+        # ...and write it down, or the career graph gets a step with nothing behind it.
+        # rating_snapshots is the only record of what somebody USED to be, and it is written
+        # once per Sim Week. A correction applied between weeks moves the live sheet without
+        # moving the history, so the next sim's snapshot shows a jump - every character at
+        # once, on the same week, for no reason the page can explain. Recording it here puts
+        # the step where it actually happened, with a row that says what it was.
+        if hasattr(st, "add_snapshot"):
+            try:
+                settings = st.get_settings()
+                st.add_snapshot(character_id=c["id"],
+                                season=int(settings.get("current_season", 0)),
+                                week=int(settings.get("current_week", 0)),
+                                ratings=sheet, potentials=ch.store_potentials(pl.values),
+                                height_inches=pl.values["Height"], league=key)
+            except Exception as exc:
+                print(f"    ! {name}: sheet updated but not recorded in the history ({exc})")
         done += 1
     return done
 

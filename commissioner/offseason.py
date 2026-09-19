@@ -38,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import characters as ch
+from . import notify
 from . import seasonbonus
 from . import growth
 from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
@@ -578,9 +579,41 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
     if not _SIM_LOCK.acquire(blocking=False):
         raise SimBusy("a sim or another offseason is already using the saves")
     try:
-        return _run_offseason(store, season=season, log=log, dry_run=dry_run, force=force)
+        if not dry_run:
+            notify.post(f"**Offseason started** - {season or 'this season'}. Everybody ages, "
+                        "grows, and whoever has outgrown his level moves up.", log=log)
+        result = _run_offseason(store, season=season, log=log, dry_run=dry_run, force=force)
+        if not dry_run:
+            notify.post(_offseason_report(result), log=log)
+        return result
+    except Exception as exc:
+        if not dry_run:
+            notify.post(f"**Offseason stopped** - {exc}", log=lambda m: None)
+        raise
     finally:
         _SIM_LOCK.release()
+
+
+def _offseason_report(result):
+    """What changed, in the order people care about: who moved, who grew, who is gone."""
+    moved = result.get("promoted") or []
+    drafted = result.get("drafted") or []
+    retired = result.get("retired") or []
+    lines = [f'**Offseason done** - {result.get("season")}']
+    if moved:
+        lines.append(f'- moved up: {", ".join(str(m) for m in moved)[:400]}')
+    if drafted:
+        lines.append(f'- drafted: {", ".join(str(d) for d in drafted)[:400]}')
+    if retired:
+        lines.append(f'- retired: {", ".join(str(r) for r in retired)[:400]}')
+    lines.append(f'- {result.get("grown", 0)} grew')
+    if result.get("paid"):
+        lines.append(f'- {result["paid"]} paid the offseason lump')
+    if result.get("season_bonus"):
+        lines.append(f'- {result["season_bonus"]} season-bonus point(s) on top')
+    if result.get("failed"):
+        lines.append(f'- {len(result["failed"])} could not be processed; check the log')
+    return "\n".join(lines)
 
 
 def _season_bonuses(characters, settings, log):
