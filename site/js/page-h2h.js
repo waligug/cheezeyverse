@@ -125,6 +125,14 @@ function draw() {
   }
   const one = people.find((p) => p.name === left);
   const two = people.find((p) => p.name === right);
+  // A shared link can name somebody who has been retired, renamed or never existed. Say so,
+  // rather than throwing on one.league and showing a red error notice.
+  const missing = [!one && left, !two && right].filter(Boolean);
+  if (missing.length) {
+    box.append(note(null, `No player on record called ${missing.join(' or ')}. `
+      + 'The link may be out of date, or he may not have played a game yet.'));
+    return;
+  }
 
   if (one.league !== two.league) {
     box.append(note(null, `${one.name} is in ${LEAGUE_LABELS[one.league] || one.league} and `
@@ -133,14 +141,29 @@ function draw() {
     return;
   }
 
-  // the days BOTH of them played. Their teams meeting is not enough: a night one of them sat
-  // out says nothing about how he does against the other.
+  // A MEETING IS BOTH OF THESE: they played on the same day, AND they played EACH OTHER. The
+  // first version checked only the day, so any two characters who both had a game that night
+  // counted as having met - and since prep plays most nights, that made almost every night a
+  // meeting. Live, it showed Chris and Tim "4 meetings, Tim leads 2-1" when they have never
+  // met once, attributing to Tim a game Chris lost to the Tulips. 51 meetings shown against 15
+  // real. Teammates would have "met" every single night.
+  //
+  // The comment that was here said "their teams meeting is not enough", which was true and was
+  // describing a refinement of a check that had never been written.
   const mine = new Map(one.games.map((g) => [g.day, g]));
-  const days = two.games.filter((g) => mine.has(g.day)).map((g) => g.day).sort((x, y) => x - y);
+  const met = (g) => {
+    const m = mine.get(g.day);
+    return !!m && m.opp === g.team && g.opp === m.team;
+  };
+  const days = two.games.filter(met).map((g) => g.day).sort((x, y) => x - y);
 
   if (!days.length) {
-    const met = one.games.some((g) => g.opp === two.team);
-    box.append(note(null, met
+    // Checked BOTH ways round. Asking only whether one man's opponents include the other's
+    // current team gave different answers depending on which picker you put him in - and it is
+    // his CURRENT team, so a character who has moved reads as never having played his old one.
+    const teamsMet = one.games.some((g) => two.games.some((h) => h.day === g.day
+      && g.opp === h.team && h.opp === g.team));
+    box.append(note(null, teamsMet
       ? `${one.name} and ${two.name} have not been on the floor at the same time yet - their `
         + 'teams have met, but not with both of them playing.'
       : `${one.name} and ${two.name} have not met yet. The schedule will bring them round.`));
