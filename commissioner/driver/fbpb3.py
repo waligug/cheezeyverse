@@ -501,7 +501,19 @@ class FBPB3:
 
     def output_mdb(self, save_name, attempts=4):
         """Tools -> Output MDB for the loaded save. Menu-label clicks are occasionally swallowed,
-        so this retries and confirms by the file's timestamp rather than by the dialog alone."""
+        so this retries and confirms by the file's timestamp rather than by the dialog alone.
+
+        IT MUST LEAVE NO DIALOG OPEN. The file lands BEFORE the "File Created" box appears, so
+        returning the moment the timestamp moved raced the box: dismiss_all found nothing, the
+        box opened a beat later, and the next thing the driver clicked went into it instead.
+        That is exactly how Nate's 21-day week died - prep simmed, saved and exported, then
+        college's LOAD click hit a leftover "File Created" and the run stopped with "LOAD button
+        not found on the Load Saved Game screen", three steps downstream of the cause.
+
+        So after the file appears this waits for the box on purpose, dismisses it, and refuses
+        to return while any message box is still up: a stuck dialog stops the run here, where it
+        says what it is, rather than in the middle of the next league.
+        """
         target = DOCS / "leaguedata" / save_name / "LeagueOutput.mdb"
         before = target.stat().st_mtime if target.exists() else 0
         for _ in range(attempts):
@@ -514,10 +526,31 @@ class FBPB3:
                 except DriverError:
                     pass
                 if target.exists() and target.stat().st_mtime > before:
-                    self.dismiss_all()
+                    self._settle_dialogs()
                     return target
             self.dismiss_all()
         raise DriverError(f"Output MDB did not refresh {target}")
+
+    def _settle_dialogs(self, grace=10, timeout=30):
+        """Clear every message box, INCLUDING one that has not appeared yet.
+
+        `grace` is how long to keep watching for a box that is still on its way - the whole point
+        of this, since the one that broke a week arrived after the work it announced had already
+        finished. Raises rather than returning with a dialog still up.
+        """
+        end, quiet_since = time.time() + timeout, None
+        while time.time() < end:
+            if self._message_boxes():
+                self.dismiss_all()
+                quiet_since = None
+                time.sleep(0.5)
+                continue
+            if quiet_since is None:
+                quiet_since = time.time()
+            elif time.time() - quiet_since >= grace:
+                return True
+            time.sleep(0.5)
+        raise DriverError(f"a message box would not close: {self._message_boxes()}")
 
     # HTML Output is a screen, not a one-click action: options on the left, the generated site's
     # colours on the right (real text boxes), then the OUTPUT HTML button. Setting the colours here
