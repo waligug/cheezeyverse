@@ -630,48 +630,6 @@ def _refuse_to_cross_the_season(keys, days, emit):
         f"so it needs designing and rehearsing on a copy first. Sim {left} days or fewer.")
 
 
-def _write_games_json(key, st, emit):
-    """Publish this league's per-character game lines beside its pages.
-
-    Read from LeagueOutput.mdb, which the sim has just written. Small - seven characters times
-    about thirty games - so it ships as its own file rather than swelling stats.json, which the
-    front page fetches on every visit.
-    """
-    from . import headtohead
-    from .publish.publish import SITE
-    mdb = ch.save_path(key).parent / "LeagueOutput.mdb"
-    if not mdb.exists():
-        emit("publish", f"no MDB for {key}; head-to-head not updated", key)
-        return
-    characters = [c for c in st.characters(league=key) if c.get("status") == "active"]
-    if not characters:
-        return
-    # The WHOLE log. runs() defaults to the newest twenty, which silently made every
-    # character a day-one player the moment the log had twenty entries in it.
-    runs = st.runs(limit=None) if hasattr(st, "runs") else []
-    season = None
-    try:
-        season = int(st.get_settings().get("current_season", 0)) or None
-    except Exception:
-        pass
-    data = headtohead.from_mdb(mdb, characters, runs=runs, league=key, season=season)
-    data["generated"] = datetime.now().isoformat(timespec="seconds")
-    dest = SITE / "leagues" / key
-    dest.mkdir(parents=True, exist_ok=True)
-    (dest / "games.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
-    played = sum(len(c["games"]) for c in data["characters"])
-    if not played:
-        # The failure this guards is specific and was nearly shipped: the MDB reader ran the
-        # 64-bit PowerShell, Jet is 32-bit only, and the error was non-terminating - so it
-        # printed nothing, exited 0, and every character got an empty list. A feature that looks
-        # built and holds nothing is worse than one that is obviously missing.
-        emit("publish", f"{key}: the MDB gave no game lines at all for "
-                        f"{len(data['characters'])} character(s) - head-to-head will be empty",
-             key)
-    else:
-        emit("publish", f"{played} game line(s) for {len(data['characters'])} character(s)", key)
-
-
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             allow_season_end=False):
     """Apply everything owed, sim `days` in each league, export, publish, grant points."""
@@ -897,16 +855,6 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                     emit("snapshot", f"{n} sheet(s) written down", key)
             except Exception as exc:
                 emit("snapshot", f"no snapshots for {key}: {exc}", key)
-
-        # ---- 3b. the game-by-game table, for head-to-head ---------------------------------
-        # After FBPB3 has exited - reading the MDB under a running game is the same hazard as
-        # reading league.dat under one. Before publish(), so the file lands in site/leagues/
-        # and is copied to the Pages branch with everything else.
-        for key in keys:
-            try:
-                _write_games_json(key, st, emit)
-            except Exception as exc:
-                emit("publish", f"no head-to-head data for {key} ({exc})", key)
 
         # ---- 4. publish and pay ---------------------------------------------------------------
         emit("publish", "skinning and staging the sites")

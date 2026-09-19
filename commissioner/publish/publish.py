@@ -79,9 +79,54 @@ def publish_league(key):
         raise FileNotFoundError(f"{spec.save_name} has no HTML output yet - run the driver's html_output() first")
     pages = restyle(src, dst, league=spec.name, season=season_label(key), key=key,
                     ours=_our_players(key))
+    # AFTER restyle, both of them. restyle(clean=True) does an rmtree of the league's folder and
+    # rebuilds it from the game's export, so anything written there beforehand is deleted. That
+    # is exactly what happened to games.json: run_sim wrote it before publish(), a publish then
+    # removed it from the site, and the comment on that call claimed the opposite.
     stats = _write_stats(src, dst, key)
+    games = _write_games(src, dst, key)
     return {"league": key, "name": spec.name, "pages": pages, "path": str(dst),
-            "stats": stats}
+            "stats": stats, "games": games}
+
+
+def _write_games(src, dst, key):
+    """Emit `games.json`: each character's own game lines, for the head-to-head page.
+
+    Read from the LeagueOutput.mdb the sim writes while the save is loaded. Done here rather
+    than before publish() so that EVERY publish carries it - a sim, a manual re-skin, a
+    republish after a fix - instead of only the one code path that remembered to write it first.
+
+    Never fatal, like stats.json. A league with no MDB yet simply has no file, and the page
+    treats the 404 as "not published yet" rather than as an error.
+    """
+    try:
+        from .. import headtohead
+        from ..simweek import store
+        # src is <save>/html, so the MDB sits beside it. Derived from the SAME path the pages
+        # came from rather than re-deriving it from the league key: two routes to one file is
+        # two chances to publish a league's data from another league's export.
+        mdb = Path(src).parent / "LeagueOutput.mdb"
+        if not mdb.exists():
+            return None
+        st = store()
+        people = [c for c in st.characters(league=key) if c.get("status") == "active"]
+        if not people:
+            return None
+        settings = st.get_settings()
+        data = headtohead.from_mdb(
+            mdb, people,
+            runs=(st.runs(limit=None) if hasattr(st, "runs") else []),
+            league=key,
+            season=int(settings.get("current_season", 0)) or None)
+        data["generated"] = datetime.now().isoformat(timespec="seconds")
+        (dst / "games.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+        played = sum(len(c["games"]) for c in data["characters"])
+        if not played:
+            print(f"  {key}: the MDB gave no game lines at all - head-to-head will be empty")
+        return {"characters": len(data["characters"]), "games": played}
+    except Exception as exc:
+        print(f"  no games.json for {key} ({exc}); the pages themselves are fine")
+        return None
 
 
 def _write_stats(src, dst, key):
