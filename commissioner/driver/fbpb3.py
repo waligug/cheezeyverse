@@ -230,26 +230,7 @@ class FBPB3:
 
     def screenshot(self, path):
         """Capture the main window even when other windows cover it (PrintWindow)."""
-        import win32gui
-        import win32ui
-        from PIL import Image
-        hwnd = self.main.handle
-        r = self.main.rectangle()
-        w, h = r.width(), r.height()
-        hdc = win32gui.GetWindowDC(hwnd)
-        src = win32ui.CreateDCFromHandle(hdc)
-        mem = src.CreateCompatibleDC()
-        bmp = win32ui.CreateBitmap()
-        bmp.CreateCompatibleBitmap(src, w, h)
-        mem.SelectObject(bmp)
-        ctypes.windll.user32.PrintWindow(hwnd, mem.GetSafeHdc(), 2)
-        info = bmp.GetInfo()
-        img = Image.frombuffer("RGB", (info["bmWidth"], info["bmHeight"]), bmp.GetBitmapBits(True), "raw", "BGRX", 0, 1)
-        img.save(path)
-        win32gui.DeleteObject(bmp.GetHandle())
-        mem.DeleteDC()
-        src.DeleteDC()
-        win32gui.ReleaseDC(hwnd, hdc)
+        self._grab().save(path)
 
     # ---- workflows -------------------------------------------------------------------------
     LOAD_BTN_RECT = (748, 650, 113, 25)  # window-relative; disabled until a row is selected
@@ -383,10 +364,98 @@ class FBPB3:
                 "this driver can click without scrolling. Remove some old saves from leaguedata.")
         self.load_save_row(row, wait)
 
-    def sim_days(self, n=1, per_day_wait=8):
+    def sim_days(self, n=1, timeout=20, settle=0.3):
+        """Click SIM DAY `n` times, each one as soon as the previous day has finished.
+
+        This used to sleep a fixed 8 s per click. Measured click-to-new-date on a copy of CV_Prep
+        (2026-09-19), a day takes 0.55-1.2 s with 0-4 games and about 0.9 s with play-by-play
+        logging on - so roughly 85% of every run's sim time was spent waiting on nothing. Now
+        each click waits for the calendar's date label to change and the window to stop
+        repainting for `settle` seconds, and then the next click goes straight in.
+
+        A day that never advances is NOT waited out and clicked past, which the fixed sleep did
+        silently. On 6/21 FBPB3 replaces the Hot Seat's sim buttons with its offseason panel and
+        this very spot becomes DRAFT LOTTERY; a message box would swallow the click the same way.
+        So: an open message box stops the run at once, a date that has not moved after `timeout`
+        gets exactly one more click (an owner-drawn button does occasionally eat one), and a
+        second failure raises. `timeout` is ~13x the slowest day measured, so a slow day is not
+        mistaken for a lost click and simmed twice.
+        """
         self.click(NAV_HOT_SEAT, 3)
-        for _ in range(n):
-            self.click(HOTSEAT_SIM_DAY, per_day_wait)
+        for day in range(1, n + 1):
+            before = self._date_signature()
+            for _attempt in range(2):
+                self.click(HOTSEAT_SIM_DAY, 0)
+                if self._wait_for_new_day(before, timeout, settle):
+                    break
+                boxes = self._message_boxes()
+                if boxes:
+                    raise DriverError(f"day {day} of {n}: a message box is open instead of a "
+                                      f"new day: {boxes}")
+            else:
+                raise DriverError(
+                    f"day {day} of {n}: SIM DAY did not advance the calendar in {timeout}s, "
+                    "twice. Past 6/21 that spot is DRAFT LOTTERY, not SIM DAY - look at the "
+                    "Hot Seat before retrying.")
+
+    # window-relative box around the Hot Seat calendar's date label ("MARCH 23, 2027")
+    HOTSEAT_DATE_BOX = (775, 247, 935, 268)
+
+    def _grab(self):
+        """The main window as a PIL image, even when other windows cover it (PrintWindow)."""
+        import win32gui
+        import win32ui
+        from PIL import Image
+        hwnd = self.main.handle
+        r = self.main.rectangle()
+        w, h = r.width(), r.height()
+        hdc = win32gui.GetWindowDC(hwnd)
+        src = win32ui.CreateDCFromHandle(hdc)
+        mem = src.CreateCompatibleDC()
+        bmp = win32ui.CreateBitmap()
+        bmp.CreateCompatibleBitmap(src, w, h)
+        mem.SelectObject(bmp)
+        try:
+            ctypes.windll.user32.PrintWindow(hwnd, mem.GetSafeHdc(), 2)
+            info = bmp.GetInfo()
+            return Image.frombuffer("RGB", (info["bmWidth"], info["bmHeight"]),
+                                    bmp.GetBitmapBits(True), "raw", "BGRX", 0, 1)
+        finally:
+            win32gui.DeleteObject(bmp.GetHandle())
+            mem.DeleteDC()
+            src.DeleteDC()
+            win32gui.ReleaseDC(hwnd, hdc)
+
+    def _date_signature(self):
+        return self._grab().crop(self.HOTSEAT_DATE_BOX).tobytes()
+
+    def _wait_for_new_day(self, before, timeout, settle):
+        """True once the date label differs from `before` and the window has been still for
+        `settle` seconds (capped at 5 s, so a busy screen cannot hold the run). False on timeout."""
+        end = time.time() + timeout
+        while time.time() < end:
+            image = self._grab()
+            if image.crop(self.HOTSEAT_DATE_BOX).tobytes() != before:
+                last, still_since, cap = image.tobytes(), time.time(), time.time() + 5
+                while time.time() < cap:
+                    time.sleep(0.1)
+                    now = self._grab().tobytes()
+                    if now != last:
+                        last, still_since = now, time.time()
+                    elif time.time() - still_since >= settle:
+                        break
+                return True
+            time.sleep(0.1)
+        return False
+
+    def _message_boxes(self):
+        found = []
+        for w in self.app.windows(class_name="#32770", visible_only=True):
+            try:
+                found.append(w.window_text() or "(untitled)")
+            except Exception:
+                found.append("(unreadable)")
+        return found
 
     def sim_preseason(self, wait=90):
         """Blast through the preseason so the regular season can start.
