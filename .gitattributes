@@ -1,0 +1,5 @@
+# Real FBPB3 output kept as test fixtures must stay byte-for-byte what the game wrote.
+# core.autocrlf would otherwise store these CRLF pages as LF and hand a non-Windows checkout
+# different bytes from the ones the parsers meet on SERVERPC. Scoped to this one folder so the
+# older svprep fixture keeps the handling it was committed with.
+fixtures/html-output/cv-rehearsal-2026-09-19/** -text
