@@ -74,6 +74,21 @@ def _text(path):
 
 
 # ---- what the export says happened -------------------------------------------------------
+def export_date(html_dir):
+    """When FBPB3 wrote these pages, as its own footer states it, or "" if it does not.
+
+    Everything here is read off whatever export happens to be on disk, and nothing in the file
+    says which season it belongs to. On the normal path that is fine - the offseason runs right
+    after the last sim of the year. It is re-running an offseason with force=True, after a new
+    season has already started, that would quietly pay last week's numbers for a season nobody
+    played: that path bypasses the last_offseason guard, which is the one thing that would
+    otherwise notice. Naming the date in the preview turns a silent wrong answer into an
+    obvious one.
+    """
+    m = re.search(r"Page created:\s*([A-Za-z]+ \d+, \d{4})", _text(Path(html_dir) / "standings.htm"))
+    return m.group(1) if m else ""
+
+
 def standings_teams(html_dir):
     """{nickname: games played} from standings.htm, and the set of real league teams.
 

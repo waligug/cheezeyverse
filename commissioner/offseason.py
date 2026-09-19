@@ -605,6 +605,9 @@ def _season_bonuses(characters, settings, log):
         html = ch.save_path(key).parent / "html"
         if not html.exists():
             continue
+        if key not in caches:
+            when = seasonbonus.export_date(html)
+            log(f"{key}: season bonus read from the export of {when or 'an unknown date'}")
         try:
             rows = seasonbonus.for_character(
                 f'{c["first_name"]} {c["last_name"]}', html, settings,
