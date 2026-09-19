@@ -105,6 +105,33 @@ def export_date(html_dir):
     return m.group(1) if m else ""
 
 
+def standings_rows(html_dir):
+    """[{name, w, l, games, pct}] from standings.htm, in the order the page lists them."""
+    text = _text(Path(html_dir) / "standings.htm")
+    pattern = ("&nbsp;" + r"\s*\*?\s*" + f"({TEAM_CHARS}*?)"
+               + r"\s+(\d+)\s+(\d+)\s+\d*\.\d+")
+    rows = []
+    for name, won, lost in re.findall(pattern, text):
+        w, l = int(won), int(lost)
+        rows.append({"name": name.strip(), "w": w, "l": l, "games": w + l,
+                     "pct": round(w / (w + l), 3) if (w + l) else 0.0})
+    return rows
+
+
+def seeded(rows, top=8):
+    """The best `top` records in the league, by WIN PERCENTAGE, numbered from 1.
+
+    Percentage rather than wins, because the teams in a league are not all the same number of
+    games in: today prep spans 22 to 27 played, so ranking by raw wins would put a team three
+    games ahead on the calendar above a better team that has played fewer.
+
+    This is OUR ordering, not the game's official bracket. FBPB3 seeds by conference and breaks
+    ties by its own rules, so the panel says "by record" rather than implying otherwise.
+    """
+    best = sorted(rows, key=lambda r: (-r["pct"], -r["w"], r["name"]))[:top]
+    return [{**r, "seed": i + 1} for i, r in enumerate(best)]
+
+
 def standings_teams(html_dir):
     """{nickname: games played} from standings.htm, and the set of real league teams.
 
@@ -114,18 +141,7 @@ def standings_teams(html_dir):
     247-assist "leader" who had never played a minute in the league. Anybody whose team is not
     in the standings is not in the league.
     """
-    text = _text(Path(html_dir) / "standings.htm")
-    teams = {}
-    # "&nbsp; Berries 13 10 .565" - the asterisk before a clinched team is optional.
-    # The percentage is `\d*\.\d+`, NOT `\.\d+`: an undefeated team reads 1.000, and requiring
-    # the leading dot made the one team in the league that had won everything invisible. It cost
-    # more than a missing row - the Tulips were 24-0, so leaving them out dragged every
-    # league-relative threshold down and silently robbed their players of a team bonus.
-    pattern = ("&nbsp;" + r"\s*\*?\s*" + f"({TEAM_CHARS}*?)"
-               + r"\s+(\d+)\s+(\d+)\s+\d*\.\d+")
-    for name, won, lost in re.findall(pattern, text):
-        teams[name.strip()] = int(won) + int(lost)
-    return teams
+    return {r["name"]: r["games"] for r in standings_rows(html_dir)}
 
 
 def season_totals(html_dir, teams=None):
@@ -168,6 +184,33 @@ def season_totals(html_dir, teams=None):
     return out
 
 
+FT_WEIGHT = 0.44     # the standard true-shooting coefficient, and the one FBPB3 itself uses
+
+
+def true_shooting(pts, fga, fta):
+    """PTS / (2 * (FGA + 0.44 * FTA)), or None when nobody has attempted anything.
+
+    Computed rather than read off the page's own Efficiency row, after checking the game's
+    number against the formula for all 1385 players in the three leagues. Solving each page for
+    the coefficient it implies gives a median of 0.440 to 0.442 everywhere, so the game does use
+    0.44 - but on inputs that are not quite the ones it prints in Season Totals, and no single
+    coefficient fits every player. At tiny samples its number cannot be reproduced from its own
+    page at all: one college player shows .667 off 1-for-3 with no free throws, where the
+    arithmetic says .500.
+
+    So this agrees with the PTS, FGA and FTA shown beside it, which the game's own number
+    sometimes does not, and it lands within a few thousandths for anybody with real minutes -
+    our seven characters differ by .001 to .002, except a six-game player at .015.
+
+    None, not zero: a bench player with no attempts has no true-shooting percentage, and 0.0
+    would sort him below somebody genuinely missing everything.
+    """
+    attempts = float(fga or 0) + FT_WEIGHT * float(fta or 0)
+    if attempts <= 0:
+        return None
+    return round(float(pts or 0) / (2 * attempts), 3)
+
+
 def league_stats(html_dir, elite_rank=5):
     """Everything the SITE wants from a season, as plain data, computed once at publish time.
 
@@ -177,14 +220,17 @@ def league_stats(html_dir, elite_rank=5):
     documented at the top of this module - the undefeated team, the repeated STL column, the
     digits in the header, the draft pool. One emitter, already under test, instead.
     """
-    teams = standings_teams(html_dir)
+    table = standings_rows(html_dir)
+    teams = {r["name"]: r["games"] for r in table}
     totals = season_totals(html_dir, teams)
     lines = elite_lines(totals, elite_rank)
     players = []
     for name, row in totals.items():
         players.append({
             "name": name, "team": row["team"], "page": row.get("page"),
-            **{k: row.get(k, 0) for k in ("G", "GS", "MIN", *CATEGORIES)},
+            **{k: row.get(k, 0) for k in ("G", "GS", "MIN", "FGM", "FGA", "FTM", "FTA",
+                                          *CATEGORIES)},
+            "ts": true_shooting(row.get("PTS"), row.get("FGA"), row.get("FTA")),
             "rank": {cat: rank_in(totals, cat, row.get(cat, 0)) for cat in CATEGORIES},
         })
     players.sort(key=lambda p: -p["PTS"])
@@ -195,6 +241,8 @@ def league_stats(html_dir, elite_rank=5):
         "elite_rank": elite_rank,
         "elite": lines,
         "teams": teams,
+        "table": table,
+        "seeds": seeded(table),
         "count": len(players),
         "players": players,
     }

@@ -209,6 +209,21 @@ def main():
         assert ours["page"].startswith("player"), ours
         assert stats["elite"] == sb.elite_lines(totals, 5), stats["elite"]
         assert stats["teams"] == teams and stats["export_date"] == sb.export_date(d)
+
+        # seeds are by WIN PERCENTAGE, not wins: teams in a league are not all the same number
+        # of games in (prep spans 22 to 27 today), so raw wins would rank a team that has simply
+        # played more above a better one. Tulips 24-0 must outrank Clams 17-7.
+        assert [t["name"] for t in stats["seeds"]] == ["Tulips", "Clams"], stats["seeds"]
+        assert stats["seeds"][0]["seed"] == 1 and stats["seeds"][0]["pct"] == 1.0, stats["seeds"]
+
+        # true shooting is computed, not read off the game's own Efficiency row - see the
+        # docstring. 5 points on 3 attempts and no free throws is 5 / (2 * 3).
+        assert sb.true_shooting(5, 3, 0) == 0.833, sb.true_shooting(5, 3, 0)
+        assert sb.true_shooting(10, 5, 5) == round(10 / (2 * (5 + 0.44 * 5)), 3)
+        # None, not zero: a bench player with no attempts has no percentage, and 0.0 would sort
+        # him below somebody who genuinely missed everything.
+        assert sb.true_shooting(0, 0, 0) is None
+        assert sb.true_shooting(2, 0, 0) is None
         # it has to survive json.dumps, since that is the only thing ever done with it
         assert json.loads(json.dumps(stats))["count"] == 9
     finally:
