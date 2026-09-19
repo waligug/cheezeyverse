@@ -104,10 +104,10 @@ def _league_status(spec, st):
         # cannot be right for three leagues at once. None means NO OPINION and must be shown as
         # "cannot tell" rather than as a number: at this boundary a confident wrong answer is
         # the expensive kind.
-        #   season_days_left  - dates with games still to play (the guard's own, conservative)
+        #   regular_season_left - dates with games still to play (the guard's own, conservative)
         #   days_to_season_end - SIM DAY clicks to the last regular-season day (what to type)
         #   champion          - set once the final is decided, after which nothing may sim here
-        "season_days_left": _regular_season_left(save_dir),
+        "regular_season_left": _regular_season_left(save_dir),
         "days_to_season_end": days_to_regular_end(spec.key),
         "champion": _champion(save_dir),
     }
