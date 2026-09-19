@@ -588,12 +588,18 @@ def _regular_season_left(save_dir):
 def _refuse_to_cross_the_season(keys, days, emit):
     """Stop a run that would sim past the last day of the regular season.
 
-    NOTHING HERE HAS EVER CROSSED THAT LINE. sim_days clicks SIM DAY blind - no stage check, no
-    dialog check between clicks - and the offseason drives league.dat through the codec without
-    ever putting FBPB3 through its own playoffs or rollover. So what the game does on the day
-    after the last one is unknown: a modal that eats every later click, playoff games, its own
-    aging and re-signing. Any of those is FBPB3 taking over a rollover offseason.py owns, on the
-    live universe, with seven real people in it.
+    WHAT THE GAME DOES PAST IT IS NOW KNOWN, and it is not the driver that is the danger. A
+    rehearsal on a copy of CV_Prep (2026-09-19) simmed straight through: no dialog at the season
+    end, SIM DAY plays playoff games one a day, then 51 idle days, and on 6/21 the Hot Seat's sim
+    buttons are REPLACED by the offseason panel - END SEASON, DRAFT LOTTERY and the rest - while
+    the stage label still reads POSTSEASON. sim_days catches that now, because it waits for the
+    calendar to move and raises when it does not.
+
+    THE REASON TO STILL REFUSE is what comes after: END SEASON is FBPB3's own rollover, and
+    offseason.py owns that - it ages, promotes, drafts and pays everybody through the codec.
+    Nothing has ever run both, and what the game would do to a universe offseason.py then also
+    processed is untested, on a live universe with seven real people in it. Crossing is safe;
+    what is on the other side is not designed yet.
 
     Worth guarding rather than remembering: the panel takes a number from whoever is typing.
     """
@@ -622,6 +628,32 @@ def _refuse_to_cross_the_season(keys, days, emit):
         f"day(s) with games scheduled. Nothing has ever simmed across that boundary - the "
         f"driver clicks SIM DAY blind, and the offseason never drives the game's own rollover - "
         f"so it needs designing and rehearsing on a copy first. Sim {left} days or fewer.")
+
+
+def _write_games_json(key, st, emit):
+    """Publish this league's per-character game lines beside its pages.
+
+    Read from LeagueOutput.mdb, which the sim has just written. Small - seven characters times
+    about thirty games - so it ships as its own file rather than swelling stats.json, which the
+    front page fetches on every visit.
+    """
+    from . import headtohead
+    from .publish.publish import SITE
+    mdb = ch.save_path(key).parent / "LeagueOutput.mdb"
+    if not mdb.exists():
+        emit("publish", f"no MDB for {key}; head-to-head not updated", key)
+        return
+    characters = [c for c in st.characters(league=key) if c.get("status") == "active"]
+    if not characters:
+        return
+    runs = st.runs() if hasattr(st, "runs") else []
+    data = headtohead.from_mdb(mdb, characters, runs=runs, league=key)
+    data["generated"] = datetime.now().isoformat(timespec="seconds")
+    dest = SITE / "leagues" / key
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "games.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+    played = sum(len(c["games"]) for c in data["characters"])
+    emit("publish", f"{played} game line(s) for {len(data['characters'])} character(s)", key)
 
 
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
@@ -744,6 +776,16 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             emit("export", f"writing {spec.name} pages", key)
             out = game.html_output(spec.save_name)
             emit("export", f"{len(list(out.rglob('*.htm')))} pages", key)
+            # The MDB is the only place per-game stats exist - FBPB3 writes no box scores and
+            # has no setting for them. About 7 s a league, measured, against the ~400 s the new
+            # sim_days gives back. Done while the save is still loaded, and never fatal: the
+            # week's basketball is already saved and exported by this point, and head-to-head
+            # going stale is not worth losing it.
+            try:
+                emit("export", "writing the game-by-game table", key)
+                game.output_mdb(spec.save_name)
+            except Exception as exc:
+                emit("export", f"no MDB for {key} ({exc}); head-to-head will not update", key)
         game.exit_game(save=False)
         game = None
 
@@ -839,6 +881,16 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                     emit("snapshot", f"{n} sheet(s) written down", key)
             except Exception as exc:
                 emit("snapshot", f"no snapshots for {key}: {exc}", key)
+
+        # ---- 3b. the game-by-game table, for head-to-head ---------------------------------
+        # After FBPB3 has exited - reading the MDB under a running game is the same hazard as
+        # reading league.dat under one. Before publish(), so the file lands in site/leagues/
+        # and is copied to the Pages branch with everything else.
+        for key in keys:
+            try:
+                _write_games_json(key, st, emit)
+            except Exception as exc:
+                emit("publish", f"no head-to-head data for {key} ({exc})", key)
 
         # ---- 4. publish and pay ---------------------------------------------------------------
         emit("publish", "skinning and staging the sites")

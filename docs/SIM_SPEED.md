@@ -90,14 +90,17 @@ Point (3) is the discriminator, so probe it first.
 
 ## Tier 2 - poll for completion instead of sleeping
 
-Every wait in the driver is a flat `time.sleep`, sized for the worst case:
+**DONE for sim_days, 2026-09-19.** A day was measured at 0.55-1.2 s against a hard-coded 8 s
+sleep, so about 85% of every run's sim time was spent watching an idle process. It now waits for
+the calendar date to change and the window to settle, and a day that never advances raises
+instead of being clicked past - which is also the 6/21 button swap caught for free. Measured
+after: 10 days in 22.6 s, 2.3 s a day against 8.7. A 21-day three-league run saves about 400 s.
 
-    sim_days(per_day_wait=8)     8 s per day, plus ~1.2 s of click overhead
+The remaining flat sleeps, all still worth the same treatment:
+
     load_save(wait=20)           and 30 in some call sites
     save_game(wait=15)
-    html_output                  a fixed 5 s tail "because the per-player pages keep landing"
-
-If a day actually sims in 2 s, seven eighths of that 194 s is spent watching an idle process.
+    html_output                  a fixed 5 s tail "because the per-player pages keep landing" 
 Candidate completion signals, best first:
 
 - **CPU of the FBPB3 process.** Generic, needs no UI mapping, works for loads, saves and

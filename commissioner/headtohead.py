@@ -26,6 +26,7 @@ THE JOINS, confirmed against a real MDB:
 from __future__ import annotations
 
 from datetime import date, timedelta
+from pathlib import Path
 
 # The columns worth publishing, named as the site wants them rather than as Access does.
 STAT_COLUMNS = {
@@ -146,3 +147,47 @@ def day_to_date(day, opener):
     if isinstance(opener, str):
         opener = date.fromisoformat(opener)
     return opener + timedelta(days=_int(day) - 1)
+
+
+# ---- reading the MDB ------------------------------------------------------------------------
+MDB_SQL = {
+    "teams": "SELECT ID, Name, City FROM Team",
+    "schedule": "SELECT Day, Home, Away, Type, HomeScore, AwayScore, BoxName FROM Schedule",
+    # only our characters' rows: PlayerGameStats is ~5,400 rows a league and we want seven of
+    # them, so the filter belongs in the query rather than in Python
+    "games": "SELECT * FROM PlayerGameStats WHERE ID IN ({ids})",
+}
+
+
+def query(mdb_path, sql, script=None):
+    """Run one SQL statement against an Access MDB and return a list of dicts.
+
+    Access needs the 32-bit Jet provider, which is why this shells out to PowerShell rather than
+    using a Python driver: `commissioner/export/mdb_query.ps1` is the same helper the codec's own
+    verification used, and it already knows to run under the right bitness.
+    """
+    import csv
+    import io
+    import subprocess
+
+    script = script or (Path(__file__).resolve().parent / "export" / "mdb_query.ps1")
+    out = subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
+         "-Path", str(mdb_path), "-Sql", sql],
+        capture_output=True, text=True, timeout=180)
+    if out.returncode != 0:
+        raise RuntimeError(f"mdb_query failed: {(out.stderr or out.stdout)[:300]}")
+    return list(csv.DictReader(io.StringIO(out.stdout)))
+
+
+def from_mdb(mdb_path, characters, runs=None, league=None, opener=None):
+    """Everything `build` needs, read out of one LeagueOutput.mdb."""
+    ids = [str(_int((c.get("league_player_ids") or {}).get(league)))
+           for c in characters if (c.get("league_player_ids") or {}).get(league) is not None]
+    if not ids:
+        return {"league": league, "characters": []}
+    return build(characters,
+                 query(mdb_path, MDB_SQL["games"].format(ids=", ".join(ids))),
+                 query(mdb_path, MDB_SQL["schedule"]),
+                 query(mdb_path, MDB_SQL["teams"]),
+                 runs=runs, league=league, opener=opener)
