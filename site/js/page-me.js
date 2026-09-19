@@ -137,6 +137,111 @@ function stampOf(c) {
 /* `currentSeason` is a parameter rather than a closed-over `cfg`: this function is declared at
    module level, so the `const cfg` inside load() is not in scope here and reading it threw a
    ReferenceError that killed every card before it rendered. */
+/* -------------------------------------------------------------------------- the season
+
+   Counting stats and where they place, read from the file the publish step writes beside each
+   league's pages. The browser deliberately does NOT parse the game's HTML: the export has four
+   traps in it - an undefeated team whose percentage reads 1.000, a Season Totals header that
+   repeats STL so BLK is the seventeenth number, 3PM/3PA in that header that make "find the
+   numbers" read every column one place out, and draft-pool pages carrying season lines earned
+   in another league. All four are handled and tested in commissioner/seasonbonus.py, and
+   re-implementing them here in JavaScript is how the two copies start disagreeing.
+
+   Everything here is page-local rather than in ui.js, on purpose. ui.js is shared by every page
+   and carries its own ten-minute cache entry, so a NEW named export is a hard failure for any
+   visitor holding the old copy: a missing named import does not read as undefined, it refuses
+   to load the module and blanks the page. Adding to the page's own file cannot skew that way. */
+
+const STATS = new Map();
+
+function leagueStats(league) {
+  if (!league) return Promise.resolve(null);
+  if (!STATS.has(league)) {
+    STATS.set(league, fetch(`leagues/${league}/stats.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null));
+  }
+  return STATS.get(league);
+}
+
+/** Fuller is better: rank 1 of 184 fills the bar, last empties it. */
+function rankFill(rank, count) {
+  if (!(count > 1)) return 100;
+  return Math.max(0, Math.min(100, ((count - rank) / (count - 1)) * 100));
+}
+
+function seasonPanel(character) {
+  const box = el('div', {}, el('p', { class: 'cv-muted' }, 'Looking up his season...'));
+  leagueStats(character.league).then((stats) => {
+    clear(box);
+    const name = `${character.first_name} ${character.last_name}`;
+    const row = stats && (stats.players || []).find((p) => p.name === name);
+    if (!row) {
+      box.append(note(null, stats
+        ? 'No season line for him yet. A player gets one once he has played a game, and the '
+          + 'file is rewritten every time the commissioner publishes.'
+        : 'The league has not published its stats yet. This fills in after the next Sim Week.'));
+      return;
+    }
+
+    const games = Number(row.G) || 0;
+    const per = (v) => (games ? (Number(v) / games).toFixed(1) : '0.0');
+    box.append(el('p', { class: 'cv-muted' },
+      `${games} game${games === 1 ? '' : 's'} for ${row.team}`
+      + (row.MIN ? ` - ${per(row.MIN)} minutes a game` : '')));
+
+    // the counting stats, total and per game
+    const table = el('table', { class: 'cv-table' },
+      el('thead', {}, el('tr', {},
+        el('th', {}, ''), ...stats.categories.map((c) => el('th', {}, c)))),
+      el('tbody', {},
+        el('tr', {}, el('th', {}, 'total'),
+          ...stats.categories.map((c) => el('td', {}, String(row[c] ?? 0)))),
+        el('tr', {}, el('th', {}, 'per game'),
+          ...stats.categories.map((c) => el('td', {}, per(row[c] ?? 0))))));
+    box.append(table);
+
+    // where that puts him, against the same two lines the season bonus pays on
+    box.append(el('h4', { class: 'cv-subhead' }, `Where that puts him in ${stats.count} players`));
+    const bars = el('div', { class: 'cv-traits' });
+    for (const cat of stats.categories) {
+      const rank = Number((row.rank || {})[cat]) || stats.count;
+      const bar = el('span', { class: 'cv-bar' },
+        el('i', { style: `width:${rankFill(rank, stats.count)}%` }));
+      // the two thresholds the bonus actually pays on, so the bar explains the payout
+      for (const mark of [25, stats.elite_rank]) {
+        if (mark < stats.count) {
+          bar.append(el('u', {
+            style: `left:${rankFill(mark, stats.count)}%`,
+            title: mark === 25 ? 'top 25 pays a point' : 'the elite line',
+          }));
+        }
+      }
+      bars.append(el('div', { class: 'cv-trait' },
+        el('span', { class: 'cv-trait-name' }, cat),
+        bar,
+        el('span', { class: 'cv-trait-val' }, ordinal(rank)),
+        el('span', { class: 'cv-trait-blurb' },
+          `${row[cat] ?? 0} against ${stats.elite[cat]} for the league's fifth best`)));
+    }
+    box.append(bars);
+    box.append(el('p', { class: 'cv-hint' },
+      'The two ticks on each bar are the lines the end-of-season bonus pays on: the top 25, '
+      + `and the ${ordinal(stats.elite_rank)} best total in the league.`));
+    if (stats.export_date) {
+      box.append(el('p', { class: 'cv-muted' }, `From the league export of ${stats.export_date}.`));
+    }
+  });
+  return box;
+}
+
+function ordinal(n) {
+  const v = Number(n) || 0;
+  const tens = v % 100;
+  if (tens >= 11 && tens <= 13) return `${v}th`;
+  return `${v}${['th', 'st', 'nd', 'rd'][v % 10] || 'th'}`;
+}
+
 function renderCharacter(character, requests, ledger, age, currentSeason) {
   const card = el('section', { class: 'cv-card' });
   const klass = classify(character.ratings || {}, character.position);
@@ -305,6 +410,7 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
 
   const sections = [
     { label: 'Spend', node: spendPanel },
+    { label: 'Season', node: character.status === 'pending' ? null : seasonPanel(character) },
     { label: 'Him', node: traitsPanel },
     { label: 'Requests', node: el('div', {}, requestTable(requests)),
       badge: requests.filter((r) => r.status === 'pending' || r.status === 'approved').length || null },

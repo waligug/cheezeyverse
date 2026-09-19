@@ -42,6 +42,19 @@ CATEGORIES = ["PTS", "REB", "AST", "STL", "BLK"]
 # points". Zeroed rather than deleted: a zero-point row is dropped before anything is paid, so an
 # off component costs one dictionary lookup, keeps its parser under test, and comes back from the
 # settings table without a deploy.
+# The pages are decoded latin-1, so a name can carry any accented letter in that range, and
+# eleven of them do across the three leagues. An ASCII-only class silently DROPPED those
+# players - six in prep, five in college, five in pro - which is not merely a shorter list:
+# league_stats and the season bonus both rank against this pool, so every rank came out better
+# than it was, and the top-25 rule could pay somebody whose true rank was 26th. Caught by the
+# server comparing row counts (184 against 190), not by anything failing.
+#
+# The dash sits last inside each class so it needs no escape, and the classes are built here
+# once rather than repeated at three call sites that could drift apart.
+NAME_START = "[A-ZÀ-ÖØ-Þ]"
+NAME_REST = "[A-Za-zÀ-ÖØ-öø-ÿ'.-]"
+TEAM_CHARS = "[A-Za-zÀ-ÖØ-öø-ÿ'. -]"
+
 DEFAULTS = {
     "bonus_playoffs": 2,        # 3 -> off -> 2
     "bonus_title": 2,           # was 3; a team RESULT, not an award, so it never came off
@@ -108,8 +121,9 @@ def standings_teams(html_dir):
     # the leading dot made the one team in the league that had won everything invisible. It cost
     # more than a missing row - the Tulips were 24-0, so leaving them out dragged every
     # league-relative threshold down and silently robbed their players of a team bonus.
-    for name, won, lost in re.findall(r"&nbsp;\s*\*?\s*([A-Za-z][A-Za-z'. -]*?)\s+"
-                                      r"(\d+)\s+(\d+)\s+\d*\.\d+", text):
+    pattern = ("&nbsp;" + r"\s*\*?\s*" + f"({TEAM_CHARS}*?)"
+               + r"\s+(\d+)\s+(\d+)\s+\d*\.\d+")
+    for name, won, lost in re.findall(pattern, text):
         teams[name.strip()] = int(won) + int(lost)
     return teams
 
@@ -136,7 +150,7 @@ def season_totals(html_dir, teams=None):
         values = [int(n) for n in re.findall(r"-?\d+", row.group(2))]
         if len(values) < len(TOTAL_COLUMNS):
             continue
-        name = re.search(r"([A-Z][A-Za-z'.\-]+(?: [A-Z][A-Za-z'.\-]+)+)&nbsp;", raw)
+        name = re.search(f"({NAME_START}{NAME_REST}+(?: {NAME_START}{NAME_REST}+)+)&nbsp;", raw)
         team = re.search(r"\d+lbs\s*\|+\s*([^|]+?)\s*\|", flat)
         if not name or not team:
             continue
@@ -246,9 +260,9 @@ def season_award_winners(html_dir):
 def playoff_teams(html_dir):
     """Nicknames marked with a * on playoffstandings.htm, i.e. the ones that got in."""
     text = _text(Path(html_dir) / "playoffstandings.htm")
-    return {n.strip() for n in
-            re.findall(r"&nbsp;\s*\*\s*([A-Za-z][A-Za-z'. -]*?)\s+\d+\s+\d+\s+\d*\.\d",
-                       text)}
+    pattern = ("&nbsp;" + r"\s*\*\s*" + f"({TEAM_CHARS}*?)"
+               + r"\s+\d+\s+\d+\s+\d*\.\d")
+    return {n.strip() for n in re.findall(pattern, text)}
 
 
 def champion(html_dir, teams=None):

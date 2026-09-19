@@ -49,6 +49,11 @@ PLAYERS = [
     ("Our Guy",        "Tulips",  24,  90,  90,  45,   9,   4),
     ("Benched Kid",    "Clams",    4,  10,  10,   5,   1,   1),
     ("Drafted Ringer", "Draft",   34, 999, 999, 247, 999, 999),   # must never rank
+    # An accented name, because an ASCII-only class silently dropped eleven real players across
+    # the three leagues - and a silently SHORTER pool is not a cosmetic bug: everybody left in
+    # ranks better than they should, and the top-25 rule pays somebody whose true rank is 26th.
+    # Deliberately last in every category, so adding him cannot move the elite lines.
+    ("Bartolomé Drexler", "Clams", 24, 5, 5, 2, 0, 0),
 ]
 
 
@@ -112,7 +117,9 @@ def main():
 
         totals = sb.season_totals(d, teams)
         assert "Drafted Ringer" not in totals, "the draft pool got into the ranking pool"
-        assert len(totals) == 8, totals.keys()
+        assert "Bartolomé Drexler" in totals, (
+            "an accented name was dropped; the pool is short and every rank is too good")
+        assert len(totals) == 9, totals.keys()
         ace = totals["Ace Elite"]
         assert (ace["PTS"], ace["REB"], ace["AST"], ace["STL"], ace["BLK"]) == (500, 300, 90, 50, 40), ace
         assert ace["BLK"] != ace["PF"], "BLK read from the wrong column"
@@ -193,7 +200,7 @@ def main():
         # browser never has to fetch and parse four hundred player pages to say where somebody
         # placed - which would be a second implementation of every trap in this file.
         stats = sb.league_stats(d, elite_rank=5)
-        assert stats["count"] == 8 and len(stats["players"]) == 8, stats["count"]
+        assert stats["count"] == 9 and len(stats["players"]) == 9, stats["count"]
         assert all(p["team"] != "Draft" for p in stats["players"]), "draft pool reached the site"
         assert [p["name"] for p in stats["players"]][0] == "Ace Elite", "not sorted by scoring"
         ours = next(p for p in stats["players"] if p["name"] == "Our Guy")
@@ -203,7 +210,7 @@ def main():
         assert stats["elite"] == sb.elite_lines(totals, 5), stats["elite"]
         assert stats["teams"] == teams and stats["export_date"] == sb.export_date(d)
         # it has to survive json.dumps, since that is the only thing ever done with it
-        assert json.loads(json.dumps(stats))["count"] == 8
+        assert json.loads(json.dumps(stats))["count"] == 9
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
