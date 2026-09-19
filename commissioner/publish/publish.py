@@ -170,7 +170,54 @@ def publish(keys=None):
 PAGES_BRANCH = "gh-pages"
 
 
-def git_push(message=None, branch=PAGES_BRANCH, remote="origin"):
+def deploy_losses(live_root, staged_root):
+    """What deploying `staged_root` would take away from the live site. [] when nothing.
+
+    THE DEPLOY IS A FORCE PUSH OF ONE MACHINE'S site/ FOLDER, and `site/leagues/` is gitignored -
+    58 MB rewritten every publish. So what reaches the public site is whatever that folder holds
+    on whichever machine ran git_push, and nothing in git protects it: a machine that has never
+    published a league, or still holds an abandoned universe's pages, would replace the live
+    site with them and delete games.json outright. Nothing would error. The page would simply go
+    blank, and the only copy of those league pages is the machine that made them.
+
+    Two questions, both answered from the live branch itself, which git_push already has checked
+    out in the worktree before it empties it:
+
+      * DOES THIS DEPLOY DELETE ANYTHING PUBLISHED? Any league folder or data file that is live
+        and not staged. This is what catches the desktop, which has no games.json at all.
+      * IS IT EVEN THE SAME UNIVERSE? stats.json carries the season each league was published
+        for. A machine holding a different season's pages is not a newer publish of this site,
+        it is a different site - and it would look like a successful deploy.
+    """
+    live_leagues, staged_leagues = Path(live_root) / "leagues", Path(staged_root) / "leagues"
+    if not live_leagues.exists():
+        return []                       # nothing published yet: nothing can be lost
+    losses = []
+    for league in sorted(p for p in live_leagues.iterdir() if p.is_dir()):
+        staged = staged_leagues / league.name
+        if not (staged / "index.htm").exists():
+            losses.append(f"leagues/{league.name}: live, and this machine has no pages for it")
+            continue
+        for data in ("games.json", "stats.json"):
+            if (league / data).exists() and not (staged / data).exists():
+                losses.append(f"leagues/{league.name}/{data}: live, and missing here")
+        here, there = staged / "stats.json", league / "stats.json"
+        if here.exists() and there.exists():
+            try:
+                mine = json.loads(here.read_text(encoding="utf-8")).get("season")
+                live = json.loads(there.read_text(encoding="utf-8")).get("season")
+            except ValueError:
+                continue
+            if mine and live and str(mine) != str(live):
+                losses.append(f"leagues/{league.name}: the live site is {live!r} and this "
+                              f"machine's pages are {mine!r} - a different universe")
+    for page in sorted(Path(live_root).glob("*.html")):
+        if not (Path(staged_root) / page.name).exists():
+            losses.append(f"{page.name}: live, and missing here")
+    return losses
+
+
+def git_push(message=None, branch=PAGES_BRANCH, remote="origin", allow_loss=False):
     """Publish `site/` to the Pages branch, league pages and all.
 
     `site/leagues/` is deliberately gitignored: it is 58 MB, it is rewritten in full on every
@@ -216,6 +263,17 @@ def git_push(message=None, branch=PAGES_BRANCH, remote="origin"):
         git("checkout", "--orphan", branch, cwd=work)
         git("rm", "-rf", "--cached", ".", cwd=work, check=False)
     try:
+        # BEFORE the folder is emptied, while it still holds what the public site is serving.
+        # See deploy_losses: this is the only moment the deploy can compare itself against what
+        # it is about to replace, and a force push has no undo.
+        losses = deploy_losses(work, SITE)
+        if losses and not allow_loss:
+            raise RuntimeError(
+                "this deploy would REMOVE published work from the live site:\n  - "
+                + "\n  - ".join(losses)
+                + "\nPublish from the machine that owns the saves (site/leagues/ is gitignored, "
+                  "so only that machine has the league pages), or pass allow_loss=True if the "
+                  "removal is genuinely wanted.")
         for child in work.iterdir():
             if child.name != ".git":
                 shutil.rmtree(child) if child.is_dir() else child.unlink()
