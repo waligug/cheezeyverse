@@ -29,10 +29,6 @@ TIMEOUT = 8          # a slow webhook must not hold up the pipeline behind it
 MAX_LENGTH = 1900    # Discord rejects a message over 2000 characters outright
 
 
-def configured():
-    return bool(url())
-
-
 def url():
     return (cfg.get("DISCORD_WEBHOOK_URL", "") or "").strip()
 

@@ -1,7 +1,12 @@
 # Where the Cheezeyverse is — and how to pick it back up
 
-Last updated 2026-09-17. `CONVENTIONS.md` is the source of truth for decisions and the file
+Last updated 2026-09-19. `CONVENTIONS.md` is the source of truth for decisions and the file
 format; this file is the "what state is everything in" page.
+
+**Everything runs on SERVERPC now** (192.168.1.97), not on the desktop. The saves, FBPB3, the
+commissioner panel and the `.env` holding the Supabase key and the Discord webhook all live
+there; the desktop is for editing code and pressing Sim Week in a browser. A checkout on the
+desktop can run the codec and every test, but its copies of the saves are stale by design.
 
 ## Restarting your PC and getting back here
 
@@ -20,7 +25,7 @@ Things that do **not** survive a restart, and how to bring them back:
 
 | What | Restart it with |
 |---|---|
-| The commissioner panel (Sim Week lives here) | `python -m commissioner.app` → http://127.0.0.1:5095 |
+| The commissioner panel (Sim Week lives here) | on SERVERPC: `python -m commissioner.app --lan` → http://192.168.1.97:5095 |
 | Local preview of the character site | `cd site && python -m http.server 5098` → http://127.0.0.1:5098 |
 | FBPB3 | The driver launches it itself. Make sure only one copy is running. |
 
@@ -43,6 +48,17 @@ and are not in git. `backups/` in this project holds timestamped copies of every
 - **`tools/e2e_test.py` is the proof.** It builds a character through the real `site/js/rules.js`
   rather than re-implementing the quiz, sims, buys a rating and a ceiling, and then reads the
   actual bytes back out of the save.
+- **Seven real people are playing** in CV_Prep, and the loop works unattended: sim, publish,
+  spend, repeat. Twelve tests pass.
+- **Income scales with level** (prep 1, college 2, pro 3 a week) since 2026-09-19.
+  `supabase/level_income.sql` has been applied to the live project.
+- **The end-of-season bonus** is built and dry-run against the live saves, but has never run for
+  real - no season has ended yet. `commissioner/seasonbonus.py`.
+- **Discord notifications** post when a sim starts, finishes or fails. The webhook is in `.env`
+  on SERVERPC; unset means silent.
+- **The site knows about the season.** `publish` emits `leagues/<key>/stats.json` (counting
+  stats, league ranks, elite lines, W-L and seeds, true shooting), which feeds the Season tab on
+  My players and the at-a-glance panel on the front page.
 
 ## Amber — works, with a known rough edge
 
@@ -51,10 +67,21 @@ and are not in git. `backups/` in this project holds timestamped copies of every
   `tools/protect_rosters.py` runs at the top of every Sim Week and undoes it. If characters ever
   vanish, that is the first thing to check.
 - **Reserve slot ages drift.** A slot's birthday is fixed at universe creation, and a character
-  inherits it. In 2030 every free prep slot is 14-17, which is right; many seasons in, the
+  inherits it. Today every free prep slot is 14-17, which is right; many seasons in, the
   unclaimed ones will be older than a prep player should be. Not a problem yet.
-- **The offseason has not been run against Supabase.** It is built, and its store calls now exist,
-  but no season has rolled over on the live project.
+- **The offseason has never run for real.** It is built, dry-run repeatedly against the live
+  saves, and the season bonus rides on it - but no season has rolled over. Prep is 22-27 games
+  into a 30-game season, so the first real one is a few sim-weeks away and it is the largest
+  untested thing in the project.
+- **The site has no cache-busting on its asset URLs.** Everything is served `max-age=600`, so for
+  ten minutes after a publish a browser can hold a mixture of old and new files. Changing a
+  shared signature in `site/js/ui.js` is therefore a breaking change for ten minutes; it has
+  already shipped a visible bug once. Keep shared signatures additive, or give the publish step
+  content-hashed names.
+- **Seven stamina snapshots were never written.** `raise_stamina --sync-store` changed the live
+  sheet on 2026-09-19 without recording it, so the next sim's snapshot carries the whole floor as
+  one step in every character's growth line. The tool records history now; the seven old rows
+  stay missing unless somebody decides otherwise.
 
 ## Red — nothing is broken right now
 
@@ -80,23 +107,14 @@ than reading it. Every one of them was silent:
 
 ## Waiting on you
 
-Nobody can log in until these two exist.
+Nothing. Discord sign-in, the redirect URLs, the level-income migration and the Discord webhook
+are all done, and seven people are playing.
 
-1. **Supabase → Authentication → URL Configuration**
-   https://supabase.com/dashboard/project/ldybkcsmgleausdnwdmb/auth/url-configuration
-   - Site URL: `https://waligug.github.io/cheezeyverse/`
-   - Redirect URLs, one at a time:
-     `https://waligug.github.io/cheezeyverse/**`, `http://127.0.0.1:5098/**`,
-     `http://localhost:5098/**`
-   The site asks to come back to whatever page you signed in from, so the `**` matters.
-2. **A Discord application** (discord.com/developers)
-   - New Application → OAuth2 → Redirects → add
-     `https://ldybkcsmgleausdnwdmb.supabase.co/auth/v1/callback`
-     That is the Supabase callback, not the Pages URL.
-   - Copy the Client ID and Client Secret into
-     Supabase → Authentication → Providers → Discord, and enable it.
-3. After signing in once:
-   `update public.profiles set is_admin = true where discord_username = '<you>';`
+For reference, if the project is ever rebuilt: sign-in needs the Supabase URL Configuration
+(site URL plus redirect URLs ending `/**`, because the site returns to whatever page you signed
+in from) and a Discord application whose OAuth2 redirect is the **Supabase** callback
+`https://<project>.supabase.co/auth/v1/callback`, not the Pages URL. Then
+`update public.profiles set is_admin = true where discord_username = '<you>';`
 
 ## Rebuilding the universe from nothing
 
