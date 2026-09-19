@@ -521,7 +521,82 @@ def _discord_report(steps, result, seconds):
     return "\n".join(lines)
 
 
-def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
+class SeasonEnd(RuntimeError):
+    """A run was asked for that would sim past the last day of the regular season."""
+
+
+def _regular_season_left(save_dir):
+    """Days from the last game PLAYED to the last scheduled regular-season date, or None.
+
+    None means "cannot tell" - no export yet, no regular-season section, nothing played - and
+    the caller treats that as no opinion rather than as zero. Refusing to sim because a page is
+    missing would be worse than the thing being guarded against.
+    """
+    schedule = Path(save_dir) / "html" / "schedule.htm"
+    try:
+        text = re.sub(r"\s+", " ",
+                      re.sub(r"<[^>]+>", " ", schedule.read_text(encoding="latin-1",
+                                                                 errors="replace")))
+    except OSError:
+        return None
+    at = text.find("Regular Season")
+    if at == -1:
+        return None
+    # "Playoffs" also appears in the nav bar ABOVE the schedule, so search after the heading.
+    nxt = text.find("Playoffs", at + 1)
+    section = text[at:nxt if nxt != -1 else len(text)]
+    parts = re.split(r"&nbsp;(\d{1,2}/\d{1,2}/\d{4})", section)
+    scheduled, played = [], []
+    for i in range(1, len(parts), 2):
+        try:
+            when = datetime.strptime(parts[i], "%m/%d/%Y").date()
+        except ValueError:
+            continue
+        scheduled.append(when)
+        # a played game carries a score; an unplayed one is just two team names
+        if re.search(r"\d+\s*,\s*@?\w", parts[i + 1] if i + 1 < len(parts) else ""):
+            played.append(when)
+    if not scheduled or not played:
+        return None
+    return (max(scheduled) - max(played)).days
+
+
+def _refuse_to_cross_the_season(keys, days, emit):
+    """Stop a run that would sim past the last day of the regular season.
+
+    NOTHING HERE HAS EVER CROSSED THAT LINE. sim_days clicks SIM DAY blind - no stage check, no
+    dialog check between clicks - and the offseason drives league.dat through the codec without
+    ever putting FBPB3 through its own playoffs or rollover. So what the game does on the day
+    after the last one is genuinely unknown: whether it stops on a modal that eats every later
+    click, whether SIM DAY plays playoff games, whether it starts its own aging and re-signing.
+    Any of those would be FBPB3 taking over a season rollover that offseason.py is supposed to
+    own, on the live universe, with seven real people in it.
+
+    Worth guarding rather than remembering: the panel takes a number from whoever is typing, and
+    the last advice given was to use 35-day runs - which from here would cross it.
+
+    Cheap to lift once the path is designed: pass allow_season_end=True.
+    """
+    limits = []
+    for key in keys:
+        left = _regular_season_left(ch.save_path(key).parent)
+        if left is not None:
+            limits.append((key, left))
+    if not limits:
+        return
+    key, left = min(limits, key=lambda kv: kv[1])
+    if days <= left:
+        return
+    emit("error", f"{days} days would sim past the end of {key}'s regular season")
+    raise SeasonEnd(
+        f"{days} days would run past the end of the regular season: {key} has {left} day(s) "
+        f"of it left. Nothing has ever simmed across that boundary - the driver clicks SIM DAY "
+        f"blind, and the offseason never drives the game's own rollover - so it needs designing "
+        f"and rehearsing on a copy first. Sim {left} days or fewer.")
+
+
+def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
+            allow_season_end=False):
     """Apply everything owed, sim `days` in each league, export, publish, grant points."""
     if not _SIM_LOCK.acquire(blocking=False):
         raise SimBusy("a sim is already running")
@@ -544,6 +619,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False):
     result = {"ok": False, "leagues": keys, "days": days, "dry_run": dry_run, "applied": 0,
               "activated": 0, "snapshots": 0, "errors": []}
     game = None
+    # Before the backups, the apply, the launch - before anything at all is touched.
+    if not allow_season_end:
+        _refuse_to_cross_the_season(keys, days, emit)
+
     # Told before anything happens, because the point of it is that people know a sim is running
     # while it runs. Wrapped like every other notify call: Discord cannot fail a week.
     if not dry_run:

@@ -69,10 +69,17 @@ and are not in git. `backups/` in this project holds timestamped copies of every
 - **Reserve slot ages drift.** A slot's birthday is fixed at universe creation, and a character
   inherits it. Today every free prep slot is 14-17, which is right; many seasons in, the
   unclaimed ones will be older than a prep player should be. Not a problem yet.
-- **The offseason has never run for real.** It is built, dry-run repeatedly against the live
-  saves, and the season bonus rides on it - but no season has rolled over. Prep is 22-27 games
-  into a 30-game season, so the first real one is a few sim-weeks away and it is the largest
-  untested thing in the project.
+- **The offseason has never run for real, and neither has the end of a season.** The offseason
+  is built and dry-run repeatedly against the live saves, but nothing has rolled over. Worse,
+  the step BEFORE it is equally untested: the regular season ends 4/22/2027 in all three
+  leagues with about 31 days left, and no sim has ever crossed that date. `sim_days` clicks SIM
+  DAY blind, and the offseason never drives FBPB3's own playoffs or rollover, so what the game
+  does on 4/23 is unknown - a modal that eats later clicks, playoff games, its own aging and
+  re-signing, any of which would be the game taking over a rollover `offseason.py` owns.
+  `run_sim` refuses to cross it for now. Rehearse on a copy of CV_Prep before lifting that.
+- **Sims need a live desktop.** Stay connected to SERVERPC over RDP at 2560x1440, or use VNC or
+  AnyDesk. The headless console is 1024x768 and the 1019x762 game window plus the taskbar does
+  not fit; there is no dummy plug in yet. `docs/SERVER.md` covers the `tscon` part.
 - **The site has no cache-busting on its asset URLs.** Everything is served `max-age=600`, so for
   ten minutes after a publish a browser can hold a mixture of old and new files. Changing a
   shared signature in `site/js/ui.js` is therefore a breaking change for ten minutes; it has

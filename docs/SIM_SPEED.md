@@ -29,9 +29,18 @@ make the work faster but to press the button less often.
 
 ## Tier 0 - already available, no code (DONE 2026-09-18)
 
-Type a bigger number into the panel. **35 is the number to type** - see "What batching costs"
-below: it is the length that pays a clean five skill points, and it costs about three minutes
-more than 28.
+Type a bigger number into the panel.
+
+**35 WAS the number to type. It is not, from 2026-09-19 onward.** 35 days pays a clean five
+skill points, which is why it was recommended - but the regular season ends on 4/22/2027 in all
+three leagues, and only about 31 days of it are left. A 35-day run would sim past the end of the
+season, and nothing in this project has ever done that: `sim_days` clicks SIM DAY blind, and
+`offseason.py` moves everybody on through the codec without ever driving FBPB3's own playoffs or
+rollover. **28 is the number to type** until that path is designed and rehearsed on a copy.
+
+`run_sim` now refuses a run that would cross the boundary, reading the last played date and the
+last scheduled one out of schedule.htm, so nobody can do it by typing a number into the panel.
+`allow_season_end=True` lifts it for the code that eventually owns that path.
 
 | | Wall clock |
 |---|---:|
@@ -118,15 +127,19 @@ changes. A realistic best case for a whole month is **550-600 s, call it ten min
 
 **It does not cost points, but 28 days pays four of them, not five.**
 `weeks = max(1, round(days / 7))`, so 28 / 7 = 4 exactly and the 28-day run logged
-`4 point(s) to 7 character(s)`. Nate asked for a chunk of about five points to spend, so
-**35 days is the length that actually answers the request**: 35 / 7 = 5, just as clean, and
-from the formula it costs about three minutes more than 28.
+`4 point(s) to 7 character(s)`. Nate asked for a chunk of about five points to spend, and
+35 / 7 = 5 is the length that answers that.
 
 | | Points | Wall clock |
 |---|---:|---:|
 | 5 x 7-day runs | 5 | ~3 330 s (55 min) |
 | 1 x 28-day run | 4 | 1 210 s measured |
-| **1 x 35-day run** | **5** | **~1 392 s (~23 min)** |
+| 1 x 35-day run | 5 | ~1 392 s (~23 min) |
+
+**But not this season.** Only about 31 regular-season days are left, so 35 would cross the end
+of it and `run_sim` refuses. Five points in one press has to wait for a season with room in it,
+or for the season-end path to be designed. 28 is the largest length that is both safe and exact
+right now.
 
 A remainder bank is only needed if a variable-length calendar SIM MONTH is adopted, since 28
 and 35 are both exact - do not add one before then, because `current_week` dates every snapshot
