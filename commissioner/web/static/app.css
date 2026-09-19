@@ -74,6 +74,14 @@ h3 { font-size: 13px; }
 .chip.bad  { background: #F7E0DE; border-color: #D9A9A5; color: var(--bad); }
 .chip.busy { background: var(--gold); border-color: var(--crust); color: var(--ink); }
 
+/* How many regular-season days a league has left, sat beside its checkbox. Small and quiet:
+   it is a fact to glance at while choosing a number, not a warning. */
+.days-left {
+  margin-left: 3px; padding: 0 4px; border-radius: 7px;
+  font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--cream2); border: 1px solid var(--line); color: #7A6A45;
+}
+
 .muted { color: #7A6A45; }
 .mono { font-family: var(--mono); }
 .dash { color: #A99B78; }

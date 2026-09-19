@@ -199,16 +199,83 @@ function pickedLeagues() {
   return keys.length === boxes.length ? null : keys;   // null = all of them
 }
 
+/* The tightest ticked league: {key, left} for the one with the fewest regular-season days
+ * remaining, or null when nothing ticked has a known count. Derived from the SELECTED boxes,
+ * not from all of them - untick college and pro and the answer becomes prep's number, which is
+ * the whole reason the count lives per league rather than in one box. */
+function tightestLeague() {
+  var boxes = document.querySelectorAll('.league-pick');
+  var best = null;
+  for (var i = 0; i < boxes.length; i++) {
+    if (!boxes[i].checked) { continue; }
+    var raw = boxes[i].getAttribute('data-left');
+    if (raw === null || raw === '') { continue; }   // no opinion: never guess one
+    var left = parseInt(raw, 10);
+    if (isNaN(left)) { continue; }
+    if (best === null || left < best.left) { best = { key: boxes[i].value, left: left }; }
+  }
+  return best;
+}
+
+/* Show the playoff control only when the days asked for would actually cross somebody's season
+ * end, and name the league it would cross. Also nudges the day box down to what fits inside the
+ * regular season, so the common case - sim right up to the end - needs no arithmetic. */
+function refreshSeasonEnd() {
+  var group = $('season-end-group');
+  if (!group) { return; }
+  var tight = tightestLeague();
+  var asked = parseInt($('days-chunk').value, 10) || 0;
+  var crossing = tight !== null && asked > tight.left;
+  group.hidden = !crossing;
+  if (!crossing) {
+    $('allow-season-end').checked = false;   // never leave it armed once it stops applying
+    return;
+  }
+  var label = $('season-end-label');
+  if (label) {
+    label.title = tight.left === 0
+      ? tight.key + ' has no regular-season days left: every remaining day is the playoffs.'
+      : tight.key + ' has ' + tight.left + ' regular-season day(s) left, so ' + asked
+        + ' would cross into its playoffs.';
+  }
+}
+
+/* The day box should suggest what actually fits. 21 was a fixed default chosen when every league
+ * had room; at the season boundary it is simply a number that gets refused.
+ *
+ * ONLY WHILE UNTOUCHED, and in BOTH directions. An earlier version only ever lowered the number,
+ * which quietly downgraded the ask: loading with prep ticked set the box to 2, and unticking prep
+ * to sim pro - which had ten days of room - left it sitting at 2. The person would have got a
+ * two-day sim they did not ask for and no indication why. Once they type, the number is theirs
+ * and nothing here overwrites it; a value that crosses a boundary surfaces the playoff control
+ * instead of being silently trimmed. */
+var daysTouched = false;
+
+function suggestDays() {
+  var tight = tightestLeague();
+  var box = $('days-chunk');
+  if (box && !daysTouched && tight !== null && tight.left > 0) {
+    box.value = tight.left;
+  }
+  refreshSeasonEnd();
+}
+
 function startSim(days) {
   if (state.busy) { toast('A sim is already running.', true); return; }
   var leagues = pickedLeagues();
   if (leagues !== null && leagues.length === 0) { toast('Pick at least one league.', true); return; }
   var dry = $('dry-run').checked;
+  var crossBox = $('allow-season-end');
+  // Only send it when the control is actually showing. A checkbox left ticked from an earlier
+  // arrangement of leagues must not silently grant permission to cross a different league's
+  // boundary than the one it was ticked for.
+  var cross = !!(crossBox && crossBox.checked && !$('season-end-group').hidden);
 
   setBusy(true, 'starting...');
   clearLog(null);
   state.lastSeq = 0;
-  postJSON('/api/sim/start', { days: days, leagues: leagues, dry_run: dry }).then(function (data) {
+  postJSON('/api/sim/start', { days: days, leagues: leagues, dry_run: dry,
+                               allow_season_end: cross }).then(function (data) {
     if (!data.ok) {
       setBusy(false, 'refused');
       banner(data.error || 'The sim was refused.');
@@ -237,6 +304,7 @@ function describeRun(run) {
   return (run.dry_run ? 'DRY RUN - ' : '') +
     (run.leagues ? run.leagues.join(', ') : 'all leagues') +
     ', ' + run.days + ' day' + (run.days === 1 ? '' : 's') +
+    (run.allow_season_end ? ', allowed into the playoffs' : '') +
     ', started ' + (run.started_at || '').replace('T', ' ');
 }
 
@@ -885,6 +953,19 @@ function wire() {
     if (state.busy) { toast('Not while a sim is running - the log is the only record.', true); return; }
     clearLog('Cleared.');
   });
+
+  // The season boundary moves with BOTH the leagues ticked and the number typed, so both have
+  // to recompute it. Suggest on a league change (the set of boundaries changed), only refresh
+  // on typing (never fight somebody mid-keystroke over the number they are entering).
+  var picks = document.querySelectorAll('.league-pick');
+  for (var i = 0; i < picks.length; i++) {
+    picks[i].addEventListener('change', suggestDays);
+  }
+  $('days-chunk').addEventListener('input', function () {
+    daysTouched = true;          // from here the number is theirs, not ours
+    refreshSeasonEnd();
+  });
+  suggestDays();
   $('btn-refresh-pending').addEventListener('click', refreshPending);
   $('btn-refresh-history').addEventListener('click', refreshHistory);
 

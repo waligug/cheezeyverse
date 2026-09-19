@@ -166,12 +166,17 @@ class SimRun:
     `kind` and a couple of fields differ.
     """
 
-    def __init__(self, leagues, days, dry_run, kind="sim", season=None, force=False):
+    def __init__(self, leagues, days, dry_run, kind="sim", season=None, force=False,
+                 allow_season_end=False):
         self.id = uuid.uuid4().hex[:12]
         self.kind = kind          # "sim" | "offseason"
         self.leagues = list(leagues) if leagues else None
         self.days = int(days)
         self.dry_run = bool(dry_run)
+        # sim only: permission to sim across the last day of the regular season and into the
+        # playoffs. Off by default because what lies past the playoffs is FBPB3's own rollover,
+        # which nothing here has ever driven.
+        self.allow_season_end = bool(allow_season_end)
         self.season = season      # offseason only; None means "whatever the store says"
         self.force = bool(force)  # offseason only
         self.refused = False      # offseason only: the already-run guard said no
@@ -254,6 +259,7 @@ class SimRun:
             "leagues": self.leagues,
             "days": self.days,
             "dry_run": self.dry_run,
+            "allow_season_end": self.allow_season_end,
             "season": self.season,
             "force": self.force,
             "refused": self.refused,
@@ -398,13 +404,13 @@ def _acquire_or_refuse():
             "would drive the same FBPB3 window and corrupt a save. Wait for it to finish.")
 
 
-def start_sim(leagues=None, days=7, dry_run=False):
+def start_sim(leagues=None, days=7, dry_run=False, allow_season_end=False):
     """Kick off a background sim. Returns (run, None) or (None, refusal message)."""
     global _CURRENT
     refusal = _acquire_or_refuse()
     if refusal:
         return None, refusal
-    run = SimRun(leagues, days, dry_run)
+    run = SimRun(leagues, days, dry_run, allow_season_end=allow_season_end)
     try:
         thread = threading.Thread(target=_worker, args=(run,), name=f"simweek-{run.id}", daemon=True)
         thread.start()
@@ -452,14 +458,18 @@ def _worker(run):
     try:
         run.emit({
             "kind": "step", "step": "start", "league": None, "pct": 0,
-            "message": "{}{} for {} day{} - {}".format(
+            "message": "{}{} for {} day{}{} - {}".format(
                 "DRY RUN: " if run.dry_run else "",
                 ", ".join(run.leagues) if run.leagues else "all leagues",
                 run.days, "" if run.days == 1 else "s",
+                ", allowed into the playoffs" if run.allow_season_end else "",
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
         })
+        # allow_season_end travels all the way to run_sim or it does nothing at all. The flag was
+        # added at the endpoint first and stopped here, which is the inert-guard shape this
+        # project keeps meeting: everything reports success and the behaviour never changes.
         result = run_sim(leagues=run.leagues, days=run.days, on_step=run.on_step,
-                         dry_run=run.dry_run)
+                         dry_run=run.dry_run, allow_season_end=run.allow_season_end)
         run.result = json.loads(json.dumps(result, default=str)) if result is not None else None
         if run.status == "running":
             run.status = "ok"
@@ -917,7 +927,8 @@ def api_sim_start():
     if not 1 <= days <= 400:
         return jsonify({"ok": False, "error": "days must be between 1 and 400"}), 400
 
-    run, refusal = start_sim(leagues=leagues, days=days, dry_run=bool(body.get("dry_run")))
+    run, refusal = start_sim(leagues=leagues, days=days, dry_run=bool(body.get("dry_run")),
+                             allow_season_end=bool(body.get("allow_season_end")))
     if run is None:
         existing = busy_run()
         return jsonify({"ok": False, "error": refusal, "busy": True,
