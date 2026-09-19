@@ -132,6 +132,13 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   the 18th. Whether this affects how often the AI coach benches them is UNKNOWN and should not be asserted: the
   least-played character has the group's lowest Stamina but its second-highest minutes per game, which is the
   opposite of what a conditioning limit looks like. Run `tools/raise_stamina.py` after each new character.
+- 2026-09-18 **Stamina drifts UP, so a floor holds.** Measured on the 329 players present in both fixtures, i.e.
+  across two simmed seasons: mean +3.3, 274 rose, 38 fell, 17 unchanged. Among the 114 who started above 65 - the
+  band a floor of 70 puts the characters in - the mean is still +2.5 and only 14 fell, by 4-6 points. So the game
+  does not claw a raised Stamina back the way it crushes a rating to its potential, and the floor does not need
+  re-applying on a schedule; only new characters need it.
+- 2026-09-18 **A run pays `round(days / 7)` points.** 28 days pays 4, **35 days pays 5** and costs about three
+  minutes more - so 35 is the chunk to sim when the point of a long run is giving people something to spend.
 - 2026-09-18 **Sim cost is ~480 s fixed + ~26 s per day** across three leagues; only the SIM DAY clicking scales,
   and it is linear at ~8.7 s per day per league. Measured: 4x7 days = 2663.1 s, 1x28 days = 1210.4 s, so one
   monthly run is **2.2x faster** than four weekly ones for the same basketball. `docs/SIM_SPEED.md`.

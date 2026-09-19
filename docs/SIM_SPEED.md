@@ -29,7 +29,9 @@ make the work faster but to press the button less often.
 
 ## Tier 0 - already available, no code (DONE 2026-09-18)
 
-Type a bigger number into the panel.
+Type a bigger number into the panel. **35 is the number to type** - see "What batching costs"
+below: it is the length that pays a clean five skill points, and it costs about three minutes
+more than 28.
 
 | | Wall clock |
 |---|---:|
@@ -114,9 +116,20 @@ changes. A realistic best case for a whole month is **550-600 s, call it ten min
 
 ## What batching costs, and what it does not
 
-**It does not cost points.** `weeks = max(1, round(days / 7))`, and 28 / 7 is exactly 4, so a
-28-day run pays 4 points cleanly. A remainder bank is only needed if a variable-length calendar
-SIM MONTH is adopted - do not add it before then, because `current_week` dates every snapshot
+**It does not cost points, but 28 days pays four of them, not five.**
+`weeks = max(1, round(days / 7))`, so 28 / 7 = 4 exactly and the 28-day run logged
+`4 point(s) to 7 character(s)`. Nate asked for a chunk of about five points to spend, so
+**35 days is the length that actually answers the request**: 35 / 7 = 5, just as clean, and
+from the formula it costs about three minutes more than 28.
+
+| | Points | Wall clock |
+|---|---:|---:|
+| 5 x 7-day runs | 5 | ~3 330 s (55 min) |
+| 1 x 28-day run | 4 | 1 210 s measured |
+| **1 x 35-day run** | **5** | **~1 392 s (~23 min)** |
+
+A remainder bank is only needed if a variable-length calendar SIM MONTH is adopted, since 28
+and 35 are both exact - do not add one before then, because `current_week` dates every snapshot
 and is persisted.
 
 **It was expected to cost re-dress passes, and it did not.** `_dress_characters` runs once per
