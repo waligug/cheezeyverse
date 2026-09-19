@@ -150,17 +150,49 @@ def main():
         # rewrote who owned which games.
         real_store = simweek.store
 
-        class _NoLog:
-            def __init__(self, inner):
-                self._inner = inner
+        class _FakeStore:
+            """Closed, not a proxy. A forwarding stub still let every OTHER call through to the
+            live Supabase project with the service key - including the settings read run_sim
+            does - so the test reached a real service by any route it had not thought of."""
 
-            def __getattr__(self, name):
-                return getattr(self._inner, name)
+            def get_settings(self):
+                return {"current_season": 2026, "current_week": 0, "auto_publish": False}
+
+            def characters(self, **_k):
+                return []
+
+            def pending_characters(self):
+                return []
 
             def record_run(self, *_a, **_k):
                 return None
 
-        simweek.store = lambda: _NoLog(real_store())
+            def __getattr__(self, name):
+                raise AssertionError(f"the test reached the store: {name}()")
+
+        simweek.store = lambda: _FakeStore()
+
+        # Stub the GAME and the live backups folder. run_sim's first act is to close a stray
+        # FBPB3 - taskkill /IM FBPB3.exe /F - so running this suite while the panel was mid-sim
+        # would have killed a real week in progress, the panel being a separate process with its
+        # own lock. The backup step then mkdir'd into the real backups/, which is where ten empty
+        # 20260919-*-CV_Prep folders came from.
+        real_fbpb3, real_backups = simweek.FBPB3, simweek.BACKUPS
+
+        class _NoGame:
+            @staticmethod
+            def is_running():
+                return False
+
+            @staticmethod
+            def kill():
+                raise AssertionError("the test tried to kill FBPB3")
+
+            def __init__(self, *_a, **_k):
+                raise AssertionError("the test tried to launch FBPB3")
+
+        simweek.FBPB3 = _NoGame
+        simweek.BACKUPS = Path(tmp) / "backups"
 
         # Stub the notifier too. This block calls run_sim for real, and on any machine with a
         # webhook configured - SERVERPC has one - the failure path posted "Sim stopped - 999
@@ -202,6 +234,7 @@ def main():
             simweek.notify.post = real_post
         if real_store is not None:
             simweek.store = real_store
+        simweek.FBPB3, simweek.BACKUPS = real_fbpb3, real_backups
         ch.save_path = real
         simweek.ch.save_path = real
         shutil.rmtree(tmp, ignore_errors=True)

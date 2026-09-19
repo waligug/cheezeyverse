@@ -259,8 +259,20 @@ def create_character(payload):
     return st.add_character(payload)
 
 
-def _activate_pending(league_key, L, st, log):
-    """Give every pending character in this league a reserve slot and stamp him into the save."""
+def _activate_pending(league_key, L, st, log, season=None):
+    """Give every pending character in this league a reserve slot and stamp him into the save.
+
+    Returns (done, expect, writes). NOTHING IS WRITTEN TO THE STORE HERE. `writes` is a list of
+    thunks the caller runs only once ch.commit has proved the save really holds them.
+
+    That split is the fix for a bug that cost a character his career on paper: the store writes
+    used to happen here, before `if dry_run: continue` and before the commit. So asking the panel
+    what a run WOULD do - the button says "touches no save" - marked him active on a filler's
+    reserve row, and the run then wrote nothing. He was no longer pending, so no later run ever
+    stamped him into league.dat: his slot stayed claimed, the roster guard released the filler
+    row it could still see, every upgrade failed, he was paid weekly for games he was not in, and
+    the offseason would have retired a character the save had never heard of.
+    """
     pending = [c for c in st.pending_characters() if c.get("league", "prep") == league_key]
     if not pending:
         return [], []
@@ -292,7 +304,15 @@ def _activate_pending(league_key, L, st, log):
         except Exception:
             return slot.team           # not in the save under that name: fall back to the manifest
 
-    done, expect = [], []
+    # The day the save is sitting on is the first day he can possibly play, and it is read from
+    # league.dat itself rather than reconstructed later from the run log. See
+    # LeagueDat.season_day and headtohead.stored_debut.
+    stamped = L.season_day()
+    if stamped is None:
+        log(f"   (could not read {league_key}'s season day; arrivals will fall back to the run log)")
+    day_now, game_year = (stamped if stamped else (None, None))
+
+    done, expect, writes = [], [], []
     for c in pending:
         slot = ch.pick_slot(slots, c.get("position"), busy=busy, divisions=divisions,
                             team_of=team_of)
@@ -310,23 +330,29 @@ def _activate_pending(league_key, L, st, log):
         # died on KeyError: 'dob'.
         dob = ch.codec_dob(c.get("dob") or slot.dob)
         ch.stamp_character(L, slot, {**c, "dob": dob})
-        st.activate_character(c["id"], league_key, slot.team, slot.as_json(), dob)
-        if hasattr(st, "record_level"):
+
+        def _write(c=c, slot=slot, dob=dob):
+            st.activate_character(c["id"], league_key, slot.team, slot.as_json(), dob)
+            if not hasattr(st, "record_level"):
+                return
             try:
                 placed = L.find(f'{c["first_name"]} {c["last_name"]}', dob)
                 st.record_level(c["id"], {
                     "level": league_key, "team_abbrev": slot.team, "player_id": placed.id,
-                    "from_season": int(st.get_settings().get("current_season", 0)) or None,
+                    "from_season": season, "from_day": day_now, "from_game_year": game_year,
                     "from_age": None, "to_season": None,
                     "how_it_started": "created", "how_it_ended": None,
                 })
             except Exception as exc:
                 log(f"   (could not record the level for {c['first_name']}: {exc})")
+
+        writes.append(_write)
         done.append(c)
         expect.append((f'{c["first_name"]} {c["last_name"]}', dob,
                        {"Height": int(c["height_inches"])}))
-        log(f'{c["first_name"]} {c["last_name"]} claimed {slot.team} (was {slot.name})')
-    return done, expect
+        log(f'{c["first_name"]} {c["last_name"]} claimed {slot.team} (was {slot.name})'
+            + (f", from day {day_now}" if day_now else ""))
+    return done, expect, writes
 
 
 def _sync_teams(league_key, L, st, log):
@@ -654,6 +680,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     result = {"ok": False, "leagues": keys, "days": days, "dry_run": dry_run, "applied": 0,
               "activated": 0, "snapshots": 0, "errors": []}
     game = None
+    # Defined before the try because the finally logs it, and a refusal raises above the read.
+    season_now, settings = None, {}
     try:
         # INSIDE the try, and first. _SIM_LOCK was acquired above and the only thing that ever
         # releases it is this try's finally - so raising above this line held the lock for the
@@ -667,6 +695,18 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # one safe way to find out.
         if not allow_season_end and not dry_run:
             _refuse_to_cross_the_season(keys, days, emit)
+
+        # ONE read of the settings for the whole run. There were three, with three different
+        # defaults, and a fourth inside the finally - which went out over the network while
+        # _SIM_LOCK was still held, and whose failure quietly stamped the run's log row with no
+        # season at all, turning head-to-head's season filter off for that row ever after.
+        # Nothing else writes these while a run holds the lock, so one read is also one answer.
+        try:
+            settings = st.get_settings()
+        except Exception as exc:
+            emit("start", f"could not read the settings ({exc}); using defaults")
+            settings = {}
+        season_now = int(settings.get("current_season", cfg.START_YEAR) or cfg.START_YEAR)
 
         # Told before anything happens, because the point of it is that people know a sim is
         # running while it runs. Wrapped like every other notify call: Discord cannot fail a week.
@@ -713,7 +753,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             if traded:
                 emit("apply", f"{traded} character(s) had been traded since last week", key)
             dressed = _dress_characters(key, L, st, lambda m: emit("apply", m, key))
-            activated, expect_a = _activate_pending(key, L, st, lambda m: emit("apply", m, key))
+            activated, expect_a, activations = _activate_pending(
+                key, L, st, lambda m: emit("apply", m, key), season=season_now)
             applied, expect_b = _apply_requests(key, L, st, lambda m: emit("apply", m, key))
             if dry_run:
                 emit("apply", f"dry run: {len(activated)} characters, {len(applied)} requests "
@@ -725,6 +766,21 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 except Exception as exc:
                     shutil.copy2(dest / "league.dat", path)
                     raise RuntimeError(f"{key}: write check failed, save restored - {exc}") from exc
+                # Only now: the save demonstrably holds these characters. If the store refuses
+                # here the two would disagree the other way round, so the save goes back and the
+                # run stops - before the game is ever opened - naming anyone already written.
+                written = []
+                for write in activations:
+                    try:
+                        write()
+                    except Exception as exc:
+                        shutil.copy2(dest / "league.dat", path)
+                        raise RuntimeError(
+                            f"{key}: the save was written but the store refused ({exc}); save "
+                            f"restored. Already marked active in the store: "
+                            f"{', '.join(written) or 'none'}") from exc
+                    written.append(f'{activated[len(written)]["first_name"]} '
+                                   f'{activated[len(written)]["last_name"]}')
                 st.mark_applied(applied)
                 result["applied"] += len(applied)
                 result["activated"] += len(activated)
@@ -841,11 +897,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # league.dat under a running FBPB3, which rewrites it whenever it saves. Wrapped per
         # league because a missing snapshot is cosmetic and a missing publish is not.
         weeks = max(1, round(days / 7))
-        s = st.get_settings()
-        season = int(s.get("current_season", cfg.START_YEAR))
+        season = season_now
         # The week just completed, i.e. what current_week will read once this run finishes -
         # it is bumped at the end, so the stale value would date every snapshot a week early.
-        week_done = int(s.get("current_week", 0)) + weeks
+        week_done = int(settings.get("current_week", 0)) + weeks
         for key in keys:
             try:
                 n = _snapshot_league(key, st, season, week_done,
@@ -918,14 +973,18 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # started_at and season, both needed by head-to-head's arrival-day maths. `at` is
         # stamped at the END of a run, and Seasonday restarts every year while this log does
         # not - so without these two a character created mid-run loses a week, and after the
-        # first rollover everybody's debut is nonsense.
+        # first rollover everybody's debut is nonsense. The season is the one read at the top of
+        # the run rather than a fresh request: this is the worst possible place for a network
+        # call, since the lock is still held.
         try:
-            this_season = int(st.get_settings().get("current_season", 0)) or None
-        except Exception:
-            this_season = None
-        st.record_run({**result, "seconds": round(time.time() - started),
-                       "started_at": datetime.fromtimestamp(started, timezone.utc)
-                       .isoformat(timespec="seconds"),
-                       "season": this_season})
-        _SIM_LOCK.release()
+            st.record_run({**result, "seconds": round(time.time() - started),
+                           "started_at": datetime.fromtimestamp(started, timezone.utc)
+                           .isoformat(timespec="seconds"),
+                           "season": season_now})
+        finally:
+            # ALWAYS, even if the log write raised. record_run swallows OSError but not a
+            # PermissionError from a held file, nor a TypeError from a hand-edited log - and a
+            # leaked lock is not a lost log line, it is Sim Week AND the offseason refusing to
+            # run with "another process is already simming" until somebody restarts the panel.
+            _SIM_LOCK.release()
     return result

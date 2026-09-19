@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from commissioner.headtohead import (  # noqa: E402
-    build, day_to_date, first_game_day, run_started)
+    build, day_to_date, debut, first_game_day, run_started, stored_debut)
 
 TEAMS = [{"ID": "5", "Name": "Berries", "City": "Saskatoon"},
          {"ID": "16", "Name": "Generals", "City": "Jackson"},
@@ -93,8 +93,12 @@ def main():
     # ---- the arrival day, derived from the run log ---------------------------------------
     assert first_game_day(CHRIS, RUNS) == 29, first_game_day(CHRIS, RUNS)
     assert first_game_day(DODGER, RUNS) == 129, first_game_day(DODGER, RUNS)
-    assert first_game_day({"created_at": None}, RUNS) == 1, "unknown arrival must count everything"
-    assert first_game_day(CHRIS, []) == 1
+    # NOT 1. "Count everything when you cannot tell" was the safe-looking answer and it is the
+    # wrong one: every game before a character existed was played by the filler whose slot he
+    # took, so counting them invents head-to-head meetings out of another man's evenings. None
+    # means unknown, and build() then publishes no games for him rather than somebody else's.
+    assert first_game_day({"created_at": None}, RUNS) is None, "no birth date cannot be guessed at"
+    assert first_game_day(CHRIS, []) is None, "an empty log cannot place anybody"
 
     # A RUN'S `at` IS ITS FINISH. Compare a birth to that and a character created while a run
     # was in flight loses that run's days - but he was not activated by it, because activation
@@ -123,6 +127,49 @@ def main():
     new_boy = {"created_at": "2027-01-20T00:00:00+00:00"}
     assert first_game_day(new_boy, seasons, season=2027) == 41, first_game_day(new_boy, seasons, 2027)
 
+    # ---- ONLY THIS LEAGUE'S RUNS ------------------------------------------------------------
+    # The panel's checkboxes allow a run that advances pro alone. Counting its days against a
+    # prep character moves his debut past games that really are his.
+    split = [{"days": 21, "ok": True, "season": 2026, "leagues": ["prep", "college", "pro"],
+              "started_at": "2026-09-19T01:00:00+00:00"},
+             {"days": 7, "ok": True, "season": 2026, "leagues": ["pro"],
+              "started_at": "2026-09-19T02:00:00+00:00"}]
+    latecomer = {"created_at": "2026-09-19T03:00:00+00:00"}
+    assert first_game_day(latecomer, split, season=2026, league="prep") == 22, \
+        "a pro-only run must not move a prep debut"
+    assert first_game_day(latecomer, split, season=2026, league="pro") == 29
+
+    # ---- A RUN THAT CANNOT BE PLACED IN A SEASON MAKES THE ANSWER UNKNOWN --------------------
+    # It used to count in every season, which silently brought back the cross-rollover sum.
+    untagged = [{"days": 30, "ok": True, "started_at": "2026-09-19T01:00:00+00:00"}]
+    assert first_game_day(latecomer, untagged, season=2026) is None, \
+        "a run with no season cannot be counted in one"
+    assert first_game_day(latecomer, untagged) == 31, "with no season asked for, it still sums"
+
+    # ---- STORED BEATS DERIVED, AND SAYS SO --------------------------------------------------
+    # The day FBPB3 itself was sitting on when simweek stamped him in. Derivation is the
+    # fallback, and `since_source` is how anybody ever notices the two disagreeing.
+    placed = {**DODGER, "level_history": [
+        {"level": "prep", "from_season": 2026, "from_day": 78, "how_it_started": "created"}]}
+    assert stored_debut(placed, "prep", 2026) == 78
+    assert debut(placed, "prep", RUNS, 2026) == (78, "stored")
+    assert debut(DODGER, "prep", RUNS, None)[1] == "run log"
+    assert debut({"created_at": None}, "prep", [], 2026) == (None, "unknown")
+    # a level entered in an earlier season is his for all of this one, and so is a promotion
+    assert stored_debut({"level_history": [{"level": "college", "from_season": 2026,
+                                            "from_day": 40}]}, "college", 2027) == 1
+    assert stored_debut({"level_history": [{"level": "college", "from_season": 2027,
+                                            "how_it_started": "promoted"}]}, "college", 2027) == 1
+    # and a level he has not reached yet does not answer for one he has
+    assert stored_debut({"level_history": [{"level": "college", "from_season": 2028,
+                                            "from_day": 5}]}, "college", 2027) is None
+
+    # ---- UNKNOWN PUBLISHES NOTHING, NOT SOMEBODY ELSE'S GAMES -------------------------------
+    blind = build([{**DODGER, "created_at": None}], GAMES, SCHEDULE, TEAMS, runs=[],
+                  league="prep", season=2026)
+    assert blind["characters"][0]["games"] == [], blind["characters"][0]
+    assert blind["characters"][0]["since_source"] == "unknown"
+
     data = build([CHRIS, DODGER], GAMES, SCHEDULE, TEAMS, runs=RUNS, league="prep",
                  opener="2026-10-20")
     by_name = {c["name"]: c for c in data["characters"]}
@@ -136,9 +183,12 @@ def main():
     # Chris arrived on day 29, so 31 is his and the preseason game on day 1 is not
     assert [g["day"] for g in chris["games"]] == [31, 134], chris["games"]
 
-    # ---- preseason is excluded even for somebody who was there ------------------------------
-    early = build([{**CHRIS, "created_at": None}], GAMES, SCHEDULE, TEAMS, runs=RUNS,
-                  league="prep")
+    # ---- preseason is excluded even for somebody who was there from day one -----------------
+    from_day_one = {**CHRIS, "created_at": None,
+                    "level_history": [{"level": "prep", "from_day": 1, "from_season": 2026}]}
+    early = build([from_day_one], GAMES, SCHEDULE, TEAMS, runs=RUNS, league="prep", season=2026)
+    assert early["characters"][0]["since_day"] == 1, early["characters"][0]
+    assert early["characters"][0]["since_source"] == "stored", early["characters"][0]
     assert [g["day"] for g in early["characters"][0]["games"]] == [31, 134], \
         "a preseason game reached the record"
 

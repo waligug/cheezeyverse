@@ -33,6 +33,27 @@ POSITIONS = {1: "C", 2: "PF", 3: "SF", 4: "SG", 5: "PG"}
 _NAME_RE = re.compile(rb"[\x03-\x30]\x00[^\x00-\x1f\x7f]{3,48}")
 
 
+SEASON_DAY_TAIL = struct.pack("<4h", -1, -1, -1, 0)
+
+
+def find_season_day(data, limit=None):
+    """(day, year) from a league.dat's header bytes, or None unless exactly one match.
+
+    Kept out of LeagueDat so it can be tested on bytes rather than needing a whole save. See
+    LeagueDat.season_day for why it is a shape and not an offset.
+    """
+    stop = min(limit or len(data), len(data))
+    hits, i = [], data.find(SEASON_DAY_TAIL, 36)
+    while i != -1 and i < stop:
+        at = i - 4
+        if at >= 32 and data[at - 32:at] == bytes(32):
+            day, year = struct.unpack_from("<2h", data, at)
+            if 1 <= day <= 400 and 1900 <= year <= 2200:
+                hits.append((day, year))
+        i = data.find(SEASON_DAY_TAIL, i + 1)
+    return hits[0] if len(hits) == 1 else None
+
+
 class CodecError(Exception):
     pass
 
@@ -283,6 +304,28 @@ class LeagueDat:
     # E+40 on each player is a save-time copy; it is only used to identify which array belongs to which team.
     LINEUP_GAP, LINEUP_SLOTS = 22, 14
     DEPTH_BLOCK, DEPTH_PER_TEAM = 162, 5
+
+    def season_day(self):
+        """(day, year) the save is currently sitting on, or None when it cannot be read.
+
+        FBPB3's own day counter: day 1 is the first day of the preseason and it runs on through
+        the playoffs, restarting at 1 each new season. Nothing else in the project knew it, and
+        head-to-head needs it - a character's games are only his from the day he was placed, and
+        that day is otherwise reconstructed by adding up a log of past runs, which is wrong the
+        moment a run is missing, rewound by restore_backup, or simmed by a tool that logs
+        elsewhere.
+
+        THERE IS NO FIXED OFFSET. The pair sits at 52026 in today's CV_Prep and 51958 in the same
+        save a few runs ago, because records earlier in the file change length. So it is found by
+        its shape: a long run of zeros, then the day, then the season year, then -1 -1 -1 0. That
+        signature was checked against all 69 prep backups plus college and pro, 2026-09-19: every
+        one had EXACTLY ONE match, and the days came out 1, 8, 15, 22, 29, 36, 57, 78, 99, 106,
+        113, 120, 127, 155 - exactly the run log's own sequence, in all three leagues.
+
+        Returns None rather than guessing when there is not exactly one match, because a wrong
+        day silently hands somebody else's games to a character and looks entirely plausible.
+        """
+        return find_season_day(self.data, self.players[0].R if self.players else None)
 
     def teams(self):
         members = {}

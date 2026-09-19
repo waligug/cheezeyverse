@@ -11,10 +11,13 @@ under the filler's name. Its whole history is in PlayerGameStats under the same 
 Manson's id has thirty regular-season rows and he has six weeks of snapshots - so most of those
 games are not his, and a naive head-to-head would tell him about an evening he did not play.
 
-`first_day` is the answer, and it is derived rather than stored: the store records every sim
-run with the days it simmed, so the game day a character arrived on is one plus the days of
-every run that finished before he was created. Exact, from data already written, and it needs
-nobody to have remembered to record anything.
+HIS ARRIVAL DAY is the answer, and it is RECORDED, not reconstructed. simweek reads FBPB3's own
+day counter out of league.dat at the moment it stamps him into the slot, and it lives on his
+level history as `from_day`. The run log is kept as a fallback for characters placed before that
+was recorded, and `since_source` on every entry says which of the two produced the number -
+because a wrong arrival day reads exactly like a right one, and the only way anybody catches one
+is the two answers disagreeing. Neither available means no games are published for him at all:
+the filler's evenings are not his, and inventing meetings is worse than showing none.
 
 THE JOINS, confirmed against a real MDB:
     PlayerGameStats.Seasonday = Schedule.Day
@@ -59,7 +62,9 @@ def run_started(run):
         return started
     at, seconds = str(run.get("at") or "").strip(), run.get("seconds")
     if not at or seconds is None:
-        return at
+        # "" means unknown, as the docstring says. Returning `at` here handed back the FINISH
+        # time wearing a start time's name, which is the rule this function exists to replace.
+        return ""
     try:
         stamp = datetime.fromisoformat(at.replace("Z", "+00:00"))
     except ValueError:
@@ -67,44 +72,111 @@ def run_started(run):
     return (stamp - timedelta(seconds=float(seconds))).isoformat()
 
 
-def first_game_day(character, runs, season=None):
-    """The season day this character arrived on: 1 + every day simmed before he existed.
+def stored_debut(character, league=None, season=None):
+    """The arrival day written down when he was placed, or None if it was not.
 
-    Derived rather than stored, from the store's own run log. Four things it has to get right,
-    three of them learned by getting them wrong:
+    simweek reads FBPB3's own day counter out of league.dat at the moment it stamps a character
+    into a reserve slot, and record_level keeps it on that level's history entry as `from_day`.
+    That is a fact recorded once by the code that did the placing, which is worth far more than
+    re-deriving it from a log on every publish: the log can be truncated, rewound by
+    restore_backup, or simply not contain a run that a tool made.
+
+    A level he entered in an EARLIER season he has played from day 1 of this one. A promotion or
+    a draft lands him at the rollover, so day 1 as well, even on an entry written before
+    `from_day` existed.
+    """
+    best = None
+    for entry in character.get("level_history") or []:
+        if league is not None and entry.get("level") != league:
+            continue
+        from_season = entry.get("from_season")
+        if season is not None and from_season is not None:
+            try:
+                if int(from_season) > int(season):
+                    continue          # a level he has not reached yet in the season being asked about
+                if int(from_season) < int(season):
+                    best = 1           # here before this season started: all of it is his
+                    continue
+            except (TypeError, ValueError):
+                pass
+        day = entry.get("from_day")
+        if day is not None:
+            best = max(1, _int(day, 1))
+        elif entry.get("how_it_started") in ("promoted", "drafted"):
+            best = 1
+    return best
+
+
+def first_game_day(character, runs, season=None, league=None):
+    """The fallback: 1 + every day simmed in this league, this season, before he existed.
+
+    Only reached when `stored_debut` has nothing, which means a character placed before the day
+    was recorded, or one whose history is missing. Five things it has to get right, four of them
+    learned by getting them wrong:
 
       * THE START, not the finish. See run_started.
       * ONLY RUNS THAT SIMMED. A failed run and a dry run both advance nothing, and there has
         been at least one of each - one killed by a locked desktop.
-      * ONLY THIS SEASON. Seasonday restarts at 1 every year while the run log goes on
-        accumulating, so summing across a rollover gives a debut somewhere in the middle of next
-        century. A character created before this season started was here for all of it, so his
-        answer is 1 - which is also what happens naturally when no run this season predates him.
+      * ONLY THIS LEAGUE. The panel's checkboxes let a run advance pro alone; counting its days
+        against a prep character moves his debut past games that are his.
+      * ONLY THIS SEASON. Seasonday restarts every year while the log accumulates. A run with no
+        season recorded could belong to any of them, so it makes the answer unknowable rather
+        than being quietly counted - which is what the season filter used to do.
       * THE WHOLE LOG. The caller must not hand over a truncated `runs()`; the default limit is
-        twenty and quietly makes everybody a day-one player.
+        twenty and quietly made everybody a day-one player.
 
-    Returns 1 when it cannot tell, which counts everything. A character seeing a few games that
-    were not his is the safe direction against losing games that were, and the page shows the
-    day it is counting from so the discrepancy is visible rather than mysterious.
+    Returns None when it cannot tell, and the caller says so rather than guessing. It used to
+    return 1, on the reasoning that counting everything is the safe direction - it is not. Every
+    game before a character existed belongs to the filler whose slot he took, and publishing
+    those invents head-to-head meetings that never happened, which is precisely the failure this
+    module exists to prevent.
     """
     born = str(character.get("created_at") or "")
-    if not born:
-        return 1
+    if not born or not runs:
+        return None
     simmed = 0
     for run in runs or []:
         if run.get("ok") is False or run.get("dry_run"):
             continue
-        if season is not None and run.get("season") is not None:
+        if league is not None:
+            in_run = run.get("leagues")
+            if in_run is not None and league not in in_run:
+                continue
+        if season is not None:
+            if run.get("season") is None:
+                return None            # cannot place this run in a season: refuse to guess
             try:
                 if int(run["season"]) != int(season):
                     continue
             except (TypeError, ValueError):
-                pass
-        began = run_started(run)
-        if not began or began >= born:
+                return None
+        # A row with no duration can only be placed by its finish time. That is the old rule,
+        # and it is wrong for somebody created while that run was in flight - but refusing the
+        # whole derivation would hide every game of every character whose log was written before
+        # durations were recorded, which is worse and much harder to notice.
+        began = run_started(run) or str(run.get("at") or "")
+        if not began:
+            return None                # no start and no finish: the run cannot be placed at all
+        if began >= born:
             continue
         simmed += _int(run.get("days"))
     return simmed + 1
+
+
+def debut(character, league=None, runs=None, season=None):
+    """(day, source) - the day this character's own games start, and where that came from.
+
+    The source travels with the data all the way to games.json on purpose. A wrong arrival day
+    looks exactly as plausible as a right one on the page, and the only way anybody spots one is
+    by seeing that the two independent answers disagree.
+    """
+    stored = stored_debut(character, league, season)
+    if stored is not None:
+        return stored, "stored"
+    derived = first_game_day(character, runs, season=season, league=league)
+    if derived is not None:
+        return derived, "run log"
+    return None, "unknown"
 
 
 def build(characters, games, schedule, teams, runs=None, league=None, opener=None,
@@ -135,13 +207,15 @@ def build(characters, games, schedule, teams, runs=None, league=None, opener=Non
 
     out = []
     for pid, c in wanted.items():
-        since = first_game_day(c, runs, season)
+        since, source = debut(c, league, runs, season)
         lines = []
         for row in games or []:
             if _int(row.get("ID")) != pid:
                 continue
             day = _int(row.get("Seasonday"))
-            if day < since:
+            # No arrival day means no way to tell his games from the filler's, so he gets none.
+            # Publishing them anyway would invent meetings, which is worse than a blank row.
+            if since is None or day < since:
                 continue        # played by the filler whose slot this was
             team = str(row.get("Team") or "").strip()
             opponent = by_team_id.get(_int(row.get("Opponent")), "")
@@ -164,7 +238,7 @@ def build(characters, games, schedule, teams, runs=None, league=None, opener=Non
             lines.append(line)
         lines.sort(key=lambda g: g["day"])
         out.append({
-            "id": c.get("id"), "player": pid, "since_day": since,
+            "id": c.get("id"), "player": pid, "since_day": since, "since_source": source,
             "name": f'{c.get("first_name", "")} {c.get("last_name", "")}'.strip(),
             # where he is NOW: the last game he played, falling back to the store's own idea
             "team": (lines[-1]["team"] if lines else None) or str(c.get("team_abbrev") or ""),
