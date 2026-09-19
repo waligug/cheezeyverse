@@ -100,9 +100,16 @@ def _build(tmp, *, champion=None, season_awards=False, postseason=True):
     # playoffs.htm is the only page that states the bracket: every qualifier, including the
     # first-round losers, and who won each series. Written only once there IS a postseason.
     if postseason:
+        # &#160; BETWEEN EVERY TOKEN, because that is what the game writes - 49 of them on the
+        # real page and not one &nbsp;. _text strips tags and collapses whitespace but leaves
+        # entities alone, so a fixture spaced with plain spaces is a DIFFERENT page from the
+        # one in production. That exact difference shipped a bracket reader that returned
+        # (None, None) on every real export while this test passed, because the page text it
+        # was written from had been flattened for legibility first.
         (d / "playoffs.htm").write_text(
-            "<html><body>2026 Playoff Brackets League Finals "
-            "#1 Clams 2 #2 Tulips 0 Fast Break Pro Basketball 3</body></html>",
+            "<html><body><table><tr><td>2026 Playoff Brackets</td></tr>"
+            "<tr><td>#1 &#160; Clams 2</td><td>#2 &#160; Tulips 0</td></tr></table>"
+            "Fast Break Pro Basketball 3</body></html>",
             encoding="latin-1")
     (d / "awards.htm").write_text(
         "<div>Player of the Week</div><table>"

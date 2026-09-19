@@ -171,6 +171,18 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   states who won each series. Parse it by pairing the "#seed Team wins" entries CONSECUTIVELY - document order
   is not round order (the final was the 4th of 7 pairs) and it is a rowspan table, so column position means
   nothing either. The champion is whoever won the most series.
+- 2026-09-19 **ENTITIES ARE NOT WHITESPACE, and `_text` leaves them alone.** It strips tags and collapses
+  spaces; `&nbsp;` and `&#160;` survive. `playoffs.htm` separates every token with the NUMERIC `&#160;` - 49 of
+  them, and not one `&nbsp;` - so a pattern written against "#1 Tulips 0" matches nothing. Normalise entities
+  LOCALLY where a reader needs it: doing it inside `_text` empties `standings_teams` and every `league_stats`
+  player, because the standings and award patterns anchor on a literal `&nbsp;`. Measured on the live saves
+  before it was ruled out.
+- 2026-09-19 **A fixture flattened for human eyes is a different page from the one in production.** The bracket
+  reader was written from page text that had had its entities turned into spaces for legibility, and the test
+  fixture inherited the same tidy spacing - so the test passed while the reader returned nothing on every real
+  export. This is the fourth parser this week broken by the wrong sample, after ASCII-only names dropped eleven
+  players, a hardcoded date format nearly shipped a dead guard, and a flat page order decided a cross-conference
+  tie. **Build fixtures from real bytes, or reproduce the exact separators the game writes.**
 - 2026-09-19 **A missing page is not an empty answer.** `playoffs.htm` does not exist before the postseason, so
   the bracket readers return None rather than an empty set. An empty set is indistinguishable from "nobody
   qualified" and would pay the playoff bonus to nobody at the one moment it is owed.

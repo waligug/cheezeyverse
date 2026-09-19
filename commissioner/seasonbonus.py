@@ -372,7 +372,18 @@ def playoff_bracket(html_dir):
     team that won the most of them, which holds for any bracket shape: reaching the final means
     winning one more series than anybody who did not.
     """
+    # ENTITIES ARE NOT WHITESPACE. _text strips tags and collapses spaces but leaves entities
+    # alone, and this page separates every token with the NUMERIC entity &#160; - 49 of them and
+    # not one &nbsp;. So the text this actually receives reads "#1 &#160; Tulips 0 &#160; #4",
+    # and a pattern written against "#1 Tulips 0" matches nothing at all. Shipped once, because
+    # the page text I was working from had been flattened for legibility before I saw it and the
+    # fixture I built from it inherited the same tidy spacing.
+    #
+    # Fixed HERE and not in _text(): the standings and award readers anchor on a literal
+    # "&nbsp;", so normalising entities globally silently empties standings_teams and every
+    # league_stats player. Tried and measured on the live saves before it was ruled out.
     text = _text(Path(html_dir) / "playoffs.htm")
+    text = re.sub("[ ]+", " ", re.sub("(?:&nbsp;|&#160;|&#xA0;|&#xa0;)", " ", text))
     if not text.strip():
         return None, None
     entry = re.compile("#([0-9]+) (" + NAME_REST + "+(?: " + NAME_REST + "+)*?) ([0-9]+)"
