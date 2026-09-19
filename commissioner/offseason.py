@@ -595,24 +595,64 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
 
 
 def _offseason_report(result):
-    """What changed, in the order people care about: who moved, who grew, who is gone."""
-    moved = result.get("promoted") or []
-    drafted = result.get("drafted") or []
-    retired = result.get("retired") or []
-    lines = [f'**Offseason done** - {result.get("season")}']
-    if moved:
-        lines.append(f'- moved up: {", ".join(str(m) for m in moved)[:400]}')
-    if drafted:
-        lines.append(f'- drafted: {", ".join(str(d) for d in drafted)[:400]}')
-    if retired:
-        lines.append(f'- retired: {", ".join(str(r) for r in retired)[:400]}')
-    lines.append(f'- {result.get("grown", 0)} grew')
+    """The offseason, as the Discord server should hear it.
+
+    Ordered by what people actually care about, which is not the order the code does it in: who
+    got taller, who improved most, who moved up, who is gone. A count ("3 grew") is a log line;
+    a name is news, so everything here names somebody.
+
+    One named winner for the biggest improvement, deliberately. "Everyone improved" is a report;
+    "Johnny improved most" is a competition, and this universe is seven friends competing.
+    """
+    lines = [f'**Offseason {result.get("season")}**']
+
+    grew = sorted(result.get("grew") or [], key=lambda g: -g["inches"])
+    if grew:
+        lines.append("")
+        lines.append("**Grew over the summer**")
+        for g in grew[:8]:
+            feet, inches = divmod(int(g["height"]), 12)
+            # built with chr() rather than escapes: a feet-and-inches string needs both an
+            # apostrophe and a double quote, and writing those through a scripted edit is how
+            # this file got a syntax error and another one shipped a literal 0x08.
+            tall = str(feet) + chr(39) + str(inches) + chr(34)
+            lines.append("- " + g["name"] + " +" + str(g["inches"]) + chr(34) + " to " + tall)
+        if len(grew) > 8:
+            lines.append(f"- ...and {len(grew) - 8} more")
+
+    movers = result.get("movers") or []
+    if movers:
+        best = movers[0]
+        lines.append("")
+        lines.append(f'**Most improved: {best["name"]}** '
+                     f'+{best["gain"]} across his sheet ({best["from"]} to {best["to"]})')
+        for m in movers[1:4]:
+            lines.append(f'- {m["name"]} +{m["gain"]}')
+        stalled = [m for m in movers if m["gain"] <= 0]
+        if stalled:
+            # Said out loud rather than quietly omitted. Somebody who went nowhere all season is
+            # exactly who needs to know, and he will not find it by reading a list of winners.
+            lines.append(f'- no movement at all: {", ".join(m["name"] for m in stalled[:4])}')
+
+    for label, key in (("Moved up", "promoted"), ("Drafted", "drafted"), ("Retired", "retired")):
+        rows = result.get(key) or []
+        if rows:
+            lines.append("")
+            lines.append(f"**{label}**")
+            lines.append("- " + ", ".join(str(r) for r in rows)[:400])
+
+    paid = []
     if result.get("paid"):
-        lines.append(f'- {result["paid"]} paid the offseason lump')
+        paid.append(f'{result["paid"]} paid the offseason lump')
     if result.get("season_bonus"):
-        lines.append(f'- {result["season_bonus"]} season-bonus point(s) on top')
+        paid.append(f'{result["season_bonus"]} season-bonus point(s) on top')
+    if paid:
+        lines.append("")
+        lines.append("**Points** - " + ", ".join(paid))
+
     if result.get("failed"):
-        lines.append(f'- {len(result["failed"])} could not be processed; check the log')
+        lines.append("")
+        lines.append(f'{len(result["failed"])} could not be processed; check the log')
     return "\n".join(lines)
 
 
@@ -653,6 +693,41 @@ def _season_bonuses(characters, settings, log):
     return out
 
 
+def season_movers(characters, store, season, log=print):
+    """[{name, from, to, gain}] - how far each character's sheet moved across the season.
+
+    Read from `rating_snapshots`, which every Sim Week has been writing all year and which
+    nothing has ever read back. The first and last snapshot of the season being closed are the
+    two ends of it; the middle is the growth chart on his career page.
+
+    The mean of all eighteen ratings, not FBPB3's own Overall. CONVENTIONS records that field as
+    unverified and mostly zero, and the site already colours players by this mean, so this is the
+    number people have been looking at all season.
+
+    Never raises. A report that cannot be built must not take the offseason down with it.
+    """
+    out = []
+    if not hasattr(store, "snapshots"):
+        return out
+    for c in characters:
+        if c.get("status") != "active":
+            continue
+        try:
+            rows = [s for s in (store.snapshots(character_id=c["id"]) or [])
+                    if int(s.get("season", -1)) == int(season)]
+        except Exception as exc:
+            log(f'   no history for {c["first_name"]} {c["last_name"]}: {exc}')
+            continue
+        if len(rows) < 2:
+            continue
+        start, end = _mean(rows[0].get("ratings") or {}), _mean(rows[-1].get("ratings") or {})
+        out.append({"name": f'{c["first_name"]} {c["last_name"]}',
+                    "from": round(start, 1), "to": round(end, 1),
+                    "gain": round(end - start, 1)})
+    out.sort(key=lambda m: -m["gain"])
+    return out
+
+
 def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
     settings = store.get_settings()
     season = int(season or settings.get("current_season", cfg.START_YEAR))
@@ -661,8 +736,8 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
         raise OffseasonError(
             f"the {season} offseason has already been run (last completed: {done}). "
             "Pass force=True only if you know the first run did not finish.")
-    result = {"season": season, "grown": 0, "promoted": [], "drafted": [], "retired": [],
-              "failed": [], "dry_run": dry_run}
+    result = {"season": season, "grown": 0, "grew": [], "movers": [],
+              "promoted": [], "drafted": [], "retired": [], "failed": [], "dry_run": dry_run}
 
     log("who is still here")
     retired, failed = run_retirements(store.characters(), store, season, log=log, dry_run=dry_run)
@@ -684,8 +759,17 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
         log(f"{key}: growth")
         grown, _ = apply_growth(key, characters, season, log=log, dry_run=dry_run)
         result["grown"] += len(grown)
+        # The COUNT is all the panel ever wanted; the report wants to name people. An inch over
+        # a summer is the most "kid growing up" thing that happens in this universe and it has
+        # been a silent number change all year.
+        result["grew"] += [{"name": f'{g["character"]["first_name"]} {g["character"]["last_name"]}',
+                            "inches": g["inches"], "height": g["height"]} for g in grown]
 
     # Before movers(), so everyone is still measured against the league he played in.
+    try:
+        result["movers"] = season_movers(characters, store, season, log=log)
+    except Exception as exc:
+        log(f"could not work out who improved most ({exc}); the offseason is unaffected")
     season_bonus = _season_bonuses(characters, settings, log)
     for c in characters:
         rows = season_bonus.get(c["id"])
