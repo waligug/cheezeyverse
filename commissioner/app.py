@@ -866,6 +866,84 @@ def _simweek_block():
     return {"ok": SIMWEEK_OK, "error": SIMWEEK_ERROR}
 
 
+# How long a sim takes, fitted from the runs that have actually happened.
+_PACE_TTL = 120.0
+_pace_cache = {"at": 0.0, "value": None}
+
+
+def sim_pace(limit=60):
+    """{"fixed", "per_day", "samples", "spread"} seconds, or None when the log cannot say.
+
+    A SIM IS NOT PRICED BY THE DAY. Measured on this universe, seven days across three leagues
+    takes about eleven minutes and twenty-one days takes about seventeen - because most of a run
+    is fixed work that happens once per league however many days were asked for: loading the
+    save, exporting, the MDB, the publish, the points. Multiplying a per-day figure by the days
+    asked for therefore over-states a long run badly and under-states a short one, which is the
+    wrong way round for the number people use to decide whether they have time.
+
+    So it is a two-term least-squares fit, `seconds = fixed*leagues + per_day*leagues*days`, run
+    against the store's own log rather than hardcoded. Constants measured today would drift as
+    rosters grow and quietly become a lie; a fit re-reads reality every time.
+
+    FITTED ONLY ON RUNS THAT DID THE WHOLE JOB. A resumed run skips the setup it already did -
+    one such run sits 43% under the curve - and a refused or dry run did almost nothing at all.
+    Including them teaches the model that sims are faster than they are, which is the direction
+    that makes somebody start one they do not have time for.
+
+    `spread` is the worst this fit has been wrong on its own samples, so the caller can say
+    "about 17 minutes" with a band rather than a false precision.
+    """
+    now = time.time()
+    if _pace_cache["value"] is not None and now - _pace_cache["at"] < _PACE_TTL:
+        return _pace_cache["value"]
+
+    rows = []
+    try:
+        rows = list(run_history(limit=limit) or [])
+    except Exception:  # noqa: BLE001 - an estimate is never worth an error page
+        rows = []
+
+    points = []
+    for r in rows:
+        if not r.get("ok") or r.get("dry_run") or r.get("resumed"):
+            continue
+        try:
+            days, secs = int(r.get("days") or 0), float(r.get("seconds") or 0)
+        except (TypeError, ValueError):
+            continue
+        leagues = len(r.get("leagues") or []) or 3
+        # 400 is the endpoint's own ceiling; anything past it is a mis-typed run, not a data point
+        if days <= 0 or days > 400 or secs <= 0:
+            continue
+        points.append((leagues, days, secs))
+
+    value = None
+    if len(points) >= 3:
+        s11 = s12 = s22 = t1 = t2 = 0.0
+        for leagues, days, secs in points:
+            x1, x2 = float(leagues), float(leagues * days)
+            s11 += x1 * x1
+            s12 += x1 * x2
+            s22 += x2 * x2
+            t1 += x1 * secs
+            t2 += x2 * secs
+        det = s11 * s22 - s12 * s12
+        if det:
+            fixed = (t1 * s22 - t2 * s12) / det
+            per_day = (s11 * t2 - s12 * t1) / det
+            # A negative term means the sample is too narrow to separate the two costs - every
+            # run had the same shape. Refuse rather than promise a sim gets faster the longer
+            # it runs, which is what a negative per_day renders as.
+            if fixed > 0 and per_day > 0:
+                worst = max(abs(fixed * lg + per_day * lg * dy - sc) / sc
+                            for lg, dy, sc in points)
+                value = {"fixed": round(fixed, 1), "per_day": round(per_day, 2),
+                         "samples": len(points), "spread": round(worst, 2)}
+
+    _pace_cache.update({"at": now, "value": value})
+    return value
+
+
 def _offseason_block():
     return {"ok": OFFSEASON_OK, "error": OFFSEASON_ERROR}
 
@@ -883,6 +961,7 @@ def index():
         "universe": status,
         "run": run.summary() if run else None,
         "busy": sim_busy(),
+        "pace": sim_pace(),
         # 21, not 35. 35 was the old advice and the season boundary now refuses it; the
         # box should not pre-fill a number that gets rejected. 21 is three clean weeks
         # and sits under the tightest league's remaining room.
@@ -907,6 +986,7 @@ def api_state():
         "universe": universe_snapshot(force=request.args.get("refresh") == "1"),
         "run": run.summary() if run else None,
         "busy": sim_busy(),
+        "pace": sim_pace(),
     })
 
 

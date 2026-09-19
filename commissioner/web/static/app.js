@@ -30,7 +30,8 @@ var state = {
   offseasonOK: !!(BOOT.offseason && BOOT.offseason.ok),
   plan: BOOT.plan || null,
   osBusy: false,        // a dry run is in flight: it holds the same lock a sim does
-  refusedSeason: null   // the season a refusal was about, so Force asks for that one
+  refusedSeason: null,  // the season a refusal was about, so Force asks for that one
+  pace: BOOT.pace || null   // fitted from real runs; null when the log cannot say yet
 };
 
 var $ = function (id) { return document.getElementById(id); };
@@ -258,6 +259,46 @@ function suggestDays() {
     box.value = tight.left;
   }
   refreshSeasonEnd();
+}
+
+/* How long a run will take, in words. Most of a sim is fixed work done once per league, so this
+ * is NOT days x a per-day figure - see sim_pace() in app.py, which fits both terms from the runs
+ * that have actually happened.
+ *
+ * Rounded hard and prefixed "about", because the fit's own worst error on its samples is tens of
+ * percent. A number like "16.7 min" would claim a precision this does not have; the point is
+ * only to tell somebody whether they are starting a coffee or an evening. */
+function paceText(leagues, days) {
+  var p = state.pace;
+  if (!p || !p.fixed || !p.per_day || !days) { return ''; }
+  var secs = p.fixed * leagues + p.per_day * leagues * days;
+  var mins = secs / 60;
+  if (mins < 1.5) { return 'about a minute'; }
+  if (mins < 60) { return 'about ' + Math.round(mins) + ' min'; }
+  var hours = mins / 60;
+  return 'about ' + (hours < 3 ? (Math.round(hours * 2) / 2) : Math.round(hours)) + ' hr';
+}
+
+/* The estimate beside each button, kept current as leagues and days change. Shown per BUTTON
+ * because the two ask for different numbers of days, and a single figure next to one of them
+ * would be read as belonging to both. */
+function refreshPace() {
+  var boxes = document.querySelectorAll('.league-pick');
+  var picked = 0;
+  for (var i = 0; i < boxes.length; i++) { if (boxes[i].checked) { picked += 1; } }
+  var pairs = [['pace-week', 'days-week', 7], ['pace-chunk', 'days-chunk', 21]];
+  for (var j = 0; j < pairs.length; j++) {
+    var out = $(pairs[j][0]);
+    if (!out) { continue; }
+    var days = parseInt($(pairs[j][1]).value, 10) || pairs[j][2];
+    var text = picked ? paceText(picked, days) : '';
+    out.textContent = text;
+    out.title = text && state.pace
+      ? 'Fitted from ' + state.pace.samples + ' real runs. Most of a sim is fixed work per '
+        + 'league, so this is not days times a rate. Past runs have landed within '
+        + Math.round(state.pace.spread * 100) + '% of this curve.'
+      : '';
+  }
 }
 
 function startSim(days) {
@@ -959,13 +1000,16 @@ function wire() {
   // on typing (never fight somebody mid-keystroke over the number they are entering).
   var picks = document.querySelectorAll('.league-pick');
   for (var i = 0; i < picks.length; i++) {
-    picks[i].addEventListener('change', suggestDays);
+    picks[i].addEventListener('change', function () { suggestDays(); refreshPace(); });
   }
   $('days-chunk').addEventListener('input', function () {
     daysTouched = true;          // from here the number is theirs, not ours
     refreshSeasonEnd();
+    refreshPace();
   });
+  $('days-week').addEventListener('input', refreshPace);
   suggestDays();
+  refreshPace();
   $('btn-refresh-pending').addEventListener('click', refreshPending);
   $('btn-refresh-history').addEventListener('click', refreshHistory);
 

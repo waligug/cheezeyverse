@@ -74,6 +74,9 @@ h3 { font-size: 13px; }
 .chip.bad  { background: #F7E0DE; border-color: #D9A9A5; color: var(--bad); }
 .chip.busy { background: var(--gold); border-color: var(--crust); color: var(--ink); }
 
+/* Roughly how long the run beside it will take. Quiet grey: it is a heads-up, not a warning. */
+.pace { font-size: 11px; color: #7A6A45; white-space: nowrap; }
+
 /* How many regular-season days a league has left, sat beside its checkbox. Small and quiet:
    it is a fact to glance at while choosing a number, not a warning. */
 .days-left {
