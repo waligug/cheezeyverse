@@ -39,8 +39,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from commissioner import characters as ch          # noqa: E402
-from commissioner.codec.league_dat import LeagueDat  # noqa: E402
+from commissioner import characters as ch                      # noqa: E402
+from commissioner.codec.league_dat import RATINGS, LeagueDat   # noqa: E402
 
 FLOOR = 70
 FIELD = "Stamina"
@@ -103,15 +103,40 @@ def raise_stamina(key, characters, floor=FLOOR, apply=False):
     return rows
 
 
+def sync_store(key, characters, st):
+    """Write the save's sheet back to `characters.ratings`, which is what the website reads.
+
+    NOT `add_snapshot`. That appends to rating_snapshots, which is the career history: it has no
+    upsert, so calling it outside the weekly cadence puts a second point on the growth chart at
+    a week that already has one, and it does not touch the live sheet at all - so the site would
+    have gone on showing the old number while the graph grew a duplicate. `ratings` is in
+    SETTABLE_FIELDS precisely so the commissioner can correct the live sheet directly.
+    """
+    L = LeagueDat(ch.save_path(key))
+    done = 0
+    for c in characters:
+        if c.get("league") != key or c.get("status") != "active":
+            continue
+        name = f'{c["first_name"]} {c["last_name"]}'
+        try:
+            pl = L.find(name, ch.codec_dob(c.get("game_dob")
+                                           or (c.get("claimed_slot") or {}).get("dob")))
+        except Exception:
+            continue
+        st.set_character_field(c["id"], "ratings", {f: pl.values[f] for f in RATINGS})
+        done += 1
+    return done
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--floor", type=int, default=FLOOR)
     ap.add_argument("--league", default="all")
     ap.add_argument("--apply", action="store_true", help="write; without it this only previews")
     ap.add_argument("--sync-store", action="store_true",
-                    help="also refresh the website's copy now instead of at the next sim. This "
-                         "adds one extra point to every career graph, out of the weekly cadence "
-                         "the rest of them follow, so it is off by default.")
+                    help="also refresh the website's live sheet now, instead of leaving it to "
+                         "the next sim. Touches characters.ratings only; the career graph is "
+                         "left alone.")
     args = ap.parse_args(argv)
 
     running = _game_is_running()
@@ -144,15 +169,14 @@ def main(argv=None):
         return 0
 
     if args.sync_store and touched:
-        from commissioner.simweek import _snapshot_league
-        s = st.get_settings()
-        season, week = int(s.get("current_season", 0)), int(s.get("current_week", 0))
         for key in touched:
-            n = _snapshot_league(key, st, season, week, print)
-            print(f"  refreshed {n} sheet(s) in {key}")
+            try:
+                print(f"  refreshed {sync_store(key, characters, st)} sheet(s) in {key}")
+            except Exception as exc:
+                print(f"  could not refresh {key} ({exc}); the SAVE is still correct")
     elif touched:
-        print("\nThe save is correct now. The website still shows the old number until the next "
-              "sim writes its snapshots; pass --sync-store to refresh it immediately.")
+        print("\nThe save is correct now. The website may still show the old number until the "
+              "next sim; pass --sync-store to refresh it immediately.")
     print(json.dumps({k: [[n, w, v] for n, _d, w, v in r] for k, r in touched.items()}, indent=1))
     return 0
 
