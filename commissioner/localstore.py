@@ -420,11 +420,25 @@ def snapshots(character_id=None, league=None):
 
 # ---- run history -----------------------------------------------------------------------------
 def record_run(row):
+    """Log one sim run. Mirrors store.record_run, including what it refuses to throw away.
+
+    A run that actually simmed is never trimmed: head-to-head derives each character's debut by
+    summing days simmed before he existed, so dropping one silently hands a filler's games to
+    somebody. Refused and dry attempts are trimmed instead - they advanced nothing.
+    """
     with _LOCK:
         d = _read()
-        d["runs"].insert(0, {**row, "at": _now()})
-        d["runs"] = d["runs"][:100]
+        entry = {**row, "at": _now()}
+        entry.setdefault("dry_run", False)
+        entry.setdefault("ok", False)
+        log = [entry] + d["runs"]
+        real = [r for r in log if r.get("ok") and not r.get("dry_run")]
+        rest = [r for r in log if not (r.get("ok") and not r.get("dry_run"))]
+        keep = real + rest[:max(0, 100 - len(real))]
+        keep.sort(key=lambda r: str(r.get("at") or ""), reverse=True)
+        d["runs"] = keep
         _write(d)
+        return entry
 
 
 def runs(limit=20):

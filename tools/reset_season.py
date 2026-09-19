@@ -46,7 +46,11 @@ def main():
               f"  ->  pending, no team, {start_points}pts")
 
     snaps = store.snapshots()
-    runs = store.runs()
+    # limit=None, because the preview said "20 run(s) -> cleared" and then cleared the whole
+    # log. Understating what a destructive command is about to delete is the one thing a
+    # preview must never do - and the run log is what head-to-head derives every character's
+    # debut from, so it is not a list of past events, it is load-bearing.
+    runs = store.runs(limit=None)
     print(f"  snapshots : {len(snaps)} -> deleted")
     print(f"  sim log   : {len(runs)} run(s) -> cleared")
 

@@ -109,7 +109,12 @@ def _write_games(src, dst, key):
         if not mdb.exists():
             return None
         st = store()
-        people = [c for c in st.characters(league=key) if c.get("status") == "active"]
+        # 'declared' as well as 'active'. declare_for_draft sets it mid-season and he keeps
+        # playing, keeps being paid and keeps meeting people - so filtering on 'active' alone
+        # made a character disappear from head-to-head the moment he declared, taking every
+        # comparison involving him with it, until the offseason moved him.
+        people = [c for c in st.characters(league=key)
+                  if c.get("status") in ("active", "declared")]
         if not people:
             return None
         settings = st.get_settings()

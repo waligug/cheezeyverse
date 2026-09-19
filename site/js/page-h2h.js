@@ -74,7 +74,10 @@ function picker(id, value, onchange) {
   const sel = el('select', { class: 'cv-select', id, onchange: (e) => onchange(e.target.value) });
   sel.append(el('option', { value: '' }, 'Pick a player...'));
   for (const p of people) {
-    sel.append(el('option', { value: p.name, selected: p.name === value || null },
+    // the character id, not the display name. Two characters can share a name - they are named
+    // by seven different people who have never coordinated - and a rename would break every
+    // link anybody had shared.
+    sel.append(el('option', { value: p.id, selected: p.id === value || null },
       `${p.name} (${LEAGUE_LABELS[p.league] || p.league})`));
   }
   return sel;
@@ -118,19 +121,32 @@ function compare(label, av, bv, digits = 1, higherIsBetter = true) {
 function draw() {
   const box = $('#result');
   clear(box);
+  // Keep the address bar holding the current pair. With names in the URL somebody could type
+  // one; ids are opaque, so if the page does not write the link there is no way to share a
+  // comparison - and sharing it is the entire point of a head-to-head table.
+  try {
+    const url = new URL(window.location.href);
+    if (left && right) {
+      url.searchParams.set('one', left);
+      url.searchParams.set('two', right);
+    } else {
+      url.searchParams.delete('one');
+      url.searchParams.delete('two');
+    }
+    window.history.replaceState(null, '', url);
+  } catch (err) { /* a browser that dislikes replaceState must not lose the page */ }
   if (!left || !right) return;
   if (left === right) {
     box.append(note(null, 'Pick two different players.'));
     return;
   }
-  const one = people.find((p) => p.name === left);
-  const two = people.find((p) => p.name === right);
+  const one = people.find((p) => p.id === left);
+  const two = people.find((p) => p.id === right);
   // A shared link can name somebody who has been retired, renamed or never existed. Say so,
   // rather than throwing on one.league and showing a red error notice.
-  const missing = [!one && left, !two && right].filter(Boolean);
-  if (missing.length) {
-    box.append(note(null, `No player on record called ${missing.join(' or ')}. `
-      + 'The link may be out of date, or he may not have played a game yet.'));
+  if (!one || !two) {
+    box.append(note(null, 'That link points at a player who is not on record - he may have '
+      + 'retired, or he may not have played a game yet. Pick two from the lists above.'));
     return;
   }
 
@@ -263,11 +279,19 @@ async function boot() {
   }
   renderPickers();
 
-  // ?one=Chris+Zimmer&two=Dodger+Manson makes a comparison linkable, which is the whole point
-  // of an argument settler
+  // ?one=<id>&two=<id> makes a comparison linkable, which is the whole point of an argument
+  // settler. Ids rather than names, so a rename does not break every link already shared.
   const params = new URLSearchParams(window.location.search);
-  left = params.get('one') || null;
-  right = params.get('two') || null;
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const resolve = (v) => {
+    if (!v) return null;
+    if (byId.has(v)) return v;
+    // old links used names; honour them rather than showing a stranger an error
+    const match = people.find((p) => p.name === v);
+    return match ? match.id : v;
+  };
+  left = resolve(params.get('one'));
+  right = resolve(params.get('two'));
   if (left || right) {
     renderPickers();
     draw();

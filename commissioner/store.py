@@ -459,13 +459,37 @@ def _read_runs():
 
 
 def record_run(row):
-    """Log one sim run. Never raises: a full disk must not be able to fail a week that worked."""
+    """Log one sim run. Never raises: a full disk must not be able to fail a week that worked.
+
+    THIS FILE IS NOT A LOG, IT IS A LEDGER. Head-to-head works out which games belong to which
+    character by summing the days simmed before he existed, so losing a row silently reassigns a
+    filler's season to somebody's name - and losing the file entirely makes every character a
+    day-one player. Three consequences follow, none of them true of an ordinary log:
+
+      * WRITTEN ATOMICALLY, temp file then replace, the way localstore already did. write_text
+        truncates in place, so a crash or a full disk mid-write left a half-written file that
+        _read_runs turns into [], which is the total-loss case.
+      * A RUN THAT SIMMED IS NEVER DROPPED. RUNS_KEPT trimmed the oldest rows to a hundred, and
+        a season simmed in short chunks passes a hundred easily. Refused and dry attempts are
+        trimmed instead: they advance nothing, so forgetting them costs nothing.
+      * `dry_run` AND `ok` ARE ALWAYS RECORDED, even when the caller omits them, so a reader
+        never has to guess what a missing field meant.
+    """
     try:
-        log = [{**row, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}]
-        log.extend(_read_runs())
+        entry = {**row, "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        entry.setdefault("dry_run", False)
+        entry.setdefault("ok", False)
+        log = [entry] + _read_runs()
+        real = [r for r in log if r.get("ok") and not r.get("dry_run")]
+        rest = [r for r in log if not (r.get("ok") and not r.get("dry_run"))]
+        # every run that moved the calendar, plus whatever recent noise fits around it
+        keep = real + rest[:max(0, RUNS_KEPT - len(real))]
+        keep.sort(key=lambda r: str(r.get("at") or ""), reverse=True)
         RUNS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        RUNS_FILE.write_text(json.dumps(log[:RUNS_KEPT], indent=1, default=str), encoding="utf-8")
-        return log[0]
+        tmp = RUNS_FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(keep, indent=1, default=str), encoding="utf-8")
+        tmp.replace(RUNS_FILE)
+        return entry
     except OSError as exc:
         print(f"could not write the sim log: {exc}")
         return None
@@ -479,6 +503,9 @@ def runs(limit=20):
     it silently computes against the newest twenty and makes everybody a day-one player.
     """
     rows = _read_runs()
+    # `rows[:None]` already returns everything, so limit=None was a no-op dressed as a feature.
+    # It stays because it is the CALLER's declaration of intent - anything deriving from history
+    # must say so - and because the docstring above is what stops the next person passing 20.
     return rows if limit is None else rows[:limit]
 
 
