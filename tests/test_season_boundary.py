@@ -64,11 +64,23 @@ def _schedule(played_to, last, iso):
             "</body></html>")
 
 
-def _universe(tmp, played_to, last, iso=False, keys=("prep", "college", "pro")):
+def _universe(tmp, played_to, last, iso=False, keys=("prep", "college", "pro"), champion=None):
     for key in keys:
         d = Path(tmp) / key / "html"
         d.mkdir(parents=True, exist_ok=True)
         (d / "schedule.htm").write_text(_schedule(played_to, last, iso), encoding="latin-1")
+        if champion:
+            # the real page's shape, entities and all: each series prints BOTH teams with their
+            # series wins, and the champion is simply the one that won the most of them
+            (d / "playoffs.htm").write_text(
+                "<html><body>2026 Playoff Brackets 1st Round Conference Finals League Finals"
+                f" #1 &#160; {champion} 1 &#160; #4 &#160; Spirits 0"
+                f" #1 &#160; {champion} 1 &#160; #3 &#160; Clams 0"
+                f" #1 &#160; {champion} 2 &#160; #4 &#160; Kings 0"
+                " #2 &#160; Boulders 0 &#160; #3 &#160; Berries 1"
+                " #3 &#160; Berries 0 &#160; #4 &#160; Kings 1"
+                " #1 &#160; Generals 0 &#160; #4 &#160; Kings 1</body></html>",
+                encoding="latin-1")
     return Path(tmp)
 
 
@@ -97,8 +109,48 @@ def main():
                 simweek._refuse_to_cross_the_season(keys, days, lambda *a, **k: None)
             except simweek.SeasonEnd as exc:
                 assert "11 more day" in str(exc), exc
+                # and it must point at the way through, not just say no: the playoffs are a
+                # thing people legitimately want, and a refusal with no route reads as broken
+                assert "into the playoffs" in str(exc), exc
             else:
                 raise AssertionError(f"{days} days was allowed past the end of the season")
+
+        # ---- INTO THE PLAYOFFS. The flag is the deliberate way across ------------------------
+        # The rehearsal on a copy settled what is on the other side: no dialog at the boundary,
+        # SIM DAY plays playoff games one a day, and sim_days stops by itself when the calendar
+        # stops moving, which is what the 6/21 offseason panel looks like.
+        said = []
+        for days in (12, 28, 35):
+            simweek._refuse_to_cross_the_season(keys, days, lambda *a, **k: said.append(a),
+                                                allow_season_end=True)
+        assert said, "crossing into the playoffs said nothing about crossing"
+        assert "into the playoffs" in said[0][1], said[0]
+        assert "prep" in said[0][1], "it must name the league whose season ends mid-run"
+        # a run that does NOT reach the boundary says nothing extra, flag or no flag
+        quiet = []
+        simweek._refuse_to_cross_the_season(keys, 3, lambda *a, **k: quiet.append(a),
+                                            allow_season_end=True)
+        assert not quiet, quiet
+
+        # ---- A DECIDED SEASON IS REFUSED, FLAG OR NO FLAG -----------------------------------
+        # After the final the only thing left is FBPB3's own rollover behind END SEASON, and
+        # offseason.py does the rollover through the codec. Nothing has ever run both.
+        won = _universe(Path(tempfile.mkdtemp(prefix="won-")), played_to=31, last=31,
+                        champion="Derricks")
+        ch.save_path = lambda key: won / key / "league.dat"
+        simweek.ch.save_path = ch.save_path
+        for flag in (False, True):
+            try:
+                simweek._refuse_to_cross_the_season(["prep"], 1, lambda *a, **k: None,
+                                                    allow_season_end=flag)
+            except simweek.SeasonEnd as exc:
+                assert "Derricks" in str(exc) and "rollover" in str(exc), exc
+            else:
+                raise AssertionError(f"a finished season was allowed to sim (flag={flag})")
+        assert simweek._champion(won / "prep") == "Derricks", "the champion must come off the bracket"
+        shutil.rmtree(won, ignore_errors=True)
+        ch.save_path = lambda key: root / key / "league.dat"
+        simweek.ch.save_path = ch.save_path
 
         # ---- the tightest league decides, because a run sims all three ----------------------
         (root / "college" / "html" / "schedule.htm").write_text(

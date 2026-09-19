@@ -100,6 +100,16 @@ def _league_status(spec, st):
         "exists": (save_dir / "league.dat").exists(),
         "players": None, "games_played": None,
         "day": st.get_settings().get("current_week", 0) * 7,
+        # What the panel needs at the season boundary, per league, because one number in one box
+        # cannot be right for three leagues at once. None means NO OPINION and must be shown as
+        # "cannot tell" rather than as a number: at this boundary a confident wrong answer is
+        # the expensive kind.
+        #   season_days_left  - dates with games still to play (the guard's own, conservative)
+        #   days_to_season_end - SIM DAY clicks to the last regular-season day (what to type)
+        #   champion          - set once the final is decided, after which nothing may sim here
+        "season_days_left": _regular_season_left(save_dir),
+        "days_to_season_end": days_to_regular_end(spec.key),
+        "champion": _champion(save_dir),
     }
     # Read how far the season has got from the GAME'S OWN export, not from the published copy.
     # They are usually the same file one step apart, but not always, and the difference matters
@@ -611,8 +621,74 @@ def _regular_season_left(save_dir):
     return len(blocks) - 1 - last
 
 
-def _refuse_to_cross_the_season(keys, days, emit):
+def _champion(save_dir):
+    """The team that has won this league's final, or None while it is undecided.
+
+    Read from playoffs.htm through seasonbonus, which is the page that is complete the moment
+    the final ends - champs.htm stays empty for some days after it, as the season-end rehearsal
+    found by exporting at both points.
+    """
+    try:
+        from .seasonbonus import playoff_bracket
+        return playoff_bracket(Path(save_dir) / "html")[1]
+    except Exception:
+        return None
+
+
+_SEASON_END_CACHE = {}
+
+
+def days_to_regular_end(key):
+    """SIM DAY clicks from where the save sits to the last day of the regular season, or None.
+
+    EXACT, unlike `_regular_season_left`, which counts remaining dates that have GAMES and is
+    deliberately an under-estimate. A click is a calendar day, so the two differ by every quiet
+    day in between - today they are 8 and 10 in prep, and the panel needs the one a person types
+    into the day box.
+
+    Both numbers come from data already written: the day the save is sitting on is read out of
+    league.dat, and the last regular-season day number is `MAX(Day) WHERE Type = 1` in the MDB
+    the sim exports every run. No date parsing, so no dependence on the machine's date format -
+    which is what made the first version of the boundary guard silently inert.
+
+    Cached against both files' timestamps, because the panel asks on every poll and the answer
+    only changes when a sim moves the save or rewrites the MDB.
+    """
+    save = ch.save_path(key)
+    mdb = save.parent / "LeagueOutput.mdb"
+    if not save.exists() or not mdb.exists():
+        return None
+    stamp = (save.stat().st_mtime, mdb.stat().st_mtime)
+    cached = _SEASON_END_CACHE.get(key)
+    if cached and cached[0] == stamp:
+        return cached[1]
+    value = None
+    try:
+        from .codec.league_dat import find_season_day
+        from . import headtohead
+        today = find_season_day(save.read_bytes())
+        rows = headtohead.query(mdb, "SELECT MAX(Day) AS LastDay FROM Schedule WHERE Type = 1")
+        last = int((rows or [{}])[0].get("LastDay") or 0)
+        if today and last:
+            value = max(0, last - int(today[0]) + 1)
+    except Exception:
+        value = None
+    _SEASON_END_CACHE[key] = (stamp, value)
+    return value
+
+
+def _refuse_to_cross_the_season(keys, days, emit, allow_season_end=False):
     """Stop a run that would sim past the last day of the regular season.
+
+    `allow_season_end` is the deliberate way into the PLAYOFFS, and it is not a bypass: what it
+    permits is exactly what the rehearsal demonstrated on a copy - crossing the last day raises
+    no dialog, SIM DAY plays playoff games one a day, and sim_days now stops by itself when the
+    calendar stops moving, which is what the 6/21 button swap looks like.
+
+    What it does NOT permit is simming a league whose final is already decided. After that the
+    only thing left is FBPB3's own rollover behind END SEASON, and offseason.py owns the
+    rollover through the codec. Nothing has ever run both, so that refusal stands whatever flag
+    is passed.
 
     WHAT THE GAME DOES PAST IT IS NOW KNOWN, and it is not the driver that is the danger. A
     rehearsal on a copy of CV_Prep (2026-09-19) simmed straight through: no dialog at the season
@@ -629,6 +705,15 @@ def _refuse_to_cross_the_season(keys, days, emit):
 
     Worth guarding rather than remembering: the panel takes a number from whoever is typing.
     """
+    # FIRST, and whatever the flags say: a league whose final is over has nothing left to sim.
+    for key in keys:
+        champ = _champion(ch.save_path(key).parent)
+        if champ:
+            raise SeasonEnd(
+                f"{key}'s season is over - {champ} won it. What comes next is FBPB3's own "
+                "rollover, behind END SEASON, and offseason.py does the rollover itself through "
+                "the codec. Nothing has ever run both, so that path is not built yet.")
+
     limits, blind = [], []
     for key in keys:
         left = _regular_season_left(ch.save_path(key).parent)
@@ -642,18 +727,28 @@ def _refuse_to_cross_the_season(keys, days, emit):
     if not limits:
         return
     key, left = min(limits, key=lambda kv: kv[1])
+    if allow_season_end:
+        crossing = [f"{k} ({n} left)" for k, n in sorted(limits, key=lambda kv: kv[1])
+                    if days > n]
+        if crossing:
+            emit("start", "into the playoffs: the regular season ends mid-run for "
+                          + ", ".join(crossing) + ". SIM DAY plays playoff games a day at a "
+                          "time, and the run stops by itself if the calendar stops moving - "
+                          "which is what the offseason panel looks like.")
+        return
     if days <= left:
         return
     if left <= 0:
         raise SeasonEnd(
             f"{key}'s regular season has no days left to sim - every remaining game has been "
-            "played. What comes next is the playoffs and the rollover, and nothing here has "
-            "ever driven either. That path has to be designed and rehearsed on a copy first.")
+            "played. The playoffs are what comes next: start the run 'into the playoffs' "
+            "(allow_season_end) and they sim a day at a time like any other day.")
     raise SeasonEnd(
         f"{days} days would run past the end of the regular season: {key} has {left} more "
-        f"day(s) with games scheduled. Nothing has ever simmed across that boundary - the "
-        f"driver clicks SIM DAY blind, and the offseason never drives the game's own rollover - "
-        f"so it needs designing and rehearsing on a copy first. Sim {left} days or fewer.")
+        f"day(s) with games scheduled. Sim {left} days or fewer, or start the run 'into the "
+        f"playoffs' (allow_season_end) to carry on through them - which the season-end "
+        f"rehearsal showed is safe, and which stops by itself at the offseason panel that "
+        f"nothing here is built to drive.")
 
 
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
@@ -693,8 +788,11 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # Also skipped for a dry run: that path never launches FBPB3 and never clicks anything,
         # and it is the natural way to ask what a long run would do - refusing it defeats the
         # one safe way to find out.
-        if not allow_season_end and not dry_run:
-            _refuse_to_cross_the_season(keys, days, emit)
+        # Called even WITH allow_season_end, because the flag opens the playoffs and nothing
+        # else: a league whose final is decided is refused either way, since the only thing
+        # after that is the rollover behind END SEASON.
+        if not dry_run:
+            _refuse_to_cross_the_season(keys, days, emit, allow_season_end=allow_season_end)
 
         # ONE read of the settings for the whole run. There were three, with three different
         # defaults, and a fourth inside the finally - which went out over the network while
@@ -891,6 +989,26 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                                   f'the coach benched them: {", ".join(redressed[:4])}', key)
             except Exception as exc:
                 emit("apply", f"could not re-dress in {key} ({exc}); the week itself is fine", key)
+
+        # ---- 2c. where each league now stands ---------------------------------------------------
+        # Said out loud every run, because the interesting transitions are invisible otherwise:
+        # the regular season ending, the playoffs starting, and a champion appearing - after
+        # which nothing may sim that league again until the rollover exists.
+        result["stages"] = {}
+        for key in keys:
+            html = ch.save_path(key).parent / "html"
+            try:
+                blocks = _season_blocks(ch.save_path(key).parent) or []
+                stage = _stage(html / "schedule.htm", sum(1 for _d, was in blocks if was))
+            except Exception:
+                stage = "unknown"
+            champ = _champion(ch.save_path(key).parent)
+            result["stages"][key] = {"stage": stage, "champion": champ}
+            if champ:
+                emit("done", f"{key}: {champ} have won it. The season is over here - the "
+                             "rollover is not built, so this league cannot sim again yet.", key)
+            elif stage == "Playoffs":
+                emit("done", f"{key} is in the playoffs", key)
 
         # ---- 3. write down everybody's sheet ---------------------------------------------------
         # After the game has closed, never while it is open: CONVENTIONS forbids reading
