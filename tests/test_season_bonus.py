@@ -127,26 +127,28 @@ def main():
         assert sb.playoff_teams(d) == {"Tulips"}, sb.playoff_teams(d)
         assert sb.champion(d, teams) is None, "a champion appeared before anybody won"
 
-        # Three components are off by default (playoffs, player of the week, season awards).
-        # Assert that explicitly: a component silently switching itself back on would pay real
-        # points to real people, and "everyone got more than expected" is not a loud failure.
-        for key in ("bonus_playoffs", "bonus_potw", "bonus_season_award"):
+        # The two AWARD components are off by default; the two TEAM ones pay 2 apiece. Assert
+        # both explicitly: a component silently switching itself back on would pay real points
+        # to real people, and "everyone got more than expected" is not a loud failure.
+        for key in ("bonus_potw", "bonus_season_award"):
             assert sb.DEFAULTS[key] == 0, f"{key} came back on"
+        assert sb.DEFAULTS["bonus_playoffs"] == 2 and sb.DEFAULTS["bonus_title"] == 2, sb.DEFAULTS
 
-        # Our Guy, on the defaults: POTM 2, top-25 in all five (capped to 2), and the elite line
-        # just out of reach in every category (90/100, 90/100, 45/50, 9/10, 4/5 all floor to 0).
+        # Our Guy, on the defaults: playoffs 2, POTM 2, top-25 in all five (capped to 2), and the
+        # elite line just out of reach everywhere (90/100, 90/100, 45/50, 9/10, 4/5 floor to 0).
         rows = sb.for_character("Our Guy", d, {}, {})
         got = dict((r.split(":")[1].strip(), p) for r, p in rows)
-        assert sum(p for _, p in rows) == 4, rows
-        assert got["player of the month x1"] == 2, rows
+        assert sum(p for _, p in rows) == 6, rows
+        assert got["made the playoffs"] == 2 and got["player of the month x1"] == 2, rows
         assert got[f"top {sb.DEFAULTS['stat_bonus_top_n']} in PTS, REB, AST, STL, BLK"] == 2, rows
-        assert not any("playoffs" in r or "week" in r for r, _ in rows), rows
+        assert not any("week" in r for r, _ in rows), rows
 
         # ...and the off components are off by VALUE, not deleted, so turning them back on in
-        # the settings table works without a deploy. That is the whole reason they were zeroed.
-        rows = sb.for_character("Our Guy", d, {"bonus_playoffs": 3, "bonus_potw": 1}, {})
+        # the settings table works without a deploy. That is the whole reason they were zeroed,
+        # and the playoff component coming back at 2 is the case that proved it was worth it.
+        rows = sb.for_character("Our Guy", d, {"bonus_potw": 1}, {})
         got = dict((r.split(":")[1].strip(), p) for r, p in rows)
-        assert got["made the playoffs"] == 3 and got["player of the week x1"] == 1, rows
+        assert got["player of the week x1"] == 1, rows
 
         # Ace Elite clears every elite line several times over, and the elite half still pays
         # only its maximum of 2 - that ceiling is the whole reason the rule is league-relative
@@ -154,7 +156,7 @@ def main():
         rows = sb.for_character("Ace Elite", d, {}, {})
         elite = [p for r, p in rows if "elite-line" in r]
         assert elite == [sb.DEFAULTS["stat_bonus_elite_max"]], rows
-        assert sum(p for _, p in rows) == 4, rows
+        assert sum(p for _, p in rows) == 6, rows
 
         # The overall cap, exercised by lowering it rather than by inventing a season nobody
         # could have: it must trim to exactly the cap AND say so, not pay less in silence.

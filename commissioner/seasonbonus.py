@@ -33,15 +33,18 @@ TOTAL_COLUMNS = ["G", "GS", "MIN", "FGM", "FGA", "FTM", "FTA", "3PM", "3PA", "PT
                  "REB", "AST", "STL", "TO", "STL_repeat", "BLK", "PF", "PM"]
 CATEGORIES = ["PTS", "REB", "AST", "STL", "BLK"]
 
-# Three components are OFF (2026-09-19), by Nate's decision: "remove the make playoffs one since
-# everyone makes it, and make it so only player of the month award rewards points". They are
-# zeroed rather than deleted, because a zero-point row is dropped before anything is paid, so an
-# off component costs one dictionary lookup and can be turned back on from the settings table
-# without a deploy. For the record, not everyone does make the playoffs - the brackets take 8 of
-# 16 in prep and college and 8 of 20 in the pros - so this is a balance choice, not a fix.
+# The team components are back on at 2 apiece (2026-09-19), after being removed on the premise
+# that everyone makes the playoffs. They don't: the brackets take 8 of 16 in prep and college
+# and 8 of 20 in the pros. At 3 + 3 a title was worth six points, which crowded out everything a
+# player does himself; at 2 + 2 it is worth four, and a good individual season still competes.
+#
+# The two award components stay OFF, per "make it so only player of the month award rewards
+# points". Zeroed rather than deleted: a zero-point row is dropped before anything is paid, so an
+# off component costs one dictionary lookup, keeps its parser under test, and comes back from the
+# settings table without a deploy.
 DEFAULTS = {
-    "bonus_playoffs": 0,        # was 3
-    "bonus_title": 3,           # a team RESULT, not an award, so it stays
+    "bonus_playoffs": 2,        # 3 -> off -> 2
+    "bonus_title": 2,           # was 3; a team RESULT, not an award, so it never came off
     "bonus_potw": 0,            # was 1
     "bonus_potm": 2,            # the only award that pays
     "bonus_season_award": 0,    # was 3 (MVP, All-League)

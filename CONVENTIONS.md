@@ -143,14 +143,21 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   115 for the same achievement. Both halves are now measured against the league's own season - top 25 by total
   (max +2) and multiples of the 5th-best total (max +2) - which pays #1 -> 4, #10 -> 3, #25 -> 2, median -> 0 in
   every league. `commissioner/seasonbonus.py`; every number is a settings key.
-- 2026-09-19 **Three bonus components are OFF, by decision, not by deletion.** Nate: "remove the make playoffs
-  one since everyone makes it, and make it so only player of the month award rewards points". So
-  `bonus_playoffs`, `bonus_potw` and `bonus_season_award` default to 0; `bonus_title` stays at 3 because it is a
-  team result rather than an award. Zero-point rows are dropped before anything is paid, so an off component
-  costs a dictionary lookup and can be turned back on from the settings table without a deploy. For the record
-  the premise is not right - the brackets take 8 of 16 in prep and college and 8 of 20 in the pros, so not
-  everyone makes the playoffs - which makes this a balance choice rather than a correction. What remains pays
-  the seven prep characters Zach 2, Liam 3 (development), Johnny 1 and nothing at all to the other four.
+- 2026-09-19 **Bonus components: the two AWARD ones are off, the two TEAM ones pay 2.** Nate first removed the
+  playoff bonus ("everyone makes it") along with player of the week and the season awards, then put the playoff
+  one back at 2 and dropped the title from 3 to 2. So `bonus_playoffs` 2, `bonus_title` 2, `bonus_potw` 0,
+  `bonus_season_award` 0, `bonus_potm` 2. The premise for the removal was not right - the brackets take 8 of 16
+  in prep and college and 8 of 20 in the pros - and at 3 + 3 a title was worth six points, which crowded out
+  everything a player does himself; 2 + 2 leaves a good individual season competitive. Off components are zeroed
+  rather than deleted: a zero-point row is dropped before anything is paid, so it costs a dictionary lookup,
+  keeps its parser under test, and comes back from the settings table without a deploy - which is exactly what
+  happened here, twice, within an hour. Now pays the seven prep characters Chris 2, Zach 2, Johnny 3, Dodger 2,
+  Gravy 2, Liam 3, Tim 0.
+- 2026-09-19 **The elite-line half pays nothing yet, by design rather than by fault.** It needs the league's
+  5th-best total in a category: prep is PTS 201 / REB 137 / AST 34 / STL 17 / BLK 6, and the characters' bests
+  are 108 / 77 / 26 / 10 / 4. Unlike the top-10 rule that was rejected for being unreachable, this is close -
+  Zach is at 76% of the assists line - so it is dormant, not dead. `stat_bonus_elite_rank` moves the yardstick
+  if it needs to pay sooner.
 - 2026-09-19 **Four traps in FBPB3's exported HTML**, all found by running the parser against the live prep
   export and all silent: an undefeated team's percentage reads `1.000` not `.652` (the 24-0 Tulips vanished from
   the standings, which dropped their players from the ranking pool AND denied them a playoff bonus); the Season
