@@ -39,11 +39,21 @@ LEAVE_ALONE = {"3pUsage", "Fouling", "Stamina"}
 
 
 def _looks_like_ours(player, manifest, key):
-    """A rostered player the manifest does not name, whose birth year is inside our band.
+    """A player the manifest does not name, whose birth year is inside our band.
 
-    The game's own free agents are adults (Age.ini starts at 18); a rostered teenager the
-    manifest has never heard of is one of our reserve rows wearing a deleted character's name.
+    The game's own free agents are adults (Age.ini starts at 18); a teenager the manifest has
+    never heard of is one of our reserve rows wearing a deleted character's name.
+
+    DRAFT-POOL players are excluded. The birth-year test alone matches them - they are teenagers
+    too - and a real restore's candidate list came back as one orphan followed by three
+    draft-pool sixteen-year-olds. The loop takes the first candidate in file order, so had one
+    of those sat earlier in the file than the orphan, it would have been renamed into the
+    reserve slot and the character's own row left behind as a stranger. An orphan released as an
+    intruder goes to free agency (-1), never to the draft pool (-2), so nothing we want to find
+    is lost by ruling them out.
     """
+    if player.values["Team"] == -2:
+        return False
     years = [int(r["dob"].split("/")[-1]) for r in manifest["players"] if r["league"] == key]
     if not years:
         return False
@@ -89,8 +99,11 @@ def protect(key, dry_run=False, store_characters=None):
                and (r["name"], r["dob"]) not in claimed]
     # Rostered or not: an earlier pass may already have released the orphan as an intruder,
     # which leaves it stranded in free agency instead of on a roster.
-    unclaimed = [p for p in L.players if (p.name, p.dob) not in keep
-                 and _looks_like_ours(p, man, key)]
+    # Rostered first. A slot that is still on a team is far more likely to be the orphan than a
+    # loose free agent, and the restore loop takes whichever candidate comes first.
+    unclaimed = sorted(
+        (p for p in L.players if (p.name, p.dob) not in keep and _looks_like_ours(p, man, key)),
+        key=lambda p: 0 if p.values["Team"] >= 1 else 1)
     if missing and unclaimed and not dry_run:
         # One rename at a time, re-finding by name each pass. `rename` splices the file and the
         # codec re-parses, so every Player object captured before it - including the rest of this
@@ -119,8 +132,10 @@ def protect(key, dry_run=False, store_characters=None):
                 continue
             print(f"   orphaned slot {target} restored to {original['name']}")
             restored += 1
-            unclaimed = [p for p in L.players if (p.name, p.dob) not in keep
-                         and _looks_like_ours(p, man, key)]
+            unclaimed = sorted(
+                (p for p in L.players
+                 if (p.name, p.dob) not in keep and _looks_like_ours(p, man, key)),
+                key=lambda p: 0 if p.values["Team"] >= 1 else 1)
         # The renames live in memory until they are written. Re-reading the file without
         # saving first is how three restored Pro slots were silently thrown away: the loop
         # printed "restored", the next line reloaded the unchanged file, and the save at the
