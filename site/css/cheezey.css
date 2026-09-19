@@ -649,6 +649,20 @@ table.cv-table tr:nth-child(even) td { background: var(--cream2); }
 .cv-ranks .cv-trait { grid-template-columns: 3.4em minmax(40px, 1fr) 3.8em; }
 .cv-ranks .cv-trait-name { letter-spacing: .5px; }
 
+/* head to head: two columns of numbers with the label down the middle, so the eye compares
+   across rather than reading two separate tables. */
+.cv-h2h td { text-align: center; font-variant-numeric: tabular-nums; }
+.cv-h2h th { text-align: center; color: var(--crust); }
+.cv-h2h tbody th { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+.cv-h2h-win { font-weight: 700; background: var(--gold); color: var(--ink); }
+
+.cv-select {
+  font: 600 14px 'Trebuchet MS', Verdana, sans-serif;
+  padding: 9px 10px; width: 100%; border-radius: 8px;
+  border: 1px solid var(--crust); background: #fff; color: var(--ink);
+}
+.cv-select:focus-visible { outline: 2px solid var(--crust); outline-offset: 1px; }
+
 .cv-subhead {
   margin: 16px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
   color: var(--crust);
