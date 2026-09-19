@@ -275,7 +275,7 @@ def _activate_pending(league_key, L, st, log, season=None):
     """
     pending = [c for c in st.pending_characters() if c.get("league", "prep") == league_key]
     if not pending:
-        return [], []
+        return [], [], []      # three, like every other exit: (done, expect, writes)
     # Held by whoever still claims it, whatever his status - a retired character only lets go
     # of his slot once the row really has its manifest name back (offseason.refill).
     holders = [c for c in st.characters(league=league_key) if c.get("claimed_slot")]
