@@ -28,6 +28,15 @@ def check(name, cond, detail=""):
 
 
 def test_baseline_matches_game_exports():
+    # Guarded the same way the aged fixture is. `fixtures/saves/` is gitignored, so on EVERY
+    # clone - SERVERPC included, which is the only machine that runs a sim - this opened a file
+    # that is not there and tracebacked with FileNotFoundError. A suite that is permanently red
+    # for a reason nobody can fix teaches people to stop reading it, and the next real failure
+    # goes past unnoticed. test_raise_stamina's comment claimed it skipped "the way test_codec
+    # does"; test_codec did not, and now it does.
+    if not BASELINE.exists():
+        print("SKIP  baseline save fixture missing")
+        return
     L = LeagueDat(BASELINE)
     check("baseline: 390 players", len(L.players) == 390, f"got {len(L.players)}")
     check("baseline: 18 teams", len(L.teams()) == 18)
@@ -134,5 +143,17 @@ def test_edits_round_trip():
 test_baseline_matches_game_exports()
 test_aged_save_matches_game_exports()
 test_edits_round_trip()
-print(("FAILED: " + ", ".join(failures)) if failures else "\nall codec tests passed")
+# The summary has to distinguish "everything passed" from "nothing ran". Both fixtures live in
+# the gitignored fixtures/saves/, so on a clone all three tests skip - and a last line reading
+# "all codec tests passed" told a reader scanning for green that the codec had been checked
+# when it had not been opened. Whoever reads this output usually reads only this line.
+if failures:
+    print("FAILED: " + ", ".join(failures))
+elif not BASELINE.exists() and not AGED.exists():
+    print("\nSKIPPED: no save fixtures present, so the codec was not exercised at all "
+          "(fixtures/saves/ is gitignored; a clone does not carry it)")
+elif not (BASELINE.exists() and AGED.exists()):
+    print("\ncodec tests passed, but one fixture is missing - see SKIP above")
+else:
+    print("\nall codec tests passed")
 sys.exit(1 if failures else 0)

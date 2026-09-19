@@ -52,8 +52,10 @@ def main():
     # got the code by cloning - which includes SERVERPC, the one box where the tool is actually
     # run against live leagues. It used to traceback there with a bare FileNotFoundError, which
     # reads like the TOOL is broken at the exact moment somebody is deciding whether to trust it.
-    # Skip the way test_codec does, and say why, so a missing fixture is never mistaken for a
-    # failure - and so nobody is trained to ignore a red line from this file.
+    # Skip, and say why, so a missing fixture is never mistaken for a failure - and so nobody is
+    # trained to ignore a red line from this file. (This comment used to say "the way test_codec
+    # does". It did not: test_codec guarded its AGED fixture and opened its BASELINE one
+    # unguarded, so it tracebacked on every clone. Both skip as of 2026-09-19.)
     if not FIXTURE.exists():
         print(f"SKIP  raise_stamina: no save fixture at {FIXTURE.relative_to(ROOT)} "
               "(fixtures/saves/ is gitignored, so a clone does not carry it)")
