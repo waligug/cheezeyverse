@@ -79,10 +79,38 @@ def _wait_for_game_to_exit(timeout=30):
     return False
 
 
-def _league_status(spec, st):
+def round_one_days(spec):
+    """Calendar days to play a league's FIRST playoff round, from its own bracket.
+
+    `playoff_rounds` is four series lengths with leading zeros for rounds a smaller bracket does
+    not have, so the first non-zero entry is round one: 1 game in prep and college, best-of-five
+    in the pros. FBPB3 played the rehearsal's playoff games every other day (4/24, 4/26, 4/28,
+    4/30), so a series of N games spans 1 + 2(N-1) days - 1, 9 and 13 for a single game, a
+    best-of-five and a best-of-seven.
+
+    Derived rather than written down, because the brackets are per league and configurable, and
+    a number typed into a panel is the only thing stopping a run mid-round.
+    """
+    live = [n for n in (spec.playoff_rounds or ()) if n]
+    if not live:
+        return None
+    return 1 + 2 * (int(live[0]) - 1)
+
+
+def _league_status(spec, st, settings=None, characters=None):
+    """One league's row for the panel.
+
+    `settings` and `characters` are passed in by universe_status so the whole poll makes ONE of
+    each call instead of one per league. It was three round trips a league - get_settings twice
+    and characters(league) once - which measured 6.8s for prep alone and made /api/state take
+    between three and twenty-one seconds. Long enough that somebody clicks the button again.
+    """
     save_dir = DOCS / "leaguedata" / spec.save_name
     site = ROOT / "site" / "leagues" / spec.key
-    rows = st.characters(league=spec.key)
+    if settings is None:
+        settings = st.get_settings()
+    rows = ([c for c in characters if c.get("league") == spec.key] if characters is not None
+            else st.characters(league=spec.key))
     chars = [c for c in rows if c.get("status") == "active"]
     # A slot is held by whoever still claims it, not by whoever is still playing: a career the
     # game ended keeps its claim, because that row is gone from the save and handing it out
@@ -94,12 +122,12 @@ def _league_status(spec, st):
         "key": spec.key, "name": spec.name, "save": spec.save_name,
         "teams": len(spec.teams), "characters": len(chars),
         "reserve_free": len(free), "reserve_total": spec.reserve_capacity,
-        "season": st.get_settings().get("current_season", cfg.START_YEAR),
+        "season": settings.get("current_season", cfg.START_YEAR),
         "site": f"site/leagues/{spec.key}/index.htm" if (site / "index.htm").exists() else None,
         "site_pages": len(list(site.rglob("*.htm"))) if site.exists() else 0,
         "exists": (save_dir / "league.dat").exists(),
         "players": None, "games_played": None,
-        "day": st.get_settings().get("current_week", 0) * 7,
+        "day": settings.get("current_week", 0) * 7,
         # What the panel needs at the season boundary, per league, because one number in one box
         # cannot be right for three leagues at once. None means NO OPINION and must be shown as
         # "cannot tell" rather than as a number: at this boundary a confident wrong answer is
@@ -110,6 +138,8 @@ def _league_status(spec, st):
         "regular_season_left": _regular_season_left(save_dir),
         "days_to_season_end": days_to_regular_end(spec.key),
         "champion": _champion(save_dir),
+        #   round_one_days    - days to play the first playoff round, from the bracket
+        "round_one_days": round_one_days(spec),
     }
     # Read how far the season has got from the GAME'S OWN export, not from the published copy.
     # They are usually the same file one step apart, but not always, and the difference matters
@@ -205,8 +235,18 @@ def _player_count(path):
 
 def universe_status():
     st = store()
+    # ONE of each call for the whole poll, not one per league. See _league_status.
+    try:
+        settings = st.get_settings()
+    except Exception:
+        settings = {}
+    try:
+        everyone = st.characters()
+    except Exception:
+        everyone = None          # let each league fetch its own rather than report nobody
     return {
-        "leagues": [_league_status(s, st) for s in cfg.LEAGUES],
+        "leagues": [_league_status(s, st, settings=settings, characters=everyone)
+                    for s in cfg.LEAGUES],
         "store": {"kind": getattr(st, "kind", lambda: "supabase")(), "configured": True,
                   "detail": "local JSON file" if st is localstore else "Supabase"},
         "game_running": FBPB3.is_running(),
