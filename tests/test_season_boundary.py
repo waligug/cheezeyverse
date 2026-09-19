@@ -75,6 +75,7 @@ def _universe(tmp, played_to, last, iso=False, keys=("prep", "college", "pro")):
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="boundary-"))
     real = ch.save_path
+    real_post = None
     try:
         # ---- the same season in both date formats must give the same answer -----------------
         for iso in (False, True):
@@ -139,6 +140,15 @@ def main():
         simweek.ch.save_path = ch.save_path
 
         # ---- THE LOCK. One refusal must not brick the panel and the offseason with it -------
+        # Stub the notifier FIRST. This block calls run_sim for real, and on any machine with a
+        # webhook configured - SERVERPC has one - the failure path posted "Sim stopped - 999
+        # days would run past..." into the live Discord server. A test must never be able to
+        # reach a real service, and the assertion below pins the other half of that fix: a
+        # refusal must not announce itself at all, because nothing ran.
+        posted = []
+        real_post = simweek.notify.post
+        simweek.notify.post = lambda text, log=None: posted.append(text)
+
         assert not simweek._SIM_LOCK.locked(), "the lock was already held before the test"
         try:
             simweek.run_sim(leagues=["prep"], days=999)
@@ -158,10 +168,16 @@ def main():
             pass          # anything else (no store, no saves) is not this test's business
         assert not simweek._SIM_LOCK.locked(), "the dry run leaked _SIM_LOCK"
 
+        assert not posted, f"a refused run talked to Discord: {posted}"
+
         # and the escape hatch has to exist, or the day the path IS designed this is in its way
         import inspect
         assert "allow_season_end" in inspect.signature(simweek.run_sim).parameters
     finally:
+        # in the finally, not after the assertions: a failure above must not leave the real
+        # notifier replaced by a stub for whatever runs next in the same process
+        if real_post is not None:
+            simweek.notify.post = real_post
         ch.save_path = real
         simweek.ch.save_path = real
         shutil.rmtree(tmp, ignore_errors=True)

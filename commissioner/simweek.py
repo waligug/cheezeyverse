@@ -879,7 +879,12 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     except Exception as exc:
         result["errors"].append(str(exc))
         emit("error", str(exc), pct=100)
-        if not dry_run:
+        # A REFUSAL IS NOT A STOP. SeasonEnd means nothing ran: no backup, no save touched, no
+        # click. Announcing "Sim stopped" for it told the Discord server the sim had fallen over
+        # when it had simply declined to start, which is a worse lie than saying nothing - and it
+        # is what fired the day this guard landed, because the test that proves the lock releases
+        # calls run_sim(days=999) and SERVERPC has a webhook.
+        if not dry_run and not isinstance(exc, SeasonEnd):
             # The last step is the useful part: "stopped" on its own sends somebody to the
             # server to find out what, which is exactly the trip this is meant to save.
             where = next((r["message"] for r in reversed(steps)
