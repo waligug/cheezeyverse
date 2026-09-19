@@ -153,6 +153,13 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   keeps its parser under test, and comes back from the settings table without a deploy - which is exactly what
   happened here, twice, within an hour. Now pays the seven prep characters Chris 2, Zach 2, Johnny 3, Dodger 2,
   Gravy 2, Liam 3, Tim 0.
+- 2026-09-19 **A `bonus_*` / `stat_bonus_*` settings row should not exist unless somebody is deliberately tuning
+  that number live, and says so.** Settings override `seasonbonus.DEFAULTS`, so a row left behind after a
+  rebalance silently blocks the next change to the code: `bonus_playoffs` was set to 0 in settings when the
+  component was switched off, and when it came back at 2 in DEFAULTS an hour later the live universe would have
+  gone on paying 0, with the code, the tests and CONVENTIONS all saying 2. The fix was to DELETE the rows rather
+  than add a second override, which is the right instinct generally - prefer no row to a row that happens to
+  agree, because only one of those two can go stale. There are currently no bonus rows at all.
 - 2026-09-19 **The elite-line half pays nothing yet, by design rather than by fault.** It needs the league's
   5th-best total in a category: prep is PTS 201 / REB 137 / AST 34 / STL 17 / BLK 6, and the characters' bests
   are 108 / 77 / 26 / 10 / 4. Unlike the top-10 rule that was rejected for being unreachable, this is close -
