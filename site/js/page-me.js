@@ -203,7 +203,7 @@ function seasonPanel(character) {
 
     // where that puts him, against the same two lines the season bonus pays on
     box.append(el('h4', { class: 'cv-subhead' }, `Where that puts him in ${stats.count} players`));
-    const bars = el('div', { class: 'cv-traits' });
+    const bars = el('div', { class: 'cv-traits cv-ranks' });
     for (const cat of stats.categories) {
       const rank = Number((row.rank || {})[cat]) || stats.count;
       const bar = el('span', { class: 'cv-bar' },

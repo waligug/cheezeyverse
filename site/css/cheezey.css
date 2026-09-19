@@ -643,6 +643,12 @@ table.cv-table tr:nth-child(even) td { background: var(--cream2); }
 
 /* A heading inside a tab panel: smaller than the card's own, same uppercase key as the rating
    group headings so a panel reads as one thing rather than a stack of cards. */
+/* Rank rows reuse the trait row's grid, but the two columns want opposite sizes: the label is
+   "PTS" rather than "Motor", and the value is "104th" rather than "45". Left as-is the ordinal
+   was clipped against the right edge of a phone - visible only by looking at it. */
+.cv-ranks .cv-trait { grid-template-columns: 3.4em minmax(40px, 1fr) 3.8em; }
+.cv-ranks .cv-trait-name { letter-spacing: .5px; }
+
 .cv-subhead {
   margin: 16px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
   color: var(--crust);
