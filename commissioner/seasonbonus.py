@@ -118,18 +118,41 @@ def standings_rows(html_dir):
     return rows
 
 
-def seeded(rows, top=8):
+def seeded(rows, top=8, order=None):
     """The best `top` records in the league, by WIN PERCENTAGE, numbered from 1.
 
     Percentage rather than wins, because the teams in a league are not all the same number of
     games in: today prep spans 22 to 27 played, so ranking by raw wins would put a team three
     games ahead on the calendar above a better team that has played fewer.
 
-    This is OUR ordering, not the game's official bracket. FBPB3 seeds by conference and breaks
-    ties by its own rules, so the panel says "by record" rather than implying otherwise.
+    This is OUR ordering, not the game's official bracket. FBPB3 seeds by conference and puts
+    division winners first, so a division winner with a losing record can outrank a better team
+    - college has exactly that today. The panel says "by record" rather than implying otherwise.
+
+    `order` is the team order FBPB3 itself prints on playoffstandings.htm, used as the LAST
+    tiebreaker. Two teams on an identical record were previously separated by the alphabet,
+    which decided 8th place in the pros between Threshers and Waxheads at 20-23 apiece - a
+    coin toss dressed up as a standing. Borrowing the game's own order costs nothing and gets
+    its tiebreakers for free; the name stays as the final fallback when it has no opinion.
     """
-    best = sorted(rows, key=lambda r: (-r["pct"], -r["w"], r["name"]))[:top]
+    where = {name: i for i, name in enumerate(order or [])}
+    best = sorted(rows, key=lambda r: (-r["pct"], -r["w"],
+                                       where.get(r["name"], len(where)), r["name"]))[:top]
     return [{**r, "seed": i + 1} for i, r in enumerate(best)]
+
+
+def playoff_order(html_dir):
+    """Team names in the order FBPB3 lists them on playoffstandings.htm, ties included."""
+    text = _text(Path(html_dir) / "playoffstandings.htm")
+    pattern = ("&nbsp;" + r"\s*\*?\s*" + f"({TEAM_CHARS}*?)"
+               + r"\s+\d+\s+\d+\s+\d*\.\d")
+    seen, out = set(), []
+    for name in re.findall(pattern, text):
+        name = name.strip()
+        if name and name not in seen:
+            seen.add(name)
+            out.append(name)
+    return out
 
 
 def standings_teams(html_dir):
@@ -242,7 +265,7 @@ def league_stats(html_dir, elite_rank=5):
         "elite": lines,
         "teams": teams,
         "table": table,
-        "seeds": seeded(table),
+        "seeds": seeded(table, order=playoff_order(html_dir)),
         "count": len(players),
         "players": players,
     }

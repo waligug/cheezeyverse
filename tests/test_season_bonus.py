@@ -216,6 +216,20 @@ def main():
         assert [t["name"] for t in stats["seeds"]] == ["Tulips", "Clams"], stats["seeds"]
         assert stats["seeds"][0]["seed"] == 1 and stats["seeds"][0]["pct"] == 1.0, stats["seeds"]
 
+        # An exact tie at the cut line was being decided by the ALPHABET - it settled 8th place
+        # in the pros between two 20-23 teams, which is a coin toss dressed up as a standing.
+        # FBPB3's own playoff page has an opinion, so borrow it and fall back to the name only
+        # when it does not.
+        tied = [{"name": "Waxheads", "w": 20, "l": 23, "games": 43, "pct": 0.465},
+                {"name": "Threshers", "w": 20, "l": 23, "games": 43, "pct": 0.465}]
+        assert [t["name"] for t in sb.seeded(tied, top=2)] == ["Threshers", "Waxheads"]
+        assert [t["name"] for t in sb.seeded(tied, top=2, order=["Waxheads", "Threshers"])]             == ["Waxheads", "Threshers"], "the game's own order was ignored"
+        # a team the order has never heard of sorts after the ones it knows, not before
+        assert [t["name"] for t in sb.seeded(tied, top=2, order=["Threshers"])]             == ["Threshers", "Waxheads"]
+        # record still beats the order: a better team is not demoted by where the page lists it
+        better = tied + [{"name": "Zebras", "w": 30, "l": 13, "games": 43, "pct": 0.698}]
+        assert sb.seeded(better, top=1, order=["Waxheads", "Threshers", "Zebras"])[0]["name"]             == "Zebras"
+
         # true shooting is computed, not read off the game's own Efficiency row - see the
         # docstring. 5 points on 3 attempts and no free throws is 5 / (2 * 3).
         assert sb.true_shooting(5, 3, 0) == 0.833, sb.true_shooting(5, 3, 0)
