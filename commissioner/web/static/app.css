@@ -84,6 +84,10 @@ h3 { font-size: 13px; }
   font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
   background: var(--cream2); border: 1px solid var(--line); color: #7A6A45;
 }
+/* A finished league is greyed rather than hidden: it still has a site and a season to look at,
+   and "gone" would read as something having broken. The whole label dims, not just the box, so
+   the league's name goes quiet with it. */
+.controls label.is-done { opacity: .5; cursor: not-allowed; }
 
 .muted { color: #7A6A45; }
 .mono { font-family: var(--mono); }

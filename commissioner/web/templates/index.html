@@ -99,18 +99,28 @@
         </div>
         <div class="group">
           <span class="muted">leagues:</span>
-          {# Each league carries its OWN remaining regular-season days. One number in one box
-             cannot be right for three leagues at different points in their season - prep can be
-             two days from the playoffs while pro still has ten. `data-left` is what the day box
-             and the playoff control both recompute from; absent means simweek had no opinion,
-             and that is rendered as "?" rather than as a number. #}
+          {# Each league carries its OWN distance to the season end. One number in one box cannot
+             be right for three leagues at different points in their season.
+
+             `days_to_season_end` and not `regular_season_left`: the first is SIM DAY CLICKS to
+             the last regular-season day, which is what somebody types into the box; the second
+             counts remaining dates that have games and is deliberately an under-estimate, so
+             they differ by every quiet day in between (8 against 10 in prep today). Suggesting
+             the under-estimate would stop the sim short of the end and look like a miscount.
+
+             A league whose final is decided cannot be simmed at all - the only thing past it is
+             FBPB3's own rollover, which nothing here drives - so its box is disabled and says
+             who won rather than offering a run the server would refuse. #}
           {% for lg in status.get('leagues') or [] %}
-          <label title="{{ lg.get('key') }}: {{ lg.get('stage') or 'stage unknown' }}">
+          {% set left = lg.get('days_to_season_end') if lg.get('days_to_season_end') is not none
+                        else lg.get('regular_season_left') %}
+          <label {% if lg.get('champion') %}class="is-done" {% endif %}title="{{ lg.get('key') }}: {{ lg.get('stage') or 'stage unknown' }}{% if lg.get('champion') %} - won by {{ lg.get('champion') }}. Nothing left to sim: what follows is the rollover, which is not built.{% endif %}">
             <input type="checkbox" class="league-pick" value="{{ lg.get('key') }}"
-                   {% if lg.get('regular_season_left') is not none %}
-                   data-left="{{ lg.get('regular_season_left') }}"{% endif %} checked>
-            {{ lg.get('key') }}<span class="days-left"
-              >{% if lg.get('regular_season_left') is not none %}{{ lg.get('regular_season_left') }}d{% else %}?{% endif %}</span></label>
+                   {% if lg.get('champion') %}disabled data-champion="{{ lg.get('champion') }}"
+                   {% elif left is not none %}data-left="{{ left }}"
+                     {%- if lg.get('round_one_days') is not none %} data-round-one="{{ lg.get('round_one_days') }}"{% endif %} checked
+                   {%- else %}checked{% endif %}>
+            {{ lg.get('key') }}<span class="days-left">{% if lg.get('champion') %}done{% elif left is not none %}{{ left }}d{% else %}?{% endif %}</span></label>
           {% endfor %}
         </div>
         <div class="group">
@@ -124,6 +134,7 @@
           <label id="season-end-label"
                  title="passes allow_season_end=True: the sim may cross the last day of the regular season and play the playoffs">
             <input type="checkbox" id="allow-season-end"> sim into the playoffs</label>
+          <span class="pace" id="season-end-hint"></span>
         </div>
         <span class="spacer"></span>
         <button id="btn-clear" type="button" class="plain small">Clear log</button>

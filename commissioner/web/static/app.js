@@ -194,10 +194,17 @@ function finishRun(ev) {
 function pickedLeagues() {
   var boxes = document.querySelectorAll('.league-pick');
   var keys = [];
+  var selectable = 0;
   for (var i = 0; i < boxes.length; i++) {
+    // A league whose final is decided is not one of "all of them" any more. Sending null once
+    // one is finished would ask the server for every league including that one, and it refuses
+    // the WHOLE run over it - so a finished prep would block college and pro from simming at
+    // all, which reads as the panel being broken rather than as a rule.
+    if (boxes[i].disabled) { continue; }
+    selectable += 1;
     if (boxes[i].checked) { keys.push(boxes[i].value); }
   }
-  return keys.length === boxes.length ? null : keys;   // null = all of them
+  return keys.length === selectable && selectable === boxes.length ? null : keys;
 }
 
 /* The tightest ticked league: {key, left} for the one with the fewest regular-season days
@@ -208,7 +215,7 @@ function tightestLeague() {
   var boxes = document.querySelectorAll('.league-pick');
   var best = null;
   for (var i = 0; i < boxes.length; i++) {
-    if (!boxes[i].checked) { continue; }
+    if (!boxes[i].checked || boxes[i].disabled) { continue; }
     var raw = boxes[i].getAttribute('data-left');
     if (raw === null || raw === '') { continue; }   // no opinion: never guess one
     var left = parseInt(raw, 10);
@@ -238,6 +245,20 @@ function refreshSeasonEnd() {
       ? tight.key + ' has no regular-season days left: every remaining day is the playoffs.'
       : tight.key + ' has ' + tight.left + ' regular-season day(s) left, so ' + asked
         + ' would cross into its playoffs.';
+  }
+
+  /* NOTHING STOPS AFTER ROUND ONE. There is no such mechanism in the driver - the number typed
+   * here IS the control, and the only hard stops are the champion refusal and the sim halting
+   * when the calendar stops moving. So the panel has to say what number buys what, per league,
+   * because a single game and a best-of-five are not the same ask: prep and college decide round
+   * one in ONE playoff day, pro needs five game days spread over about nine calendar ones. */
+  var hint = $('season-end-hint');
+  if (hint) {
+    var box = document.querySelector('.league-pick[value="' + tight.key + '"]');
+    var round1 = box ? parseInt(box.getAttribute('data-round-one'), 10) : NaN;
+    hint.textContent = isNaN(round1) ? ''
+      : tight.left + ' finishes ' + tight.key + '’s season, ' + (tight.left + round1)
+        + ' plays its first round';
   }
 }
 
@@ -285,7 +306,9 @@ function paceText(leagues, days) {
 function refreshPace() {
   var boxes = document.querySelectorAll('.league-pick');
   var picked = 0;
-  for (var i = 0; i < boxes.length; i++) { if (boxes[i].checked) { picked += 1; } }
+  for (var i = 0; i < boxes.length; i++) {
+    if (boxes[i].checked && !boxes[i].disabled) { picked += 1; }
+  }
   var pairs = [['pace-week', 'days-week', 7], ['pace-chunk', 'days-chunk', 21]];
   for (var j = 0; j < pairs.length; j++) {
     var out = $(pairs[j][0]);
