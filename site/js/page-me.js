@@ -20,7 +20,7 @@ import {
 import {
   $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
   statusPill, renderSheet, renderMeter, describeCharacter, fmtDate,
-  renderTraitBars, classLine, positionLine, goalLine,
+  renderTraitBars, classLine, positionLine, goalLine, tabs,
 } from './ui.js';
 
 const chrome = renderChrome({
@@ -80,8 +80,11 @@ async function load() {
   const income = flat
     ? `${rates[0][1]} point${rates[0][1] === 1 ? '' : 's'} per simulated week`
     : rates.map(([k, n]) => `${n} a week in ${LEAGUE_LABELS[k] || k}`).join(', ');
+  // The cost curve used to be dumped into this sentence. On a phone that made the first thing
+  // you read a wall of numbers about prices, before you had even seen your player. It belongs
+  // next to the buttons that charge them, which is the Spend tab.
   $('#intro').textContent = `You get ${income}, `
-    + `and you can hold up to ${cfg.max_characters} live characters. ${describeCurve()}.`;
+    + `and you can hold up to ${cfg.max_characters} live characters.`;
 
   if (!characters.length) {
     box.append(el('div', { class: 'cv-card' },
@@ -258,30 +261,44 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
     actions.append(send, undo);
   }
 
+  /* ---- the card's sections, behind tabs ----------------------------------------------
+     Measured on a 390px screen before this: the page was 11,571px tall for two characters,
+     about thirty phone screens, because every section of every card was open at once and the
+     spend sheet alone was 87% of each card. All of it is worth having; all of it at once is
+     not. Spend is first because it is the only part anybody comes here to DO. */
+  let spendPanel = null;
   if (character.status === 'retired') {
     body.append(note(null, 'Retired. His sheet is frozen.'));
   } else {
-    body.append(
-      el('h3', {}, 'Spend points'),
+    spendPanel = el('div', {},
       meter,
+      el('p', { class: 'cv-hint' },
+        `What a step costs: ${describeCurve()}.`),
       el('p', { class: 'cv-hint' },
         'Nothing changes until the commissioner applies it during a Sim Week. '
         + 'Queued points are held back so you cannot promise the same point twice.'),
-      sheet, problems, actions,
-    );
-    drawSpend();
+      sheet, problems, actions);
   }
 
-  /* ---- who he is ---- */
+  let traitsPanel = null;
   if (character.traits && Object.keys(character.traits).length) {
     const traits = el('div', { class: 'cv-traits' });
     renderTraitBars(traits, character.traits);
-    body.append(el('h3', {}, 'What the quiz said about him'), traits);
+    traitsPanel = el('div', {}, el('p', { class: 'cv-hint' },
+      'What the quiz decided about him. These do not change.'), traits);
   }
 
-  /* ---- history ---- */
-  body.append(el('h3', {}, 'Requests'), requestTable(requests));
-  body.append(el('h3', {}, 'Points'), ledgerTable(ledger, character));
+  const sections = [
+    { label: 'Spend', node: spendPanel },
+    { label: 'Him', node: traitsPanel },
+    { label: 'Requests', node: el('div', {}, requestTable(requests)),
+      badge: requests.filter((r) => r.status === 'pending' || r.status === 'approved').length || null },
+    { label: 'Points', node: el('div', {}, ledgerTable(ledger, character)) },
+  ].filter((x) => x.node);
+
+  body.append(tabs(sections), ...sections.map((x) => x.node));
+  // after the sheet is in the document: drawSpend measures what it renders into
+  if (spendPanel) drawSpend();
 
   /* ---- big buttons ---- */
   const footer = el('div', { class: 'cv-actions' });

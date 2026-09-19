@@ -173,6 +173,44 @@ export function setupNeededNote() {
  * }
  * onStep(rating, kind, direction) is called with direction +1 or -1.
  */
+/**
+ * A tab strip over a set of panels. Returns the strip; panels are appended after it.
+ *
+ * This exists because of a measurement, not a preference. On a 390px screen the My players page
+ * was 11,571px tall for two characters - about thirty phone screens - with 128 buttons on it,
+ * and 87% of each card was the "Spend points" sheet sitting permanently open. Everything on the
+ * page was worth having; having all of it at once was not.
+ *
+ * Panels are hidden rather than left unbuilt. Lazy building would trim the DOM as well, but the
+ * spend sheet has to be in the document before drawSpend() can measure and fill it, and a tab
+ * that renders nothing until touched is a much better way to ship a blank panel than a tall one.
+ *
+ * `sections` is [{ label, node, badge }]. The first is shown.
+ */
+export function tabs(sections) {
+  const live = sections.filter((s) => s && s.node);
+  const strip = el('div', { class: 'cv-tabs', role: 'tablist' });
+  const buttons = live.map((section, i) => {
+    const b = el('button', {
+      class: `cv-tab${i ? '' : ' is-on'}`, type: 'button', role: 'tab',
+      'aria-selected': i ? 'false' : 'true',
+    }, section.label, section.badge ? el('span', { class: 'cv-tab-badge' }, section.badge) : null);
+    section.node.hidden = i !== 0;
+    section.node.setAttribute('role', 'tabpanel');
+    b.addEventListener('click', () => {
+      buttons.forEach((other, j) => {
+        const on = other === b;
+        other.classList.toggle('is-on', on);
+        other.setAttribute('aria-selected', on ? 'true' : 'false');
+        live[j].node.hidden = !on;
+      });
+    });
+    return b;
+  });
+  strip.append(...buttons);
+  return strip;
+}
+
 export function renderSheet(container, state, onStep) {
   const focused = document.activeElement && document.activeElement.dataset
     ? document.activeElement.dataset.key : null;
