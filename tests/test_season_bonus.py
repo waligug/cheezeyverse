@@ -1,0 +1,178 @@
+"""The end-of-season bonus, against a hand-built export that contains every trap.
+
+The fixture is written by this file rather than copied from a real export, deliberately. The
+only other save-based test in the tree cannot run on SERVERPC at all, because `fixtures/saves/`
+is gitignored and the server is a clone - and SERVERPC is the box where this code decides what
+real people get paid. A test that writes its own pages runs everywhere.
+
+Every row below is a defect that was actually in the parser, found by running it against the
+live prep export:
+
+  * THE UNDEFEATED TEAM. A 24-0 team's percentage reads `1.000`, not `.652`. The regex wanted a
+    leading dot, so the best team in the league vanished from the standings - which is not just
+    a missing row: it dropped its players out of the ranking pool, pulled every league-relative
+    threshold down, and quietly denied a character his playoff bonus.
+  * THE REPEATED COLUMN. FBPB3 prints "... AST STL TO STL BLK ...", so BLK is the seventeenth
+    number after the season year, not the sixteenth. Off by one and everyone ranks on fouls.
+  * THE HEADER THAT CONTAINS DIGITS. `3PM` and `3PA` are in the header row, so "find the
+    numbers" finds those first and reads every column one place out.
+  * THE DRAFT POOL. Those players get pages with season lines earned somewhere else. Left in,
+    they outrank everybody: one had 247 assists without playing a minute in the league.
+  * THE AWARD ROW. "date POS Player Team ppg rpg apg spg bpg" has nothing between the player and
+    his team but a space, so a name matched as "capitalised words" swallows the team and yields
+    winners called "Sid McFate Tulips" - who match no character, so awards silently pay nothing.
+
+    python tests/test_season_bonus.py
+"""
+from __future__ import annotations
+
+import shutil
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from commissioner import seasonbonus as sb  # noqa: E402
+
+# G GS MIN FGM FGA FTM FTA 3PM 3PA PTS OREB REB AST STL TO STL BLK PF +/-
+PLAYERS = [
+    # name,            team,      G,  PTS, REB, AST, STL, BLK
+    ("Ace Elite",      "Tulips",  24, 500, 300,  90,  50,  40),
+    ("Bo Second",      "Tulips",  24, 400, 250,  80,  40,  30),
+    ("Cy Third",       "Clams",   24, 300, 200,  70,  30,  20),
+    ("Dee Fourth",     "Clams",   24, 200, 150,  60,  20,  10),
+    ("Ed Fifth",       "Clams",   24, 100, 100,  50,  10,   5),   # <- the elite line
+    ("Fay Sixth",      "Clams",   24,  50,  50,  25,   5,   2),
+    ("Our Guy",        "Tulips",  24,  90,  90,  45,   9,   4),
+    ("Benched Kid",    "Clams",    4,  10,  10,   5,   1,   1),
+    ("Drafted Ringer", "Draft",   34, 999, 999, 247, 999, 999),   # must never rank
+]
+
+
+def _player_page(name, team, g, pts, reb, ast, stl, blk):
+    row = [g, g, 300, 1, 2, 1, 2, 1, 2, pts, 1, reb, ast, stl, 5, stl, blk, 3, 0]
+    cells = "".join(f"<td>{v}</td>" for v in row)
+    return f"""<html><body>
+      <b>{name}&nbsp;</b><td>#7 SF | 5-10, 138lbs | {team} | Experience: 1 year</td>
+      <table><tr><td>&nbsp;Season Totals</td></tr>
+      <tr><td>&nbsp;Season</td><td>G</td><td>GS</td><td>MIN</td><td>FGM</td><td>FGA</td>
+          <td>FTM</td><td>FTA</td><td>3PM</td><td>3PA</td><td>PTS</td><td>OREB</td><td>REB</td>
+          <td>AST</td><td>STL</td><td>TO</td><td>STL</td><td>BLK</td><td>PF</td><td>+/-</td></tr>
+      <tr><td>&nbsp;2026</td>{cells}</tr></table>
+      <table><tr><td>&nbsp;Efficiency</td></tr></table>
+      </body></html>"""
+
+
+def _build(tmp, *, champion=None, season_awards=False):
+    d = Path(tmp)
+    (d / "players").mkdir(parents=True, exist_ok=True)
+    for i, p in enumerate(PLAYERS):
+        (d / "players" / f"player{i}.htm").write_text(_player_page(*p), encoding="latin-1")
+
+    # Tulips are undefeated, so their percentage has a digit before the dot.
+    (d / "standings.htm").write_text(
+        "<table><tr><td>W</td><td>L</td><td>Pct</td></tr>"
+        "<tr><td>&nbsp; Tulips</td><td>24</td><td>0</td><td>1.000</td></tr>"
+        "<tr><td>&nbsp; Clams</td><td>17</td><td>7</td><td>.708</td></tr></table>",
+        encoding="latin-1")
+    (d / "playoffstandings.htm").write_text(
+        "<table><tr><td>&nbsp;* Tulips</td><td>24</td><td>0</td><td>1.000</td></tr>"
+        "<tr><td>&nbsp; Clams</td><td>17</td><td>7</td><td>.708</td></tr></table>",
+        encoding="latin-1")
+    (d / "champs.htm").write_text(
+        f"<html><body>Champs {champion or ''}</body></html>", encoding="latin-1")
+    (d / "awards.htm").write_text(
+        "<div>Player of the Week</div><table>"
+        "<tr><td>&nbsp;03/21/2027</td><td>SF</td><td>Our Guy</td><td>Tulips</td>"
+        "<td>9.0</td><td>10.0</td><td>1.0</td><td>1.5</td><td>0.5</td></tr>"
+        "<tr><td>&nbsp;03/14/2027</td><td>SF</td><td>Ace Elite</td><td>Tulips</td>"
+        "<td>9.0</td><td>5.0</td><td>1.0</td><td>0.0</td><td>0.0</td></tr></table>"
+        "<div>Player of the Month</div><table>"
+        "<tr><td>&nbsp;February</td><td>SF</td><td>Our Guy</td><td>Tulips</td>"
+        "<td>18.1</td><td>7.6</td><td>2.4</td><td>0.7</td><td>0.1</td></tr></table>",
+        encoding="latin-1")
+    awards = ("<table><tr><td>&nbsp;Award</td><td>Pos</td><td>Player</td></tr>"
+              "<tr><td>&nbsp;Most Valuable Player</td><td>SF</td><td>Our Guy</td>"
+              "<td>Tulips</td><td>1.0</td><td>1.0</td><td>1.0</td><td>1.0</td><td>1.0</td></tr>"
+              "</table>") if season_awards else "<table><tr><td>&nbsp;Award</td></tr></table>"
+    (d / "seasonawards.htm").write_text(awards, encoding="latin-1")
+    return d
+
+
+def main():
+    tmp = Path(tempfile.mkdtemp(prefix="bonus-"))
+    try:
+        d = _build(tmp)
+
+        teams = sb.standings_teams(d)
+        assert teams == {"Tulips": 24, "Clams": 24}, f"undefeated team lost: {teams}"
+
+        totals = sb.season_totals(d, teams)
+        assert "Drafted Ringer" not in totals, "the draft pool got into the ranking pool"
+        assert len(totals) == 8, totals.keys()
+        ace = totals["Ace Elite"]
+        assert (ace["PTS"], ace["REB"], ace["AST"], ace["STL"], ace["BLK"]) == (500, 300, 90, 50, 40), ace
+        assert ace["BLK"] != ace["PF"], "BLK read from the wrong column"
+
+        assert sb.elite_lines(totals, 5) == {"PTS": 100, "REB": 100, "AST": 50,
+                                             "STL": 10, "BLK": 5}, sb.elite_lines(totals, 5)
+        assert sb.rank_in(totals, "PTS", 90) == 6, sb.rank_in(totals, "PTS", 90)
+
+        awards = sb.award_counts(d)
+        assert awards.get("Our Guy") == {"potw": 1, "potm": 1}, awards
+        assert not any(" Tulips" in n for n in awards), f"team swallowed into a name: {awards}"
+
+        assert sb.playoff_teams(d) == {"Tulips"}, sb.playoff_teams(d)
+        assert sb.champion(d, teams) is None, "a champion appeared before anybody won"
+
+        # Our Guy: playoffs 3, POTW 1, POTM 2, top-25 in all five (capped 2), elite line
+        # 90/100 + 90/100 + 45/50 + 9/10 + 4/5 = 0 (all just short) -> 8
+        rows = sb.for_character("Our Guy", d, {}, {})
+        got = dict((r.split(":")[1].strip(), p) for r, p in rows)
+        assert sum(rows_p for _, rows_p in rows) == 8, rows
+        assert got["made the playoffs"] == 3 and got["player of the month x1"] == 2, rows
+        assert got[f"top {sb.DEFAULTS['stat_bonus_top_n']} in PTS, REB, AST, STL, BLK"] == 2, rows
+
+        # Ace Elite clears every elite line several times over, and the elite half still pays
+        # only its maximum of 2 - that ceiling is the whole reason the rule is league-relative
+        # rather than a rate per rebound, which paid the best pro 115.
+        rows = sb.for_character("Ace Elite", d, {}, {})
+        elite = [p for r, p in rows if "elite-line" in r]
+        assert elite == [sb.DEFAULTS["stat_bonus_elite_max"]], rows
+        assert sum(p for _, p in rows) == 8, rows
+
+        # The overall cap, exercised by lowering it rather than by inventing a season nobody
+        # could have: it must trim to exactly the cap AND say so, not pay less in silence.
+        rows = sb.for_character("Ace Elite", d, {"bonus_cap": 5}, {})
+        assert sum(p for _, p in rows) == 5, rows
+        assert any("capped at 5" in r for r, _ in rows), "the cap was applied silently"
+
+        # Benched Kid: 4 of 24 games is under a quarter, so he is a development case.
+        rows = sb.for_character("Benched Kid", d, {}, {})
+        assert any("development" in r for r, _ in rows), rows
+
+        assert sb.for_character("Nobody At All", d, {}, {}) == [], "paid a player who never played"
+
+        # A finished season fills in the pages that were empty.
+        d2 = _build(Path(tempfile.mkdtemp(prefix="bonus2-")), champion="Tulips",
+                    season_awards=True)
+        rows = sb.for_character("Our Guy", d2, {}, {})
+        assert any("won the league" in r for r, _ in rows), rows
+        assert any("a season award" in r for r, _ in rows), rows
+        shutil.rmtree(d2, ignore_errors=True)
+
+        # Every number is tunable, and junk falls back rather than raising.
+        rows = sb.for_character("Our Guy", d, {"bonus_playoffs": 99, "bonus_cap": 500}, {})
+        assert any(p == 99 for _, p in rows), rows
+        assert sb.setting({"bonus_cap": "not a number"}, "bonus_cap") == 10
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    print("OK  season bonus: undefeated team, repeated column, draft pool, award names, cap")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

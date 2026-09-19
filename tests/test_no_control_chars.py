@@ -29,10 +29,25 @@ TEXT = {".py", ".js", ".mjs", ".md", ".html", ".htm", ".css", ".json",
 
 
 def tracked_files():
-    out = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True)
-    if out.returncode:
-        sys.exit("not a git repository, or git is unavailable")
-    return [ROOT / line for line in out.stdout.splitlines() if line.strip()]
+    """Tracked files, AND new ones not yet added - which is where the damage actually happens.
+
+    This checked `git ls-files` alone and therefore passed, cleanly, on a source file that had a
+    literal 0x08 in it - because the file was new and not yet committed. That is precisely the
+    wrong moment to stop looking: a file is most likely to be written by a script on the run
+    that creates it, and if the byte survives to the commit it is then tracked, invisible, and
+    blamed on something else. The third occurrence of this bug was found by reading bytes by
+    hand, with this test reporting no problems.
+
+    `--exclude-standard` keeps .gitignore honoured, so backups, saves and .env stay out.
+    """
+    paths = []
+    for args in (["git", "ls-files"],
+                 ["git", "ls-files", "--others", "--exclude-standard"]):
+        out = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
+        if out.returncode:
+            sys.exit("not a git repository, or git is unavailable")
+        paths += [ROOT / line for line in out.stdout.splitlines() if line.strip()]
+    return paths
 
 
 def main():

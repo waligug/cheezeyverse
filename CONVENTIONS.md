@@ -137,6 +137,20 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   band a floor of 70 puts the characters in - the mean is still +2.5 and only 14 fell, by 4-6 points. So the game
   does not claw a raised Stamina back the way it crushes a rating to its potential, and the floor does not need
   re-applying on a schedule; only new characters need it.
+- 2026-09-19 **End-of-season bonus is league-relative on purpose.** The first draft paid a fixed rate per
+  counting stat (a point per 50 PTS, 25 REB...). Measured on real exports that inflates with level, because
+  totals grow with both talent AND season length: a full season paid the best prep player 22 and the best pro
+  115 for the same achievement. Both halves are now measured against the league's own season - top 25 by total
+  (max +2) and multiples of the 5th-best total (max +2) - which pays #1 -> 4, #10 -> 3, #25 -> 2, median -> 0 in
+  every league. `commissioner/seasonbonus.py`; every number is a settings key.
+- 2026-09-19 **Four traps in FBPB3's exported HTML**, all found by running the parser against the live prep
+  export and all silent: an undefeated team's percentage reads `1.000` not `.652` (the 24-0 Tulips vanished from
+  the standings, which dropped their players from the ranking pool AND denied them a playoff bonus); the Season
+  Totals header repeats STL, so BLK is the 17th number after the season year; that header contains `3PM`/`3PA`,
+  so "find the numbers" reads every column one place out; and draft-pool players get pages with season lines
+  earned elsewhere (one showed 247 assists without playing a minute in the league). The standings team list is
+  the draft-pool filter. Award rows have nothing between the player and his team but a space, so a name matched
+  as "capitalised words" yields "Sid McFate Tulips", which matches nobody and pays nothing.
 - 2026-09-18 **A run pays `round(days / 7)` points.** 28 days pays 4, **35 days pays 5** and costs about three
   minutes more - so 35 is the chunk to sim when the point of a long run is giving people something to spend.
 - 2026-09-18 **Sim cost is ~480 s fixed + ~26 s per day** across three leagues; only the SIM DAY clicking scales,

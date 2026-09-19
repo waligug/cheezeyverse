@@ -38,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import characters as ch
+from . import seasonbonus
 from . import growth
 from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
 from .universe import config as cfg
@@ -582,6 +583,40 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
         _SIM_LOCK.release()
 
 
+def _season_bonuses(characters, settings, log):
+    """{character id: [(reason, points)]} for the season just played.
+
+    Computed BEFORE promotions run, from the league each character actually played in. After
+    them his league field says where he is going, so a kid promoted out of prep would be
+    measured against college's leaders, in a season he never played there - he would rank last
+    in everything and the bonus would quietly become a punishment for being good enough to move
+    up.
+
+    Never raises. Six HTML pages per league are parsed here, and a bonus that fails takes down
+    an offseason that has already aged, grown, promoted and drafted everybody.
+    """
+    out, caches = {}, {}
+    for c in characters:
+        if c.get("status") != "active":
+            continue
+        key = c.get("league")
+        if not key:
+            continue
+        html = ch.save_path(key).parent / "html"
+        if not html.exists():
+            continue
+        try:
+            rows = seasonbonus.for_character(
+                f'{c["first_name"]} {c["last_name"]}', html, settings,
+                caches.setdefault(key, {}))
+        except Exception as exc:
+            log(f'no season bonus for {c["first_name"]} {c["last_name"]}: {exc}')
+            continue
+        if rows:
+            out[c["id"]] = rows
+    return out
+
+
 def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
     settings = store.get_settings()
     season = int(season or settings.get("current_season", cfg.START_YEAR))
@@ -614,6 +649,14 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
         grown, _ = apply_growth(key, characters, season, log=log, dry_run=dry_run)
         result["grown"] += len(grown)
 
+    # Before movers(), so everyone is still measured against the league he played in.
+    season_bonus = _season_bonuses(characters, settings, log)
+    for c in characters:
+        rows = season_bonus.get(c["id"])
+        if rows:
+            log(f'{c["first_name"]} {c["last_name"]}: +{sum(p for _, p in rows)} season bonus ('
+                + ", ".join(f"{r.split(':', 1)[-1].strip()} {p:+d}" for r, p in rows) + ")")
+
     moving = movers(characters, season)
     log(f"moving up: {len(moving['college'])} to college, {len(moving['draft'])} into the draft")
     # One character the codec cannot find must not abort an offseason that has already moved
@@ -645,7 +688,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
     lump = int(settings.get("offseason_points", 15))
     bonus = int(settings.get("college_development_bonus", COLLEGE_DEVELOPMENT_BONUS))
     if not dry_run:
-        paid = developed = 0
+        paid = developed = earned = 0
         stayed = {c["id"] for c in moving["stay"]}
         for c in store.characters():
             if c.get("status") != "active":
@@ -656,12 +699,25 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
             if bonus and c.get("league") == "college" and c["id"] in stayed:
                 store.grant_points(c["id"], bonus, "college development")
                 developed += 1
+            # One ledger row per component, so a friend's history says WHY he was paid rather
+            # than showing one unexplained lump. Wrapped per character: a bonus that fails must
+            # not cost somebody the offseason lump he has already earned.
+            for why, amount in season_bonus.get(c["id"], []):
+                try:
+                    store.grant_points(c["id"], amount, why)
+                    earned += amount
+                except Exception as exc:
+                    log(f'could not pay "{why}" to {c["first_name"]} {c["last_name"]}: {exc}')
         if paid:
             log(f"paid {lump} offseason point(s) to {paid} character(s)")
         if developed:
             log(f"paid {bonus} development point(s) to {developed} who stayed in college")
+        if earned:
+            log(f"paid {earned} season-bonus point(s) across "
+                f"{len(season_bonus)} character(s)")
         result["paid"] = paid
         result["developed"] = developed
+        result["season_bonus"] = earned
 
     if not dry_run:
         store.set_setting("last_offseason", season)
