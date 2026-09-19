@@ -625,7 +625,8 @@ def _offseason_report(result):
         best = movers[0]
         lines.append("")
         lines.append(f'**Most improved: {best["name"]}** '
-                     f'+{best["gain"]} across his sheet ({best["from"]} to {best["to"]})')
+                     f'+{best["gain"]} across his sheet ({best["from"]} to {best["to"]}, '
+                     'stamina aside)')
         for m in movers[1:4]:
             lines.append(f'- {m["name"]} +{m["gain"]}')
         stalled = [m for m in movers if m["gain"] <= 0]
@@ -693,6 +694,17 @@ def _season_bonuses(characters, settings, log):
     return out
 
 
+# Stamina is excluded from the improvement figure, and this is not a fudge for one season.
+# On 2026-09-19 every character's Stamina was set administratively to a flat 70 - the quiz had
+# been producing 19-34, the bottom two percent of the league - and that one write is worth +2.0
+# to +2.8 of sheet average, against 0.0 to 1.4 of movement actually EARNED across the whole
+# season. Left in, "most improved" would have ranked by who started with the worst conditioning,
+# Tim first at 12 -> 70, and it would have stopped naming the one player who genuinely went
+# nowhere. A flat number that is identical for everybody carries no information about who
+# improved, this season or any season, so it does not belong in a measure of who improved.
+MOVER_FIELDS = [r for r in RATINGS if r != "Stamina"]
+
+
 def season_movers(characters, store, season, log=print):
     """[{name, from, to, gain}] - how far each character's sheet moved across the season.
 
@@ -720,7 +732,8 @@ def season_movers(characters, store, season, log=print):
             continue
         if len(rows) < 2:
             continue
-        start, end = _mean(rows[0].get("ratings") or {}), _mean(rows[-1].get("ratings") or {})
+        start = _mean(rows[0].get("ratings") or {}, MOVER_FIELDS)
+        end = _mean(rows[-1].get("ratings") or {}, MOVER_FIELDS)
         out.append({"name": f'{c["first_name"]} {c["last_name"]}',
                     "from": round(start, 1), "to": round(end, 1),
                     "gain": round(end - start, 1)})

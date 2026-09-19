@@ -13,9 +13,12 @@ Two things this pins that are easy to lose:
 
 `season_movers` reads `rating_snapshots`, which every Sim Week has written all year and nothing
 has ever read back. It compares the first and last snapshot of the season being closed, using
-the MEAN OF ALL EIGHTEEN RATINGS rather than FBPB3's own Overall - CONVENTIONS records that
-field as unverified and mostly zero, and the mean is the number the site has been colouring
-players by all season.
+the mean of the ratings rather than FBPB3's own Overall - CONVENTIONS records that field as
+unverified and mostly zero.
+
+STAMINA IS NOT IN THAT MEAN. It was set administratively to a flat 70 for everybody, which is
+worth more sheet average than a whole season of earned movement, so including it would rank
+"most improved" by who started with the worst conditioning.
 
     python tests/test_offseason_report.py
 """
@@ -28,7 +31,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from commissioner.codec.league_dat import RATINGS  # noqa: E402
-from commissioner.offseason import _offseason_report, season_movers  # noqa: E402
+from commissioner.offseason import (  # noqa: E402
+    MOVER_FIELDS, _offseason_report, season_movers)
 
 
 def _sheet(value):
@@ -69,6 +73,18 @@ def main():
     assert not any(m["name"].startswith(("Gone", "Brand")) for m in movers), movers
     # 2025's row must not drag Johnny's starting point down to 5
     assert movers[0]["from"] == 26.0, "a previous season's snapshot leaked into this one"
+
+    # STAMINA IS EXCLUDED. On 2026-09-19 every character's Stamina was set administratively to a
+    # flat 70, which is worth +2.0 to +2.8 of sheet average against 0.0 to 1.4 actually earned
+    # across the whole season. Left in, "most improved" ranks by who started with the worst
+    # conditioning and stops naming the man who genuinely went nowhere.
+    only_stamina = FakeStore([
+        {"character_id": "a", "season": 2026, "week": 1, "ratings": {**_sheet(20), "Stamina": 12}},
+        {"character_id": "a", "season": 2026, "week": 22, "ratings": {**_sheet(20), "Stamina": 70}},
+    ])
+    moved = season_movers([chars[0]], only_stamina, 2026)
+    assert moved and moved[0]["gain"] == 0.0,         f"a stamina-only change was counted as improvement: {moved}"
+    assert "Stamina" not in MOVER_FIELDS and len(MOVER_FIELDS) == len(RATINGS) - 1
 
     # a store with no history at all must not raise - the offseason has to finish regardless
     class Bare:
