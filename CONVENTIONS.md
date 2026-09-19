@@ -122,6 +122,24 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   so the codec accepts 0..150.
 - 2026-09-17 Rename + sign verified in-game together: renamed players kept their new names through a sim and the
   game's own save, and appeared in box scores under them.
+- 2026-09-18 **Stamina has no potential.** `POT_BY_RATING` covers the twelve skill ratings only; there is no
+  PotStamina in the save, so Stamina (like Quickness, Jumping, Strength, 3pUsage and Fouling) can simply be set and
+  it stays set. This is the one rating a floor works on without raising a ceiling first. `tools/raise_stamina.py`.
+- 2026-09-18 **The quiz produces badly conditioned characters.** Measured against CV_Prep's own 240 rostered
+  players: median Stamina 65, lower quartile 52, one man in 240 below 30. All seven characters sat at 19-34, i.e.
+  the bottom two percent of the league. The commissioner's floor is **70** (the 59th percentile, deliberately above
+  the league median, not merely out of the cellar); 50 would have been the conservative "fix the outlier" choice at
+  the 18th. Whether this affects how often the AI coach benches them is UNKNOWN and should not be asserted: the
+  least-played character has the group's lowest Stamina but its second-highest minutes per game, which is the
+  opposite of what a conditioning limit looks like. Run `tools/raise_stamina.py` after each new character.
+- 2026-09-18 **Sim cost is ~480 s fixed + ~26 s per day** across three leagues; only the SIM DAY clicking scales,
+  and it is linear at ~8.7 s per day per league. Measured: 4x7 days = 2663.1 s, 1x28 days = 1210.4 s, so one
+  monthly run is **2.2x faster** than four weekly ones for the same basketball. `docs/SIM_SPEED.md`.
+- 2026-09-18 **Batching does not starve fringe characters of minutes.** The worry was that `_dress_characters`
+  runs once per run, so a 28-day run lets the coach bench somebody for a month. Measured the opposite: the 28-day
+  run needed 2 re-dresses once, against 3-4 every week across the four weekly runs, and Tim Turner gained 5 games
+  and 79 minutes with zero re-dresses. What fixed him was moving him to a team he fits (0 games in 16 on JER,
+  a regular on MTL) - re-dressing is a safety net, not the thing that earns minutes.
 
 ## FBPB3 HTML Output (the public site) — reference: the Stabbyverse sites
 Captured 2026-09-17 from the live Stabbyverse sites into `fixtures/html-output/svprep/`
