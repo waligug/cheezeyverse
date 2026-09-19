@@ -1,4 +1,8 @@
 param([string]$Path)
+# Stop on error, because a .NET method exception is NON-TERMINATING in a -File script:
+# without this a missing Jet provider printed nothing, exited 0, and the caller parsed the
+# silence as an empty result set. It must sit AFTER param(), which has to be first.
+$ErrorActionPreference = "Stop"
 $cs = "Provider=Microsoft.Jet.OLEDB.4.0;Data Source=$Path"
 $conn = New-Object System.Data.OleDb.OleDbConnection $cs
 try { $conn.Open() } catch { $conn = New-Object System.Data.OleDb.OleDbConnection ("Provider=Microsoft.ACE.OLEDB.12.0;Data Source=$Path"); $conn.Open() }

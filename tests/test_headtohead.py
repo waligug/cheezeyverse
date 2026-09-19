@@ -142,6 +142,25 @@ def main():
     assert str(day_to_date(185, "2026-10-20")) == "2027-04-22", \
         "day 185 must be the last day of the regular season"
 
+    # ---- the launcher, which is where this nearly shipped empty ---------------------------
+    # query() ran plain "powershell". On Windows that is the 64-BIT shell, Jet is registered
+    # 32-bit only, and a .NET exception is non-terminating in a -File script - so it printed
+    # nothing, exited 0, and the caller read the silence as an empty result. Every character
+    # would have had zero games, with no error anywhere.
+    import os
+    from commissioner.headtohead import powershell, query
+    wow = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "SysWOW64",
+                       "WindowsPowerShell", "v1.0", "powershell.exe")
+    if os.path.exists(wow):
+        assert powershell() == wow, f"not using the 32-bit shell: {powershell()}"
+    # and a failure must RAISE rather than come back as an empty list
+    try:
+        query(ROOT / "no-such-database.mdb", "SELECT 1")
+    except Exception:
+        pass
+    else:
+        raise AssertionError("a missing database returned rows instead of raising")
+
     print("OK  head-to-head: the filler's games stay out, preseason stays out, numbers match")
     return 0
 

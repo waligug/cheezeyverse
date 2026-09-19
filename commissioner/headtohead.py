@@ -159,12 +159,32 @@ MDB_SQL = {
 }
 
 
+def powershell():
+    """The 32-BIT PowerShell, because Jet is a 32-bit provider and only it is registered.
+
+    This is not a preference. Under the 64-bit shell - which is what plain "powershell" resolves
+    to on SERVERPC - opening the connection throws "The 'Microsoft.Jet.OLEDB.4.0' provider is
+    not registered on the local machine". An earlier version of this function ran plain
+    "powershell" and its docstring asserted the script "already knows to run under the right
+    bitness". It does not, it never did, and I had not checked: the claim was invented.
+
+    The consequence was the worst kind. A .NET method exception is NON-TERMINATING in a -File
+    script, so PowerShell printed nothing, exited 0, and query() parsed the empty output as an
+    empty CSV. games.json would have published with zero games for everybody, no error anywhere
+    and nothing in the log - a feature that looks built and silently holds nothing.
+    """
+    import os
+    wow = os.path.join(os.environ.get("WINDIR", r"C:\Windows"), "SysWOW64",
+                       "WindowsPowerShell", "v1.0", "powershell.exe")
+    return wow if os.path.exists(wow) else "powershell"
+
+
 def query(mdb_path, sql, script=None):
     """Run one SQL statement against an Access MDB and return a list of dicts.
 
-    Access needs the 32-bit Jet provider, which is why this shells out to PowerShell rather than
-    using a Python driver: `commissioner/export/mdb_query.ps1` is the same helper the codec's own
-    verification used, and it already knows to run under the right bitness.
+    Raises on failure rather than returning nothing. The scripts set $ErrorActionPreference =
+    "Stop" so a provider or SQL problem is a non-zero exit instead of silence, and an empty
+    result here now means the table really is empty.
     """
     import csv
     import io
@@ -172,12 +192,18 @@ def query(mdb_path, sql, script=None):
 
     script = script or (Path(__file__).resolve().parent / "export" / "mdb_query.ps1")
     out = subprocess.run(
-        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
+        [powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
          "-Path", str(mdb_path), "-Sql", sql],
         capture_output=True, text=True, timeout=180)
     if out.returncode != 0:
         raise RuntimeError(f"mdb_query failed: {(out.stderr or out.stdout)[:300]}")
-    return list(csv.DictReader(io.StringIO(out.stdout)))
+    rows = list(csv.DictReader(io.StringIO(out.stdout)))
+    if not rows and not out.stdout.strip():
+        # not even a header line: the script produced nothing at all, which is what the 64-bit
+        # shell did for months of nobody noticing
+        raise RuntimeError(f"mdb_query returned no output at all for {sql[:60]!r} - "
+                           f"check the Jet provider and the PowerShell bitness ({powershell()})")
+    return rows
 
 
 def from_mdb(mdb_path, characters, runs=None, league=None, opener=None):

@@ -653,7 +653,16 @@ def _write_games_json(key, st, emit):
     dest.mkdir(parents=True, exist_ok=True)
     (dest / "games.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
     played = sum(len(c["games"]) for c in data["characters"])
-    emit("publish", f"{played} game line(s) for {len(data['characters'])} character(s)", key)
+    if not played:
+        # The failure this guards is specific and was nearly shipped: the MDB reader ran the
+        # 64-bit PowerShell, Jet is 32-bit only, and the error was non-terminating - so it
+        # printed nothing, exited 0, and every character got an empty list. A feature that looks
+        # built and holds nothing is worse than one that is obviously missing.
+        emit("publish", f"{key}: the MDB gave no game lines at all for "
+                        f"{len(data['characters'])} character(s) - head-to-head will be empty",
+             key)
+    else:
+        emit("publish", f"{played} game line(s) for {len(data['characters'])} character(s)", key)
 
 
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
