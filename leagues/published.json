@@ -1,5 +1,5 @@
 {
- "published_at": "2026-09-19T10:02:19",
+ "published_at": "2026-09-19T10:10:15",
  "leagues": [
   {
    "league": "prep",
@@ -7,7 +7,7 @@
    "pages": 605,
    "path": "C:\\claude\\hoops-universe\\site\\leagues\\prep",
    "stats": {
-    "players": 184,
+    "players": 190,
     "elite": {
      "PTS": 201,
      "REB": 137,
@@ -23,11 +23,11 @@
    "pages": 610,
    "path": "C:\\claude\\hoops-universe\\site\\leagues\\college",
    "stats": {
-    "players": 191,
+    "players": 196,
     "elite": {
      "PTS": 530,
      "REB": 239,
-     "AST": 60,
+     "AST": 76,
      "STL": 27,
      "BLK": 25
     }
@@ -39,12 +39,12 @@
    "pages": 750,
    "path": "C:\\claude\\hoops-universe\\site\\leagues\\pro",
    "stats": {
-    "players": 252,
+    "players": 257,
     "elite": {
      "PTS": 1127,
      "REB": 448,
      "AST": 312,
-     "STL": 69,
+     "STL": 71,
      "BLK": 91
     }
    }

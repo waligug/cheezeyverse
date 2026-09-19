@@ -641,6 +641,13 @@ table.cv-table tr:nth-child(even) td { background: var(--cream2); }
    the same on every platform. */
 .cv-meter-stat { display: inline-flex; align-items: baseline; gap: 7px; }
 
+/* A heading inside a tab panel: smaller than the card's own, same uppercase key as the rating
+   group headings so a panel reads as one thing rather than a stack of cards. */
+.cv-subhead {
+  margin: 16px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--crust);
+}
+
 .cv-fold { margin: 0 0 14px; border: 1px solid var(--crust); border-radius: 10px; background: var(--row-alt); }
 .cv-fold > summary {
   list-style: none; cursor: pointer; padding: 11px 14px;
