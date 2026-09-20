@@ -14,3 +14,4 @@ universe/local_store.json
 # once; the store holds real characters and real owner ids.
 universe/local_store*.json*
 universe/sim_runs.json
+universe/run_in_progress.json

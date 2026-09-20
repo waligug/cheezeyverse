@@ -98,6 +98,99 @@ def round_one_days(spec):
     return 1 + 2 * (int(live[0]) - 1)
 
 
+MARKER = ROOT / "universe" / "run_in_progress.json"
+
+
+def interrupted_run():
+    """The run that started and never finished, or None. Read it before starting another.
+
+    WHAT THIS CATCHES, and why a crash mid-sim is not like the other failures here. Every
+    failure run_sim can SEE is already handled: a failed write check restores the backup, a
+    store that refuses restores the backup, and both stop before the game is opened. None of
+    that runs when the machine loses power or is restarted mid-run, because the cleanup is code
+    and the code stops too.
+
+    What that leaves is the one state nothing else can tell apart from a clean one. Point spends
+    are written into league.dat and verified FIRST, and only then marked applied in the store -
+    deliberately, so a crash between them leaves the work done rather than lost. But the store
+    still lists those requests as pending, so the next run applies the same deltas to the same
+    players a second time, and a character quietly gets double what he paid for. An activation
+    is worse: he is still `pending`, so the next run claims him a SECOND reserve slot and stamps
+    him into it, and now there are two of him in the league.
+
+    The marker is written before the first save is touched and deleted when the run ends, by
+    whichever path it ends on. Its presence means: a run began, and nothing got to tidy up.
+    """
+    try:
+        return json.loads(MARKER.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _mark_running(keys, days, season):
+    MARKER.parent.mkdir(parents=True, exist_ok=True)
+    MARKER.write_text(json.dumps({
+        "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "leagues": list(keys), "days": days, "season": season,
+        # Leagues whose save has been written but whose store writes have not finished yet -
+        # added before the store is touched and removed once it agrees. Anything still listed
+        # here after a crash is a save holding work the store does not know about, and the
+        # refusal names it along with the backup that undoes it.
+        "unconfirmed": [],
+    }, indent=1), encoding="utf-8")
+
+
+def _mark_saved(key, backup):
+    """This league's save now holds work the store has not been told about yet."""
+    _update_marker(lambda state: state.setdefault("unconfirmed", []).append(
+        {"league": key, "backup": str(backup)}))
+
+
+def _mark_synced(key):
+    """The store agrees about this league: its save is no longer ahead of anything."""
+    def drop(state):
+        state["unconfirmed"] = [r for r in state.get("unconfirmed") or []
+                                if r.get("league") != key]
+    _update_marker(drop)
+
+
+def _update_marker(change):
+    state = interrupted_run()
+    if not state:
+        return
+    change(state)
+    try:
+        MARKER.write_text(json.dumps(state, indent=1), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _clear_marker():
+    try:
+        MARKER.unlink()
+    except OSError:
+        pass
+
+
+def describe_interruption(state):
+    """The message a person needs to put an interrupted run right."""
+    when = state.get("started_at", "an earlier run")
+    done = state.get("unconfirmed") or []
+    lines = [f"a sim started at {when} never finished - the machine stopped in the middle of it."]
+    if done:
+        lines.append("These saves were already written, and the store was NOT told, so running "
+                     "again would apply the same spends twice and claim a second slot for "
+                     "anyone activated:")
+        for row in done:
+            lines.append(f"  {row['league']}: restore {row['backup']}")
+        lines.append("Restore each one (tools/restore_backup.py --restore <folder name>), then "
+                     "delete universe/run_in_progress.json and run the week again.")
+    else:
+        lines.append("Nothing had been committed yet, so no save holds work the store does not "
+                     "know about. Delete universe/run_in_progress.json and run the week again.")
+    return "\n".join(lines)
+
+
 def phase_totals(steps, total):
     """[(phase, seconds)] for one run, biggest first, from the step log it already keeps.
 
@@ -927,6 +1020,16 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             emit("backup", "closing a stray FBPB3 first")
             FBPB3.kill()
 
+        # A run that died with the machine leaves work in the saves that the store was never
+        # told about. Running again on top of that is the one way to double somebody's points,
+        # so it stops here - a dry run is exempt, because it writes nothing and is a reasonable
+        # thing to do while working out what happened.
+        if not dry_run:
+            stale = interrupted_run()
+            if stale:
+                raise RuntimeError(describe_interruption(stale))
+            _mark_running(keys, days, season_now)
+
         # ---- 1. apply everything owed, per league, before the game opens ----------------------
         for key in keys:
             spec = cfg.BY_KEY[key]
@@ -970,6 +1073,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                               f"would be written to {spec.save_name}", key)
                 continue
             if activated or applied or dressed:
+                # Listed as at-risk BEFORE the save is written, not after: a crash between the
+                # write and the store is the whole point of this, and a marker updated after
+                # the write would miss exactly that window.
+                _mark_saved(key, dest)
                 try:
                     ch.commit(L, expect_a + expect_b)
                 except Exception as exc:
@@ -991,6 +1098,9 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                     written.append(f'{activated[len(written)]["first_name"]} '
                                    f'{activated[len(written)]["last_name"]}')
                 st.mark_applied(applied)
+                # The store agrees now, so this league comes back off the at-risk list. The
+                # window that just closed is the one between ch.commit and this line.
+                _mark_synced(key)
                 result["applied"] += len(applied)
                 result["activated"] += len(activated)
                 emit("apply", f"{len(activated)} characters in, {len(applied)} spends applied", key)
@@ -1214,6 +1324,11 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # first rollover everybody's debut is nonsense. The season is the one read at the top of
         # the run rather than a fresh request: this is the worst possible place for a network
         # call, since the lock is still held.
+        # Cleared on EVERY path the code itself takes, including the failures - a raised
+        # exception means the cleanup above ran and the save was put back. The only way this
+        # file survives is the machine stopping between the two, which is exactly what it is
+        # there to report.
+        _clear_marker()
         try:
             phases = phase_totals(steps, time.time() - started)
             if phases and not dry_run:
