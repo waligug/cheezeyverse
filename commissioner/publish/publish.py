@@ -11,9 +11,11 @@ from __future__ import annotations
 
 import json
 import re
+import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -319,25 +321,84 @@ def deploy_losses(live_root, staged_root):
     return losses
 
 
+def _live_shadow(git, branch, into):
+    """A stand-in for the live site holding only what `deploy_losses` actually reads.
+
+    The guard asks the published branch three things: which league folders are live, which of
+    their data files exist, and what season each stats.json claims. That is a directory listing
+    and three small files - but the only way to hand it a *folder* used to be checking the whole
+    branch out, and the branch is 112 MB across 3,258 files. Measured on 2026-09-20, the deploy
+    spent about 40 s writing that checkout, deleting it again and copying site/ over the top,
+    purely so a guard could read three JSON files and call iterdir().
+
+    So the branch is read with `ls-tree` and `show` instead, and only the paths the guard looks
+    at are materialised. Every league directory is created whatever it contains, so a league that
+    somehow published without an index.htm still registers as live and is still protected.
+    """
+    listing = git("ls-tree", "-r", "--name-only", branch, check=False)
+    into.mkdir(parents=True, exist_ok=True)
+    if listing.returncode:
+        return into
+    wanted = ("index.htm", "games.json", "stats.json")
+    for path in listing.stdout.splitlines():
+        path = path.strip()
+        if not path:
+            continue
+        parts = path.split("/")
+        # len >= 3, because `leagues/` holds published.json as well as the league folders, and
+        # a shadow that turned that file into a DIRECTORY made the guard read it as a league
+        # with no pages and refuse every deploy: "leagues/published.json: live, and this machine
+        # has no pages for it". Only a path with something after the league name proves the
+        # league name is a folder.
+        if parts[0] == "leagues" and len(parts) >= 3:
+            (into / "leagues" / parts[1]).mkdir(parents=True, exist_ok=True)
+        keep = (len(parts) == 3 and parts[0] == "leagues" and parts[2] in wanted) or (
+            len(parts) == 1 and path.endswith(".html"))
+        if not keep:
+            continue
+        target = into / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.name == "stats.json":
+            # The one file whose CONTENT is read. Bytes, then utf-8: text mode would decode it
+            # in the console codepage, and a season label is not guaranteed to be ASCII.
+            blob = subprocess.run(["git", "show", f"{branch}:{path}"], cwd=ROOT,
+                                  capture_output=True)
+            target.write_bytes(blob.stdout)
+        else:
+            target.touch()
+    return into
+
+
 def git_push(message=None, branch=PAGES_BRANCH, remote="origin", allow_loss=False):
     """Publish `site/` to the Pages branch, league pages and all.
 
-    `site/leagues/` is deliberately gitignored: it is 58 MB, it is rewritten in full on every
+    `site/leagues/` is deliberately gitignored: it is 112 MB, it is rewritten in full on every
     single publish, and committing it to the main history would make the repository unusable
     within a month. But a plain `git add site` therefore pushed the character site with all three
     league sites MISSING - the hub would deploy with three dead links and nothing would say why.
 
-    So the pages go to their own orphan branch through a temporary worktree: the main history
-    stays clean, the deployed site is complete, and each publish replaces the branch's single
-    commit rather than adding to it. `git add -f` is what gets past the ignore rule; it is
-    deliberate here and nowhere else.
+    So the pages go to their own branch as a single orphan commit, built with plumbing against a
+    throwaway index: the main history and the main index stay untouched, the deployed site is
+    complete, and each publish replaces the branch's one commit rather than adding to it.
+    `git add -f` is what gets past the ignore rule; it is deliberate here and nowhere else.
+
+    NO WORKTREE, AND NOTHING IS COPIED. This used to add a worktree (a 112 MB checkout), delete
+    every file in it, copy site/ over the top and commit that - three full passes over the tree
+    to produce a commit `write-tree` can make from site/ where it already sits. Measured on
+    2026-09-20: the copy alone was 11.7 s and the delete 2.4 s, with the checkout larger than
+    either, against 3.6 s to hash all 112 MB straight out of site/. The deploy was the
+    third-biggest line in a sim week and most of it was moving files around.
+
+    The two files that belong to the DEPLOY rather than to the sources - .nojekyll, and a CNAME
+    inherited from the branch - go into the index as blobs, so site/ is never modified to make a
+    deploy work.
     """
     message = message or f"Publish the Cheezeyverse {datetime.now():%Y-%m-%d %H:%M}"
     if not (SITE / "leagues").exists():
         raise RuntimeError("site/leagues does not exist yet - publish the league sites first")
 
-    def git(*args, cwd=ROOT, check=True):
-        r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    def git(*args, cwd=ROOT, check=True, env=None):
+        r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, env=env)
         if check and r.returncode and "nothing to commit" not in (r.stdout + r.stderr):
             raise RuntimeError(f"git {' '.join(args)} failed: {r.stderr.strip() or r.stdout.strip()}")
         return r
@@ -347,61 +408,72 @@ def git_push(message=None, branch=PAGES_BRANCH, remote="origin", allow_loss=Fals
             f"no git remote called {remote!r}. Create the GitHub repository, add it as a remote, "
             "and turn on Pages for the " + branch + " branch.")
 
+    exists = git("rev-parse", "--verify", branch, check=False).returncode == 0
     kept_cname = ""
-    if git("rev-parse", "--verify", f"{branch}:CNAME", check=False).returncode == 0:
+    if exists and git("rev-parse", "--verify", f"{branch}:CNAME", check=False).returncode == 0:
         kept_cname = git("show", f"{branch}:CNAME", check=False).stdout.strip()
 
-    work = ROOT / "tmp" / "pages-worktree"
-    if work.exists():
-        git("worktree", "remove", "--force", str(work), check=False)
-        shutil.rmtree(work, ignore_errors=True)
-    exists = git("rev-parse", "--verify", branch, check=False).returncode == 0
-    # `git worktree add --orphan <path> <branch>` is rejected: --orphan takes the branch name via
-    # -b and refuses a commit-ish alongside it.
-    if exists:
-        git("worktree", "add", str(work), branch)
-    else:
-        git("worktree", "add", "--detach", str(work))
-        git("checkout", "--orphan", branch, cwd=work)
-        git("rm", "-rf", "--cached", ".", cwd=work, check=False)
-    try:
-        # BEFORE the folder is emptied, while it still holds what the public site is serving.
-        # See deploy_losses: this is the only moment the deploy can compare itself against what
-        # it is about to replace, and a force push has no undo.
-        losses = deploy_losses(work, SITE)
-        if losses and not allow_loss:
-            raise RuntimeError(
-                "this deploy would REMOVE published work from the live site:\n  - "
-                + "\n  - ".join(losses)
-                + "\nPublish from the machine that owns the saves (site/leagues/ is gitignored, "
-                  "so only that machine has the league pages), or pass allow_loss=True if the "
-                  "removal is genuinely wanted.")
-        for child in work.iterdir():
-            if child.name != ".git":
-                shutil.rmtree(child) if child.is_dir() else child.unlink()
-        shutil.copytree(SITE, work, dirs_exist_ok=True)
-        (work / ".nojekyll").write_text("", encoding="utf-8")   # or Pages skips folders like js/
+    # A worktree left behind by the old deploy, which nothing uses any more. Removing it is not
+    # housekeeping: git still counts a registered worktree as a checkout of that branch, and
+    # some operations on the branch refuse while one exists.
+    stale = ROOT / "tmp" / "pages-worktree"
+    if stale.exists():
+        git("worktree", "remove", "--force", str(stale), check=False)
+        shutil.rmtree(stale, ignore_errors=True)
+    git("worktree", "prune", check=False)
 
-        # A custom domain lives in a CNAME file IN the published branch, and this publish replaces
-        # that branch wholesale - so without this the domain would break on every single sim.
+    (ROOT / "tmp").mkdir(parents=True, exist_ok=True)
+    scratch = Path(tempfile.mkdtemp(prefix="pages-", dir=ROOT / "tmp"))
+    try:
+        if exists:
+            # BEFORE anything is pushed. See deploy_losses: this is the only moment the deploy
+            # can compare itself against what it is about to replace, and a force push has no
+            # undo.
+            losses = deploy_losses(_live_shadow(git, branch, scratch / "live"), SITE)
+            if losses and not allow_loss:
+                raise RuntimeError(
+                    "this deploy would REMOVE published work from the live site:\n  - "
+                    + "\n  - ".join(losses)
+                    + "\nPublish from the machine that owns the saves (site/leagues/ is "
+                      "gitignored, so only that machine has the league pages), or pass "
+                      "allow_loss=True if the removal is genuinely wanted.")
+
+        # A throwaway index, so the repository's real index is never touched and a deploy that
+        # dies halfway cannot leave 3,258 staged files behind in somebody's working copy.
+        env = {**os.environ, "GIT_INDEX_FILE": str(scratch / "index"),
+               "GIT_DIR": str(ROOT / ".git"), "GIT_WORK_TREE": str(SITE)}
+        git("add", "-A", "-f", ".", cwd=SITE, env=env)
+
+        extras = {".nojekyll": ""}              # or Pages skips folders like js/
+        # A custom domain lives in a CNAME file IN the published branch, and this publish
+        # replaces that branch wholesale - so without this the domain would break on every sim.
         # site/CNAME is the source of truth; keep whatever the branch already had otherwise.
-        domain = (SITE / "CNAME")
-        if domain.exists():
-            shutil.copy2(domain, work / "CNAME")
-        elif kept_cname:
-            (work / "CNAME").write_text(kept_cname, encoding="utf-8")
-        git("add", "-f", ".", cwd=work)
+        if not (SITE / "CNAME").exists() and kept_cname:
+            extras["CNAME"] = kept_cname + "\n"
+        for name, text in extras.items():
+            blob = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=ROOT,
+                                  input=text.encode("utf-8"), capture_output=True)
+            if blob.returncode:
+                raise RuntimeError(
+                    f"could not stage {name}: {blob.stderr.decode(errors='replace').strip()}")
+            git("update-index", "--add", "--cacheinfo",
+                f"100644,{blob.stdout.decode().strip()},{name}", env=env)
+
+        tree = git("write-tree", env=env).stdout.strip()
         # check=True, deliberately. A commit that fails - most commonly because the machine has
-        # no git user.name/user.email - used to be swallowed here, leaving the orphan branch
-        # with no commit at all. The PUSH then failed with "src refspec HEAD does not match
-        # any", which describes a symptom three steps downstream of the cause and sent the
-        # reader looking at refspecs. git() already tolerates "nothing to commit".
-        git("commit", "-m", message, cwd=work)
-        git("push", "--force", remote, f"HEAD:{branch}", cwd=work)
+        # no git user.name/user.email - used to be swallowed here, leaving the branch with no
+        # commit at all; the push then failed with "src refspec HEAD does not match any", which
+        # describes a symptom three steps downstream of the cause.
+        commit = git("commit-tree", tree, "-m", message, env=env).stdout.strip()
+        if not commit:
+            raise RuntimeError("git commit-tree produced no commit; is user.name/user.email set?")
+        git("update-ref", f"refs/heads/{branch}", commit)
+        # The commit id, not HEAD: HEAD is the working checkout and has nothing to do with this.
+        git("push", "--force", remote, f"{commit}:refs/heads/{branch}")
     finally:
-        git("worktree", "remove", "--force", str(work), check=False)
-        shutil.rmtree(work, ignore_errors=True)
+        shutil.rmtree(scratch, ignore_errors=True)
     return message
+
 
 
 if __name__ == "__main__":
