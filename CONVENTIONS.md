@@ -608,19 +608,36 @@ What we know, from reading strings in FBPB3.exe and from testing on a throwaway 
   two readings is incomplete, and the one with a coordinate behind it is the one to trust.
 - Simming one day through Hot Seat SIM DAY - the path the driver uses - creates no `.box` file.
 
-Two hypotheses remain, neither tested: that a different sim path records games, or that FBPB3
-only stores boxes for games involving a **human-coached** team, of which our leagues have none.
+### The human-coached hypothesis is dead (measured 2026-09-19)
 
-The second is often justified by "the Stabbyverse sites have box scores" - but our only capture
-of them, `fixtures/html-output/svprep/`, holds 273 `boxes/box*.htm` LINKS and no `boxes/`
-directory, because the capture never fetched them. Those are the same links this section opens
-by saying prove nothing. So that is not evidence yet; fetching one of their box pages
-would make it evidence, and nobody has.
+Both halves were checked against the live Stabbyverse site rather than the capture, and the
+hypothesis does not survive it.
 
-The *other* half does hold, and should not have been thrown out with it:
-`fixtures/html-output/svprep/humancoaches.htm` exists in the capture, so their league really does
-have human coaches where ours has none. That is the one real piece of support the
-human-coached hypothesis has.
+- **Their box scores are real.** 12 of their 273 links, sampled across the whole season
+  (`box1-1`, `box40-2`, `box124-1`, `box183-1`, ...), all return HTTP 200 at ~22 KB. So FBPB3
+  does produce `boxes/` for a league like theirs. That is the evidence this section said nobody
+  had fetched.
+- **And they have NO human coaches.** `humancoaches.htm` holds the header row and nothing else -
+  no entries, and `linkhuman` appears zero times - in the 2026-09-17 capture *and* on the live
+  page today. The whole file is 1953 bytes.
+
+So a league with no human coaches gets a box score for every game. **Ours has none for any.**
+The difference between the two leagues is therefore not the coaches, and `Human Coaches Only` on
+those dropdowns is not the explanation either - on that setting, a league with no human coaches
+would get exactly what theirs gets only if it meant the opposite of what it says.
+
+Note how the dead half got its support: this file argued their league "really does have human
+coaches" because `humancoaches.htm` **exists in the capture**. Every FBPB3 export writes that
+page whether or not anybody coaches. The claim was read off a filename instead of the file -
+the same convenience-copy mistake this document warns about twice elsewhere, made while
+reasoning about evidence.
+
+**What is still open**: which setting or sim path records a `.box` file at all. Ours never
+creates the `box\` folder, so there is nothing for HTML Output to convert, and every output-side
+setting is downstream of that. The cheap experiment nobody has run: on a throwaway save, sim a
+day and look for `box\`, then repeat with the three-valued dropdowns set each way - the driver
+verifies combo values now (`FBPB3.combo`), which it did not when this was last attempted, so the
+result would finally mean something.
 
 Not worth chasing for its own sake - the scores read fine as text - but worth knowing before
-anybody asks why they cannot click a result.
+anybody asks why they cannot click a result. Somebody did ask, which is why this got tested.
