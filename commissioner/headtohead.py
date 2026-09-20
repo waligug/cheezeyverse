@@ -307,17 +307,41 @@ def query(mdb_path, sql, script=None):
     the merge that would have preserved 161 game lines never ran at all.
     """
     import csv
-    import io
+    import os
     import subprocess
+    import tempfile
 
+    # THE RESULT COMES BACK THROUGH A FILE, NOT THROUGH STDOUT, and that is about text rather
+    # than size. Ten of prep's 425 players are spelled with an accent - Gerald Rudloff carries
+    # an acute, and so do Aytac Donis and Bartolome Drexler. Windows PowerShell 5.1 writes a
+    # redirected stdout in the console codepage whatever [Console]::OutputEncoding says, so
+    # those bytes reached Python as undecodable cp1252, the reader thread raised, and the query
+    # returned NOTHING AT ALL. Not a mangled name - an empty result set, from a process that
+    # exited 0. It archived 390 player seasons with every name blank, and pro looked perfect
+    # because its names happen to be ASCII.
+    #
+    # `Export-Csv -Encoding UTF8` writes the file with an explicit encoding and a BOM, which is
+    # why the .ps1 has always had an -Out path and why this now uses it.
     script = script or (Path(__file__).resolve().parent / "export" / "mdb_query.ps1")
+    handle, csv_path = tempfile.mkstemp(suffix=".csv", prefix="cv-mdb-")
+    os.close(handle)
     out = subprocess.run(
         [powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
-         "-Path", str(mdb_path), "-Sql", sql],
-        capture_output=True, text=True, timeout=180)
-    if out.returncode != 0:
-        raise RuntimeError(f"mdb_query failed: {(out.stderr or out.stdout)[:300]}")
-    return list(csv.DictReader(io.StringIO(out.stdout)))
+         "-Path", str(mdb_path), "-Sql", sql, "-Out", csv_path],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180)
+    try:
+        if out.returncode == 0:
+            # utf-8-sig: Export-Csv writes a BOM, and a BOM left in place turns the first
+            # column's name into something no lookup will ever match.
+            text = Path(csv_path).read_text(encoding="utf-8-sig", errors="replace")
+            return list(csv.DictReader(text.splitlines()))
+    finally:
+        try:
+            os.unlink(csv_path)
+        except OSError:
+            pass
+    # Only a non-zero exit reaches here: the success path returned above.
+    raise RuntimeError(f"mdb_query failed: {(out.stderr or out.stdout)[:300]}")
 
 
 def from_mdb(mdb_path, characters, runs=None, league=None, opener=None, season=None):

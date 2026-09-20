@@ -86,8 +86,9 @@ def publish_league(key):
     # removed it from the site, and the comment on that call claimed the opposite.
     stats = _write_stats(src, dst, key)
     games = _write_games(src, dst, key)
+    careers = _write_careers(src, dst, key)
     return {"league": key, "name": spec.name, "pages": pages, "path": str(dst),
-            "stats": stats, "games": games}
+            "stats": stats, "games": games, "careers": careers}
 
 
 def _write_games(src, dst, key):
@@ -154,6 +155,69 @@ def _write_games(src, dst, key):
     except Exception as exc:
         print(f"  no games.json for {key} ({exc}); the pages themselves are fine")
         return None
+
+
+def _write_careers(src, dst, key):
+    """Archive this season's stat lines, then emit `careers.json`: every career, all-time.
+
+    THE ARCHIVING IS THE POINT, and it happens here rather than in the sim because a publish is
+    the one step that always runs and always has the MDB beside it. `SeasonStats` is rebuilt
+    from the save every export, and the save retires people - four pro players aged 34-35 went
+    at the 2026 rollover and are already gone from the file. Whatever is not written down before
+    a man retires is gone for good, so it gets written down every publish.
+
+    A finished season is archived once and never rewritten; only the season being played is
+    refreshed. See statsarchive for why identity is the name and birthday rather than the id.
+
+    Never fatal, like the other two. A missing MDB is a league that has not exported yet.
+    """
+    try:
+        from .. import statsarchive
+        from ..simweek import store
+        mdb = Path(src).parent / "LeagueOutput.mdb"
+        if not mdb.exists():
+            return None
+        try:
+            season = int(store().get_settings().get("current_season", 0)) or None
+        except Exception:                                        # noqa: BLE001
+            season = None
+        statsarchive.capture(key, mdb, log=lambda m: None, overwrite_current=season)
+        rows = statsarchive.careers(key)
+        if not rows:
+            return None
+        seasons = sorted({s for s, _ in statsarchive.archived_seasons(key)})
+        # The leaderboards the site shows, worked out here so the browser does not have to sort
+        # a few hundred careers six ways on every page load.
+        boards = {stat: [_career_line(r, stat) for r in statsarchive.leaders(rows, stat, 10)]
+                  for stat in ("Points", "Rebounds", "Assists", "Steals", "Blocks",
+                               "efficiency", "Minutes", "3PM")}
+        payload = {
+            "league": key, "seasons": seasons,
+            "generated": datetime.now().isoformat(timespec="seconds"),
+            "leaders": boards,
+            # TOTALS ONLY, not the year-by-year lines. Published whole this was 297 KB for pro,
+            # and the index page already fetches one file per league - so a browser that wanted
+            # three leaderboards was pulling most of a megabyte to render thirty rows. The
+            # per-season detail is not lost: it stays in universe/history, which is in git and
+            # is the record that matters. A career page can be served its own file when there
+            # is a career page to serve.
+            "careers": [{k: v for k, v in r.items() if k != "seasons"}
+                        for r in sorted(rows, key=lambda r: -(r.get("Points") or 0))],
+        }
+        (dst / "careers.json").write_text(json.dumps(payload, separators=(",", ":")),
+                                          encoding="utf-8")
+        return {"careers": len(rows), "seasons": seasons}
+    except Exception as exc:                                     # noqa: BLE001
+        print(f"  no careers.json for {key} ({exc}); the pages themselves are fine")
+        return None
+
+
+def _career_line(row, stat):
+    """One leaderboard entry: who, how much, and enough context to be worth reading."""
+    return {"name": row.get("name", ""), "value": row.get(stat, 0),
+            "games": row.get("Games", 0), "team": row.get("team", ""),
+            "from": row.get("first_season"), "to": row.get("last_season"),
+            "ppg": row.get("ppg"), "rpg": row.get("rpg"), "apg": row.get("apg")}
 
 
 def _write_stats(src, dst, key):
