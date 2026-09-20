@@ -68,6 +68,13 @@ class Transport:
 
 
 class StatusTests(unittest.TestCase):
+    def test_unknown_stage_or_unselected_league_preserves_progress(self):
+        progress = ss.RunProgress(["prep", "college"], 28)
+        before = progress.at("sim", "prep", 0.5)
+        for stage, league in (("sim", "pro"), ("publish", "prep"), ("new-stage", None)):
+            self.assertEqual(progress.at(stage, league), before)
+        self.assertGreater(progress.at("save", "prep"), before)
+
     def test_single_message_and_thread_query(self):
         session = Session()
         message = ss.WebhookMessage("https://discord.test/api/webhooks/1/secret?thread_id=9&wait=false", session)

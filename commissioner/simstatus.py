@@ -51,7 +51,10 @@ class RunProgress:
         self.total, self.percent = offset, 0
 
     def at(self, stage, league=None, fraction=0):
-        offset, weight = self.offsets[stage, league]
+        entry = self.offsets.get((stage, league))
+        if entry is None:
+            return self.percent  # An unrecognized display stage must never stop a sim.
+        offset, weight = entry
         value = 100 * (offset + weight * max(0, min(1, fraction))) / self.total
         self.percent = max(self.percent, min(99, int(value)))
         return self.percent
