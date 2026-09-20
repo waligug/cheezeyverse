@@ -255,12 +255,22 @@ MENU_MARK = ('<div class="cv-wordmark">{league}<small>{season}</small></div>')
 # FBPB3's site is a frameset: the menu only exists inside index.htm, so every page reached
 # directly - a shared link, a search result, and all 400-odd player pages - arrives with no
 # navigation whatsoever. This bar goes on every content page so each one stands on its own.
+# EVERYTHING FBPB3'S OWN MENU OFFERS, because this bar is now the only navigation there is.
+# The frameset used to mean a visitor got the game's left menu (18 links) or this bar (11),
+# depending entirely on how they arrived - deep link versus the league's front door - and the
+# two disagreed about what existed. The seven at the end are the ones that were only ever
+# reachable from the left menu.
 NAV_LINKS = [
-    ("standings.htm", "Standings"), ("schedule.htm", "Schedule"),
-    ("leaders.htm", "Leaders"), ("teamleaders.htm", "Teams"),
+    ("standings.htm", "Standings"), ("playoffstandings.htm", "Playoff standings"),
+    ("schedule.htm", "Schedule"),
+    ("leaders.htm", "Leaders"), ("playoffleaders.htm", "Playoff leaders"),
+    ("teamleaders.htm", "Teams"),
     ("transactions.htm", "Transactions"), ("injuries.htm", "Injuries"),
-    ("freeagents.htm", "Free agents"), ("draft.htm", "Draft"),
-    ("awards.htm", "Awards"), ("playoffs.htm", "Playoffs"), ("champs.htm", "Champs"),
+    ("freeagents.htm", "Free agents"), ("waiverwire.htm", "Waivers"),
+    ("potentialfreeagents.htm", "Upcoming FAs"),
+    ("draft.htm", "Draft"), ("staff.htm", "Staff"), ("humancoaches.htm", "Coaches"),
+    ("awards.htm", "Awards"), ("seasonawards.htm", "Season awards"),
+    ("playoffs.htm", "Playoffs"), ("champs.htm", "Champs"),
 ]
 NAV_BAR = (
     '<div class="cv-bar">'
@@ -696,9 +706,71 @@ def _live_roster_row(html, ours):
     return html
 
 
+# Named STAT_* rather than CELL/ROW/TABLE: this module already defines a CELL regex above,
+# for the roster pages, and a second one of the same name would quietly replace it for
+# everything defined after this point.
+STAT_CELL = re.compile(r"<t[dh]\b[^>]*>.*?</t[dh]>", re.S | re.I)
+STAT_ROW = re.compile(r"<tr\b[^>]*>.*?</tr>", re.S | re.I)
+STAT_TABLE = re.compile(r"<table\b[^>]*>.*?</table>", re.S | re.I)
+
+
+def _cell_text(tag):
+    """The visible text of one cell, upper-cased, with FBPB3's padding nbsp stripped."""
+    return re.sub(r"<[^>]+>", "", tag).replace('\xa0', " ").strip().upper()
+
+
+def _drop_repeated_stl(html):
+    """Remove FBPB3's duplicate STL column from the season-totals tables.
+
+    The game prints the header "... REB AST STL TO STL BLK PF ..." - steals twice, two columns
+    apart - on every player page. It is the game's own quirk, not a parse error, and
+    seasonbonus has always known about it (TOTAL_COLUMNS carries an STL_repeat entry so that
+    BLK is read from the seventeenth number rather than the sixteenth). But the PAGE was never
+    touched, so every player's career table showed steals twice and nothing said why.
+
+    Verified before removing anything: across 380 data rows in prep's player pages, the two
+    columns are identical in 380 and differ in none. So the second is a duplicate and dropping
+    it loses nothing.
+
+    Done per table and per row on the raw cell tags rather than by rebuilding the row, so
+    colours, alignment and the cache-stamped links inside a cell survive untouched.
+    """
+    def fix_table(match):
+        table = match.group(0)
+        rows = STAT_ROW.findall(table)
+        if not rows:
+            return table
+        target = width = None
+        for row in rows:
+            cells = STAT_CELL.findall(row)
+            if [_cell_text(c) for c in cells].count("STL") == 2:
+                target = [i for i, c in enumerate(cells) if _cell_text(c) == "STL"][1]
+                width = len(cells)
+                break
+        if target is None:
+            return table
+        def fix_row(rmatch):
+            row = rmatch.group(0)
+            # BY POSITION, not by searching for the cell's text. The two STL cells are
+            # identical strings - that is the whole point - so `row.find(cell)` returns the
+            # FIRST one and removes the wrong column, silently shifting every number after it
+            # left by one. Caught by the unit check: the header came back as AST TO STL BLK.
+            spans = [m.span() for m in STAT_CELL.finditer(row)]
+            # Only rows of the SAME shape as the header. A totals table can carry a spanning
+            # note or a blank spacer row, and dropping a cell from one of those would shift
+            # everything after it by one column - which is the failure this is fixing.
+            if len(spans) != width:
+                return row
+            lo, hi = spans[target]
+            return row[:lo] + row[hi:]
+        return STAT_ROW.sub(fix_row, table)
+    return STAT_TABLE.sub(fix_table, html)
+
+
 def _skin_page(html, league, season, prefix, current, key=None, ours=None,
                page_dir=None, src_root=None, player_id=None):
     """Put the nav bar just inside <body> so the page reads the same wherever it was opened."""
+    html = _drop_repeated_stl(html)
     html = _mark_ours(html, ours)
     if player_id is not None and ours and player_id in ours:
         html = _live_attributes(html, ours[player_id])
@@ -721,9 +793,29 @@ def _skin_menu(html, league, season, key=None):
 
 
 def _skin_index(html, league, season):
-    html = re.sub(r"<title>.*?</title>", f"<title>{league} {season}</title>", html,
-                  count=1, flags=re.I | re.S)
-    return re.sub(r"cols\s*=\s*\d+", "cols=178", html, count=1, flags=re.I)
+    """Replace FBPB3's frameset with a redirect, so the site has ONE navigation.
+
+    THE BUG THIS FIXES. FBPB3 ships a two-frame site: index.htm holds a 178px menu frame and a
+    data frame. A visitor who came through the league's front door therefore got the game's own
+    menu down the left and this skin's bar hidden; a visitor who followed a deep link - from a
+    character page, a shared URL, a bookmark, any of the 400 player pages - got the bar instead.
+    Same site, two different navigations, decided by the route in rather than by anything the
+    reader did, and the two did not even offer the same links.
+
+    Keeping the frameset and fixing the disagreement would still leave two layouts. So the
+    frameset goes: every page now stands alone and carries the bar, which is the one this skin
+    controls, the one that survives being bookmarked, and the only one that works on a phone.
+    Nothing is lost - NAV_LINKS now carries all eighteen of the menu's links, and no content
+    page targets a frame (6,368 links across 398 pages, every one target=_top).
+
+    menu.htm is still written, and is now simply unreferenced.
+    """
+    return (f'<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            f'<title>{league} {season}</title>'
+            f'<meta http-equiv="refresh" content="0; url={_v("standings.htm")}">'
+            f'<link rel="canonical" href="standings.htm"></head>'
+            f'<body><p>Opening <a href="{_v("standings.htm")}">{league} standings</a>...</p>'
+            f'<script>location.replace("{_v("standings.htm")}");</script></body></html>')
 
 
 def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ours=None):

@@ -98,6 +98,7 @@ const NAV = [
   { href: 'create.html', label: 'Create a player' },
   { href: 'players.html', label: 'Roll call' },
   { href: 'h2h.html', label: 'Head to head' },
+  { href: 'goats.html', label: 'All time' },
   { href: 'me.html', label: 'My players' },
 ];
 

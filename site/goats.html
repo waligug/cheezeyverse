@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>All time &middot; The Cheezeyverse</title>
+<meta name="description" content="Every career ever played in the Cheezeyverse: the all-time leaders in each league, and every player's totals across every season.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F2B705'/%3E%3Ccircle cx='10' cy='11' r='3' fill='%238A5A00'/%3E%3Ccircle cx='21' cy='17' r='4' fill='%238A5A00'/%3E%3Ccircle cx='12' cy='23' r='2.5' fill='%238A5A00'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<main class="cv-page">
+
+  <h1>All time</h1>
+  <p class="cv-muted" id="intro">Every season anybody has played, kept for good. The game itself
+    only remembers the current one.</p>
+
+  <div id="notices"></div>
+
+  <section class="cv-card">
+    <div class="cv-card-head">
+      <h2>Leaders</h2>
+      <span class="cv-muted" id="coverage"></span>
+    </div>
+    <div id="leaders"><p class="cv-spinner">Loading every career...</p></div>
+  </section>
+
+  <section class="cv-card">
+    <div class="cv-card-head">
+      <h2>Every career</h2>
+      <span class="cv-muted" id="career-note"></span>
+    </div>
+    <div id="table"></div>
+  </section>
+
+</main>
+
+<script type="module" src="js/page-goats.js"></script>
+</body>
+</html>
