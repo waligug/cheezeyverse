@@ -41,6 +41,49 @@ def section(title):
     print(f"\n{title}")
 
 
+def _scheduled_tasks():
+    """{lowercased task name: "Name [State]"} for every task this user can see.
+
+    Asked through PowerShell because schtasks.exe localises its output and parsing a localised
+    table is how a check ends up reporting "missing" on a machine that has the task.
+    """
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "Get-ScheduledTask | ForEach-Object { \"$($_.TaskName)|$($_.State)\" }"],
+            capture_output=True, text=True, timeout=90).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    found = {}
+    for line in out.splitlines():
+        if "|" in line:
+            name, state = line.rsplit("|", 1)
+            found[name.strip().lower()] = f"{name.strip()} [{state.strip()}]"
+    return found
+
+
+def _panel_up(port=5095):
+    try:
+        import urllib.request
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=8) as r:
+            return 200 <= r.status < 300
+    except Exception:                                            # noqa: BLE001
+        return False
+
+
+def _auto_logon():
+    """True when Windows logs this machine back in by itself after a reboot."""
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon")
+        with key:
+            value, _ = winreg.QueryValueEx(key, "AutoAdminLogon")
+            return str(value).strip() == "1"
+    except Exception:                                            # noqa: BLE001
+        return False
+
+
 def main():
     print("Cheezeyverse server check\n" + "=" * 60)
 
@@ -200,6 +243,60 @@ def main():
         print("  Hand the session back to the console before disconnecting (a scheduled task")
         print("  can do it: tools\\install_session_keeper.bat), or start sims only while")
         print("  connected. See docs/SERVER.md.")
+
+    # ---- what happens when nobody is watching -----------------------------------------------
+    section("Surviving a reboot (and a disconnect)")
+    # Everything above answers "can this machine sim right now". This answers "will it still be
+    # able to tomorrow", which is a different question and the one that had never been asked.
+    # Found on 2026-09-20: the panel was running only as a child of an agent session, so it
+    # would have died with it and nothing would have brought it back, and the task that keeps a
+    # disconnected RDP session clickable had been installed in September and was simply GONE.
+    tasks = _scheduled_tasks()
+
+    panel_task = tasks.get("cheezeyverse panel")
+    check("the panel restarts itself (scheduled task)", bool(panel_task),
+          panel_task or "not registered",
+          "powershell -NoProfile -ExecutionPolicy Bypass -File tools\\install_serverpc_tasks.ps1")
+
+    check("the panel is answering", _panel_up(), "http://127.0.0.1:5095/healthz",
+          'schtasks /run /tn "Cheezeyverse panel"   (then check '
+          '%LOCALAPPDATA%\\Cheezeyverse\\panel.log)')
+
+    keeper = next((v for k, v in tasks.items() if "session keeper" in k or "keep desktop" in k),
+                  None)
+    check("a disconnected RDP session stays clickable", bool(keeper),
+          keeper or "no tscon task - closing Remote Desktop will LOCK the session",
+          "right-click tools\\install_session_keeper.bat -> Run as administrator. Until then, "
+          "do not disconnect while a sim is running.")
+
+    # A logon-triggered task only fires if somebody logs on, and nobody is here to type a
+    # password after a power cut.
+    auto = _auto_logon()
+    check("the machine logs itself back in after a reboot", auto,
+          "AutoAdminLogon" if auto else "no auto-logon: after a reboot there is no desktop, so "
+          "the panel task never fires and the game could not be clicked anyway",
+          "set it with netplwiz (uncheck 'Users must enter a user name and password')")
+
+    backup_task = tasks.get("cheezeyverse offsite backup")
+    check("the saves are copied off this drive, daily", bool(backup_task),
+          backup_task or "not registered",
+          "powershell -NoProfile -ExecutionPolicy Bypass -File tools\\install_serverpc_tasks.ps1")
+    try:
+        from tools.offsite_backup import DEST, newest
+        when, payload = newest()
+        if when:
+            from datetime import datetime, timezone
+            hours = (datetime.now(timezone.utc) - when).total_seconds() / 3600
+            size = sum(f.get("bytes", 0) for f in payload.get("files") or [])
+            check("that copy is recent", hours <= 48,
+                  f"{hours:.0f} h old, {len(payload.get('files') or [])} files, "
+                  f"{size / 1e6:.0f} MB, {DEST}",
+                  "python tools/offsite_backup.py")
+        else:
+            check("that copy is recent", False, f"nothing in {DEST}",
+                  "python tools/offsite_backup.py")
+    except Exception as exc:                                     # noqa: BLE001
+        check("the off-drive backup is readable", False, str(exc)[:70])
 
     # ---- verdict --------------------------------------------------------------------------
     bad = [n for n, ok, _, _ in rows if not ok]
