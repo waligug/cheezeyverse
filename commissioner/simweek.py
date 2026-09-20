@@ -976,7 +976,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             emit("sim", f"simming {days} days of {spec.name}", key)
             game.sim_days(days)
             emit("sim", "saving", key)
-            game.save_game()
+            # The path lets the driver watch the file finish instead of sleeping a fixed 15 s,
+            # and turns a save that silently did not happen into an error rather than an export
+            # of yesterday's league.
+            game.save_game(path=ch.save_path(key))
             emit("export", f"writing {spec.name} pages", key)
             # old_boxes=True writes the BOX SCORES for the games in the export's window, so the
             # schedule's links lead somewhere instead of 404ing. The control is a DATE dropdown -
