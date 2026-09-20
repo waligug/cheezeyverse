@@ -641,3 +641,42 @@ result would finally mean something.
 
 Not worth chasing for its own sake - the scores read fine as text - but worth knowing before
 anybody asks why they cannot click a result. Somebody did ask, which is why this got tested.
+
+## A publish is not visible everywhere at once, and a verifier can pass against the old copy
+
+GitHub Pages serves `Cache-Control: max-age=600`, and a page's URL never changes when its
+contents do. Measured 2026-09-19: `Age: 113` from `cache-yyc1430031-YYC` while the bare URL
+already held the new playoff bracket. Nate published the bracket, pressed Ctrl+F5, and still read
+the old page - a hard refresh cannot help when the stale copy is at the edge rather than in the
+browser.
+
+`restyle` now stamps every link it writes with the publish time (`standings.htm?v=20260919185855`),
+including FBPB3's own roster, team and player links, and the bar shows `published HH:MM`. A query
+string is part of the cache key on Pages, so a CLICK is always fresh. **A typed or bookmarked
+address cannot be versioned** and stays cacheable for ten minutes; that is the floor, which is
+why the bar states the time rather than pretending otherwise.
+
+**Different files propagate at different speeds.** After the 2027 rollover publish the CDN served
+the old *pages* for about four minutes while `games.json` was already new - Season 2026 pages
+beside Season 2027 data, from one deploy. Nothing is wrong when that is seen; it resolves itself.
+
+### Verifying a publish: the trap
+
+A check that passes against the copy it was meant to replace has verified nothing.
+
+That happened here. The post-rollover publish was verified by polling `games.json` until it showed
+161 game lines - and **the previous publish's file also had 161 lines**, written before `merge()`
+existed and therefore with no season on any line. The verifier reported success against the old
+file, inside the very propagation window being discussed, and the "all lines unstamped" reading it
+produced was a fact about a file that had already been superseded.
+
+So: **never verify a publish with a number that did not change.** Use something only the new copy
+can have -
+
+- `generated`, which every publish rewrites;
+- a key the old file does not have at all (`seasons` here);
+- the `?v=` stamp in a page's own links, or the `published HH:MM` in its bar.
+
+Counting rows is a content check, not a freshness check, and the two are easy to confuse precisely
+when the content is supposed to be unchanged - which, for an archive whose whole purpose is that
+nothing is lost, is every single time.
