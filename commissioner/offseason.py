@@ -44,6 +44,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
+from . import ageout
 from . import characters as ch
 from . import notify
 from . import seasonbonus
@@ -56,8 +57,17 @@ BACKUPS = ROOT / "backups"
 MANIFEST = ROOT / "universe" / "manifest.json"
 
 NEXT_LEVEL = {"prep": "college", "college": "pro"}
-# A prep player is done after his age-17 season; college eligibility runs four years.
-PREP_LAST_AGE = 17
+# A prep player is done after his age-18 season and starts college at 19; college eligibility
+# runs four years, so 19-22.
+#
+# 18, not 17, since 2026-09-20. This has to agree with ageout.AGE_CAPS or the universe has two
+# different ladders in it: the AI population now plays prep through 18, and a character promoted
+# at 17 would arrive in a 19-22 college league as its youngest and weakest player - the same
+# age-mismatch problem the age-out exists to remove, pointed the other way.
+#
+# Nobody was mid-flight when this changed: the oldest prep character was 16 in the 2027 season,
+# so no promotion that would have happened under 17 fails to happen under 18.
+PREP_LAST_AGE = 18
 COLLEGE_MAX_YEARS = 4
 
 # ---- when a career ends ---------------------------------------------------------------------
@@ -1030,6 +1040,35 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             if c.get("league") == "college":
                 store.set_character_field(c["id"], "college_years",
                                           int(c.get("college_years") or 0) + 1)
+
+    # ---- the AI population moves on as well ------------------------------------------------
+    # Until now only OUR characters were ever aged out of a league. The generated population
+    # simply got a year older every season: by the 2027 rollover prep was running 15-19 against
+    # the 14-17 band it was built with, 61 AI players were past the cap, and the prep scoring
+    # title went to an eighteen-year-old. See commissioner/ageout.py.
+    #
+    # LAST of the steps that write to a save, deliberately. Every character has finished moving
+    # by here and every reserve slot a departure left behind has been refilled, so anything
+    # still over the cap is genuinely nobody's - and the intake cannot land in a slot that was
+    # about to be handed to a person.
+    result["aged_out"] = {}
+    for key in ("prep", "college"):
+        if not ch.save_path(key).exists():
+            continue
+        if not dry_run and backups is not None and key not in backups:
+            log(f"   ! no backup was taken for {key}; not aging its AI population out")
+            continue
+        try:
+            out = ageout.apply(key, season, store=store, dry_run=dry_run, log=log)
+            result["aged_out"][key] = {"retired": len(out["retired"]),
+                                       "arrived": len(out["arrived"])}
+        except Exception as exc:                                        # noqa: BLE001
+            # Never fatal, and never a raise. By this point characters have moved leagues and
+            # the store has been written; an intake that did not happen is a cosmetic problem
+            # next season, while a half-run offseason leaves the saves and the store disagreeing
+            # forever. Say so loudly and carry on.
+            log(f"   ! {key}: the age-out did not run ({exc}); the rest of the offseason stands")
+            result["aged_out"][key] = {"error": str(exc)}
 
     # The offseason lump sum: every active character is a year older and gets paid for it,
     # and a college season that was seen through pays a development bonus on top.
