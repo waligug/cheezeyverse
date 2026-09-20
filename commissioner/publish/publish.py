@@ -10,6 +10,7 @@ sites together and `site/config.js` can point at plain relative paths.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -227,8 +228,24 @@ def deploy_losses(live_root, staged_root):
             except ValueError:
                 continue
             if mine and live and str(mine) != str(live):
-                losses.append(f"leagues/{league.name}: the live site is {live!r} and this "
-                              f"machine's pages are {mine!r} - a different universe")
+                # A NEWER season is the rollover working, not a different universe. Only a
+                # season going BACKWARDS means this machine is behind the site - which is the
+                # case worth stopping, and the one the desktop would hit. The labels read
+                # "Season 2026", so compare the numbers in them and fall back to refusing when
+                # neither can be read as a year.
+                def _year(label):
+                    digits = re.findall(r"\d{4}", str(label))
+                    return int(digits[0]) if digits else None
+
+                # A rollover moves the site on by exactly one year, and that is the only
+                # difference worth allowing. Behind means this machine is stale; more than one
+                # year ahead means it is a different universe - the desktop's abandoned pages
+                # are four seasons ahead of the live site, and "newer" would have waved them
+                # through into a deploy that replaced everything.
+                here, there = _year(mine), _year(live)
+                if here is None or there is None or not 0 <= here - there <= 1:
+                    losses.append(f"leagues/{league.name}: the live site is {live!r} and this "
+                                  f"machine's pages are {mine!r} - a different universe")
     for page in sorted(Path(live_root).glob("*.html")):
         if not (Path(staged_root) / page.name).exists():
             losses.append(f"{page.name}: live, and missing here")

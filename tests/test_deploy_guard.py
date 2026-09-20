@@ -77,6 +77,20 @@ def main():
         assert deploy_losses(live, no_h2h) == ["h2h.html: live, and missing here"], \
             deploy_losses(live, no_h2h)
 
+        # A ROLLOVER IS NOT A DIFFERENT UNIVERSE. The season moves on by exactly one year and
+        # everything else is present, so it must deploy - this refused the real 2026 -> 2027
+        # publish until the rule learned the difference.
+        rolled = site(tmp / "rolled", {"prep": {"season": "2027-28"}, "college": {"season": "2027-28"},
+                                       "pro": {"season": "2027-28"}})
+        assert deploy_losses(live, rolled) == [], deploy_losses(live, rolled)
+        # ...but four seasons ahead is the abandoned universe again, not a rollover
+        far = site(tmp / "far", {"prep": {"season": "2030-31"}, "college": {"season": "2030-31"},
+                                 "pro": {"season": "2030-31"}})
+        assert len(deploy_losses(live, far)) == 3, deploy_losses(live, far)
+        # and a season BEHIND is a machine that has not caught up
+        behind = site(tmp / "behind", {"prep": {"season": "2025-26"}, "college": {}, "pro": {}})
+        assert len(deploy_losses(live, behind)) == 1, deploy_losses(live, behind)
+
         # ADDING is never a loss: a new league, or the first games.json, must deploy freely
         older = site(tmp / "older", {"prep": {"files": ("index.htm", "stats.json")}})
         newer = site(tmp / "newer", {"prep": {}, "college": {}})
