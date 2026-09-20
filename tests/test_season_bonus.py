@@ -211,6 +211,40 @@ def main():
         assert sb.DEFAULTS["bonus_allstar"] == 2, sb.DEFAULTS["bonus_allstar"]
         shutil.rmtree(stars, ignore_errors=True)
 
+        # All-League tiers are separate from All-Defense / All-Rookie, and from lifetime
+        # totals. The dated honour spells out First/Second/Third on real player exports.
+        league = _build(tmp / "all-league", honours={
+            "Ace Elite": ["2027 CVP All-League First Team", "2027 CVP All-League First Team",
+                          "2027 CVP All-League Third Team", "2027 CVP All-Star"],
+            "Bo Second": ["2027 CVP All-League Second Team"],
+            "Cy Third": ["2027 CVP All-League Third Team"],
+            "Our Guy": ["2026 CVP All-League First Team", "2027 CVP All-Defense First Team",
+                        "2027 CVP All-Rookie First Team", "Total All-League First Team: 2"],
+            "Dee Fourth": ["2027 CVP All-League 4th Team"],
+            "Bartolomé Drexler": ["2027 CVP All-League 3rd Team"],
+        })
+        cache = {}
+        for name, tier, points in (("Ace Elite", "1st", 3), ("Bo Second", "2nd", 2),
+                                   ("Cy Third", "3rd", 1), ("Bartolomé Drexler", "3rd", 1)):
+            rows = sb.for_character(name, league, {"current_season": 2027}, cache)
+            assert [(r, p) for r, p in rows if "All-League" in r] == [
+                (f"season bonus: 2027 All-League {tier} team", points)], rows
+        for name in ("Our Guy", "Dee Fourth"):
+            rows = sb.for_character(name, league, {"current_season": 2027}, cache)
+            assert not any("All-League" in r for r, _ in rows), rows
+        rows = sb.for_character("Ace Elite", league, {}, {})
+        assert not any("All-League" in r for r, _ in rows), rows
+        rows = sb.for_character("Our Guy", league, {"current_season": 2026}, {})
+        assert ("season bonus: 2026 All-League 1st team", 3) in rows, rows
+        # Both honours count once, and the total cap still includes them.
+        rows = sb.for_character("Ace Elite", league, {"current_season": 2027, "bonus_cap": 6}, {})
+        assert ("season bonus: 2027 All-Star", 2) in rows, rows
+        assert ("season bonus: 2027 All-League 1st team", 3) in rows, rows
+        assert sum(p for _, p in rows) == 6 and any("capped at 6" in r for r, _ in rows), rows
+        rows = sb.for_character("Bo Second", league,
+                                {"current_season": 2027, "bonus_allleague_2": 0}, {})
+        assert not any("All-League" in r for r, _ in rows), rows
+
         # The two AWARD components are off by default; the two TEAM ones pay 2 apiece. Assert
         # both explicitly: a component silently switching itself back on would pay real points
         # to real people, and "everyone got more than expected" is not a loud failure.

@@ -38,10 +38,8 @@ CATEGORIES = ["PTS", "REB", "AST", "STL", "BLK"]
 # and 8 of 20 in the pros. At 3 + 3 a title was worth six points, which crowded out everything a
 # player does himself; at 2 + 2 it is worth four, and a good individual season still competes.
 #
-# The two award components stay OFF, per "make it so only player of the month award rewards
-# points". Zeroed rather than deleted: a zero-point row is dropped before anything is paid, so an
-# off component costs one dictionary lookup, keeps its parser under test, and comes back from the
-# settings table without a deploy.
+# Weekly and generic season awards stay off. All-Star selections and the three All-League
+# teams have their own season-specific rewards; the generic award switch does not enable them.
 # The pages are decoded latin-1, so a name can carry any accented letter in that range, and
 # eleven of them do across the three leagues. An ASCII-only class silently DROPPED those
 # players - six in prep, five in college, five in pro - which is not merely a shorter list:
@@ -59,11 +57,14 @@ DEFAULTS = {
     "bonus_playoffs": 2,        # 3 -> off -> 2
     "bonus_title": 2,           # was 3; a team RESULT, not an award, so it never came off
     "bonus_potw": 0,            # was 1
-    "bonus_potm": 2,            # the only award that pays
+    "bonus_potm": 2,
     # The All-Star game, which the engine selects itself. Nate's call, 2026-09-20: worth 2, the
     # same as Player of the Month, because it is the league saying he was one of its best that
     # year rather than one good month.
     "bonus_allstar": 2,
+    "bonus_allleague_1": 3,
+    "bonus_allleague_2": 2,
+    "bonus_allleague_3": 1,
     "bonus_season_award": 0,    # was 3 (MVP, All-League)
     "bonus_catchup": 3,
     "catchup_share": 0.25,      # played in fewer than this share of his team's games
@@ -346,10 +347,14 @@ def award_counts(html_dir):
 # is loose because the abbreviation is per league and some award lines spell it out in full
 # ("2026 Cheezeyverse Prep Champion").
 ALL_STAR_LINE = re.compile(r"(\d{4})\s+.+\bAll-Star", re.I)
+ALL_LEAGUE_LINE = re.compile(
+    r"(\d{4})\s+.+\bAll-League\s+(First|Second|Third|1st|2nd|3rd)\s+Team", re.I)
+ALL_LEAGUE_TIERS = {"first": 1, "second": 2, "third": 3, "1st": 1, "2nd": 2, "3rd": 3}
+ALL_LEAGUE_LABELS = {1: "1st", 2: "2nd", 3: "3rd"}
 
 
-def all_star_seasons(html_dir):
-    """{player name: {season, ...}} - the seasons each player was named an All-Star.
+def player_honours(html_dir):
+    """Player identity, profile link and season-specific All-Star / All-League selections.
 
     READ FROM THE PLAYER PAGES, because that is the only place the export states it. Neither
     awards.htm nor seasonawards.htm mentions the All-Star game at all - checked on a real
@@ -360,7 +365,7 @@ def all_star_seasons(html_dir):
     honours are one item each. Splitting on that separator is what keeps "All-Star" apart from
     "All-Star Game MVP"; searching the page for the words would conflate them.
     """
-    out = {}
+    out = []
     players = Path(html_dir) / "players"
     if not players.is_dir():
         return out
@@ -372,17 +377,39 @@ def all_star_seasons(html_dir):
         # empty, it is "#7 SF | 5-10, 138lbs | Tulips | ...". Two players on the same team then
         # collapse into one key and inherit each other's honours, which a test caught.
         # "#1 SF | 6-8, 202lbs | Tulips | ..." is the landmark, and it is on every player page.
-        name = ""
+        name, position, team = "", "", ""
         for i, item in enumerate(items):
-            if re.match(r"#\d+\s+\S+\s*\|", item):
+            descriptor = re.match(r"#\d+\s+(\S+)\s*\|", item)
+            if descriptor:
                 name = next((prev for prev in reversed(items[:i]) if prev), "")
+                position = descriptor.group(1)
+                parts = item.split("|")
+                team = parts[2].strip() if len(parts) > 2 else ""
                 break
         if not name:
             continue
+        stars, league_teams = set(), {}
         for item in items:
             m = ALL_STAR_LINE.fullmatch(item)
             if m:
-                out.setdefault(name, set()).add(int(m.group(1)))
+                stars.add(int(m.group(1)))
+            m = ALL_LEAGUE_LINE.fullmatch(item)
+            if m:
+                year, tier = int(m.group(1)), ALL_LEAGUE_TIERS[m.group(2).lower()]
+                # A repeated honour, or multiple team rows, must not pay twice.
+                league_teams[year] = min(tier, league_teams.get(year, tier))
+        out.append({"name": name, "position": position, "team": team,
+                    "page": f"players/{page.name}", "all_stars": stars,
+                    "all_league": league_teams})
+    return out
+
+
+def all_star_seasons(html_dir):
+    """{player name: {season, ...}} for callers that only need All-Star selections."""
+    out = {}
+    for player in player_honours(html_dir):
+        if player["all_stars"]:
+            out.setdefault(player["name"], set()).update(player["all_stars"])
     return out
 
 
@@ -513,7 +540,7 @@ def for_character(name, html_dir, settings=None, cache=None):
         c["elite"] = elite_lines(c["totals"], setting(s, "stat_bonus_elite_rank"))
         c["awards"] = award_counts(html_dir)
         c["season_awards"] = season_award_winners(html_dir)
-        c["all_stars"] = all_star_seasons(html_dir)
+        c["honours"] = player_honours(html_dir)
         c["playoffs"], c["champion"] = playoff_bracket(html_dir, this_season)
 
     line = c["totals"].get(name)
@@ -548,8 +575,14 @@ def for_character(name, html_dir, settings=None, cache=None):
     # settings the offseason is running against, and if it cannot be read the bonus is NOT paid
     # - silently paying for the wrong year is worse than not paying at all, and the ledger line
     # would name a season nobody could check.
-    if this_season and this_season in c["all_stars"].get(name, ()):
+    honours = [p for p in c["honours"] if p["name"] == name]
+    if this_season and any(this_season in p["all_stars"] for p in honours):
         rows.append((f"season bonus: {this_season} All-Star", setting(s, "bonus_allstar")))
+    tiers = [p["all_league"][this_season] for p in honours if this_season in p["all_league"]]
+    if tiers:
+        tier = min(tiers)
+        rows.append((f"season bonus: {this_season} All-League {ALL_LEAGUE_LABELS[tier]} team",
+                     setting(s, f"bonus_allleague_{tier}")))
 
     # -- statistics, both halves league-relative
     top_n, top_max = setting(s, "stat_bonus_top_n"), setting(s, "stat_bonus_top_max")

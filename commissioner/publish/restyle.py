@@ -17,6 +17,8 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
+from .awards import add_all_stars
+
 CSS_NAME = "cheezey.css"
 
 PALETTE = {
@@ -95,6 +97,20 @@ a.menulink:hover {{
    player pages, none of which carry a menu of their own. So: show it when the page stands
    alone, hide it when it is framed. The class is set by the snippet _skin_page injects. */
 html.cv-framed .cv-bar {{ display: none !important; }}
+
+/* Season honours stay beside the game's award winners, with links to every player. */
+.cv-all-stars {{ max-width: 800px; margin: 12px 0 24px; }}
+.cv-all-stars h2 {{ font-size: 22px; margin: 0 0 8px; color: {ink}; }}
+.cv-all-stars h2 small {{ font-size: 12px; font-weight: normal; color: {crust}; margin-left: 8px; }}
+.cv-award-rewards, .cv-award-empty {{ font-size: 12px; line-height: 1.7; color: {crust}; }}
+.cv-star-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px; list-style: none; padding: 0; margin: 14px 0 0; }}
+.cv-star-grid li {{ padding: 10px 12px; background: {cream2}; border: 1px solid {line};
+  border-radius: 6px; min-width: 0; }}
+.cv-star-grid a {{ font-size: 13px !important; font-weight: bold; overflow-wrap: anywhere; }}
+.cv-star-grid span {{ display: block; font-size: 11px; margin-top: 5px; color: {crust}; }}
+@media (max-width: 600px) {{ .cv-star-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+@media (max-width: 360px) {{ .cv-star-grid {{ grid-template-columns: 1fr; }} }}
 
 /* When this copy was published. Pushed to the far end and kept quiet: it is the answer to "am I
    looking at a stale page?", which matters only when somebody is already asking. */
@@ -486,7 +502,8 @@ FRAME_TEST = ('<script>if(window.top!==window.self)'
 
 
 PLAYER_LINK = re.compile(
-    r'<a\s+class=linkmain\s+href=([^>\s]*?players/player(\d+)\.htm)>([^<]+)</a>', re.I)
+    r'''<a\s+class=["']?linkmain["']?\s+href=(["']?[^>\s]*?players/player(\d+)\.htm["']?)>([^<]+)</a>''',
+    re.I)
 
 
 # The sixteen columns FBPB3 prints in a player page's Attributes table, in order, mapped to the
@@ -856,6 +873,8 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
         if name == "menu.htm":
             html = _skin_menu(html, league, season, key or dst.name)
         elif name != "index.htm":
+            if name == "seasonawards.htm":
+                html = add_all_stars(html, src, season)
             pid = None
             m = re.fullmatch(r"player(\d+)\.htm", name)
             if m:
