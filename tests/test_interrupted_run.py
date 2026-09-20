@@ -24,6 +24,7 @@ store agrees describes the safe state and misses the dangerous one entirely.
 """
 from __future__ import annotations
 
+import ast
 import json
 import sys
 import tempfile
@@ -103,8 +104,44 @@ def main():
             "the marker must go on before ch.commit and come off after the store writes; " \
             "any other order describes the safe state instead of the dangerous one"
 
+        # ---- AND THE REFUSAL MUST NOT DESTROY WHAT IT REFUSED ON ------------------------
+        # Found by a Codex session reviewing the first version, and reproduced here before
+        # believing it: the refusal raises from INSIDE the try whose finally calls
+        # _clear_marker(), so refusing deleted the marker and the very next attempt sailed
+        # through onto a save that was ahead of the store. A dry run did the same - which is
+        # worse, because a dry run is the thing this guard's own message tells you to do while
+        # working out what happened.
+        #
+        # A one-shot guard is not a guard. It is a guard that fires once, erases the evidence,
+        # and then tells you everything is fine.
+        #
+        # Checked structurally because the fix lives in run_sim's finally: _clear_marker() must
+        # be reached only when THIS run wrote the marker, so it has to sit behind a condition
+        # rather than run unconditionally.
+        fn = next(n for n in ast.walk(ast.parse(src))
+                  if isinstance(n, ast.FunctionDef) and n.name == "run_sim")
+        clears = []
+        for node in ast.walk(fn):
+            if isinstance(node, ast.Try):
+                for stmt in node.finalbody:
+                    for inner in ast.walk(stmt):
+                        if (isinstance(inner, ast.Call)
+                                and getattr(inner.func, "id", "") == "_clear_marker"):
+                            guarded = any(isinstance(p, ast.If) for p in ast.walk(stmt))
+                            clears.append((inner.lineno, guarded))
+        assert clears, "run_sim's finally no longer clears the marker at all - a finished run " \
+                       "would leave one behind and block the next week"
+        unguarded = [line for line, guarded in clears if not guarded]
+        assert not unguarded, (
+            f"_clear_marker() runs unconditionally in run_sim's finally (line {unguarded[0]}). "
+            "A refusal raises from inside that try, so refusing DELETES the marker it refused "
+            "on and the next attempt proceeds onto a save that is ahead of the store - "
+            "double-applying every pending spend. A dry run clears it too. Clear it only when "
+            "this run wrote it: set a flag after _mark_running() and test it here.")
+
         print("OK  interrupted run: a crashed sim is detected, names the saves that are ahead "
-              "of the store, and refuses to run again on top of them")
+              "of the store, refuses to run again on top of them, and the refusal does not "
+              "destroy the marker it refused on")
         return 0
     finally:
         simweek.MARKER = real_marker
