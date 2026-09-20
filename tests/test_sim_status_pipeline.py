@@ -49,6 +49,7 @@ class Store:
         if self.fail_log:
             raise OSError("history disk failure")
         self.records.append(row)
+        return row
 
 
 class PipelineTests(unittest.TestCase):
@@ -135,6 +136,7 @@ class PipelineTests(unittest.TestCase):
         status = Status.instances[0]
         self.assertFalse(status.result[0])
         self.assertIn("game stopped", status.result[1])
+        self.assertIsNotNone(simweek.interrupted_run())
         self.assertLess(max(u.get("percent", 0) for u in status.updates), 100)
         self.assertFalse(simweek._SIM_LOCK.locked())
 
@@ -149,6 +151,14 @@ class PipelineTests(unittest.TestCase):
             simweek.run_sim(days=1)
         self.assertFalse(Status.instances[0].result[0])
         self.assertIn("history", Status.instances[0].result[1])
+        self.assertIsNotNone(simweek.interrupted_run())
+        self.assertFalse(simweek._SIM_LOCK.locked())
+
+    def test_silent_history_failure_retains_journal(self):
+        with patch.object(self.store, "record_run", return_value=None):
+            with self.assertRaisesRegex(OSError, "not recorded"):
+                simweek.run_sim(days=1)
+        self.assertIsNotNone(simweek.interrupted_run())
         self.assertFalse(simweek._SIM_LOCK.locked())
 
     def test_stale_marker_survives_repeated_refusal_and_dry_run(self):

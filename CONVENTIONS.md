@@ -745,29 +745,26 @@ Three properties worth keeping in mind when touching it:
   `commissioner/store.py`. Only the first two fail loudly. `tests/test_column_grants.py` reads all
   of them out of the source and compares them.
 
-## The offseason puts the saves back when it fails (2026-09-20)
+## Save operations and recovery (2026-09-20)
 
-All three saves are copied before the offseason's FIRST write - not once per phase - and if
-anything raises, every one of them is copied back. `back_up_every_save` and `restore_saves` in
-`commissioner/offseason.py`.
+Sim Week, offseason and offsite snapshots share an OS-backed nonblocking save lock. Its
+permanent lock file must not be deleted. Maintenance writers must acquire this same lock;
+manual game sessions must be closed before a snapshot or offseason.
 
-Per-phase backups were too late to be a safety net: retirements run before growth and `refill`
-writes to a save, so the league a retirement had already touched had no copy yet.
+The recovery journal is replaced atomically and flushed before changes. Missing is clean;
+unreadable is blocked. Failed runs retain their journal, even if game cleanup succeeded.
+An empty `unconfirmed` list does not prove that no games or database writes happened.
 
-**Why a restore and not just a backup.** Growth is cumulative - `apply_growth` reads the Height
-out of the save and adds this year's inches to it - and `last_offseason` is only written at the
-very end of a successful run. So a run that stopped halfway left prep and college grown and pro
-not, with nothing recorded to say it had happened, and the obvious recovery (press it again)
-grew those same characters a second time. Nothing anywhere would have shown it afterwards: the
-heights are plausible and the model does not know what it wrote last year.
+Offseason copies all three saves before its first write. It may restore those copies after
+an exception only if no database mutation was attempted. Once a write could have landed,
+keep the saves, database and backups as evidence and block sim/offseason retries, including
+force. Reconcile activations, upgrades, retirements, college years, points, season/week
+settings and history against the saved phase and backups before clearing the journal.
+Never clear a journal or restore only binary saves as an automatic recovery procedure.
 
-What the restore does NOT undo is the store. A retirement or a banked college year that already
-landed is a row somebody may have read, so the failure message says so and tells whoever is
-looking to check the panel before running it again. The saves are the half nobody can fix by
-hand; the store is the half they can.
-
-`python tools/offseason_rehearsal.py` proves all of it against copies of real saves, including
-that a rerun after a restore does not double-grow anybody.
+`tests/test_recovery_safety.py` injects failures before and after database writes and proves
+that retries remain blocked where needed. Offsite snapshots require all configured nonempty
+league saves, reject an open game, hold the save lock and rehash sources before acceptance.
 
 ## A reserve slot remembers the body it had (2026-09-20)
 

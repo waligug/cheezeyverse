@@ -115,6 +115,8 @@ def redirect_everything(paths, store_path):
     ch.BACKUPS = SANDBOX / "backups"
     offseason.BACKUPS = SANDBOX / "backups"
     localstore.PATH = store_path
+    from commissioner import simweek
+    simweek.MARKER = SANDBOX / "run_in_progress.json"
     notify.post = lambda *a, **k: False
     notify.post_embed = lambda *a, **k: False
 
@@ -537,25 +539,21 @@ def when_it_goes_wrong(keep=False):
 
     # The one that matters: growth reads the save's own height and adds to it, so a half-written
     # offseason plus the obvious recovery - run it again - grows those characters twice.
-    check("every save is back exactly as the offseason found it",
-          all(paths[k].read_bytes() == before[k] for k in LEAGUES),
-          ", ".join(f"{k} changed" for k in LEAGUES if paths[k].read_bytes() != before[k]))
+    from commissioner import simweek
+    check("a failure after store writes preserves recovery evidence",
+          bool(simweek.interrupted_run()), "journal retained")
     check("the season did not roll over on a failed run",
           localstore.get_settings().get("last_offseason") in (None, ""),
           f'last_offseason={localstore.get_settings().get("last_offseason")}')
     backups = list((SANDBOX / "backups").glob("*offseason*"))
     check("all three saves were copied before anything was written",
           len(backups) == 3, f"{[b.name for b in backups]}")
-    # and the recovery has to actually work
+    # A save-only restore would undo growth but keep retirements and points in the store.
     try:
-        again = offseason.run_offseason(localstore, season=season, log=quiet)
-        check("running it again after the restore completes cleanly",
-              not again["failed"], str(again["failed"][:2]))
-        grown_twice = [g for g in again["grew"] if g["inches"] > 4]
-        check("and nobody grew twice", not grown_twice, str(grown_twice[:2]))
-    except Exception as exc:
-        check("running it again after the restore completes cleanly", False,
-              f"{type(exc).__name__}: {exc}")
+        offseason.run_offseason(localstore, season=season, log=quiet, force=True)
+        check("a failed offseason cannot be repeated before reconciliation", False)
+    except offseason.OffseasonError:
+        check("a failed offseason cannot be repeated before reconciliation", True)
 
     # ---- 5. the week AFTER a failure that was restored ------------------------------------
     print("\n---- a sim week over a slot the store freed and the save did not ----")

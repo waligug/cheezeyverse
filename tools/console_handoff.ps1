@@ -25,11 +25,9 @@ param(
     [switch]$DryRun
 )
 
-if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
-$log = Join-Path $LogDir 'console_handoff.log'
 
 # Let the disconnect finish before asking what state the session is in.
-Start-Sleep -Seconds 2
+if (-not $DryRun) { Start-Sleep -Seconds 2 }
 
 # qwinsta filtered to ONE user, rather than parsing the whole table. The full table has rows
 # with an empty username (services, console), and those shift every column left - which is how
@@ -38,6 +36,14 @@ $id = $null
 foreach ($line in (& "$env:windir\System32\qwinsta.exe" $User 2>$null)) {
     if ($line -match '\s(\d+)\s+Disc\b') { $id = $Matches[1]; break }
 }
+
+if ($DryRun) {
+    if ($id) { Write-Output "Would move session $id to console" }
+    else { Write-Output "No disconnected session for $User - nothing to do" }
+    return
+}
+if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
+$log = Join-Path $LogDir 'console_handoff.log'
 
 if ($id) {
     $out = & "$env:windir\System32\tscon.exe" $id /dest:console 2>&1

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import time
 
-from .fbpb3 import DriverError, FBPB3
+from .fbpb3 import DOCS, DriverError, FBPB3
 
 PRESTIGE = ["Global", "Continental", "National", "Regional"]
 
@@ -137,8 +137,7 @@ class NewGame:
         self.combo(YEARLY_SOURCE, yearly_source)
 
         g.click(CONTINUE, 8)
-        g.save_game()
-        time.sleep(2)
+        g.save_game(path=DOCS / "leaguedata" / save_name / "league.dat")
         return save_name
 
 

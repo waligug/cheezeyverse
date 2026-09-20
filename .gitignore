@@ -15,3 +15,6 @@ universe/local_store.json
 universe/local_store*.json*
 universe/sim_runs.json
 universe/run_in_progress.json
+
+# Permanent OS lock shared by save operations. Never delete while services run.
+universe/.save-operation.lock

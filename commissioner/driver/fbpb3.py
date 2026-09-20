@@ -736,13 +736,13 @@ class FBPB3:
         memory.
         """
         limit = max(SAVE_LIMIT_FLOOR, wait * 6)
+        if path is None:
+            raise DriverError("save_game requires the target league.dat path")
         before = self._file_mark(path)
         self.click(TOP_SAVE, 0)
-        self._wait_until_still(settle=0.4, timeout=15, poll=0.1)   # the name box coming up
+        if not self._wait_until_still(settle=0.4, timeout=15, poll=0.1):
+            raise DriverError("save name dialog did not settle")
         self.click(SAVE_NAME_OK, 0)
-        if before is None:
-            self._wait_until_still(settle=1.5, timeout=limit)
-            return
         # Two conditions, and the second is the one that matters: the file has been touched AND
         # it has stopped growing. mtime alone moves when the write BEGINS, so waiting only for
         # that would hand a half-written league.dat to the export that comes next.
@@ -755,9 +755,12 @@ class FBPB3:
             # thing they watch is a screen; this one is a 6 MB file being written by a process
             # that owes us no promises about its pauses, and being wrong costs a half-written
             # league.dat handed to the export.
-            elif quiet_since and time.time() - quiet_since >= 1.0:
-                self._wait_until_still(settle=0.4, timeout=30, poll=0.1)
-                return
+            elif mark is not None and mark[1] > 0 and quiet_since is not None and time.time() - quiet_since >= 1.0:
+                if not self._wait_until_still(settle=0.4, timeout=30, poll=0.1):
+                    raise DriverError("save window did not settle after writing")
+                if self._file_mark(path) == mark:
+                    return
+                quiet_since = None
             time.sleep(0.1)
         raise DriverError(f"save did not finish writing {path} within {limit}s")
 

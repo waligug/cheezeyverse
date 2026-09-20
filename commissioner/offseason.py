@@ -615,59 +615,93 @@ def _promise(character):
 
 
 # ---- the whole thing ------------------------------------------------------------------------
-def run_offseason(store, season=None, log=print, dry_run=False, force=False):
-    """Grow everyone, move whoever has outgrown his level, run the draft, free the slots.
+class _JournaledStore:
+    """Record intent before network writes, including calls whose reply never arrives."""
+    WRITES = {"activate_character", "grant_points", "record_level", "retire_character",
+              "set_character_field", "set_setting"}
 
-    Refuses to run the same season twice. Everything in here is cumulative - inches, points,
-    college years, promotions - so a second run silently pays everybody again and grows them
-    again. It is one button, and a double click is not a reason to ruin a season.
+    def __init__(self, store, journal):
+        self.store, self.journal = store, journal
+        self.writes_started = False
+        self.failed_write = None
+
+    def __getattr__(self, name):
+        method = getattr(self.store, name)
+        if name not in self.WRITES:
+            return method
+        def write(*args, **kwargs):
+            if self.failed_write:
+                raise OffseasonError("an earlier database write failed: " + self.failed_write)
+            try:
+                self.journal._update_marker(lambda state: state.update(
+                    phase="store:" + name, store_writes_started=True))
+                self.writes_started = True
+                return method(*args, **kwargs)
+            except Exception:
+                self.failed_write = name
+                raise
+        return write
+
+
+def run_offseason(store, season=None, log=print, dry_run=False, force=False):
+    """Share the save lock and recovery journal with Sim Week.
+
+    Binary rollback is safe only before any database mutation was attempted. After that,
+    preserve both sides and block retries, including force, until they are reconciled.
     """
-    # The offseason drives the same three saves a sim does, and both write league.dat. Share the
-    # sim's lock rather than inventing a second one: two locks that do not know about each other
-    # are the same as no lock at all.
-    from .simweek import _SIM_LOCK, SimBusy
-    if not _SIM_LOCK.acquire(blocking=False):
-        raise SimBusy("a sim or another offseason is already using the saves")
-    taken = {}
+    from . import simweek as journal
+    if not journal._SIM_LOCK.acquire(blocking=False):
+        raise journal.SimBusy("a sim, offseason or backup is already using the saves")
+    taken, marked, completed = {}, False, False
+    tracked = _JournaledStore(store, journal)
     try:
         if not dry_run:
-            notify.post(f"**Offseason started** - {season or 'this season'}. Everybody ages, "
-                        "grows, and whoever has outgrown his level moves up.", log=log)
+            stale = journal.interrupted_run()
+            if stale:
+                raise OffseasonError(journal.describe_interruption(stale))
+            if journal.FBPB3.is_running():
+                raise OffseasonError("close FBPB3 before running the offseason")
+            journal._mark_running(["prep", "college", "pro"], 0, season, kind="offseason")
+            marked = True
             taken = back_up_every_save(log=log)
-            if not taken:
-                # Every league is skipped below when there is no backup for it, which would
-                # otherwise read as a clean offseason in which nobody grew.
-                raise OffseasonError(
-                    "no save could be backed up, so nothing may be written. Check that "
-                    f"{ch.DOCS} is reachable.")
-        result = _run_offseason(store, season=season, log=log, dry_run=dry_run, force=force,
-                                backups=taken)
+            if set(taken) != {"prep", "college", "pro"}:
+                raise OffseasonError("all three saves must be backed up before the offseason")
+            journal._update_marker(lambda state: state.update(
+                phase="offseason", backups={k: str(v) for k, v in taken.items()}))
         if not dry_run:
-            notify.post(_offseason_report(result), log=log)
+            try:
+                notify.post(f"**Offseason started** - {season or 'this season'}.", log=log)
+            except Exception:
+                pass
+        result = _run_offseason(store if dry_run else tracked, season=season, log=log,
+                                dry_run=dry_run, force=force, backups=taken)
+        if not dry_run:
+            if tracked.failed_write:
+                raise OffseasonError("a database write failed: " + tracked.failed_write)
+            completed = True
+            journal._clear_marker()
+        # Notification failures must never roll back a completed offseason.
+        try:
+            if not dry_run:
+                notify.post(_offseason_report(result), log=log)
+        except Exception:
+            pass
         return result
     except Exception as exc:
-        if not dry_run:
-            # PUT THE SAVES BACK. Until this existed the offseason left them exactly where it
-            # stopped - prep and college grown, pro not, the store half-updated - and the
-            # obvious recovery, running it again, silently grew everybody who had already
-            # grown a SECOND time, because growth reads the height out of the save and adds
-            # this year's inches to it. `last_offseason` is only written at the very end, so
-            # nothing refused the second run either.
-            restored = restore_saves(taken, log=log)
-            if restored:
-                tail = ("\nThe three saves were put back to where the offseason found them, so "
-                        "nothing in the game changed. Anything the STORE had already recorded - "
-                        "a retirement, a banked college year - is still recorded, so look at the "
-                        "panel before running it again.")
+        if marked and not completed:
+            if not tracked.writes_started and (not taken or restore_saves(taken, log=log)):
+                journal._clear_marker()
             else:
-                tail = ("\nThe saves could NOT all be put back. Do not run anything else until "
-                        f"they are: the copies are in {BACKUPS}, and "
-                        "tools/restore_backup.py puts one back.")
-            log(tail.strip())
-            notify.post(f"**Offseason stopped** - {exc}{tail}", log=lambda m: None)
+                log("Offseason recovery required. Saves and database may both contain changes; "
+                    "reconcile them before clearing the recovery journal. Do not retry.")
+            try:
+                notify.post(f"**Offseason stopped** - {exc}. Check the recovery journal before retrying.",
+                            log=lambda m: None)
+            except Exception:
+                pass
         raise
     finally:
-        _SIM_LOCK.release()
+        journal._SIM_LOCK.release()
 
 
 def back_up_every_save(log=print):
@@ -677,7 +711,7 @@ def back_up_every_save(log=print):
     a backup taken inside the growth loop was already too late for the league a retirement had
     touched.
     """
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     taken = {}
     for key in ("prep", "college", "pro"):
         path = ch.save_path(key)
@@ -695,10 +729,8 @@ def back_up_every_save(log=print):
 def restore_saves(backups, log=print):
     """Copy the backups back over the saves. True only if every one of them went back.
 
-    The store is NOT rolled back with them, and cannot be: a retirement that already landed is
-    a row somebody may have read. What this guarantees is the half that is unrecoverable by
-    hand - three binary files nobody can edit - and it leaves the store's own inconsistency
-    visible rather than baked into the game.
+    Only call this before any store write was attempted. Otherwise restoring binary saves
+    alone would undo game changes while retaining retirements, points or completion flags.
     """
     if not backups:
         return False

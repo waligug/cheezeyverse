@@ -60,15 +60,15 @@ def main():
         told = simweek.describe_interruption(simweek.interrupted_run())
         assert "never finished" in told, told
         assert "prep" in told and "CV_Prep" in told, told
-        assert "twice" in told, "the message must say WHY running again is not safe"
-        assert "restore_backup" in told, "the message must say how to put it right"
+        assert "Reconcile" in told, "the message must say WHY running again is not safe"
+        assert "Do not rerun" in told, "the message must say how to put it right"
 
         # ---- the store agrees: prep is safe again ---------------------------------------
         simweek._mark_synced("prep")
         assert simweek.interrupted_run()["unconfirmed"] == [], \
             "a league the store has confirmed is not at risk"
         safe = simweek.describe_interruption(simweek.interrupted_run())
-        assert "Nothing had been committed" in safe, safe
+        assert "Nothing had been committed" not in safe, safe
         assert "run_in_progress.json" in safe, "it should still say how to clear the marker"
 
         # ---- two leagues, only the second unfinished ------------------------------------
@@ -86,8 +86,8 @@ def main():
 
         # ---- a damaged marker is not a crash --------------------------------------------
         simweek.MARKER.write_text("{not json", encoding="utf-8")
-        assert simweek.interrupted_run() is None, \
-            "an unreadable marker must read as 'no interruption', not raise into a sim"
+        assert simweek.interrupted_run().get("read_error"), \
+            "an unreadable marker must block another run"
 
         # ---- run_sim actually refuses ----------------------------------------------------
         src = (ROOT / "commissioner" / "simweek.py").read_text(encoding="utf-8")

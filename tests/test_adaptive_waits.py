@@ -120,8 +120,20 @@ def main():
         # ---- SAVE: with no path it still returns (the rehearsal and newgame call it bare) ---
         g = FakeGame()
         _, exc, _ = timed(lambda: g.save_game(wait=0))
-        assert exc is None, exc
-        assert g.settled >= 1, "with no file to watch, settling is the only signal left"
+        assert isinstance(exc, DriverError), exc
+        assert not g.clicks, "missing target must refuse before clicks"
+
+        save.unlink()
+        g = FakeGame(writes=((0.15, 1000), (0.8, 4000)))
+        g.path = save
+        _, exc, took = timed(lambda: g.save_game(wait=0, path=save))
+        assert exc is None and save.stat().st_size == 4000, exc
+        assert took >= 1.8
+
+        save.unlink()
+        g = FakeGame()
+        _, exc, _ = timed(lambda: g.save_game(wait=0, path=save))
+        assert isinstance(exc, DriverError), "missing first save must time out"
 
         # ---- LOAD: waits for the Load screen to go, and no longer ---------------------------
         g = FakeGame(load_screen_for=0.7)

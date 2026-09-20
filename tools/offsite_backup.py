@@ -39,6 +39,24 @@ DEST = Path(r"D:\Cheezeyverse-backups")
 KEEP = 60
 
 
+from commissioner.saveguard import SAVE_LOCK
+from commissioner.driver.fbpb3 import FBPB3
+
+
+def required_saves():
+    from commissioner.universe import config as cfg
+    return {f"{spec.save_name}/league.dat" for spec in cfg.LEAGUES}
+
+
+def complete(payload):
+    if not isinstance(payload, dict) or not isinstance(payload.get("files"), list):
+        return False
+    rows = payload["files"]
+    return required_saves() <= {r.get("label") for r in rows
+                                 if isinstance(r, dict) and isinstance(r.get("bytes"), (int, float))
+                                 and r["bytes"] > 0 and r.get("sha256")}
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -99,20 +117,40 @@ def newest(dest=DEST):
             payload = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
+        if not complete(payload):
+            continue
         when = payload.get("taken_at")
-        if when:
-            return datetime.fromisoformat(when), payload
+        if isinstance(when, str):
+            try:
+                parsed = datetime.fromisoformat(when)
+                if parsed.tzinfo is not None:
+                    return parsed, payload
+            except ValueError:
+                continue
     return None, None
 
 
 def take(dest=DEST, keep=KEEP, log=print):
+    if not SAVE_LOCK.acquire(blocking=False):
+        log("saves are in use; snapshot deferred")
+        return None
+    try:
+        if FBPB3.is_running():
+            log("FBPB3 is open; snapshot deferred")
+            return None
+        return _take_locked(dest, keep, log)
+    finally:
+        SAVE_LOCK.release()
+
+
+def _take_locked(dest=DEST, keep=KEEP, log=print):
     """One verified snapshot. Returns its folder, or None if nothing could be copied."""
     if not dest.parent.exists() and not dest.exists():
         log(f"the backup drive is not there ({dest.drive}\\) - nothing was copied")
         return None
     items = sources()
-    if not items:
-        log("found nothing to back up, which is itself wrong - check the save paths")
+    if not required_saves() <= {label for label, path in items if path.is_file() and path.stat().st_size > 0}:
+        log("a required league save is missing or empty; no snapshot or pruning performed")
         return None
     # NEVER REUSE AN EXISTING FOLDER. The name is a timestamp to the second, so two snapshots
     # taken in the same second - a retry, a hand-run next to the daily task - would land in one
@@ -139,6 +177,11 @@ def take(dest=DEST, keep=KEEP, log=print):
                              "sha256": after})
             copied += 1
             total += size
+        if FBPB3.is_running():
+            raise OSError("FBPB3 opened during the snapshot")
+        for (label, path), row in zip(items, manifest):
+            if sha256(path) != row["sha256"]:
+                raise OSError(f"{label} changed during the snapshot")
         (folder / "manifest.json").write_text(json.dumps({
             "taken_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "machine": _machine(),
@@ -160,7 +203,14 @@ def _machine():
 
 
 def _prune(dest, keep, log):
-    old = snapshots(dest)[:-keep] if keep > 0 else []
+    valid = []
+    for folder in snapshots(dest):
+        try:
+            if complete(json.loads((folder / "manifest.json").read_text(encoding="utf-8"))):
+                valid.append(folder)
+        except (OSError, ValueError, TypeError, AttributeError):
+            continue
+    old = valid[:-keep] if keep > 0 else []
     for folder in old:
         shutil.rmtree(folder, ignore_errors=True)
     if old:

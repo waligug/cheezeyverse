@@ -39,6 +39,10 @@ def main():
         items = [("CV_Test/league.dat", src / "league.dat"), ("repo/.env", src / ".env")]
         dest = tmp / "dest"
 
+        ob.required_saves = lambda: {"CV_Test/league.dat"}
+        ob.FBPB3.is_running = lambda: False
+        from commissioner.saveguard import SaveLock
+        ob.SAVE_LOCK = SaveLock(tmp / "lock")
         real_sources = ob.sources
         ob.sources = lambda: items
         try:
