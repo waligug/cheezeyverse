@@ -27,7 +27,14 @@ per-league stat history stays behind, which is why the career page stitches the 
 from our side.
 
 Nothing here touches a save until every change for that save has been staged and verified, and a
-failed verification restores the backup - the same rule Sim Week runs under.
+failed verification restores the backup - the same rule Sim Week runs under. All three saves are
+copied BEFORE the first write of the whole offseason rather than per phase, because retirements
+write before growth does; if anything raises, `restore_saves` puts every one of them back.
+
+That restore is not a nicety. Growth is cumulative - it reads the height out of the save and adds
+this year's inches to it - and `last_offseason` is only written at the very end. So a run that
+stopped halfway used to leave the saves half-grown AND leave the obvious recovery, running it
+again, free to grow those same characters a second time with nothing anywhere to detect it.
 """
 from __future__ import annotations
 
@@ -618,20 +625,89 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
     from .simweek import _SIM_LOCK, SimBusy
     if not _SIM_LOCK.acquire(blocking=False):
         raise SimBusy("a sim or another offseason is already using the saves")
+    taken = {}
     try:
         if not dry_run:
             notify.post(f"**Offseason started** - {season or 'this season'}. Everybody ages, "
                         "grows, and whoever has outgrown his level moves up.", log=log)
-        result = _run_offseason(store, season=season, log=log, dry_run=dry_run, force=force)
+            taken = back_up_every_save(log=log)
+            if not taken:
+                # Every league is skipped below when there is no backup for it, which would
+                # otherwise read as a clean offseason in which nobody grew.
+                raise OffseasonError(
+                    "no save could be backed up, so nothing may be written. Check that "
+                    f"{ch.DOCS} is reachable.")
+        result = _run_offseason(store, season=season, log=log, dry_run=dry_run, force=force,
+                                backups=taken)
         if not dry_run:
             notify.post(_offseason_report(result), log=log)
         return result
     except Exception as exc:
         if not dry_run:
-            notify.post(f"**Offseason stopped** - {exc}", log=lambda m: None)
+            # PUT THE SAVES BACK. Until this existed the offseason left them exactly where it
+            # stopped - prep and college grown, pro not, the store half-updated - and the
+            # obvious recovery, running it again, silently grew everybody who had already
+            # grown a SECOND time, because growth reads the height out of the save and adds
+            # this year's inches to it. `last_offseason` is only written at the very end, so
+            # nothing refused the second run either.
+            restored = restore_saves(taken, log=log)
+            if restored:
+                tail = ("\nThe three saves were put back to where the offseason found them, so "
+                        "nothing in the game changed. Anything the STORE had already recorded - "
+                        "a retirement, a banked college year - is still recorded, so look at the "
+                        "panel before running it again.")
+            else:
+                tail = ("\nThe saves could NOT all be put back. Do not run anything else until "
+                        f"they are: the copies are in {BACKUPS}, and "
+                        "tools/restore_backup.py puts one back.")
+            log(tail.strip())
+            notify.post(f"**Offseason stopped** - {exc}{tail}", log=lambda m: None)
         raise
     finally:
         _SIM_LOCK.release()
+
+
+def back_up_every_save(log=print):
+    """A copy of all three saves before ANYTHING is written, keyed by league.
+
+    Before anything, not before growth: retirements run first and `refill` writes to a save, so
+    a backup taken inside the growth loop was already too late for the league a retirement had
+    touched.
+    """
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    taken = {}
+    for key in ("prep", "college", "pro"):
+        path = ch.save_path(key)
+        if not path.exists():
+            continue
+        dest = BACKUPS / f"{stamp}-offseason-{cfg.BY_KEY[key].save_name}"
+        dest.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, dest / "league.dat")
+        taken[key] = dest / "league.dat"
+    if taken:
+        log(f"backed up {len(taken)} save(s) to {BACKUPS}")
+    return taken
+
+
+def restore_saves(backups, log=print):
+    """Copy the backups back over the saves. True only if every one of them went back.
+
+    The store is NOT rolled back with them, and cannot be: a retirement that already landed is
+    a row somebody may have read. What this guarantees is the half that is unrecoverable by
+    hand - three binary files nobody can edit - and it leaves the store's own inconsistency
+    visible rather than baked into the game.
+    """
+    if not backups:
+        return False
+    ok = True
+    for key, backup in backups.items():
+        try:
+            shutil.copy2(backup, ch.save_path(key))
+            log(f"   restored the {key} save from {Path(backup).parent.name}")
+        except Exception as exc:
+            ok = False
+            log(f"   ! could not restore the {key} save from {backup}: {exc}")
+    return ok
 
 
 def _offseason_report(result):
@@ -781,7 +857,7 @@ def season_movers(characters, store, season, log=print):
     return out
 
 
-def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
+def _run_offseason(store, season=None, log=print, dry_run=False, force=False, backups=None):
     settings = store.get_settings()
     season = int(season or settings.get("current_season", cfg.START_YEAR))
     done = settings.get("last_offseason")
@@ -804,11 +880,13 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False):
         path = ch.save_path(key)
         if not path.exists():
             continue
-        if not dry_run:
-            stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            dest = BACKUPS / f"{stamp}-offseason-{cfg.BY_KEY[key].save_name}"
-            dest.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(path, dest / "league.dat")
+        # The backup for this league was taken by run_offseason before the first write of the
+        # whole offseason - retirements go first and refill writes - so there is none to take
+        # here. A direct call to _run_offseason with no backups is a caller who has said, by
+        # passing nothing, that it is looking after its own copies.
+        if not dry_run and backups is not None and key not in backups:
+            log(f"   ! no backup was taken for {key}; refusing to write to it")
+            continue
         log(f"{key}: growth")
         grown, _ = apply_growth(key, characters, season, log=log, dry_run=dry_run)
         result["grown"] += len(grown)

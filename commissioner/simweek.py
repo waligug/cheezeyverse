@@ -501,7 +501,18 @@ def _activate_pending(league_key, L, st, log, season=None):
         # name the same person. Without this the first sim after anybody created a character
         # died on KeyError: 'dob'.
         dob = ch.codec_dob(c.get("dob") or slot.dob)
-        ch.stamp_character(L, slot, {**c, "dob": dob})
+        try:
+            ch.stamp_character(L, slot, {**c, "dob": dob})
+        except Exception as exc:
+            # A slot the STORE believes is free that the SAVE cannot produce. The offseason
+            # leaves exactly that behind when it fails and restores: the store has already let
+            # go of a claim, the restored save still has the old occupant's name on the row, and
+            # the manifest name the stamp looks for is in neither. Unhandled, this raised out of
+            # the activation phase and took the whole week with it - and the week is everybody
+            # else's sim, not just his. He stays pending and gets a slot next time.
+            log(f'   ! could not place {c["first_name"]} {c["last_name"]} in {league_key}: {exc}')
+            busy[landed] = max(0, busy.get(landed, 1) - 1)
+            continue
 
         def _write(c=c, slot=slot, dob=dob, landed=landed):
             st.activate_character(c["id"], league_key, slot.team, slot.as_json(), dob)

@@ -744,3 +744,27 @@ Three properties worth keeping in mind when touching it:
   `grant select`, the `grant insert`, and `CHARACTER_COLUMNS` in *both* `site/js/supabase.js` and
   `commissioner/store.py`. Only the first two fail loudly. `tests/test_column_grants.py` reads all
   of them out of the source and compares them.
+
+## The offseason puts the saves back when it fails (2026-09-20)
+
+All three saves are copied before the offseason's FIRST write - not once per phase - and if
+anything raises, every one of them is copied back. `back_up_every_save` and `restore_saves` in
+`commissioner/offseason.py`.
+
+Per-phase backups were too late to be a safety net: retirements run before growth and `refill`
+writes to a save, so the league a retirement had already touched had no copy yet.
+
+**Why a restore and not just a backup.** Growth is cumulative - `apply_growth` reads the Height
+out of the save and adds this year's inches to it - and `last_offseason` is only written at the
+very end of a successful run. So a run that stopped halfway left prep and college grown and pro
+not, with nothing recorded to say it had happened, and the obvious recovery (press it again)
+grew those same characters a second time. Nothing anywhere would have shown it afterwards: the
+heights are plausible and the model does not know what it wrote last year.
+
+What the restore does NOT undo is the store. A retirement or a banked college year that already
+landed is a row somebody may have read, so the failure message says so and tells whoever is
+looking to check the panel before running it again. The saves are the half nobody can fix by
+hand; the store is the half they can.
+
+`python tools/offseason_rehearsal.py` proves all of it against copies of real saves, including
+that a rerun after a restore does not double-grow anybody.

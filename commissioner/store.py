@@ -51,6 +51,10 @@ CHARACTER_COLUMNS = (
     # no college years" - which is indistinguishable from the real thing and is how a
     # write was three times believed not to have landed when it had.
     "league_player_ids,level_history,declared,college_years,"
+    # The commissioner WRITES these three (SETTABLE_FIELDS lets it) and could not read
+    # one of them back: a draft pick it recorded, and the reason a career ended, both
+    # came back None to the code that set them.
+    "draft_round,draft_pick,draft_season,retired_season,retired_reason,"
     # traits carries height_genes, which apply_growth needs. Without it every character
     # read None, growth skipped all of them, and the offseason reported "0 grew" - so
     # nobody would ever have got taller, in a game whose whole premise is growing up.

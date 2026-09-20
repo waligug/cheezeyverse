@@ -87,15 +87,21 @@ and are not in git. `backups/` in this project holds timestamped copies of every
 - **Reserve slot ages drift.** A slot's birthday is fixed at universe creation, and a character
   inherits it. Today every free prep slot is 14-17, which is right; many seasons in, the
   unclaimed ones will be older than a prep player should be. Not a problem yet.
-- **The offseason has never run for real, and neither has the end of a season.** The offseason
-  is built and dry-run repeatedly against the live saves, but nothing has rolled over. Worse,
-  the step BEFORE it is equally untested: the regular season is running out - 23 more days with
-  games in prep as of 2026-09-19 - and no sim has ever crossed the end of one. `sim_days` clicks
-  SIM DAY blind, and the offseason never drives FBPB3's own playoffs or rollover, so what the
-  game does on the next day is unknown: a modal that eats later clicks, playoff games, its own
-  aging and re-signing, any of which would be the game taking over a rollover `offseason.py`
-  owns. `run_sim` refuses to cross it and the panel reports the number. Rehearse on a copy of
-  CV_Prep before lifting that.
+- **The offseason has still never run on the live universe, but it has now been rehearsed end to end.**
+  `python tools/offseason_rehearsal.py` builds a sandbox - copies of the three saves, a
+  local JSON store, Discord stubbed - stamps in seven characters chosen to take every
+  branch, and drives the real `run_offseason` through it: 44 checks, covering growth,
+  promotion, the draft, retirement, refill, payment and the season roll. It also runs the
+  four ways it is known to go wrong (destination league full, a character the game
+  deleted, two records with one name, a write that fails halfway) and the empty universe.
+  What that does NOT cover is Supabase: the rehearsal uses the local store, so the live
+  run is still the first time the offseason talks to PostgREST.
+- **The step BEFORE it is the untested one now: crossing the end of a season.** `sim_days`
+  clicks SIM DAY blind, and the offseason never drives FBPB3's own playoffs or rollover,
+  so what the game does on the next day is unknown: a modal that eats later clicks,
+  playoff games, its own aging and re-signing, any of which would be the game taking over
+  a rollover `offseason.py` owns. `run_sim` refuses to cross it and the panel reports the
+  number. Rehearse on a copy of CV_Prep before lifting that.
 - **The local saves on this desktop are NOT the live universe**, and mistaking them for it is an
   easy and expensive error. They are the abandoned pre-reset one: season 2030, and none of the
   seven characters are in them. The live saves are on SERVERPC. A code review on 2026-09-19
