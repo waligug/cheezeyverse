@@ -30,6 +30,7 @@ from . import characters as ch
 from . import notify
 from . import settings as cfgenv
 from . import localstore
+from .simstatus import RunProgress, SimStatus
 from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
 from .driver.fbpb3 import DOCS, FBPB3
 from .publish.publish import publish
@@ -958,13 +959,23 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     keys = list(leagues or [s.key for s in cfg.LEAGUES])
     started = time.time()
     steps = []
+    progress, status = None, None
+    failure_summary = None
+
+    def at(stage, league=None, fraction=0):
+        value = progress.at(stage, league, fraction)
+        if status is not None:
+            status.update(percent=value, stage=stage, league=league)
+        return value
 
     def emit(step, message, league=None, pct=None):
         row = {"step": step, "league": league, "message": message,
-               "pct": pct if pct is not None else len(steps) * 100 // max(1, len(keys) * 5 + 2),
+               "pct": pct if pct is not None else (progress.percent if progress else 0),
                "t": round(time.time() - started, 1)}
         steps.append(row)
         _RUNNING["steps"] = steps[-40:]
+        if status is not None:
+            status.update(percent=row["pct"], detail=message, league=league)
         if on_step:
             on_step(row)
         return row
@@ -976,7 +987,9 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     game = None
     # Defined before the try because the finally logs it, and a refusal raises above the read.
     season_now, settings = None, {}
+    marked = False
     try:
+        progress = RunProgress(keys, days)
         # INSIDE the try, and first. _SIM_LOCK was acquired above and the only thing that ever
         # releases it is this try's finally - so raising above this line held the lock for the
         # life of the process, and offseason.py deliberately shares that lock, meaning one
@@ -1010,12 +1023,6 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             _refuse_to_cross_the_season(keys, days, emit, allow_season_end=allow_season_end,
                                         season=season_now)
 
-        # Told before anything happens, because the point of it is that people know a sim is
-        # running while it runs. Wrapped like every other notify call: Discord cannot fail a week.
-        if not dry_run:
-            notify.post(f'**Sim started** - {days} day(s) of {", ".join(keys)}. '
-                        f'About {notify.estimate_minutes(days, len(keys))} min.',
-                        log=lambda m: emit("start", m))
         if FBPB3.is_running():
             emit("backup", "closing a stray FBPB3 first")
             FBPB3.kill()
@@ -1029,11 +1036,15 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             if stale:
                 raise RuntimeError(describe_interruption(stale))
             _mark_running(keys, days, season_now)
+            marked = True
+            # One message for this run. All HTTP happens on its worker, never in a game click.
+            status = SimStatus(days, keys).start()
 
         # ---- 1. apply everything owed, per league, before the game opens ----------------------
         for key in keys:
             spec = cfg.BY_KEY[key]
             path = ch.save_path(key)
+            at("prepare", key)
             emit("backup", f"backing up {spec.save_name}", key)
             stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             dest = BACKUPS / f"{stamp}-{spec.save_name}"
@@ -1113,18 +1124,29 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             return result
 
         # ---- 2. drive the game ---------------------------------------------------------------
+        at("load", keys[0])
+        emit("sim", "starting the basketball game", keys[0])
         game = FBPB3().launch()
         for key in keys:
             spec = cfg.BY_KEY[key]
+            at("load", key)
             emit("sim", f"loading {spec.save_name}", key)
             game.load_save(spec.save_name, wait=30)
+            at("sim", key)
             emit("sim", f"simming {days} days of {spec.name}", key)
-            game.sim_days(days)
+
+            def day_finished(day, total):
+                pct = at("sim", key, day / max(1, total))
+                emit("sim", f"{spec.name}: day {day} of {total} completed", key, pct=pct)
+
+            game.sim_days(days, on_day=day_finished)
+            at("save", key)
             emit("sim", "saving", key)
             # The path lets the driver watch the file finish instead of sleeping a fixed 15 s,
             # and turns a save that silently did not happen into an error rather than an export
             # of yesterday's league.
             game.save_game(path=ch.save_path(key))
+            at("export", key)
             emit("export", f"writing {spec.name} pages", key)
             # old_boxes=True writes the BOX SCORES for the games in the export's window, so the
             # schedule's links lead somewhere instead of 404ing. The control is a DATE dropdown -
@@ -1140,6 +1162,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # week's basketball is already saved and exported by this point, and head-to-head
             # going stale is not worth losing it.
             try:
+                at("mdb", key)
                 emit("export", "writing the game-by-game table", key)
                 game.output_mdb(spec.save_name)
             except Exception as exc:
@@ -1178,6 +1201,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             emit("apply", "FBPB3 is still running after 30s; tidying anyway, writes may be locked")
 
         for key in keys:
+            at("tidy", key)
+            emit("apply", f"checking {cfg.BY_KEY[key].name} rosters after the games", key)
             try:
                 from tools.protect_rosters import protect as _protect
                 after = _protect(key, store_characters=st.characters())
@@ -1250,6 +1275,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # it is bumped at the end, so the stale value would date every snapshot a week early.
         week_done = int(settings.get("current_week", 0)) + weeks
         for key in keys:
+            at("snapshot", key)
+            emit("snapshot", f"recording {cfg.BY_KEY[key].name} player progress", key)
             try:
                 n = _snapshot_league(key, st, season, week_done,
                                      lambda m: emit("snapshot", m, key))
@@ -1260,6 +1287,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 emit("snapshot", f"no snapshots for {key}: {exc}", key)
 
         # ---- 4. publish and pay ---------------------------------------------------------------
+        at("publish")
         emit("publish", "skinning and staging the sites")
         rows = publish(keys)
         for row in rows:
@@ -1276,6 +1304,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # every other outcome is already recorded. It is retried by simply running the publish
         # again, so say so and carry on.
         if st.get_settings().get("auto_publish", True):
+            at("upload")
             emit("publish", "pushing to the public site")
             try:
                 from .publish.publish import git_push
@@ -1285,19 +1314,20 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 emit("publish", f"the site did NOT publish ({exc}); the week itself is saved")
 
         for key in keys:
+            at("points", key)
+            emit("points", f"awarding weekly points in {cfg.BY_KEY[key].name}", key)
             n = st.grant_week_points(league=key, weeks=weeks)
             if n:
                 emit("points", f"{weeks} point(s) to {n} character(s) in {key}", key)
+        at("finish")
+        emit("points", "updating the completed week")
         st.set_setting("current_week", week_done)
 
         result["ok"] = True
-        emit("done", f"done in {round(time.time() - started)}s", pct=100)
-        if not dry_run:
-            notify.post(_discord_report(steps, result, time.time() - started),
-                        log=lambda m: emit("done", m))
+        emit("done", "saving the run history")
     except Exception as exc:
         result["errors"].append(str(exc))
-        emit("error", str(exc), pct=100)
+        emit("error", str(exc))
         # A REFUSAL IS NOT A STOP. SeasonEnd means nothing ran: no backup, no save touched, no
         # click. Announcing "Sim stopped" for it told the Discord server the sim had fallen over
         # when it had simply declined to start, which is a worse lie than saying nothing - and it
@@ -1308,8 +1338,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # server to find out what, which is exactly the trip this is meant to save.
             where = next((r["message"] for r in reversed(steps)
                           if r.get("step") not in ("error",)), "before it started")
-            notify.post(f"**Sim stopped** - {exc}\nLast step: {where}",
-                        log=lambda m: None)
+            failure_summary = f"**Sim stopped** — {exc}\nLast step: {where}"
         raise
     finally:
         if game is not None:
@@ -1328,7 +1357,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # exception means the cleanup above ran and the save was put back. The only way this
         # file survives is the machine stopping between the two, which is exactly what it is
         # there to report.
-        _clear_marker()
+        if marked:
+            _clear_marker()
         try:
             phases = phase_totals(steps, time.time() - started)
             if phases and not dry_run:
@@ -1339,10 +1369,25 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                            .isoformat(timespec="seconds"),
                            "season": season_now,
                            "phases": {name: round(secs, 1) for name, secs in phases}})
+            if result["ok"] and not dry_run:
+                emit("done", f"done in {round(time.time() - started)}s", pct=100)
+        except Exception:
+            result["ok"] = False
+            failure_summary = (failure_summary or
+                               "The run finished its work, but its history could not be recorded. "
+                               "Check the commissioner panel before starting another run.")
+            raise
         finally:
             # ALWAYS, even if the log write raised. record_run swallows OSError but not a
             # PermissionError from a held file, nor a TypeError from a hand-edited log - and a
             # leaked lock is not a lost log line, it is Sim Week AND the offseason refusing to
             # run with "another process is already simming" until somebody restarts the panel.
-            _SIM_LOCK.release()
+            try:
+                if status is not None:
+                    status.finish(result["ok"], failure_summary or
+                                  _discord_report(steps, result, time.time() - started))
+            except Exception as exc:
+                print(f"Discord final status failed ({type(exc).__name__}); run is unaffected")
+            finally:
+                _SIM_LOCK.release()
     return result

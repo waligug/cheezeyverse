@@ -528,7 +528,7 @@ class FBPB3:
                 "this driver can click without scrolling. Remove some old saves from leaguedata.")
         self.load_save_row(row, wait)
 
-    def sim_days(self, n=1, timeout=20, settle=0.3):
+    def sim_days(self, n=1, timeout=20, settle=0.3, on_day=None):
         """Click SIM DAY `n` times, each one as soon as the previous day has finished.
 
         This used to sleep a fixed 8 s per click. Measured click-to-new-date on a copy of CV_Prep
@@ -565,6 +565,13 @@ class FBPB3:
                     f"day {day} of {n}: SIM DAY did not advance the calendar in {timeout}s, "
                     "twice. Past 6/21 that spot is DRAFT LOTTERY, not SIM DAY - look at the "
                     "Hot Seat before retrying.")
+            # Report only confirmed advances. Observers must not turn a completed day into
+            # a failed sim, and must enqueue their network work rather than do it here.
+            if on_day is not None:
+                try:
+                    on_day(day, n)
+                except Exception:
+                    pass
 
     # window-relative box around the Hot Seat calendar's date label ("MARCH 23, 2027")
     HOTSEAT_DATE_BOX = (775, 247, 935, 268)
