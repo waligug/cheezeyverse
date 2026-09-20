@@ -723,3 +723,36 @@ a.cv-rollname:hover { text-decoration: underline; }
   .cv-roll { flex-direction: column; gap: 4px; }
   .cv-roll-owner { order: 3; }
 }
+
+/* ---------------------------------------------------------------- signing a player */
+/* The moment the whole page exists for. It arrives all at once otherwise - a form vanishes and
+   a wall of numbers appears - so the card lands, then the NBA comparison, then the sheet. */
+@keyframes cv-land {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes cv-pop {
+  0%   { opacity: 0; transform: scale(.9); }
+  60%  { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: none; }
+}
+#signed > .cv-card { animation: cv-land .45s cubic-bezier(.2,.8,.3,1) both; }
+#signed .cv-archetype { animation: cv-pop .5s cubic-bezier(.2,.8,.3,1) .55s both; }
+#signed .cv-archetype-slot > .cv-hint { animation: cv-land .4s ease .9s both; }
+#signed h3, #signed .cv-table, #signed .cv-traits {
+  animation: cv-land .4s ease 1.05s both;
+}
+#signed .cv-actions { animation: cv-land .4s ease 1.3s both; }
+
+.cv-archetype b { letter-spacing: .3px; }
+
+/* Somebody who has asked their system not to animate things gets the card, immediately, with
+   no movement at all. The content is identical either way - this is decoration, and decoration
+   is the first thing that should yield. */
+@media (prefers-reduced-motion: reduce) {
+  #signed > .cv-card,
+  #signed .cv-archetype,
+  #signed .cv-archetype-slot > .cv-hint,
+  #signed h3, #signed .cv-table, #signed .cv-traits,
+  #signed .cv-actions { animation: none !important; }
+}

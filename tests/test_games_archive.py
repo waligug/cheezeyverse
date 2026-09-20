@@ -107,6 +107,26 @@ def main():
     first = ga.merge([], played, 2027)
     assert len(games_of(first, "Chris")) == 2, first
 
+    # ---- an EMPTY export must not delete this season's own archived lines ------------------
+    # The normal state straight after a rollover: the characters are all still listed and none
+    # of them has a game. An earlier version dropped the archived copy of the current season
+    # before merging the export in, so the empty export deleted exactly what the archive was
+    # built to protect. It only showed up once a real 2027 file existed to lose.
+    y2027 = payload(2027, {"id": "1", "name": "Chris", "team": "Berries",
+                           "games": [line(4, 7), line(11, 9)]})
+    wiped_now = payload(2027, {"id": "1", "name": "Chris", "team": "Berries", "games": []})
+    after = ga.merge([(2026, y2026), (2027, y2027)], wiped_now, 2027)
+    kept = games_of(after, "Chris")
+    assert len(kept) == 5, f"an empty export deleted this season's archive: {kept}"
+    assert [(g["season"], g["day"]) for g in kept] ==         [(2026, 5), (2026, 9), (2026, 78), (2027, 4), (2027, 11)], kept
+
+    # ...while a NON-empty export still corrects its own season rather than duplicating it
+    redone = payload(2027, {"id": "1", "name": "Chris", "team": "Berries",
+                            "games": [line(4, 99)]})
+    after = ga.merge([(2026, y2026), (2027, y2027)], redone, 2027)
+    kept = [g for g in games_of(after, "Chris") if g["season"] == 2027]
+    assert len(kept) == 1 and kept[0]["pts"] == 99,         f"a real re-export should replace the season, got {kept}"
+
     # ---- and against the REAL archived season, with the real rollover shape ----------------
     real = ga.archived_seasons("prep")
     if real:

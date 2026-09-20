@@ -110,6 +110,14 @@ def merge(history, fresh, season):
             row = slot(entry)
             row["games"][(gline["season"], int(gline.get("day", 0)))] = gline
 
+    # AN EMPTY EXPORT REPLACES NOTHING. Dropping the archived copy of this season is right when
+    # the export actually holds the season - it is how a re-sim after a fix corrects a night
+    # rather than leaving both versions for every average to count twice. It is catastrophic
+    # when the export is empty, which is the normal state straight after FBPB3's rollover: the
+    # archive's own lines for the current season would be deleted by the very merge that exists
+    # to preserve them. Caught by the test the day a real 2027 file existed to lose.
+    fresh_has_games = any(entry.get("games") for entry in (fresh or {}).get("characters") or [])
+
     if fresh and season is not None:
         for entry in fresh.get("characters") or []:
             row = slot(entry)
@@ -118,10 +126,9 @@ def merge(history, fresh, season):
             games = row["games"]
             row.update({k: v for k, v in entry.items() if k != "games"})
             row["games"] = games
-            # Drop this season's archived copy first, so a re-sim after a fix corrects a night
-            # instead of leaving both versions for every average to count twice.
-            for stale in [k for k in games if k[0] == season]:
-                del games[stale]
+            if fresh_has_games:
+                for stale in [k for k in games if k[0] == season]:
+                    del games[stale]
         for entry, gline in _stamp(fresh, season):
             slot(entry)["games"][(season, int(gline.get("day", 0)))] = gline
 

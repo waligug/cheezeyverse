@@ -132,8 +132,11 @@ def _write_games(src, dst, key):
         from .. import gamesarchive
         season = int(settings.get("current_season", 0)) or None
         history = gamesarchive.archived_seasons(key)
-        # This season's file is rewritten; every finished season's is left exactly alone.
-        if season is not None and data.get("characters"):
+        # This season's file is rewritten; every finished season's is left exactly alone. Only
+        # when the export actually HOLDS games, though: after a rollover PlayerGameStats is empty
+        # while the characters are all still listed, so `data` has seven entries and no lines -
+        # and saving that would overwrite a good season file with an empty one.
+        if season is not None and any(c.get("games") for c in data.get("characters") or []):
             gamesarchive.save(key, season, data)
             history = gamesarchive.archived_seasons(key)
         merged = gamesarchive.merge(history, data, season)

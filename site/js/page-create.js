@@ -14,7 +14,9 @@ import {
   QUIZ, CAREER_GOALS, SUMMER_WORK, BUILDS, careerGoal,
   deriveCharacter, quizProgress, validateBuild, canCreateAnother,
   formatHeight, describeCurve, GOAL_DISCOUNT, START_AGE, GROWTH_END_AGE, buildWeight,
+  RATING_LABELS,
 } from './rules.js';
+import { loadArchetypes, matchArchetypes, archetypeStrengths } from './archetypes.js';
 import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
   myCharacters, createCharacter, errorText,
@@ -435,6 +437,34 @@ function renderReview() {
 }
 
 /** The reveal: the only place on this page that shows a number. */
+/* "You play like DWIGHT HOWARD."
+ *
+ * Silent on failure, deliberately: this is a flourish on a page whose actual job is already
+ * done by the time it runs. A red error box because a 140 KB JSON 404'd would be a worse moment
+ * than simply not having the line.
+ *
+ * The comparison is a SHAPE, not the ratings - see archetypes.js. A fourteen-year-old rated in
+ * the twenties and an All-Star rated in the nineties can be the same KIND of player, which is
+ * the only claim being made here. Nobody is being told the kid is Dwight Howard.
+ */
+async function showArchetype(box, ratings) {
+  try {
+    const data = await loadArchetypes();
+    const [best, ...rest] = matchArchetypes(ratings, data, 3);
+    if (!best) return;
+    clear(box);
+    box.append(el('div', { class: 'cv-readout cv-cheese cv-archetype' },
+      el('b', {}, `He plays like ${best.name.toUpperCase()}`),
+      el('span', {}, `${best.pos} · ${best.team} · known for `
+        + archetypeStrengths(best).map((s) => RATING_LABELS[s] || s).join(', ').toLowerCase())));
+    if (rest.length) {
+      box.append(el('p', { class: 'cv-hint' },
+        `A bit of ${rest.map((p) => p.name).join(' and ')} in him too. This is about the SHAPE `
+        + 'of his game, not his level - he is fourteen and these men are not.'));
+    }
+  } catch (err) { /* a flourish must never take the page down with it */ }
+}
+
 function renderSigned(created, derived) {
   const box = $('#signed');
   clear(box);
@@ -452,6 +482,13 @@ function renderSigned(created, derived) {
     + `${created.hometown}. He is expected to finish around `
     + `${formatHeight(derived.expectedAdultHeight)}; his own curve is on `,
     el('a', { href: 'me.html' }, 'his page'), '.'));
+
+  // The NBA comparison, filled in when the file arrives. Appended empty and populated later so
+  // the rest of the card is not waiting on a fetch: signing him is the moment people care about,
+  // and holding the whole thing back for 140 KB of data that may 404 is the wrong trade.
+  const archetype = el('div', { class: 'cv-archetype-slot' });
+  card.append(archetype);
+  showArchetype(archetype, derived.ratings);
 
   card.append(el('h3', {}, 'The numbers, now that he is yours'));
   const sheet = el('div', {});
