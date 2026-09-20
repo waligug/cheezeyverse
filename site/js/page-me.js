@@ -20,7 +20,7 @@ import {
 import {
   $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
   statusPill, renderSheet, renderMeter, describeCharacter, fmtDate,
-  renderTraitBars, classLine, positionLine, goalLine, tabs,
+  renderTraitBars, classLine, positionLine, goalLine, tabs, freshJSON,
 } from './ui.js';
 
 const chrome = renderChrome({
@@ -157,9 +157,7 @@ const STATS = new Map();
 function leagueStats(league) {
   if (!league) return Promise.resolve(null);
   if (!STATS.has(league)) {
-    STATS.set(league, fetch(`leagues/${league}/stats.json`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null));
+    STATS.set(league, freshJSON(`leagues/${league}/stats.json`));
   }
   return STATS.get(league);
 }

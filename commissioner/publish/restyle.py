@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 CSS_NAME = "cheezey.css"
@@ -94,6 +95,16 @@ a.menulink:hover {{
    player pages, none of which carry a menu of their own. So: show it when the page stands
    alone, hide it when it is framed. The class is set by the snippet _skin_page injects. */
 html.cv-framed .cv-bar {{ display: none !important; }}
+
+/* When this copy was published. Pushed to the far end and kept quiet: it is the answer to "am I
+   looking at a stale page?", which matters only when somebody is already asking. */
+.cv-bar .cv-published {{
+  margin-left: auto !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  opacity: .7 !important;
+  white-space: nowrap !important;
+}}
 
 /* A real person's player, among four hundred the game invented. Without this they are
    indistinguishable on a roster page, which is the opposite of the point: the whole site
@@ -254,9 +265,10 @@ NAV_LINKS = [
 NAV_BAR = (
     '<div class="cv-bar">'
     '{universe}'
-    '<a class="cv-home" href="{prefix}index.htm" target="_top">{league}'
+    '<a class="cv-home" href="{home}" target="_top">{league}'
     '<small>{season}</small></a>'
     '<nav>{links}</nav>'
+    '{published}'
     '</div>'
 )
 
@@ -267,6 +279,78 @@ NAV_BAR = (
 UNIVERSE = [("prep", "Prep"), ("college", "College"), ("pro", "Pro")]
 
 
+# ---- cache busting ---------------------------------------------------------------------------
+# GitHub Pages serves every page with `Cache-Control: max-age=600` and the URL of a page never
+# changes when its contents do. So for ten minutes after a publish, a browser or the CDN in front
+# of it will hand back yesterday's copy of a page that has already been replaced - measured:
+# Age: 113 from cache-yyc1430031-YYC while the bare URL held the new bracket. Ctrl+F5 does not
+# reliably help, because the stale copy can be at the edge rather than in the browser.
+#
+# A query string IS part of the cache key on Pages, so stamping every link this re-skin writes
+# with the publish time gives each publish its own set of URLs and neither cache can answer from
+# the last one. This is why the stamp goes on LINKS rather than on the pages themselves: a page
+# cannot version its own address.
+#
+# WHAT THIS CANNOT FIX: the address somebody types or has bookmarked. `leagues/prep/playoffs.htm`
+# with no query string is still subject to the ten minutes, and nothing written here can change
+# that. The bar therefore also SHOWS the publish time, so the answer to "am I looking at the old
+# one?" is on the page instead of being a guess.
+STAMP = ""
+
+
+def _published_label():
+    """"published 14:32" from the stamp, or "" when there is none.
+
+    Read back OUT of the stamp rather than calling now() a second time: two clocks read a
+    moment apart can straddle a minute, and a bar that disagrees with the URLs on the same page
+    is worse than no bar at all - it is the thing somebody checks to decide whether to trust
+    what they are looking at.
+    """
+    try:
+        return "published " + datetime.strptime(STAMP, "%Y%m%d%H%M%S").strftime("%H:%M")
+    except (ValueError, TypeError):
+        return ""
+
+
+# href="x.htm", href='x.htm' and bare href=x.htm - FBPB3 writes all three, and the unquoted form
+# is the common one in its own generated links.
+_HREF = re.compile(r'(href=)(["\']?)([^"\'>\s]+)(\2)', re.I)
+
+
+def _stamp_links(html):
+    """Put the publish stamp on every relative .htm/.html link in a finished page.
+
+    Only page links. Images and the stylesheet are handled where they are written, and stamping
+    an <img> here would also hit the ones `_drop_empty_images` deliberately left alone.
+    """
+    if not STAMP:
+        return html
+
+    def one(m):
+        eq, q, href, _close = m.groups()
+        base = href.split("#", 1)[0]
+        if not base.lower().endswith((".htm", ".html")):
+            return m.group(0)
+        # Keep a fragment attached to the END of the URL: "a.htm#top" must become
+        # "a.htm?v=1#top", not "a.htm#top?v=1", which addresses a query INSIDE the fragment and
+        # is simply a different, non-existent anchor.
+        frag = href[len(base):]
+        return f"{eq}{q}{_v(base)}{frag}{q}"
+
+    return _HREF.sub(one, html)
+
+
+def _v(href):
+    """`href` with the publish stamp on it, so a new publish cannot be served from a cache.
+
+    Anchors and absolute URLs are left alone: `#top` addresses the current page, and an external
+    URL is not ours to version. An href that already carries a query keeps it.
+    """
+    if not STAMP or not href or href.startswith(("#", "http://", "https://", "mailto:")):
+        return href
+    return f"{href}{'&' if '?' in href else '?'}v={STAMP}"
+
+
 def _universe_strip(prefix, current_key):
     """Links out of this league: the hub, and the other two levels.
 
@@ -275,10 +359,11 @@ def _universe_strip(prefix, current_key):
     frameset and a plain link would load the hub into the 178px menu frame.
     """
     root = f"{prefix}../../"
-    out = [f'<a class="cv-up" href="{root}index.html" target="_top">The Cheezeyverse</a>']
+    out = [f'<a class="cv-up" href="{_v(root + "index.html")}" target="_top">The Cheezeyverse</a>']
     for key, label in UNIVERSE:
         on = " class=on" if key == current_key else ""
-        out.append(f'<a href="{root}leagues/{key}/index.htm"{on} target="_top">{label}</a>')
+        href = _v(f"{root}leagues/{key}/index.htm")
+        out.append(f'<a href="{href}"{on} target="_top">{label}</a>')
     return f'<div class="cv-universe">{"".join(out)}</div>'
 
 
@@ -306,7 +391,7 @@ def _css_text():
 
 def _inject_link(html, prefix):
     """Point a page at the skin. Placed right after <html> - the !important rules do the rest."""
-    link = f'<meta charset="iso-8859-1"><link rel="stylesheet" href="{prefix}{CSS_NAME}">'
+    link = f'<meta charset="iso-8859-1"><link rel="stylesheet" href="{_v(prefix + CSS_NAME)}">'
     if re.search(r"<html[^>]*>", html, re.I):
         return re.sub(r"(<html[^>]*>)", r"\1" + link, html, count=1, flags=re.I)
     return link + html
@@ -350,9 +435,18 @@ def _drop_empty_images(html):
 
 def _nav_bar(league, season, prefix, current, key=None):
     links = "".join(
-        f'<a href="{prefix}{href}"{" class=on" if href == current else ""} target="_top">{label}</a>'
+        f'<a href="{_v(prefix + href)}"{" class=on" if href == current else ""} '
+        f'target="_top">{label}</a>'
         for href, label in NAV_LINKS)
-    return NAV_BAR.format(prefix=prefix, league=league, season=season, links=links,
+    # The publish time, visible. Versioned links keep a CLICKED page fresh, but a typed or
+    # bookmarked address cannot be versioned and stays cacheable for ten minutes - so the page
+    # says which copy it is instead of leaving somebody to guess whether it is stale or broken.
+    stamped = (f'<span class="cv-published" title="when this page was published. Links carry '
+               f'this stamp so a click is never served from a cache; a typed or bookmarked '
+               f'address can still be up to ten minutes old.">{_published_label()}</span>'
+               if STAMP else "")
+    return NAV_BAR.format(home=_v(prefix + "index.htm"), league=league, season=season,
+                          links=links, published=stamped,
                           universe=_universe_strip(prefix, key))
 
 
@@ -637,6 +731,11 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
 
     Returns the number of pages skinned. `src` is left untouched.
     """
+    global STAMP
+    # One stamp for this whole re-skin, taken once. Taken per page instead, pages published in
+    # the same run would link to each other by different URLs and each first click would miss
+    # the cache it was meant to be using.
+    STAMP = datetime.now().strftime("%Y%m%d%H%M%S")
     src, dst = Path(src), Path(dst)
     if not (src / "index.htm").exists():
         raise FileNotFoundError(f"{src} does not look like an FBPB3 HTML Output folder (no index.htm)")
@@ -671,6 +770,12 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
                 pid = int(m.group(1))
             html = _skin_page(html, league, season, prefix, name, key or dst.name, ours,
                               page_dir=path.parent, src_root=src.resolve(), player_id=pid)
+        # LAST, after every other rewrite. FBPB3 writes its own links - rosters, teams, the 400
+        # player pages - and those are the ones somebody follows from a standings page. Stamping
+        # only the bar would leave the bar fresh and everything it leads to cacheable, which is
+        # the half-fix that looks like a fix. It runs at the end so it stamps the final hrefs,
+        # including the ones _skin_page rewrote, and cannot be undone by a later pass.
+        html = _stamp_links(html)
         target.write_text(html, encoding="latin-1", errors="replace")
         pages += 1
 

@@ -8,7 +8,7 @@ import {
 } from './supabase.js';
 import {
   el, $, clear, renderChrome, renderFooter, setupNeededNote, showNote, statusPill,
-  describeCharacter, fmtDate, note,
+  describeCharacter, fmtDate, note, freshJSON,
 } from './ui.js';
 
 const LEAGUES = [
@@ -54,7 +54,20 @@ function renderLeagues() {
       : el('span', { class: 'cv-league cv-cheese is-placeholder',
         title: 'Add this URL to site/config.js once the league site is published' });
     tile.append(el('b', {}, league.name), el('span', {}, site.ready ? league.sub : 'not published yet'));
-    box.append(tile);
+    // The bracket link sits BESIDE the tile, not inside it: a tile is itself an <a>, and an <a>
+    // within an <a> is invalid and renders unpredictably. The two go in a wrapper so the grid
+    // still sees one item per league.
+    //
+    // The href is derived from the configured league URL by swapping its last segment, never
+    // assembled from a hardcoded path - config.js's leagueSites is the single place those URLs
+    // are set, and a second opinion about where a league lives is how the two drift apart the
+    // day somebody moves one.
+    const cell = el('div', { class: 'cv-league-cell' }, tile);
+    if (site.ready) {
+      cell.append(el('a', { class: 'cv-league-sub',
+        href: site.url.replace(/[^/]*$/, 'playoffs.htm') }, 'Playoff bracket'));
+    }
+    box.append(cell);
   }
 }
 
@@ -73,9 +86,7 @@ const GLANCE = new Map();
 
 function glanceStats(league) {
   if (!GLANCE.has(league)) {
-    GLANCE.set(league, fetch(`leagues/${league}/stats.json`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null));
+    GLANCE.set(league, freshJSON(`leagues/${league}/stats.json`));
   }
   return GLANCE.get(league);
 }

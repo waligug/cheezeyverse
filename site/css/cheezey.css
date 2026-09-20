@@ -572,6 +572,16 @@ table.cv-table tr:nth-child(even) td { background: var(--cream2); }
 .cv-league span { display: block; font-size: 11.5px; font-weight: 600; color: var(--crust); margin-top: 3px; }
 .cv-league.is-placeholder { opacity: .65; cursor: not-allowed; }
 
+/* One grid item per league: the tile, and the bracket link under it. The link cannot go inside
+   the tile - that is an <a> - so the cell keeps the grid seeing a single child per league. */
+.cv-league-cell { display: flex; flex-direction: column; gap: 5px; }
+.cv-league-sub {
+  align-self: start;
+  font-size: 11.5px; font-weight: 600;
+  color: var(--crust);
+  padding-left: 2px;
+}
+
 /* ------------------------------------------------------------------------ characters */
 .cv-roster { list-style: none; margin: 0; padding: 0; }
 .cv-roster li {

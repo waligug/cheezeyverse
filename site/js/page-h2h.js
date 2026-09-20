@@ -17,7 +17,7 @@ import {
   ensureProfile, oauthErrorFromUrl, LEAGUE_LABELS,
 } from './supabase.js';
 import {
-  $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
+  $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note, freshJSON,
 } from './ui.js';
 
 const chrome = renderChrome({
@@ -36,9 +36,7 @@ let right = null;
 
 function leagueGames(league) {
   if (!DATA.has(league)) {
-    DATA.set(league, fetch(`leagues/${league}/games.json`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null));
+    DATA.set(league, freshJSON(`leagues/${league}/games.json`));
   }
   return DATA.get(league);
 }

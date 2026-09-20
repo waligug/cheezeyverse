@@ -39,6 +39,23 @@ export function el(tag, attrs, ...kids) {
 
 export function clear(node) { while (node && node.firstChild) node.removeChild(node.firstChild); }
 
+/* Fetch a file the commissioner republishes, without getting a cached copy of the last one.
+ *
+ * GitHub Pages serves everything with `Cache-Control: max-age=600` and these paths never change
+ * when their contents do, so for ten minutes after a Sim Week the browser or the CDN can answer
+ * with the previous week's numbers - and it looks exactly like a sim that did not run. Measured
+ * on the live site: Age: 113 from the edge while the file itself had already been replaced.
+ *
+ * A query string is part of the cache key on Pages, so a per-minute value is enough to make each
+ * publish a distinct URL. Per MINUTE rather than per load: a unique value every time would also
+ * defeat the browser's own cache while somebody clicks between tabs, turning every tab change
+ * into a fresh download of the same file. */
+export function freshJSON(path) {
+  const minute = Math.floor(Date.now() / 60000);
+  const url = `${path}${path.includes('?') ? '&' : '?'}v=${minute}`;
+  return fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+}
+
 export function fmtDate(value) {
   if (!value) return '';
   const d = new Date(value);
