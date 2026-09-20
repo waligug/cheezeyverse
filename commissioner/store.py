@@ -21,6 +21,7 @@ import argparse
 import json
 import re
 import sys
+import threading
 
 import requests
 
@@ -99,6 +100,56 @@ def _headers(prefer=None):
     return head
 
 
+_local = threading.local()
+
+
+def _session():
+    """A pooled HTTPS connection, one per thread.
+
+    WHY THIS IS WORTH A MODULE-LEVEL GLOBAL. `requests.request()` builds a new session for every
+    call, which means a new TCP connection and a new TLS handshake every time. Measured against
+    this project from this machine, twice and independently: a fresh GET of `settings` takes
+    1.53 s and the same GET on a kept-alive connection takes 0.06 s. Twenty-five times. A Sim
+    Week makes dozens of these calls - settings and characters in every phase, one snapshot POST
+    per character - so the handshake, not the query, was most of what "talking to Supabase" cost.
+
+    PER THREAD, because the panel answers requests on several of them and a requests.Session is
+    not documented as thread-safe. Sharing one would trade a measured, repeatable win for a rare
+    and unreproducible failure in the middle of a sim, which is a bad trade at any speed.
+
+    NO urllib3 RETRY POLICY HERE, deliberately, and the reason is worth keeping. The obvious
+    version of this mounted an HTTPAdapter with Retry(allowed_methods=DEFAULT_ALLOWED_METHODS)
+    on the grounds that the default set excludes POST. It does - but `allowed_methods` only
+    gates urllib3's READ-error branch. Its connect-error and "other"-error branches carry no
+    method check at all, so a POST can be replayed by a policy that looks like it forbids
+    exactly that. `grant_week_points`, `activate_character` and `apply_upgrade_requests` are all
+    POSTs and every one of them must happen exactly once, so the retry that does exist is done
+    in `_request`, in code, where the method is checked by something readable. (Caught in review
+    by a Codex session, 2026-09-20.)
+    """
+    session = getattr(_local, "session", None)
+    if session is None:
+        session = requests.Session()
+        _local.session = session
+    return session
+
+
+def _drop_session():
+    """Throw this thread's session away, so the next call dials a fresh connection."""
+    session = getattr(_local, "session", None)
+    _local.session = None
+    if session is not None:
+        try:
+            session.close()
+        except Exception:                                        # noqa: BLE001
+            pass
+
+
+# Only these are replayed when the connection fails. Not a policy object, not a set somebody can
+# widen without reading this line: a GET asks a question twice, a POST pays somebody twice.
+REPLAYABLE = ("GET", "HEAD")
+
+
 def _request(method, path, params=None, body=None, prefer=None):
     """One PostgREST call. In DRY_RUN, returns a description of it instead."""
     plan = {"method": method, "path": path, "params": params or {}, "body": body, "prefer": prefer}
@@ -109,10 +160,27 @@ def _request(method, path, params=None, body=None, prefer=None):
         raise StoreNotConfigured(f"Wanted: {method} {path}")
     url = f"{cfg.supabase_url()}{path}"
     try:
-        resp = requests.request(method, url, headers=_headers(prefer), params=params,
-                                json=body, timeout=cfg.timeout())
+        resp = _session().request(method, url, headers=_headers(prefer), params=params,
+                                  json=body, timeout=cfg.timeout())
     except requests.RequestException as exc:
-        raise StoreError(f"{method} {path} failed to reach Supabase: {exc}") from exc
+        # A POOLED CONNECTION CAN GO STALE, which a fresh one per call never could: the far end
+        # closes a kept-alive socket between phases of a sim and the next call fails on a
+        # connection that looked fine. That is the cost of pooling, and this is the whole of the
+        # answer to it - throw the dead session away and ask ONCE more, and only for a method
+        # where asking twice is the same as asking once.
+        #
+        # A write is never replayed. It may have reached Supabase and failed on the way back,
+        # and there is no way from here to tell that apart from never arriving. Paying weekly
+        # points twice or activating a character twice is worse than a run that stops and says
+        # so, which is the whole reason activations are written one at a time.
+        if method.upper() not in REPLAYABLE:
+            raise StoreError(f"{method} {path} failed to reach Supabase: {exc}") from exc
+        _drop_session()
+        try:
+            resp = _session().request(method, url, headers=_headers(prefer), params=params,
+                                      json=body, timeout=cfg.timeout())
+        except requests.RequestException as exc2:
+            raise StoreError(f"{method} {path} failed to reach Supabase twice: {exc2}") from exc2
     if resp.status_code >= 400:
         raise StoreError(f"{method} {path} -> HTTP {resp.status_code}: {resp.text[:500]}")
     if not resp.content or resp.status_code == 204:
