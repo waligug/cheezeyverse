@@ -395,8 +395,25 @@ def season_award_winners(html_dir):
     return set(_award_row_players(text[head:]))
 
 
-def playoff_bracket(html_dir):
+def bracket_season(html_dir):
+    """The season playoffs.htm describes, or None. The page heads itself "2026 Playoff Brackets"."""
+    text = _text(Path(html_dir) / "playoffs.htm")
+    m = re.search(r"(\d{4})\s+Playoff Bracket", text)
+    return int(m.group(1)) if m else None
+
+
+def playoff_bracket(html_dir, season=None):
     """(qualifiers, champion) read from playoffs.htm, the only page that states either.
+
+    `season` REFUSES A BRACKET FROM ANOTHER YEAR, and that is not hypothetical. The file is
+    replaced only when a new postseason is played, so all through the following season it still
+    describes the last one - checked on the live export mid-2027 and it is the 2026 bracket,
+    naming Tulips as champion. Reading it without asking which year it covers pays the playoff
+    and title bonuses a second time for a title already paid for, and the ledger line looks
+    exactly like a correct one. The sim guard already does this check; the bonus did not.
+
+    None means "do not care", which is what the panel and the tests want when they are simply
+    asking what the page says.
 
     Returns (None, None) when there is no bracket - no file, or nothing parseable. NOT an empty
     set: before the playoffs exist the file is absent, and an empty set would look exactly like
@@ -432,6 +449,10 @@ def playoff_bracket(html_dir):
     # Fixed HERE and not in _text(): the standings and award readers anchor on a literal
     # "&nbsp;", so normalising entities globally silently empties standings_teams and every
     # league_stats player. Tried and measured on the live saves before it was ruled out.
+    if season is not None:
+        theirs = bracket_season(html_dir)
+        if theirs is not None and int(theirs) != int(season):
+            return None, None
     text = _text(Path(html_dir) / "playoffs.htm")
     text = re.sub("[ ]+", " ", re.sub("(?:&nbsp;|&#160;|&#xA0;|&#xa0;)", " ", text))
     if not text.strip():
@@ -460,14 +481,14 @@ def playoff_bracket(html_dir):
     return qualifiers, (leaders[0] if len(leaders) == 1 else None)
 
 
-def playoff_teams(html_dir):
+def playoff_teams(html_dir, season=None):
     """Every team that reached the playoffs, or None when there is no bracket to read."""
-    return playoff_bracket(html_dir)[0]
+    return playoff_bracket(html_dir, season)[0]
 
 
-def champion(html_dir, teams=None):
+def champion(html_dir, teams=None, season=None):
     """Who won it, or None. `teams` is accepted and ignored; the bracket needs no help."""
-    return playoff_bracket(html_dir)[1]
+    return playoff_bracket(html_dir, season)[1]
 
 
 # ---- the bonus ---------------------------------------------------------------------------
@@ -479,6 +500,13 @@ def for_character(name, html_dir, settings=None, cache=None):
     """
     s = settings or {}
     c = cache if cache is not None else {}
+    # The season being settled, read once. Everything that can be won in a PARTICULAR year -
+    # the playoff bonus, the title, the All-Star selection - is checked against it, because the
+    # export keeps last year's answer on disk until a new one replaces it.
+    try:
+        this_season = int(s.get("current_season"))
+    except (TypeError, ValueError):
+        this_season = None
     if "teams" not in c:
         c["teams"] = standings_teams(html_dir)
         c["totals"] = season_totals(html_dir, c["teams"])
@@ -486,7 +514,7 @@ def for_character(name, html_dir, settings=None, cache=None):
         c["awards"] = award_counts(html_dir)
         c["season_awards"] = season_award_winners(html_dir)
         c["all_stars"] = all_star_seasons(html_dir)
-        c["playoffs"], c["champion"] = playoff_bracket(html_dir)
+        c["playoffs"], c["champion"] = playoff_bracket(html_dir, this_season)
 
     line = c["totals"].get(name)
     if not line:
@@ -520,10 +548,6 @@ def for_character(name, html_dir, settings=None, cache=None):
     # settings the offseason is running against, and if it cannot be read the bonus is NOT paid
     # - silently paying for the wrong year is worse than not paying at all, and the ledger line
     # would name a season nobody could check.
-    try:
-        this_season = int(s.get("current_season"))
-    except (TypeError, ValueError):
-        this_season = None
     if this_season and this_season in c["all_stars"].get(name, ()):
         rows.append((f"season bonus: {this_season} All-Star", setting(s, "bonus_allstar")))
 

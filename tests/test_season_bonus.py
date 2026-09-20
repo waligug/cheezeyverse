@@ -173,6 +173,20 @@ def main():
         assert not any("playoffs" in r for r, _ in sb.for_character("Our Guy", nopost, {}, {})),             "a league with no bracket paid a playoff bonus"
         shutil.rmtree(nopost, ignore_errors=True)
 
+        # ---- LAST YEAR'S BRACKET MUST NOT PAY THIS YEAR'S BONUSES ------------------------
+        # playoffs.htm is only replaced when a new postseason is played, so all through the
+        # following season it still describes the last one. Checked on the live export in the
+        # middle of 2027: it is the 2026 bracket, still naming Tulips as champion. Reading it
+        # without asking which year it covers pays the playoff and title bonuses a SECOND time
+        # for a title already paid for, and the ledger line looks exactly like a right one.
+        assert sb.bracket_season(d) == 2026, sb.bracket_season(d)
+        assert sb.playoff_teams(d, 2026) == {"Clams", "Tulips"}, "the right season was refused"
+        assert sb.playoff_teams(d, 2027) is None, "a 2026 bracket was read as 2027's"
+        assert sb.champion(d, season=2027) is None, "last season's champion was paid again"
+        assert sb.playoff_teams(d) == {"Clams", "Tulips"},             "asking without a season must still answer - the panel does that"
+        stale = dict(sb.for_character("Our Guy", d, {"current_season": 2027}, {}))
+        assert not any("playoff" in r or "won the league" in r for r in stale),             f"a stale bracket paid team bonuses in the wrong season: {stale}"
+
         # ---- the All-Star game, and the season it belongs to -----------------------------
         # Every honour a player ever won stays printed on his page, so the season filter is the
         # whole correctness of this bonus: without it a man picked once is paid every year for
