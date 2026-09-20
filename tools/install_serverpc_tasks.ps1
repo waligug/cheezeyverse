@@ -51,12 +51,35 @@ function Install-Task($name, $action, $trigger, $description) {
     Write-Output ("installed: {0}  [{1}]" -f $name, $info.State)
 }
 
+# AT LOGON, AND THEN EVERY FIVE MINUTES FOREVER.
+#
+# The logon trigger alone was not enough, and how that was found is why the extra lines are
+# worth it: on 2026-09-20 the supervisor was killed by something outside itself - exit code
+# 0xC000013A, a terminated process, with no line in its own log - and Task Scheduler's
+# "restart on failure" did not bring it back. The panel was down for twenty minutes and the
+# only reason anybody noticed was a test that went looking for something else.
+#
+# A repeating trigger does not care what killed it. Every five minutes it tries to start the
+# task; MultipleInstances=IgnoreNew makes that a no-op while it is already running, so the
+# steady state costs nothing and the failure state lasts at most five minutes. That is worth
+# more than knowing who the killer was.
+#
+# TWO SEPARATE TRIGGERS, not one with a repetition hung off it. A repetition attached to the
+# logon trigger only starts counting when that trigger FIRES - so on a machine that is already
+# logged in, which is every machine you are fixing this on, the watchdog is armed no earlier
+# than the next reboot. The one that matters would have been the one not running.
+$panelTriggers = @(
+    (New-ScheduledTaskTrigger -AtLogOn -User $me),
+    (New-ScheduledTaskTrigger -Once -At (Get-Date) `
+        -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650))
+)
+
 Install-Task -name 'Cheezeyverse panel' `
     -action (New-ScheduledTaskAction -Execute $ps `
         -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$Repo\tools\run_panel.ps1`"" `
         -WorkingDirectory $Repo) `
-    -trigger (New-ScheduledTaskTrigger -AtLogOn -User $me) `
-    -description 'Keeps the commissioner panel (port 5095) running, and brings it back after a reboot. See tools\run_panel.ps1.'
+    -trigger $panelTriggers `
+    -description 'Keeps the commissioner panel (port 5095) running: at logon, and re-checked every five minutes. See tools\run_panel.ps1.'
 
 Install-Task -name 'Cheezeyverse offsite backup' `
     -action (New-ScheduledTaskAction -Execute $python `

@@ -55,6 +55,41 @@ function Write-Line($message) {
     try { Add-Content -Path $log -Value $line -Encoding utf8 } catch { Write-Error $line }
 }
 
+function Send-Alarm($message) {
+    <#
+      Say out loud that the panel will not start. Everything else here recovers by itself; this
+      is the one state a person has to look at, and without it the failure is a log file on a
+      machine in another room that nobody has a reason to open.
+
+      The webhook is read from .env at the moment it is needed and never written anywhere - not
+      to the log, not to an error. Throttled to once an hour, because the watchdog restarts this
+      script every five minutes and a broken panel would otherwise post all night.
+    #>
+    $stamp = Join-Path $LogDir 'last-alarm.txt'
+    try {
+        if (Test-Path $stamp) {
+            $last = [datetime](Get-Content $stamp -Raw).Trim()
+            if ((Get-Date) - $last -lt (New-TimeSpan -Hours 1)) { return }
+        }
+    } catch {}
+    $hook = $null
+    try {
+        foreach ($line in (Get-Content (Join-Path $Repo '.env') -ErrorAction Stop)) {
+            if ($line -match '^\s*DISCORD_WEBHOOK_URL\s*=\s*(\S+)') { $hook = $Matches[1].Trim('"''') }
+        }
+    } catch {}
+    if (-not $hook) { return }
+    try {
+        Invoke-RestMethod -Uri $hook -Method Post -TimeoutSec 10 -ContentType 'application/json' `
+            -Body (@{ content = $message } | ConvertTo-Json -Compress) | Out-Null
+        Set-Content -Path $stamp -Value (Get-Date).ToString('o')
+        Write-Line "posted an alarm to Discord"
+    } catch {
+        # Never print the exception: a failed Invoke-RestMethod puts the URL in its message.
+        Write-Line "could not post the alarm to Discord ($($_.Exception.GetType().Name))"
+    }
+}
+
 function Test-PanelUp {
     try {
         $r = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/healthz" -TimeoutSec 5 -UseBasicParsing
@@ -95,9 +130,14 @@ while ($true) {
         # ErrorRecord - and Flask logs to stderr, so the whole panel log came out as mangled
         # wide characters inside error formatting. This hands the file handles straight to
         # python and the bytes land as python wrote them.
+        # -WindowStyle Hidden rather than -NoNewWindow, so THE PANEL DOES NOT DIE WITH THIS
+        # SCRIPT. Sharing a console ties the two together: when the supervisor was killed on
+        # 2026-09-20 it took a perfectly healthy panel down with it, and a sim running at that
+        # moment would have gone too. Its own console means a dead supervisor is a five-minute
+        # gap in supervision, not an outage.
         $proc = Start-Process -FilePath $Python `
             -ArgumentList '-u', '-m', 'commissioner.app', '--lan' `
-            -WorkingDirectory $Repo -NoNewWindow -PassThru `
+            -WorkingDirectory $Repo -WindowStyle Hidden -PassThru `
             -RedirectStandardOutput $outLog -RedirectStandardError $errLog
         $proc.WaitForExit()
         Write-Line "python exited with code $($proc.ExitCode)"
@@ -116,6 +156,10 @@ while ($true) {
         # retries forever reports "Running" for a panel that has never once come up.
         if ($shortRuns -ge 10) {
             Write-Line "the panel has failed to stay up $shortRuns times - giving up so the failure is visible"
+            Send-Alarm ("**The commissioner panel will not start.** $shortRuns attempts in a row " +
+                        "on SERVERPC, each lasting under ten seconds. The last error is in " +
+                        "``%LOCALAPPDATA%\Cheezeyverse\panel.err.log`` on the server. Sims and " +
+                        "the panel are both down until somebody looks.")
             exit 1
         }
         Write-Line "it did not stay up ($shortRuns in a row) - waiting 60s before trying again"
