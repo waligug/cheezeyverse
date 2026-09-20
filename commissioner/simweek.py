@@ -862,21 +862,25 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # Called even WITH allow_season_end, because the flag opens the playoffs and nothing
         # else: a league whose final is decided is refused either way, since the only thing
         # after that is the rollover behind END SEASON.
-        if not dry_run:
-            _refuse_to_cross_the_season(keys, days, emit, allow_season_end=allow_season_end,
-                                        season=season_now)
-
         # ONE read of the settings for the whole run. There were three, with three different
         # defaults, and a fourth inside the finally - which went out over the network while
         # _SIM_LOCK was still held, and whose failure quietly stamped the run's log row with no
         # season at all, turning head-to-head's season filter off for that row ever after.
         # Nothing else writes these while a run holds the lock, so one read is also one answer.
+        #
+        # BEFORE THE GUARD, because the guard needs the season. It used to sit after, so the
+        # guard was handed None, could not tell last season's leftover bracket from this
+        # season's result, and refused a 28-day run in a season that had not started.
         try:
             settings = st.get_settings()
         except Exception as exc:
             emit("start", f"could not read the settings ({exc}); using defaults")
             settings = {}
         season_now = int(settings.get("current_season", cfg.START_YEAR) or cfg.START_YEAR)
+
+        if not dry_run:
+            _refuse_to_cross_the_season(keys, days, emit, allow_season_end=allow_season_end,
+                                        season=season_now)
 
         # Told before anything happens, because the point of it is that people know a sim is
         # running while it runs. Wrapped like every other notify call: Discord cannot fail a week.

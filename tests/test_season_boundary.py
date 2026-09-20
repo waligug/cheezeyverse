@@ -284,6 +284,29 @@ def main():
 
         assert not posted, f"a refused run talked to Discord: {posted}"
 
+        # ---- THE GUARD MUST BE TOLD WHICH SEASON IT IS -------------------------------------
+        # run_sim read the settings AFTER calling the guard, so the guard was handed None. With
+        # no season it cannot tell last season's leftover bracket page - which the export keeps
+        # until new playoffs are played - from this season's result, and it refused a 28-day run
+        # in a season that had not started. The fix is an ordering, so the test is an ordering:
+        # what did the guard actually receive?
+        got = {}
+        real_guard = simweek._refuse_to_cross_the_season
+
+        def _record(keys, days, emit, allow_season_end=False, season=None):
+            got["season"] = season
+            raise simweek.SeasonEnd("stop here; the season is what this test is about")
+
+        simweek._refuse_to_cross_the_season = _record
+        try:
+            simweek.run_sim(leagues=["prep"], days=5)
+        except simweek.SeasonEnd:
+            pass
+        finally:
+            simweek._refuse_to_cross_the_season = real_guard
+        assert got.get("season") == 2026, f"the guard was told season {got.get('season')!r}"
+        assert not simweek._SIM_LOCK.locked(), "that path leaked _SIM_LOCK"
+
         # and the escape hatch has to exist, or the day the path IS designed this is in its way
         import inspect
         assert "allow_season_end" in inspect.signature(simweek.run_sim).parameters
