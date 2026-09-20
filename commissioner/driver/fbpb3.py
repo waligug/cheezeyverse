@@ -821,7 +821,7 @@ class FBPB3:
         if self.is_running():
             self.kill()
 
-    def output_mdb(self, save_name, attempts=4):
+    def output_mdb(self, save_name, attempts=3, timeout=600):
         """Tools -> Output MDB for the loaded save. Menu-label clicks are occasionally swallowed,
         so this retries and confirms by the file's timestamp rather than by the dialog alone.
 
@@ -841,7 +841,15 @@ class FBPB3:
         for _ in range(attempts):
             self.click(TOP_TOOLS, 2)
             self.click(TOOLS_OUTPUT_MDB, 2)
-            end = time.time() + 180
+            # THE BUDGET HAS TO EXCEED THE SLOWEST LEAGUE, and 180s did not. Measured on
+            # 2026-09-20: prep's export took 19.5s, college's 170s and PRO'S 211s - pro has
+            # twenty teams and a 9.8 MB database. So pro timed out every single time, one
+            # second of patience short of the truth, and the retry below then made it worse:
+            # dismiss_all() presses the first of OK/No/Cancel on whatever is open, which
+            # cancels the export still running underneath. Four attempts, four cancellations,
+            # twelve minutes, and a "did not refresh" at the end of it. Caught live, mid-run,
+            # with pro's MDB still carrying the previous week's timestamp.
+            end = time.time() + timeout
             while time.time() < end:
                 try:
                     self.dismiss_message("File Created", timeout=2)
@@ -850,8 +858,12 @@ class FBPB3:
                 if target.exists() and target.stat().st_mtime > before:
                     self._settle_dialogs()
                     return target
-            self.dismiss_all()
-        raise DriverError(f"Output MDB did not refresh {target}")
+            # Only tidy up if something is actually open. An unconditional dismiss_all is how
+            # a slow export got killed by the thing meant to rescue it.
+            if self._message_boxes():
+                self.dismiss_all()
+        raise DriverError(f"Output MDB did not refresh {target} after {attempts} attempts of "
+                          f"{timeout}s")
 
     def _settle_dialogs(self, grace=10, timeout=30):
         """Clear every message box, INCLUDING one that has not appeared yet.
