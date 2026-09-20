@@ -978,7 +978,13 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             emit("sim", "saving", key)
             game.save_game()
             emit("export", f"writing {spec.name} pages", key)
-            out = game.html_output(spec.save_name)
+            # old_boxes=True writes the BOX SCORES for the games in the export's window, so the
+            # schedule's links lead somewhere instead of 404ing. The control is a DATE dropdown -
+            # "Yes" was never one of its options, which is why every earlier test of this
+            # question set it to nothing and reported that FBPB3 cannot write box scores at all.
+            # The window reaches about a month back from the save's own date, so a weekly run
+            # covers its own games comfortably and a season left unexported cannot be recovered.
+            out = game.html_output(spec.save_name, old_boxes=True)
             emit("export", f"{len(list(out.rglob('*.htm')))} pages", key)
             # The MDB is the only place per-game stats exist - FBPB3 writes no box scores and
             # has no setting for them. About 7 s a league, measured, against the ~400 s the new
