@@ -151,6 +151,18 @@ class PipelineTests(unittest.TestCase):
         self.assertIn("history", Status.instances[0].result[1])
         self.assertFalse(simweek._SIM_LOCK.locked())
 
+    def test_stale_marker_survives_repeated_refusal_and_dry_run(self):
+        simweek._mark_running(["prep"], 7, 2027)
+        before = simweek.MARKER.read_bytes()
+        for _ in range(2):
+            with self.assertRaisesRegex(RuntimeError, "never finished"):
+                simweek.run_sim(days=1)
+            self.assertEqual(simweek.MARKER.read_bytes(), before)
+            self.assertFalse(simweek._SIM_LOCK.locked())
+        simweek.run_sim(days=1, dry_run=True)
+        self.assertEqual(simweek.MARKER.read_bytes(), before)
+        self.assertEqual(Status.instances, [])
+
     def test_dry_run_and_refusal_never_create_cards(self):
         simweek.run_sim(days=1, dry_run=True)
         self.assertEqual(Status.instances, [])
