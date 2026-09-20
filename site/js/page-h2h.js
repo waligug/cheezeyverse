@@ -28,6 +28,9 @@ const chrome = renderChrome({
 renderFooter();
 
 const LEAGUES = ['prep', 'college', 'pro'];
+// A line archived before games.json carried a season was played in the universe's first and
+// only one. Kept in step with UNSTAMPED_SEASON in commissioner/gamesarchive.py.
+const UNSTAMPED_SEASON = 2026;
 const DATA = new Map();
 let people = [];          // pickable: [{id, name, league, games}], he has games on record
 let absent = [];          // on record but with nothing to compare, and the reason why
@@ -202,18 +205,29 @@ function draw() {
   //
   // The comment that was here said "their teams meeting is not enough", which was true and was
   // describing a refinement of a check that had never been written.
-  const mine = new Map(one.games.map((g) => [g.day, g]));
+  //
+  // AND IN THE SAME SEASON. games.json now carries several: the game's own export holds one
+  // season and is wiped by the rollover, so the history is archived per season and republished
+  // together. Day numbers restart at 1 every year, so day 5 of 2026 and day 5 of 2027 are
+  // different nights - keyed on the day alone they would look like one game, and two players
+  // who never met could be credited with a meeting in a season one of them did not play.
+  const nightOf = (g) => `${g.season ?? UNSTAMPED_SEASON}:${g.day}`;
+  const mine = new Map(one.games.map((g) => [nightOf(g), g]));
   const met = (g) => {
-    const m = mine.get(g.day);
+    const m = mine.get(nightOf(g));
     return !!m && m.opp === g.team && g.opp === m.team;
   };
-  const days = two.games.filter(met).map((g) => g.day).sort((x, y) => x - y);
+  const played = new Set(two.games.filter(met).map(nightOf));
+  // Which seasons those meetings fall in. The games table names the season only when there is
+  // more than one, so a universe that has played a single year does not carry a column of the
+  // same number repeated down it.
+  const seasons = new Set([...played].map((n) => n.split(':')[0]));
 
-  if (!days.length) {
+  if (!played.size) {
     // Checked BOTH ways round. Asking only whether one man's opponents include the other's
     // current team gave different answers depending on which picker you put him in - and it is
     // his CURRENT team, so a character who has moved reads as never having played his old one.
-    const teamsMet = one.games.some((g) => two.games.some((h) => h.day === g.day
+    const teamsMet = one.games.some((g) => two.games.some((h) => nightOf(h) === nightOf(g)
       && g.opp === h.team && h.opp === g.team));
     box.append(note(null, teamsMet
       ? `${one.name} and ${two.name} have not been on the floor at the same time yet - their `
@@ -222,8 +236,8 @@ function draw() {
     return;
   }
 
-  const aGames = one.games.filter((g) => days.includes(g.day));
-  const bGames = two.games.filter((g) => days.includes(g.day));
+  const aGames = one.games.filter((g) => played.has(nightOf(g)));
+  const bGames = two.games.filter((g) => played.has(nightOf(g)));
   const a = total(aGames);
   const b = total(bGames);
 
@@ -231,7 +245,7 @@ function draw() {
   card.append(el('div', { class: 'cv-card-head' },
     el('h2', {}, `${one.name} v ${two.name}`),
     el('span', { class: 'cv-muted' },
-      `${days.length} meeting${days.length === 1 ? '' : 's'}`)));
+      `${played.size} meeting${played.size === 1 ? '' : 's'}`)));
 
   // the headline: who has won more of them
   card.append(el('p', { class: 'cv-readout cv-cheese' },
@@ -272,13 +286,16 @@ function draw() {
   // the games themselves, so the averages are checkable rather than asserted
   const list = el('div', { class: 'cv-scroll' },
     el('table', { class: 'cv-table' },
-      el('thead', {}, el('tr', {}, el('th', {}, 'Day'), el('th', {}, 'Result'),
+      el('thead', {}, el('tr', {}, el('th', {}, 'When'), el('th', {}, 'Result'),
         el('th', {}, one.name), el('th', {}, two.name))),
-      el('tbody', {}, ...days.map((day) => {
-        const ga = aGames.find((g) => g.day === day);
-        const gb = bGames.find((g) => g.day === day);
+      // sorted by season first, then day - a plain day sort would interleave the years
+      el('tbody', {}, ...aGames.slice().sort((x, y) => (x.season ?? UNSTAMPED_SEASON)
+        - (y.season ?? UNSTAMPED_SEASON) || x.day - y.day).map((ga) => {
+        const gb = bGames.find((g) => nightOf(g) === nightOf(ga));
         return el('tr', {},
-          el('td', {}, String(day)),
+          // the season only when there is more than one to tell apart
+          el('td', {}, seasons.size > 1 ? `${ga.season ?? UNSTAMPED_SEASON}, day ${ga.day}`
+            : `Day ${ga.day}`),
           // the TEAM won, not the man. "Dodger Manson by 2" reads as though he beat Chris
           // personally, when what happened is the Generals beat the Berries.
           el('th', {}, `${ga.won ? ga.team : gb.team} by `
