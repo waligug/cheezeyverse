@@ -123,12 +123,30 @@ def _write_games(src, dst, key):
             runs=(st.runs(limit=None) if hasattr(st, "runs") else []),
             league=key,
             season=int(settings.get("current_season", 0)) or None)
-        data["generated"] = datetime.now().isoformat(timespec="seconds")
-        (dst / "games.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
-        played = sum(len(c["games"]) for c in data["characters"])
+        # MERGED WITH THE ARCHIVE, never published straight from the MDB. The export holds one
+        # season and only one: it has no season column to filter on, and FBPB3's rollover
+        # replaces it with next season's empty schedule. Publishing the MDB's own answer the day
+        # after a rollover would write a games.json with zero lines for everybody and leave every
+        # game these seven have ever played existing only in the published branch's history.
+        from .. import gamesarchive
+        season = int(settings.get("current_season", 0)) or None
+        history = gamesarchive.archived_seasons(key)
+        # This season's file is rewritten; every finished season's is left exactly alone.
+        if season is not None and data.get("characters"):
+            gamesarchive.save(key, season, data)
+            history = gamesarchive.archived_seasons(key)
+        merged = gamesarchive.merge(history, data, season)
+        merged["generated"] = datetime.now().isoformat(timespec="seconds")
+        (dst / "games.json").write_text(json.dumps(merged, separators=(",", ":")), encoding="utf-8")
+        played = sum(len(c["games"]) for c in merged["characters"])
+        fresh = sum(len(c["games"]) for c in data["characters"])
         if not played:
-            print(f"  {key}: the MDB gave no game lines at all - head-to-head will be empty")
-        return {"characters": len(data["characters"]), "games": played}
+            print(f"  {key}: no game lines at all, in the MDB or the archive - "
+                  "head-to-head will be empty")
+        elif not fresh:
+            # Normal straight after a rollover, and alarming at any other time.
+            print(f"  {key}: the MDB gave no game lines; publishing {played} from the archive")
+        return {"characters": len(merged["characters"]), "games": played, "from_mdb": fresh}
     except Exception as exc:
         print(f"  no games.json for {key} ({exc}); the pages themselves are fine")
         return None
