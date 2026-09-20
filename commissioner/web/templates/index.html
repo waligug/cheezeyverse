@@ -41,6 +41,28 @@
   {% endif %}
   <div class="banner" id="js-banner" hidden></div>
 
+  <section class="card season-console" aria-labelledby="calendar-heading">
+    <header><div><span class="eyebrow">YOUR UNIVERSE, ONE TIMELINE</span><h2 id="calendar-heading">Where do you want to play to?</h2></div>
+      <span class="spacer"></span><button type="button" class="plain small" id="calendar-refresh">Refresh calendar</button></header>
+    <div class="body calendar-layout">
+      <div class="calendar-main">
+        <div class="calendar-toolbar"><label>League <select id="calendar-league"><option value="prep">Prep</option><option value="college">College</option><option value="pro">Pro</option></select></label>
+          <label>Schedule <select id="calendar-team"><option value="">All teams</option></select></label></div>
+        <div class="calendar-month"><button type="button" id="calendar-prev" class="plain" aria-label="Previous month">&#8592;</button><h3 id="calendar-month">Loading schedule…</h3><button type="button" id="calendar-next" class="plain" aria-label="Next month">&#8594;</button></div>
+        <div class="calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+        <div class="calendar-grid" id="calendar-grid" aria-label="Game calendar"></div>
+        <p class="calendar-key"><span>● Current game date</span><span>✓ Played</span><span>Select a team for game numbers</span></p>
+      </div>
+      <aside class="calendar-summary"><span class="eyebrow">PLAN THE NEXT RUN</span><h3 id="calendar-target">Pick a date on the calendar</h3>
+        <p>Play through that date. The other leagues catch up to the same percentage of their regular-season games. Leagues already ahead stay put.</p>
+        <div id="calendar-preview" aria-live="polite">Loading the actual game schedules…</div>
+        <button type="button" id="calendar-start" disabled>Sim to this target</button>
+        <button type="button" id="calendar-end" class="plain">Finish the regular season</button>
+        <div id="calendar-games"></div>
+      </aside>
+    </div>
+  </section>
+
   <!-- ------------------------------------------------------------------ leagues -->
   <div class="leagues" id="leagues">
     {% for lg in status.get('leagues') or [] %}
@@ -79,11 +101,12 @@
   <!-- ------------------------------------------------------------------ run + log -->
   <div class="card">
     <header>
-      <h2>Run</h2>
+      <h2>Live simulation</h2>
       <span class="spacer"></span>
       <span class="chip" id="run-chip">idle</span>
     </header>
     <div class="body">
+      <details class="advanced-controls"><summary>Advanced controls · fixed days, league selection and dry run</summary>
       <div class="controls">
         <div class="group">
           <button id="btn-week" type="button">Sim Week</button>
@@ -124,7 +147,7 @@
           {% set left = lg.get('regular_season_left') %}
           {% set clicks = lg.get('days_to_season_end') if lg.get('days_to_season_end') is not none
                           else left %}
-          <label {% if lg.get('champion') %}class="is-done" {% endif %}title="{{ lg.get('key') }}: {{ lg.get('stage') or 'stage unknown' }}{% if lg.get('champion') %} - won by {{ lg.get('champion') }}. Nothing left to sim: what follows is the rollover, which is not built.{% endif %}">
+          <label {% if lg.get('champion') %}class="is-done" {% endif %}title="{{ lg.get('key') }}: {{ lg.get('stage') or 'stage unknown' }}{% if lg.get('champion') %} - won by {{ lg.get('champion') }}. Nothing left to sim: finish the other leagues, then start the next season below.{% endif %}">
             <input type="checkbox" class="league-pick" value="{{ lg.get('key') }}"
                    {% if lg.get('champion') %}disabled data-champion="{{ lg.get('champion') }}"
                    {% elif left is not none %}data-left="{{ left }}" data-clicks="{{ clicks }}"
@@ -150,6 +173,7 @@
         <button id="btn-clear" type="button" class="plain small">Clear log</button>
       </div>
 
+      </details>
       <div class="progress" id="progress"><i></i></div>
       <div class="muted" id="run-line" style="font-size:11.5px;min-height:16px">Nothing has run yet.</div>
       <div id="log"><div class="empty">The live log appears here. Each step shows the time it
@@ -160,10 +184,10 @@
   <!-- ------------------------------------------------------------------ offseason -->
   <div class="card" id="offseason-card">
     <header>
-      <h2>Offseason</h2>
+      <h2>Next season</h2>
       <span class="spacer"></span>
       <span class="chip" id="os-season-chip">
-        {% if plan.season %}next: season {{ plan.season }}{% else %}season unknown{% endif %}
+        {% if plan.season %}season {{ plan.season }} &rarr; {{ plan.season|int + 1 }}{% else %}season unknown{% endif %}
       </span>
       <span class="chip" id="os-last-chip">
         {% if plan.last_offseason %}last run: {{ plan.last_offseason }}{% else %}never run{% endif %}
@@ -183,14 +207,10 @@
       </div>
       {% endif %}
 
-      <p class="os-blurb">
-        Everyone gets a year older: careers that are over end first, this year's inches are
-        written into the saves, a prep player who has finished his age-17 season moves to
-        college, a college player who declared (or has used up four years) enters the draft the
-        app runs itself, every departing character hands his reserve slot back, and every active
-        character is paid the offseason lump sum.
-        <b>All of it is cumulative</b>, which is why it refuses to run the same season twice.
-      </p>
+      <ol class="season-steps"><li>Finish all three playoffs</li><li>Archive stats &amp; develop players</li><li>Promote, draft &amp; roll forward</li><li>Verify the new season</li></ol>
+      <div id="season-readiness" class="season-readiness" aria-live="polite"></div>
+      <p class="os-blurb">One transition handles player growth, college moves, the draft, points, and the game's new-season setup. Your finished-season stats are archived first. The season changes only after all three saves are verified.</p>
+      <button type="button" class="plain" id="btn-playoffs">Play the next 7 days of playoffs</button>
 
       <div id="os-plan">
         {% if plan.available %}
@@ -236,14 +256,14 @@
           changes nobody</span>
         <span class="spacer"></span>
         <button id="btn-os-run" type="button" class="danger-solid"
-                {% if not offseason.ok %}disabled{% endif %}>Run the offseason for real</button>
+                {% if not offseason.ok %}disabled{% endif %}>Start next season</button>
       </div>
 
       <div id="os-result"><div class="empty-note">No dry run yet. Start there: it shows exactly
         who moves, what he carries across and who could not be found, and it cannot break
         anything.</div></div>
 
-      <div id="os-force" hidden>
+      <div id="os-force" hidden style="display:none">
         <div class="os-danger">
           <strong>Force this season anyway</strong>
           <p>Only for a run that <b>started and did not finish</b>. The offseason is cumulative:
@@ -348,5 +368,6 @@
 
 <script type="application/json" id="boot">{{ boot|tojson }}</script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='calendar.js') }}"></script>
 </body>
 </html>

@@ -159,7 +159,7 @@ def first_game_day(character, runs, season=None, league=None):
             return None                # no start and no finish: the run cannot be placed at all
         if began >= born:
             continue
-        simmed += _int(run.get("days"))
+        simmed += _int((run.get("days_by_league") or {}).get(league, run.get("days")))
     return simmed + 1
 
 

@@ -258,6 +258,7 @@ class SimRun:
             "running": self.finished_at is None,
             "leagues": self.leagues,
             "days": self.days,
+            "calendar_plan": getattr(self, "calendar_plan", None),
             "dry_run": self.dry_run,
             "allow_season_end": self.allow_season_end,
             "season": self.season,
@@ -539,7 +540,7 @@ def _offseason_worker(run):
         })
         store = offseason_store()
         result = run_offseason(store, season=run.season, log=run.log_line,
-                               dry_run=False, force=run.force)
+                               dry_run=False, force=run.force, rollover=True)
         run.result = _offseason_view(result)
         if isinstance(result, dict) and result.get("season") is not None:
             run.season = result["season"]     # what it actually ran, not what was asked for
@@ -636,6 +637,9 @@ def _offseason_view(result):
         "dry_run": bool(result.get("dry_run")),
         "grown": result.get("grown", 0),
         "paid": result.get("paid"),
+        "next_season": result.get("next_season"),
+        "rollover": result.get("rollover", []),
+        "publish_error": result.get("publish_error"),
         "developed": result.get("developed"),
         "retired": [],
         "promoted": [],
@@ -740,6 +744,8 @@ def offseason_plan():
                 _person(character),
                 conversion=_conversion(_conversion_for(character, "pro", plan["season"]))))
         plan["staying"] = len(split.get("stay") or [])
+        from .seasonflow import readiness
+        plan["transition"] = readiness(plan["season"])
         plan["available"] = True
     except Exception as exc:  # noqa: BLE001 - the plan is informational; never fail the page
         plan["error"] = f"{type(exc).__name__}: {exc}"
@@ -912,6 +918,11 @@ def sim_pace(limit=60):
         except (TypeError, ValueError):
             continue
         leagues = len(r.get("leagues") or []) or 3
+        if r.get("days_by_league"):
+            try:
+                days = sum(float(n) for n in r["days_by_league"].values()) / leagues
+            except (TypeError, ValueError):
+                continue
         # 400 is the endpoint's own ceiling; anything past it is a mis-typed run, not a data point
         if days <= 0 or days > 400 or secs <= 0:
             continue
@@ -988,6 +999,82 @@ def api_state():
         "busy": sim_busy(),
         "pace": sim_pace(),
     })
+
+
+# Calendar previews are recomputed server-side; a client never supplies arbitrary day counts.
+@app.get("/api/calendar")
+@api
+def api_calendar():
+    from .calendarplan import snapshot, CalendarError
+    try:
+        return jsonify({"ok": True, **snapshot()})
+    except (CalendarError, OSError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 409
+
+
+@app.post("/api/calendar/plan")
+@api
+def api_calendar_plan():
+    from .calendarplan import snapshot, plan, CalendarError
+    body = _body()
+    try:
+        data = snapshot()
+        result = plan(data, body.get("reference"), body.get("target"))
+        return jsonify({"ok": True, "plan": result})
+    except (CalendarError, OSError) as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 409
+
+
+@app.post("/api/calendar/start")
+@api
+def api_calendar_start():
+    global _CURRENT
+    from .calendarplan import snapshot, plan, CalendarError
+    body = _body()
+    refusal = _acquire_or_refuse()
+    if refusal:
+        return jsonify({"ok": False, "error": refusal}), 409
+    run = None
+    try:
+        data = snapshot()
+        if body.get("token") != data["token"]:
+            raise CalendarError("The calendar changed. Preview the target again before starting.")
+        chosen = plan(data, body.get("reference"), body.get("target"))
+        rows = [r for r in chosen["leagues"] if r["days"] > 0]
+        if not rows:
+            raise CalendarError("Every league is already at or beyond this target.")
+        run = SimRun([r["key"] for r in rows], max(r["days"] for r in rows), False, kind="calendar")
+        run.calendar_plan = chosen
+        with _STATE_LOCK:
+            _CURRENT = run
+            _HISTORY_HINT.insert(0, run)
+            del _HISTORY_HINT[12:]
+        threading.Thread(target=_calendar_worker, args=(run,), name=f"calendar-{run.id}", daemon=True).start()
+        return jsonify({"ok": True, "run": run.summary()}), 202
+    except Exception as exc:
+        if run is not None:
+            run.status, run.error, run.finished_at = "error", str(exc), time.time()
+        _SIM_LOCK.release()
+        return jsonify({"ok": False, "error": str(exc)}), 409
+
+
+def _calendar_worker(run):
+    try:
+        rows = [r for r in run.calendar_plan["leagues"] if r["days"] > 0]
+        for row in rows:
+            run.emit({"kind": "step", "step": "start", "league": row["key"],
+                      "message": f"{row['key']}: play through {row['through']} ({row['days']} days)", "pct": 0})
+        result = run_sim(leagues=[r["key"] for r in rows], days=max(r["days"] for r in rows),
+            days_by_league={r["key"]: r["days"] for r in rows}, allow_season_end=True,
+            expected_states={r["key"]: (r["expected_day"], r["season"]) for r in rows},
+            on_step=run.on_step)
+        run.result = {"ok": True, "calendar": run.calendar_plan, "run": result}
+        run.status = "ok"
+    except BaseException as exc:
+        run.status, run.error = "error", str(exc)
+        run.emit({"kind": "step", "step": "error", "message": str(exc), "pct": None})
+    finally:
+        _finish(run)
 
 
 # -- running the sim --------------------------------------------------------------------
@@ -1163,6 +1250,8 @@ def api_offseason_start():
             "commissioner.offseason is not importable, so the offseason cannot run. "
             + OFFSEASON_ERROR)}), 503
     body = _body()
+    if body.get("force"):
+        return jsonify({"ok": False, "error": "A season transition cannot be forced. Reconcile an interrupted run first."}), 409
     if not body.get("confirm"):
         return jsonify({"ok": False, "error": (
             "The offseason writes to all three saves and pays every character. Send "

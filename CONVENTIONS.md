@@ -780,3 +780,22 @@ departed character's height - and, now that weight follows growth, his weight to
 A slot claimed before this existed has no body recorded and is left alone: the number is gone and
 a guess would be worse. `tools/protect_rosters.py` passes a bare manifest row for the same reason
 - it is recovering a slot whose character is unknown, so it genuinely does not know the body.
+
+## Calendar targets and complete season transitions (2026-09-20)
+
+Calendar dates come from the exported schedule, anchored by box-score day numbers (or MDB
+schedule days before the first game), and the closed save's actual SeasonDay. Targets include
+the selected date. Synchronization matches the fraction of regular-season games scheduled
+through that date, excluding exhibitions and All-Star games. Other leagues advance to the
+first date reaching that fraction and never move backward. Preview tokens and expected save
+headers reject stale plans. One run owns the shared lock, recovery journal, Discord card and
+publish; `days_by_league` preserves each league's actual advance in history and debut maths.
+
+The panel's Start next season requires all three champions. It archives raw exports and
+structured statistics before custom growth, awards, promotions and the draft. Then the game
+runs its own offseason and preseason, saves the next year, and exports the verified opening.
+Character bodies and DOBs are preserved across engine rollover; engine ratings and IDs are
+recorded. Only after all three succeed are current season/week and last offseason advanced.
+A partial rollover retains its journal and blocks retries. Force is unavailable in the panel.
+Promotion uses reserve players actually present in the save and stages both files before
+committing either. A failed binary commit restores both originals before any store mutation.

@@ -59,6 +59,7 @@ class PipelineTests(unittest.TestCase):
         self.addCleanup(self.stack.close)
         self.temp = Path(self.stack.enter_context(tempfile.TemporaryDirectory()))
         self.store, self.day_failure = Store(), False
+        self.simulated = []
         self.paths = {}
         for key in ("prep", "college", "pro"):
             folder = self.temp / key
@@ -79,6 +80,7 @@ class PipelineTests(unittest.TestCase):
                 pass
 
             def sim_days(self, days, on_day=None):
+                owner.simulated.append(days)
                 for day in range(1, days + 1):
                     on_day(day, days)
                     if owner.day_failure:
@@ -139,6 +141,13 @@ class PipelineTests(unittest.TestCase):
         self.assertIsNotNone(simweek.interrupted_run())
         self.assertLess(max(u.get("percent", 0) for u in status.updates), 100)
         self.assertFalse(simweek._SIM_LOCK.locked())
+
+    def test_calendar_counts_share_one_pipeline_and_status(self):
+        result = simweek.run_sim(days=5, days_by_league={"prep":2,"college":3,"pro":5})
+        self.assertEqual(self.simulated,[2,3,5])
+        self.assertEqual(result["days_by_league"],{"prep":2,"college":3,"pro":5})
+        self.assertEqual(len(Status.instances),1)
+        self.assertEqual(self.store.records[0]["days_by_league"]["prep"],2)
 
     def test_failed_publish_is_visible_in_final_result(self):
         self.push.side_effect = RuntimeError("offline")

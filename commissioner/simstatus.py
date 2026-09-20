@@ -34,11 +34,12 @@ class RunProgress:
     """Progress through completed tasks and simulated days, never through elapsed time."""
 
     def __init__(self, leagues, days):
-        self.days = max(1, int(days))
+        day_counts = days if isinstance(days, dict) else {}
+        self.days = max(1, max(day_counts.values()) if day_counts else int(days))
         keys = list(leagues)
         plan = [("prepare", key, 1) for key in keys]
         for key in keys:
-            plan.extend((stage, key, self.days if stage == "sim" else 1)
+            plan.extend((stage, key, day_counts.get(key, self.days) if stage == "sim" else 1)
                         for stage in ("load", "sim", "save", "export", "mdb"))
         plan.extend((stage, key, 1) for stage in ("tidy", "snapshot") for key in keys)
         plan.extend((("publish", None, 1), ("upload", None, 1)))
@@ -87,7 +88,7 @@ def render(state, *, days, leagues, elapsed, preview=False):
             "fields": [
                 {"name": "League", "value": str(league or "All selected leagues"), "inline": True},
                 {"name": "Elapsed", "value": duration, "inline": True},
-                {"name": "Run", "value": f"{days} days · {len(leagues)} league(s)", "inline": True},
+                {"name": "Run", "value": (" · ".join(f"{k}: {v}d" for k, v in days.items()) if isinstance(days, dict) else f"{days} days · {len(leagues)} league(s)"), "inline": True},
             ],
             "footer": {"text": ("Preview only — no games advanced" if preview else
                                   "Cheezeyverse · Finished" if terminal else

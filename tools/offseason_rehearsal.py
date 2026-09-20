@@ -117,6 +117,8 @@ def redirect_everything(paths, store_path):
     localstore.PATH = store_path
     from commissioner import simweek
     simweek.MARKER = SANDBOX / "run_in_progress.json"
+    from commissioner.saveguard import SaveLock
+    simweek._SIM_LOCK = SaveLock(SANDBOX / ".save-operation.lock")
     notify.post = lambda *a, **k: False
     notify.post_embed = lambda *a, **k: False
 
@@ -190,6 +192,8 @@ def build_cast(paths, season, log=print):
         taken = [{"name": c["claimed_slot"].get("name"), "dob": c["claimed_slot"].get("dob")}
                  for c in holders]
         slots = ch.free_slots(MANIFEST, league, taken)
+        existing = {(p.name, p.dob) for p in LeagueDat(paths[league]).players}
+        slots = [s for s in slots if (s.name, ch.codec_dob(s.dob)) in existing]
         if not slots:
             raise SystemExit(f"no free reserve slot in {league} for the rehearsal cast")
         slot = slots[0]

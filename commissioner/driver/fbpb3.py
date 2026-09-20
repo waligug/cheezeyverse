@@ -704,6 +704,8 @@ class FBPB3:
         try:
             self.sim_days(limit)
         except DriverError as exc:
+            if "SIM DAY did not advance the calendar" not in str(exc):
+                raise
             log(f"   reached the offseason panel: {exc}")
             return True
         raise DriverError(

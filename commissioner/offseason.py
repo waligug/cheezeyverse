@@ -100,6 +100,10 @@ class OffseasonError(Exception):
     pass
 
 
+class OffseasonRecoveryError(OffseasonError):
+    """A partial binary write could not be restored; stop the entire transition."""
+
+
 def _manifest():
     return json.loads(MANIFEST.read_text(encoding="utf-8"))
 
@@ -220,10 +224,10 @@ def retire(character, season, reason, store, log=print, dry_run=False, slot_exis
     if hasattr(store, "record_level"):
         try:
             history = list(character.get("level_history") or [])
-            for row in history:
-                if row.get("to_season") is None:
-                    row["to_season"] = season
-                    row["how_it_ended"] = reason
+            for level in history:
+                if level.get("to_season") is None:
+                    level["to_season"] = season
+                    level["how_it_ended"] = reason
             if history:
                 store.set_character_field(character["id"], "level_history", history)
         except Exception as exc:
@@ -439,7 +443,15 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
     holders = [c for c in store.characters(league=to_league) if c.get("claimed_slot")]
     taken = [{"name": c["claimed_slot"].get("name"),
               "dob": c["claimed_slot"].get("dob")} for c in holders]
+    dst = LeagueDat(dst_path)
     slots = ch.free_slots(_manifest(), to_league, taken)
+    available = {(p.name, p.dob): p for p in dst.players}
+    team_ids = sorted(dst.teams())
+    team_names = {tid: t.abbrev for tid, t in zip(team_ids, cfg.BY_KEY[to_league].teams)}
+    slots = [slot for slot in slots if (slot.name, ch.codec_dob(slot.dob)) in available
+             and available[(slot.name, ch.codec_dob(slot.dob))].values["Team"] in team_names]
+    for slot in slots:
+        slot.team = team_names[available[(slot.name, ch.codec_dob(slot.dob))].values["Team"]]
     # `team` is the drafting team when this is a draft pick: a player drafted by STL should
     # join STL if STL has a free reserve slot, not simply the first vacancy in the league.
     slot = ch.pick_slot(slots, character.get("position"), team=team)
@@ -451,7 +463,7 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
         return {"character": character, "to": to_league, "team": slot.team,
                 "slot": slot.as_json(), "conversion": conv}
 
-    dst = LeagueDat(dst_path)
+    original_src, original_dst = bytes(src.data), bytes(dst.data)
     ch.stamp_character(dst, slot, {
         "first_name": character["first_name"], "last_name": character["last_name"],
         "dob": ch.codec_dob(character.get("game_dob") or slot.dob), "height_inches": height,
@@ -460,10 +472,24 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
         "weight_lbs": weight,
         "position": character.get("position"), "ratings": ratings, "potentials": potentials,
     })
-    ch.commit(dst, [(name, ch.codec_dob(character.get("game_dob") or slot.dob),
-                     {"Height": height, "Weight": weight})])
+    # Prepare BOTH saves before committing either. A missing source claim must not leave a
+    # second copy of the player in college/pro while his store record still points at prep.
+    if not refill(from_league, character, log=log, prepared=src):
+        raise OffseasonError(f"cannot release {name}'s original reserve slot")
+    try:
+        ch.commit(dst, [(name, ch.codec_dob(character.get("game_dob") or slot.dob),
+                         {"Height": height, "Weight": weight})])
+        original_slot = character["claimed_slot"]
+        ch.commit(src, [(original_slot["name"], ch.codec_dob(original_slot["dob"]), {})])
+    except Exception:
+        # No database call has happened yet. The enclosing journal protects a crash here.
+        try:
+            src_path.write_bytes(original_src)
+            dst_path.write_bytes(original_dst)
+        except Exception as exc:
+            raise OffseasonRecoveryError("promotion rollback failed; reconcile the saves") from exc
+        raise
 
-    refill(from_league, character, log=log)
     store.activate_character(character["id"], to_league, slot.team, slot.as_json(),
                              ch.codec_dob(character.get("game_dob")))
 
@@ -500,7 +526,7 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
 
 
 # ---- 4. give the slot back ------------------------------------------------------------------
-def refill(league_key, character, log=print):
+def refill(league_key, character, log=print, prepared=None):
     """Hand a departing character's reserve slot back its original filler identity.
 
     Without this the level he left keeps a slot that looks taken forever, and the ceiling on
@@ -510,7 +536,7 @@ def refill(league_key, character, log=print):
     if not slot:
         return False
     path = ch.save_path(league_key)
-    L = LeagueDat(path)
+    L = prepared if prepared is not None else LeagueDat(path)
     name = f'{character["first_name"]} {character["last_name"]}'
     try:
         pl = L.find(name, ch.codec_dob(character.get("game_dob") or slot.get("dob")))
@@ -529,8 +555,9 @@ def refill(league_key, character, log=print):
     # body it had before this character took it over, because stamp_character recorded it there.
     ch.reset_reserve(L, pl, {**original,
                              "height": slot.get("height"), "weight": slot.get("weight")})
-    L.save(backup_dir=BACKUPS)
-    log(f'   slot {original["name"]} is free again in {league_key}')
+    if prepared is None:
+        L.save(backup_dir=BACKUPS)
+    log(f'   slot {original["name"]} is {"prepared" if prepared is not None else "free again"} in {league_key}')
     return True
 
 
@@ -595,6 +622,8 @@ def run_draft(declared, store, log=print, dry_run=False, season=None):
                     store.set_character_field(c["id"], "draft_round", p["round"])
                     store.set_character_field(c["id"], "draft_season", season)
             except Exception as exc:
+                if isinstance(exc, OffseasonRecoveryError):
+                    raise
                 log(f'   ! pick #{p["pick"]} failed: {exc}')
                 p["error"] = str(exc)
     return [p for p in picks if "error" not in p] + [p for p in picks if "error" in p]
@@ -618,7 +647,7 @@ def _promise(character):
 class _JournaledStore:
     """Record intent before network writes, including calls whose reply never arrives."""
     WRITES = {"activate_character", "grant_points", "record_level", "retire_character",
-              "set_character_field", "set_setting"}
+              "set_character_field", "set_setting", "add_snapshot"}
 
     def __init__(self, store, journal):
         self.store, self.journal = store, journal
@@ -643,7 +672,7 @@ class _JournaledStore:
         return write
 
 
-def run_offseason(store, season=None, log=print, dry_run=False, force=False):
+def run_offseason(store, season=None, log=print, dry_run=False, force=False, rollover=False):
     """Share the save lock and recovery journal with Sim Week.
 
     Binary rollback is safe only before any database mutation was attempted. After that,
@@ -661,6 +690,14 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
                 raise OffseasonError(journal.describe_interruption(stale))
             if journal.FBPB3.is_running():
                 raise OffseasonError("close FBPB3 before running the offseason")
+            if rollover:
+                from . import seasonflow
+                season = int(season or store.get_settings().get("current_season", cfg.START_YEAR))
+                ready = seasonflow.readiness(season, already_locked=True)
+                if not ready["ready"]:
+                    raise OffseasonError(" ".join(ready["reasons"]))
+                if force:
+                    raise OffseasonError("A complete season transition cannot be forced. Reconcile interrupted runs first.")
             journal._mark_running(["prep", "college", "pro"], 0, season, kind="offseason")
             marked = True
             taken = back_up_every_save(log=log)
@@ -668,18 +705,40 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False):
                 raise OffseasonError("all three saves must be backed up before the offseason")
             journal._update_marker(lambda state: state.update(
                 phase="offseason", backups={k: str(v) for k, v in taken.items()}))
+        if rollover and not dry_run:
+            seasonflow.archive_finished(store, season, taken, log)
         if not dry_run:
             try:
                 notify.post(f"**Offseason started** - {season or 'this season'}.", log=log)
             except Exception:
                 pass
         result = _run_offseason(store if dry_run else tracked, season=season, log=log,
-                                dry_run=dry_run, force=force, backups=taken)
+                                dry_run=dry_run, force=force, backups=taken,
+                                advance_settings=not rollover)
         if not dry_run:
             if tracked.failed_write:
                 raise OffseasonError("a database write failed: " + tracked.failed_write)
+            if rollover:
+                tracked.writes_started = True  # engine changes must never trigger a save-only rollback
+                result["rollover"] = seasonflow.rollover_saves(tracked, season, journal, log)
+                tracked.set_setting("last_offseason", season)
+                tracked.set_setting("current_season", season + 1)
+                tracked.set_setting("current_week", 0)
+                result["next_season"] = season + 1
+                for key in ("prep", "college", "pro"):
+                    journal._snapshot_league(key, tracked, season + 1, 0, log)
             completed = True
             journal._clear_marker()
+        if rollover and not dry_run:
+            try:
+                from .publish.publish import publish, git_push
+                publish([s.key for s in cfg.LEAGUES])
+                if store.get_settings().get("auto_publish", True):
+                    git_push(f"Season {season + 1} opening")
+                result["published"] = True
+            except Exception as exc:
+                result["publish_error"] = str(exc)
+                log(f"New season is saved, but publishing needs a retry: {exc}")
         # Notification failures must never roll back a completed offseason.
         try:
             if not dry_run:
@@ -892,7 +951,8 @@ def season_movers(characters, store, season, log=print):
     return out
 
 
-def _run_offseason(store, season=None, log=print, dry_run=False, force=False, backups=None):
+def _run_offseason(store, season=None, log=print, dry_run=False, force=False, backups=None,
+                   advance_settings=True):
     settings = store.get_settings()
     season = int(season or settings.get("current_season", cfg.START_YEAR))
     done = settings.get("last_offseason")
@@ -954,6 +1014,8 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
                 c, "college", store, log=log, dry_run=dry_run,
                 how="aged out of prep", season=season))
         except Exception as exc:
+            if isinstance(exc, OffseasonRecoveryError):
+                raise
             name = f'{c.get("first_name")} {c.get("last_name")}'
             log(f"   ! {name} did not move: {exc}")
             result["failed"].append({"character": c, "stage": "promote", "error": str(exc)})
@@ -1005,7 +1067,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         result["developed"] = developed
         result["season_bonus"] = earned
 
-    if not dry_run:
+    if not dry_run and advance_settings:
         store.set_setting("last_offseason", season)
         store.set_setting("current_season", season + 1)
         store.set_setting("current_week", 0)

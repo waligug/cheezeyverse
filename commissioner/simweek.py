@@ -887,8 +887,8 @@ def _refuse_to_cross_the_season(keys, days, emit, allow_season_end=False, season
         if champ:
             raise SeasonEnd(
                 f"{key}'s season is over - {champ} won it. What comes next is FBPB3's own "
-                "rollover, behind END SEASON, and offseason.py does the rollover itself through "
-                "the codec. Nothing has ever run both, so that path is not built yet.")
+                "season rollover. Finish the other leagues, then choose Start next season "
+                "in the Offseason panel.")
 
     limits, blind = [], []
     for key in keys:
@@ -928,7 +928,7 @@ def _refuse_to_cross_the_season(keys, days, emit, allow_season_end=False, season
 
 
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
-            allow_season_end=False):
+            allow_season_end=False, expected_state=None, days_by_league=None, expected_states=None):
     """Apply everything owed, sim `days` in each league, export, publish, grant points."""
     if not _SIM_LOCK.acquire(blocking=False):
         raise SimBusy("a sim is already running")
@@ -973,7 +973,21 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     try:
         if not dry_run and interrupted_run():
             raise RuntimeError(describe_interruption(interrupted_run()))
-        progress = RunProgress(keys, days)
+        day_counts = {key: int((days_by_league or {}).get(key, days)) for key in keys}
+        if days_by_league is not None and any(n < 1 or n > 400 for n in day_counts.values()):
+            raise ValueError("Calendar day counts must be between 1 and 400")
+        if days_by_league:
+            result["days_by_league"] = day_counts
+        if expected_state is not None or expected_states is not None:
+            from .codec.league_dat import find_season_day
+            if FBPB3.is_running():
+                raise SeasonEnd("Close the game and refresh the calendar before starting.")
+            for key in keys:
+                actual = find_season_day(ch.save_path(key).read_bytes())
+                expected = (expected_states or {}).get(key, expected_state)
+                if expected is None or actual != tuple(expected):
+                    raise SeasonEnd("The save changed since the calendar preview. Refresh and choose again.")
+        progress = RunProgress(keys, day_counts if days_by_league else days)
         # INSIDE the try, and first. _SIM_LOCK was acquired above and the only thing that ever
         # releases it is this try's finally - so raising above this line held the lock for the
         # life of the process, and offseason.py deliberately shares that lock, meaning one
@@ -1004,8 +1018,9 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         season_now = int(settings.get("current_season", cfg.START_YEAR) or cfg.START_YEAR)
 
         if not dry_run:
-            _refuse_to_cross_the_season(keys, days, emit, allow_season_end=allow_season_end,
-                                        season=season_now)
+            for key in keys:
+                _refuse_to_cross_the_season([key], day_counts[key], emit, allow_season_end=allow_season_end,
+                                            season=season_now)
 
         if FBPB3.is_running():
             emit("backup", "closing a stray FBPB3 first")
@@ -1021,8 +1036,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 raise RuntimeError(describe_interruption(stale))
             _mark_running(keys, days, season_now)
             marked = True
+            if days_by_league:
+                _update_marker(lambda state: state.update(days_by_league=day_counts))
             # One message for this run. All HTTP happens on its worker, never in a game click.
-            status = SimStatus(days, keys).start()
+            status = SimStatus(day_counts if days_by_league else days, keys).start()
 
         # ---- 1. apply everything owed, per league, before the game opens ----------------------
         for key in keys:
@@ -1121,13 +1138,13 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             emit("sim", f"loading {spec.save_name}", key)
             game.load_save(spec.save_name, wait=30)
             at("sim", key)
-            emit("sim", f"simming {days} days of {spec.name}", key)
+            emit("sim", f"simming {day_counts[key]} days of {spec.name}", key)
 
             def day_finished(day, total):
                 pct = at("sim", key, day / max(1, total))
                 emit("sim", f"{spec.name}: day {day} of {total} completed", key, pct=pct)
 
-            game.sim_days(days, on_day=day_finished)
+            game.sim_days(day_counts[key], on_day=day_finished)
             at("save", key)
             emit("sim", "saving", key)
             # The path lets the driver watch the file finish instead of sleeping a fixed 15 s,
@@ -1304,9 +1321,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         for key in keys:
             at("points", key)
             emit("points", f"awarding weekly points in {cfg.BY_KEY[key].name}", key)
-            n = st.grant_week_points(league=key, weeks=weeks)
+            league_weeks = max(1, round(day_counts[key] / 7))
+            n = st.grant_week_points(league=key, weeks=league_weeks)
             if n:
-                emit("points", f"{weeks} point(s) to {n} character(s) in {key}", key)
+                emit("points", f"{league_weeks} point(s) to {n} character(s) in {key}", key)
         at("finish")
         emit("points", "updating the completed week")
         st.set_setting("current_week", week_done)

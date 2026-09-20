@@ -366,6 +366,9 @@ function startSim(days) {
 
 function describeRun(run) {
   if (!run) { return ''; }
+  if (run.kind === 'calendar' && run.calendar_plan) {
+    return 'Season target: ' + run.calendar_plan.percent + '% · ' + run.calendar_plan.leagues.filter(function(r) { return r.days > 0; }).map(function(r) { return r.key + ': ' + r.days + ' days'; }).join(', ');
+  }
   if (run.kind === 'offseason') {
     return (run.dry_run ? 'DRY RUN - ' : '') + 'offseason for season ' +
       (run.season === null || run.season === undefined ? "(the store's current season)" : run.season) +
@@ -398,7 +401,8 @@ function setButtons() {
   // exactly as a sim is locked out by them. The server refuses either way; this is only so the
   // button looks like what it will do.
   $('btn-os-preview').disabled = locked || !state.offseasonOK;
-  $('btn-os-run').disabled = locked || !state.offseasonOK;
+  $('btn-os-run').disabled = locked || !state.offseasonOK || !(state.plan && state.plan.transition && state.plan.transition.ready);
+  if (window.refreshCalendarButtons) { window.refreshCalendarButtons(); }
   var force = $('btn-os-force');
   if (force) { force.disabled = locked || !state.offseasonOK || !$('os-force-ack').checked; }
 }
@@ -434,6 +438,7 @@ function renderLeagues(universe) {
       if (lg.day !== undefined && lg.day !== null) { tail.push('day ' + lg.day); }
       if (tail.length) { stage.appendChild(document.createTextNode(' · ' + tail.join(' · '))); }
     }
+    if (window.renderCalendarDates) { window.renderCalendarDates(); }
     if (dds[0] && lg.games_played !== undefined && lg.games_played !== null) {
       dds[0].textContent = lg.games_played;
     }
@@ -463,9 +468,11 @@ function renderLeagues(universe) {
 function renderPlan(plan) {
   if (!plan) { return; }
   state.plan = plan;
-  $('os-season-chip').textContent = plan.season ? ('next: season ' + plan.season) : 'season unknown';
+  if (window.renderSeasonReadiness) { window.renderSeasonReadiness(plan); }
+  $('os-season-chip').textContent = plan.season ? ('season ' + plan.season + ' → ' + (Number(plan.season) + 1)) : 'season unknown';
   $('os-last-chip').textContent = plan.last_offseason
     ? ('last run: ' + plan.last_offseason) : 'never run';
+  setButtons();
   if (!plan.available) { return; }
 
   var host = $('os-plan');
@@ -555,7 +562,7 @@ function startOffseason(force) {
        'This writes to all three saves: everyone grows, prep players who have finished their ' +
        'age-17 season move to college, declared players are drafted onto pro rosters, every ' +
        'reserve slot left behind is refilled, and every active character is paid.\n\n' +
-       'It can only be run once per season. Start with a dry run if you have not.');
+       'The finished season is archived first. All three game saves then roll into the next season and are verified before completion.');
   if (!window.confirm(question)) { return; }
 
   setBusy(true, 'starting the offseason...');
@@ -596,15 +603,13 @@ function renderRefusal(message, run) {
   var host = $('os-result');
   host.innerHTML = '';
   var box = el('div', 'os-refused');
-  box.appendChild(el('strong', null, 'Refused - that season has already been run.'));
+  box.appendChild(el('strong', null, 'Season transition paused'));
   box.appendChild(el('div', null, message || ''));
   box.appendChild(el('div', null,
-    'Nothing was written: the guard runs before the first backup is taken. Every part of the ' +
-    'offseason is cumulative - inches, points, college years, promotions - so running one ' +
-    'twice pays everybody twice.'));
+    'Read the reason above before trying again. An interrupted transition must be reconciled; it cannot be forced.'));
   host.appendChild(box);
   if (run) { state.refusedSeason = run.season === undefined ? null : run.season; }
-  $('os-force').hidden = false;
+  $('os-force').hidden = true;
   setButtons();
 }
 
@@ -643,6 +648,8 @@ function renderOffseasonResult(result, lines, wasDry) {
     head.appendChild(el('span', 'chip', 'nothing was written'));
   }
   host.appendChild(head);
+  if (result.next_season) { host.appendChild(el('p', 'season-readiness ready', 'Season ' + result.next_season + ' is ready. All three game saves were rolled forward and verified.')); }
+  if (result.publish_error) { host.appendChild(el('p', 'os-trouble', 'The new season is saved, but publishing needs a retry: ' + result.publish_error)); }
 
   // Failures first and loudest: everything below this is only true if this box is empty.
   host.appendChild(troubleBlock(result, dry));
@@ -973,7 +980,7 @@ function refreshHistory() {
         var leagues = row.leagues;
         tr.appendChild(el('td', null,
           Array.isArray(leagues) ? leagues.join(', ') : (leagues || 'all')));
-        tr.appendChild(el('td', 'num', firstOf(row, ['days'], '')));
+        tr.appendChild(el('td', 'num', row.days_by_league ? Object.keys(row.days_by_league).map(function(key) { return key + ': ' + row.days_by_league[key]; }).join(' · ') : firstOf(row, ['days'], '')));
       }
       tr.appendChild(el('td', 'num', firstOf(row, ['elapsed', 'seconds', 'took'], '')));
       var okay = row.ok === undefined ? (row.status === 'ok') : !!row.ok;

@@ -138,6 +138,9 @@ def main():
     assert first_game_day(latecomer, split, season=2026, league="prep") == 22, \
         "a pro-only run must not move a prep debut"
     assert first_game_day(latecomer, split, season=2026, league="pro") == 29
+    proportional = [{**split[0], "days": 30, "days_by_league": {"prep": 2, "college": 8, "pro": 30}}]
+    assert first_game_day(latecomer, proportional, season=2026, league="prep") == 3
+    assert first_game_day(latecomer, proportional, season=2026, league="pro") == 31
 
     # ---- A RUN THAT CANNOT BE PLACED IN A SEASON MAKES THE ANSWER UNKNOWN --------------------
     # It used to count in every season, which silently brought back the cross-rollover sum.
