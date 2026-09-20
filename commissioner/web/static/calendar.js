@@ -18,8 +18,20 @@
     $('calendar-start').disabled = busy() || !view.plan || !view.plan.leagues.some(function (r) { return r.days > 0; });
     $('calendar-end').disabled = busy() || !view.data;
     $('calendar-refresh').disabled = busy();
-    var playoffs = state.plan && state.plan.transition && state.plan.transition.leagues.some(function(r) { return !r.champion && r.regular_remaining === 0; });
+    var playoffs = playoffTargets().length > 0;
     $('btn-playoffs').disabled = busy() || !playoffs;
+    if ($('btn-playoffs-all')) {
+      $('btn-playoffs-all').disabled = busy() || !playoffs;
+      $('btn-playoffs-all').textContent = chain.on ? 'Playing the playoffs…'
+                                                   : 'Play the whole playoffs';
+    }
+    if ($('playoff-note')) {
+      $('playoff-note').textContent = !playoffs
+        ? 'No league is waiting on playoffs right now.'
+        : chain.on ? ('Round ' + (chain.rounds + 1) + '. Keeps going until every champion is '
+                      + 'decided; stops by itself if a round fails or moves nothing.')
+        : 'Runs seven days at a time until every league has a champion.';
+    }
   };
   window.renderSeasonReadiness = function (plan) {
     var host = $('season-readiness'), transition = plan && plan.transition;
@@ -29,6 +41,83 @@
       ? 'All three champions are decided. Ready to develop players and start the next season.'
       : (transition.reasons || []).join(' ');
   };
+  // ONE DEFINITION OF "waiting on playoffs", used by both buttons and by the chain, so a
+  // button cannot light up for a league the run would refuse. A league qualifies when its
+  // regular season is done and nobody has won yet.
+  function playoffTargets() {
+    var rows = (state.plan && state.plan.transition && state.plan.transition.leagues) || [];
+    return rows.filter(function (r) { return !r.champion && r.regular_remaining === 0; })
+               .map(function (r) { return r.key; });
+  }
+  // Where each league's calendar stands, so the chain can tell a round that played basketball
+  // from a round that achieved nothing.
+  function datePositions() {
+    return ((view.data && view.data.leagues) || []).map(function (l) {
+      return l.key + ':' + l.current_date;
+    }).join('|');
+  }
+  function startPlayoffRound(keys) {
+    // The checkboxes still move, because somebody watching the panel should see which leagues
+    // are going - but they are a REFLECTION of the request, not its source.
+    var rows = (state.plan && state.plan.transition && state.plan.transition.leagues) || [];
+    document.querySelectorAll('.league-pick').forEach(function (pick) {
+      var row = rows.find(function (r) { return r.key === pick.value; });
+      pick.checked = keys.indexOf(pick.value) >= 0;
+      pick.disabled = !!row && !!row.champion;
+    });
+    chain.before = datePositions();
+    startSim(7, {leagues: keys, dryRun: false, allowSeasonEnd: true});
+  }
+
+  // THE WHOLE PLAYOFFS, one seven-day run at a time.
+  //
+  // There is no single "sim the playoffs" call to make: FBPB3's schedule export holds regular
+  // season dates only, so nothing downstream knows when the playoffs end - the only way to find
+  // out is to play forward and look. So this chains the run that already exists and stops the
+  // moment it should, which means three separate stop conditions, because a loop that starts
+  // sims by itself has to be able to stop itself:
+  //
+  //   * EVERY CHAMPION DECIDED. The reason it was started; the ordinary ending.
+  //   * A ROUND THAT MOVED NOTHING. If no league's calendar advanced, playing another seven
+  //     days will not advance it either - that is a game sitting on a screen the driver cannot
+  //     get past, and chaining into it would just keep failing in a way nobody is watching.
+  //   * A ROUND THAT FAILED, or a cap of ten rounds - seventy days, far past any postseason.
+  //
+  // It also stops the instant anything else takes the lock, and on any refusal, so it can never
+  // fight the offseason for the saves.
+  var chain = { on: false, rounds: 0, max: 10, before: '' };
+
+  function stopChain(message, bad) {
+    if (!chain.on) { return; }
+    chain.on = false;
+    refreshCalendarButtons();
+    if (message) { toast(message, !!bad); }
+  }
+
+  function continueChain() {
+    if (!chain.on) { return; }
+    if (state.lastRunOk === false) {
+      stopChain('The playoff run stopped, so the rest of the playoffs were not started.', true);
+      return;
+    }
+    var left = playoffTargets();
+    if (!left.length) {
+      stopChain('Every playoff is finished - all three champions are decided.');
+      return;
+    }
+    if (datePositions() === chain.before) {
+      stopChain('That round did not move any league forward, so the playoffs were not chained '
+                + 'any further. Look at the log before trying again.', true);
+      return;
+    }
+    if (++chain.rounds >= chain.max) {
+      stopChain('Stopped after ' + chain.max + ' playoff rounds without finishing. Press it '
+                + 'again if that is genuinely how long these playoffs are.', true);
+      return;
+    }
+    startPlayoffRound(left);
+  }
+
   function showError(message) {
     $('calendar-preview').textContent = message;
     view.plan = null;
@@ -149,16 +238,23 @@
     // button exists to do. It also inherited whatever #dry-run happened to be left on, so a
     // forgotten tick turned "play the playoffs" into a run that played nothing.
     $('btn-playoffs').addEventListener('click',function() {
-      var rows=(state.plan && state.plan.transition && state.plan.transition.leagues)||[];
-      var eligible=rows.filter(function(r){return !r.champion && r.regular_remaining===0;})
-                       .map(function(r){return r.key;});
-      // The checkboxes still move, because somebody watching the panel should see which
-      // leagues are going - but they are a REFLECTION of the request now, not its source.
-      document.querySelectorAll('.league-pick').forEach(function(pick) {
-        var row=rows.find(function(r){return r.key===pick.value;});pick.checked=eligible.indexOf(pick.value)>=0;pick.disabled=!!row&&!!row.champion;
-      });
+      var eligible=playoffTargets();
       if(!eligible.length) {toast('No league is waiting on playoffs.',true);return;}
-      startSim(7,{leagues:eligible,dryRun:false,allowSeasonEnd:true});
+      chain.on=false;                       // one round, deliberately: do not chain
+      startPlayoffRound(eligible);
+    });
+    // ASKS FIRST. Every other button here starts one run you can watch finish; this one starts
+    // runs until a season ends, and it was added the same afternoon a mis-click started a sim
+    // that had to be killed and restored. A sentence and a click is a cheap price for that.
+    $('btn-playoffs-all').addEventListener('click',function() {
+      var eligible=playoffTargets();
+      if(!eligible.length) {toast('No league is waiting on playoffs.',true);return;}
+      var names=eligible.join(', ');
+      if(!window.confirm('Play the whole playoffs for ' + names + '?\n\nThis runs seven days '
+          + 'at a time and keeps going until every champion is decided. It stops on its own if '
+          + 'a round fails or moves nothing.')) {return;}
+      chain.on=true; chain.rounds=0;
+      startPlayoffRound(eligible);
     });
     renderSeasonReadiness(state.plan);loadCalendar();
     // SERIALISED, not fired together. Both /api/calendar and the readiness inside /api/state
@@ -169,7 +265,13 @@
     var wasBusy=busy();setInterval(function(){
       var now=busy();
       if(wasBusy&&!now) {
-        Promise.resolve(loadCalendar()).then(function(){ if(window.refreshState) {refreshState();} });
+        // The chain decides AFTER both reads land, never before: it needs this run's champions
+        // and this run's dates, and asking earlier reads the previous round's answer and starts
+        // a round that was not wanted.
+        Promise.resolve(loadCalendar())
+          .then(function(){ return window.refreshState ? refreshState() : null; })
+          .then(continueChain, function(){ stopChain('Lost contact with the panel, so the rest '
+                                                     + 'of the playoffs were not started.', true); });
       }
       wasBusy=now;refreshCalendarButtons();
     },1500);

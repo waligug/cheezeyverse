@@ -343,6 +343,14 @@ details.create input, details.create select { width: 100%; }
 .calendar-summary h3 { font-size:20px; line-height:1.3; }
 .calendar-summary p { font-size:12px; color:var(--crust); }
 .calendar-summary button { width:100%; margin-top:10px; padding:12px; }
+/* The playoff controls, separated from the two calendar buttons by a rule rather than just
+   space: they answer a different question. "Sim to this target" and "Finish the regular
+   season" both take a DATE off the calendar; the playoffs have no dates in the schedule
+   export at all, so these two are the rows the grid above cannot show. */
+.playoff-controls { margin-top:18px; padding-top:14px; border-top:1px solid rgba(46,33,0,.18); }
+.playoff-controls .eyebrow { display:block; margin-bottom:2px; }
+.playoff-controls button.small { padding:8px; font-size:13px; }
+.playoff-controls #playoff-note { margin-top:8px; font-size:11px; line-height:1.45; }
 .calendar-plan-row { padding:12px 0; border-bottom:1px solid var(--line); }
 .calendar-plan-row strong { display:block; text-transform:capitalize; }
 .calendar-plan-row span { display:block; font-size:12px; }

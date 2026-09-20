@@ -52,7 +52,7 @@ function need(id) { return BY_ID[id] || (BY_ID[id] = new El(id)); }
 ['calendar-preview','calendar-start','calendar-end','calendar-refresh','btn-playoffs',
  'calendar-league','calendar-team','calendar-prev','calendar-next','calendar-month',
  'calendar-grid','calendar-target','calendar-games','season-readiness','allow-season-end',
- 'season-end-group','dry-run'].forEach(need);
+ 'season-end-group','dry-run','btn-playoffs-all','playoff-note'].forEach(need);
 
 var PICKS = ['prep','college','pro'].map(function (k) { var e = new El('pick-'+k); e.value = k; return e; });
 
@@ -71,10 +71,16 @@ global.state = { busy: false, osBusy: false, plan: null, run: null, lastSeq: 0 }
 global.setBusy = function () {}; global.clearLog = function () {}; global.attach = function () {};
 global.toast = function (m) { global.TOASTS.push(m); };
 global.TOASTS = [];
+global.CONFIRMS = [];
+global.ANSWER = true;
+global.confirm = function (q) { global.CONFIRMS.push(q); return global.ANSWER; };
 global.SIMS = [];
 global.startSim = function (days, opts) { global.SIMS.push({ days: days, opts: opts }); };
 global.CALLS = [];
-global.setInterval = function () { return 0; };
+global.TICKS = [];
+global.setInterval = function (fn) { global.TICKS.push(fn); return 0; };
+global.tickTimer = async function () { for (const fn of global.TICKS) { fn(); } await tick(); };
+global.refreshState = function () { return Promise.resolve(); };
 // populateTeams builds <option>s; without this the whole load throws into its own catch and
 // the grid is never rendered - which looks exactly like the calendar being empty.
 global.Option = function (label, value) { var e = new El('option'); e.textContent = label; e.value = value; return e; };
@@ -107,6 +113,10 @@ global.CAL_2027 = { ok: true, token: 't1', leagues: [
   LEAGUE('prep', 2027, '2028-04-10', '2027-11-01', '2028-06-01'),
   LEAGUE('college', 2027, '2028-04-10', '2027-11-01', '2028-06-01'),
   LEAGUE('pro', 2027, '2028-04-10', '2027-11-01', '2028-06-01')] };
+global.CAL_2027_LATER = { ok: true, token: 't1b', leagues: [
+  LEAGUE('prep', 2027, '2028-04-17', '2027-11-01', '2028-06-01'),
+  LEAGUE('college', 2027, '2028-04-17', '2027-11-01', '2028-06-01'),
+  LEAGUE('pro', 2027, '2028-04-17', '2027-11-01', '2028-06-01')] };
 global.CAL_2028 = { ok: true, token: 't2', leagues: [
   LEAGUE('prep', 2028, '2028-11-02', '2028-11-01', '2029-06-01'),
   LEAGUE('college', 2028, '2028-11-02', '2028-11-01', '2029-06-01'),
@@ -175,6 +185,90 @@ function ok(cond, msg) { if (!cond) { fails.push(msg); } }
   ok(SIMS.length === 0 && TOASTS.length === 1,
      'FINDING 2: started a playoff run with no league waiting on one');
 
+  // ==== the play-the-whole-playoffs chain ================================================
+  // It starts sims on its own, so what matters is not that it runs but that it STOPS: on a
+  // finished postseason, on a failed round, and on a round that moved nothing. A chain that
+  // cannot stop would keep starting seven-day runs at a save nobody is watching.
+  function waitingOn(rows) { state.plan = { transition: { leagues: rows } }; }
+  const PREP_LEFT = [{ key:'prep', champion:null, regular_remaining:0 },
+                     { key:'college', champion:'Gators', regular_remaining:0 },
+                     { key:'pro', champion:'Crush', regular_remaining:0 }];
+  const ALL_DONE  = [{ key:'prep', champion:'Tulips', regular_remaining:0 },
+                     { key:'college', champion:'Gators', regular_remaining:0 },
+                     { key:'pro', champion:'Crush', regular_remaining:0 }];
+
+  // reset the board to the 2027 dates the chain will compare against
+  async function reset(rows) {
+    $('calendar-refresh').fire('click'); settle('/api/calendar', CAL_2027); await tick();
+    waitingOn(rows); state.busy = false; state.lastRunOk = null;
+    SIMS.length = 0; TOASTS.length = 0; CONFIRMS.length = 0;
+  }
+  // one finished run: busy goes up, then down, and the panel re-reads both sources
+  async function runEnds(calendarAfter) {
+    state.busy = true; await tickTimer();
+    state.busy = false; await tickTimer();
+    settle('/api/calendar', calendarAfter); await tick(); await tick();
+  }
+
+  // ---- it asks before starting, and a "no" starts nothing -------------------------------
+  await reset(PREP_LEFT);
+  ANSWER = false;
+  $('btn-playoffs-all').fire('click');
+  ok(CONFIRMS.length === 1, 'the whole-playoffs button did not ask for confirmation');
+  ok(SIMS.length === 0, 'declining the confirmation still started a sim');
+
+  // ---- a "yes" starts the eligible leagues only -----------------------------------------
+  ANSWER = true;
+  $('btn-playoffs-all').fire('click');
+  ok(SIMS.length === 1, 'the whole-playoffs button did not start a run');
+  ok(SIMS.length && JSON.stringify(SIMS[0].opts.leagues) === JSON.stringify(['prep']),
+     'the chain ran leagues that already have a champion: ' + JSON.stringify(SIMS[0] && SIMS[0].opts));
+  ok(SIMS.length && SIMS[0].opts.allowSeasonEnd === true && SIMS[0].opts.dryRun === false,
+     'the chain did not state its own intent: ' + JSON.stringify(SIMS[0] && SIMS[0].opts));
+
+  // ---- a round that moved the calendar and left a champion undecided chains on ----------
+  state.lastRunOk = true;
+  await runEnds(CAL_2027_LATER);
+  ok(SIMS.length === 2, 'FINDING: the chain stopped while prep still had no champion, so '
+     + '"play the whole playoffs" played one week and quietly gave up');
+
+  // ---- ...and stops as soon as every champion is decided --------------------------------
+  waitingOn(ALL_DONE);
+  state.lastRunOk = true;
+  await runEnds(CAL_2028);
+  ok(SIMS.length === 2, 'FINDING: the chain started another round after every playoff was '
+     + 'finished');
+  ok(TOASTS.some(function (t) { return /finished/i.test(t); }),
+     'finishing the playoffs said nothing: ' + JSON.stringify(TOASTS));
+
+  // ---- a failed round stops it ----------------------------------------------------------
+  await reset(PREP_LEFT);
+  ANSWER = true;
+  $('btn-playoffs-all').fire('click');
+  ok(SIMS.length === 1, 'setup: the chain did not start');
+  state.lastRunOk = false;                       // the run ended with an error, or refused
+  await runEnds(CAL_2027_LATER);
+  ok(SIMS.length === 1, 'FINDING: a failed playoff round was chained into another one. Ten '
+     + 'rounds of the same failure is what this guard exists to stop.');
+
+  // ---- a round that moved nothing stops it ----------------------------------------------
+  await reset(PREP_LEFT);
+  ANSWER = true;
+  $('btn-playoffs-all').fire('click');
+  state.lastRunOk = true;
+  await runEnds(CAL_2027);                       // same dates as when the round started
+  ok(SIMS.length === 1, 'FINDING: the chain kept going after a round that advanced no '
+     + 'league. Another seven days will not advance it either.');
+
+  // ---- the single-round button never chains ---------------------------------------------
+  await reset(PREP_LEFT);
+  $('btn-playoffs').fire('click');
+  ok(CONFIRMS.length === 0, 'the seven-day button should not ask - it is the small one');
+  ok(SIMS.length === 1, 'the seven-day button did not start a run');
+  state.lastRunOk = true;
+  await runEnds(CAL_2027_LATER);
+  ok(SIMS.length === 1, 'FINDING: the plain seven-day button chained into a second round');
+
   console.log(JSON.stringify({ fails: fails }));
 })();
 """
@@ -213,8 +307,10 @@ def main():
             print("  FAIL  the calendar no longer serialises its refresh with the readiness read")
             return 1
         print("OK  calendar panel: a stale preview cannot arm the start button, the playoff "
-              "button states its own intent, the month follows a rollover, and the two "
-              "lock-taking reads are serialised")
+              "button states its own intent, the month follows a rollover, the two "
+              "lock-taking reads are serialised, and the whole-playoffs chain asks first, "
+              "runs only the leagues still waiting, and stops on a finished postseason, a "
+              "failed round and a round that moved nothing")
         return 0
     finally:
         shutil.rmtree(work, ignore_errors=True)

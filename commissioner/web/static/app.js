@@ -30,6 +30,7 @@ var state = {
   offseasonOK: !!(BOOT.offseason && BOOT.offseason.ok),
   plan: BOOT.plan || null,
   osBusy: false,        // a dry run is in flight: it holds the same lock a sim does
+  lastRunOk: null,      // how the last run ended: true, false, or null for 'not yet'
   refusedSeason: null,  // the season a refusal was about, so Force asks for that one
   pace: BOOT.pace || null   // fitted from real runs; null when the log cannot say yet
 };
@@ -176,6 +177,11 @@ function finishRun(ev) {
   setButtons();
   var okay = ev.status === 'ok';
   var refused = !!ev.refused || ev.status === 'refused';
+  // How the run ENDED, not just that it ended. The calendar's play-the-whole-playoffs chain
+  // starts the next round off the busy->idle edge, and that edge looks identical for a round
+  // that played a week and a round that was refused before it touched a save - so without this
+  // a refusal would be chained into another refusal, ten times, with nobody watching.
+  state.lastRunOk = okay && !refused;
   $('run-chip').textContent = refused ? 'refused' : (okay ? 'finished' : 'ERROR');
   $('run-chip').className = 'chip ' + (okay ? 'ok' : (refused ? 'warn' : 'bad'));
   $('run-line').textContent = ev.message || '';
@@ -350,6 +356,7 @@ function startSim(days, opts) {
   setBusy(true, 'starting...');
   clearLog(null);
   state.lastSeq = 0;
+  state.lastRunOk = null;         // this run has not ended yet; do not judge it by the last one
   postJSON('/api/sim/start', { days: days, leagues: leagues, dry_run: dry,
                                allow_season_end: cross }).then(function (data) {
     if (!data.ok) {

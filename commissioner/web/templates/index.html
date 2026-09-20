@@ -58,6 +58,18 @@
         <div id="calendar-preview" aria-live="polite">Loading the actual game schedules…</div>
         <button type="button" id="calendar-start" disabled>Sim to this target</button>
         <button type="button" id="calendar-end" class="plain">Finish the regular season</button>
+        <!-- THE PLAYOFF CONTROLS LIVE HERE, beside the calendar, because this is the one card
+             that answers "how far forward do we go next?" - and the playoffs are the only
+             answer the calendar itself cannot give. FBPB3's schedule export contains regular
+             season dates only, so there is no playoff day to click; these two buttons are the
+             calendar's missing rows, and burying them at the bottom of the Next season card
+             meant scrolling past the whole offseason plan to finish a season. -->
+        <div class="playoff-controls">
+          <span class="eyebrow">PLAYOFFS</span>
+          <button type="button" id="btn-playoffs-all">Play the whole playoffs</button>
+          <button type="button" id="btn-playoffs" class="plain small">Play just the next 7 days</button>
+          <p class="muted" id="playoff-note">Runs seven days at a time until every league has a champion.</p>
+        </div>
         <div id="calendar-games"></div>
       </aside>
     </div>
@@ -210,7 +222,7 @@
       <ol class="season-steps"><li>Finish all three playoffs</li><li>Archive stats &amp; develop players</li><li>Promote, draft &amp; roll forward</li><li>Verify the new season</li></ol>
       <div id="season-readiness" class="season-readiness" aria-live="polite"></div>
       <p class="os-blurb">One transition handles player growth, college moves, the draft, points, and the game's new-season setup. Your finished-season stats are archived first. The season changes only after all three saves are verified.</p>
-      <button type="button" class="plain" id="btn-playoffs">Play the next 7 days of playoffs</button>
+      <p class="muted">Step 1 is up in <b>Where do you want to play to?</b> - the playoff buttons sit beside the calendar.</p>
 
       <div id="os-plan">
         {% if plan.available %}
