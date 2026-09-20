@@ -98,6 +98,33 @@ def round_one_days(spec):
     return 1 + 2 * (int(live[0]) - 1)
 
 
+def phase_totals(steps, total):
+    """[(phase, seconds)] for one run, biggest first, from the step log it already keeps.
+
+    Every speed decision made on this pipeline so far came from somebody timing a log stream by
+    hand, which is how a 30-second sleep sat inside every load for months without anybody being
+    able to say what a load cost. The steps are already stamped with `t`; this is only the
+    subtraction, and it turns "the sim feels slow" into a number per phase that the next change
+    can be measured against.
+
+    A step's time is charged to the step BEFORE the next one starts, because emit() is called as
+    each piece of work begins. The last step runs until the end of the run.
+    """
+    if not steps:
+        return []
+    totals = {}
+    for i, row in enumerate(steps):
+        start = row.get("t")
+        if start is None:
+            continue
+        end = steps[i + 1].get("t") if i + 1 < len(steps) else total
+        if end is None or end < start:
+            continue
+        name = row.get("step") or "other"
+        totals[name] = totals.get(name, 0.0) + (end - start)
+    return sorted(totals.items(), key=lambda kv: -kv[1])
+
+
 def _league_status(spec, st, settings=None, characters=None):
     """One league's row for the panel.
 
@@ -1188,10 +1215,15 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # the run rather than a fresh request: this is the worst possible place for a network
         # call, since the lock is still held.
         try:
+            phases = phase_totals(steps, time.time() - started)
+            if phases and not dry_run:
+                emit("done", "where the time went: " + ", ".join(
+                    f"{name} {secs:.0f}s" for name, secs in phases[:6]))
             st.record_run({**result, "seconds": round(time.time() - started),
                            "started_at": datetime.fromtimestamp(started, timezone.utc)
                            .isoformat(timespec="seconds"),
-                           "season": season_now})
+                           "season": season_now,
+                           "phases": {name: round(secs, 1) for name, secs in phases}})
         finally:
             # ALWAYS, even if the log write raised. record_run swallows OSError but not a
             # PermissionError from a held file, nor a TypeError from a hand-edited log - and a
