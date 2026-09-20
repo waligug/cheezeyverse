@@ -46,9 +46,29 @@ def post(text, log=print):
         return False
     if len(body) > MAX_LENGTH:
         body = body[:MAX_LENGTH - 1] + "…"
+    return _send({"content": body}, log)
+
+
+def post_embed(embed, text=None, log=print):
+    """Send one embed - a card with a title, fields and a colour - and optionally a line above it.
+
+    Same rule as `post`: never raises, never prints the webhook, and a refusal is a log line.
+    """
+    if not embed:
+        return False
+    payload = {"embeds": [embed]}
+    if text:
+        payload["content"] = str(text)[:MAX_LENGTH]
+    return _send(payload, log)
+
+
+def _send(payload, log=print):
+    target = url()
+    if not target:
+        return False
     request = urllib.request.Request(
         target,
-        data=json.dumps({"content": body}).encode("utf-8"),
+        data=json.dumps(payload).encode("utf-8"),
         headers={"Content-Type": "application/json", "User-Agent": "cheezeyverse-commissioner"},
         method="POST",
     )

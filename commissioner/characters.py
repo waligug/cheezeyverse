@@ -159,6 +159,19 @@ def pick_slot(slots, position=None, team=None, busy=None, divisions=None, team_o
     return None
 
 
+def weight_for(character):
+    """The pounds he should weigh on the day he is stamped: his choice, or the derived one.
+
+    One function because two callers need the SAME answer - stamp_character writes it into
+    league.dat, and the Sim Week commit check reads it back out to prove it landed.
+
+    The body is in growth.weight_for_save, which clamps it into the range the int16 and the
+    column both accept; this stays as the name the commissioner calls, because a weight that
+    reached the file unclamped would be verified against itself and look correct.
+    """
+    return growth.weight_for_save(character)
+
+
 def stamp_character(L, slot, character):
     """Turn a dormant reserve slot into a real character, in place.
 
@@ -193,12 +206,19 @@ def stamp_character(L, slot, character):
     L.set(pl, "BirthDay", day)
     L.set(pl, "BirthYear", year)
     L.set(pl, "Height", int(character["height_inches"]))
-    # Weight, like height, is his and not the slot's. Leave it out and he keeps the dormant
-    # filler's weight: a 7'2" fourteen-year-old listed at whatever the row he took over
-    # happened to weigh, and a create page that promised a number the game never heard.
-    # This is the weight he arrives with. From his next offseason on, growth.weight_step() moves
-    # it with his height and his age - see offseason.apply_growth, which writes both together.
-    L.set(pl, "Weight", growth.weight_for_save(character))
+    # WEIGHT WAS NEVER WRITTEN AT ALL until the builder grew a slider, so the game gave every
+    # character whatever the reserve slot he claimed happened to weigh. Nobody noticed because
+    # the site derived its own number from height and build and only ever showed that one.
+    # Now that somebody can CHOOSE it, the two have to be the same number: a review card that
+    # says 185 and a game that plays him at 160 is a lie with no error attached.
+    #
+    # Null is not "no weight", it is "never asked" - everybody made before the slider - and
+    # those keep the number the site has always shown them, derived the same way it derives it.
+    #
+    # This is only the weight he ARRIVES with. From his next offseason on, growth.weight_step()
+    # moves it with his height and his age - see offseason.apply_growth, which writes both
+    # together and verifies them together.
+    L.set(pl, "Weight", weight_for(character))
     if character.get("position"):
         L.set(pl, "Position", POSITION_CODES[character["position"]])
 

@@ -326,17 +326,18 @@ def height_outlook(start_inches, height_genes) -> dict:
 BUILD_LBS = {"wiry": -14, "lean": -7, "solid": 0, "strong": 9, "heavy": 20}
 
 
-def build_weight(height_inches, build=None) -> int:
-    """The weight a height and a build SUGGEST, in pounds.
+def build_weight(height_inches, build_id=None) -> int:
+    """The weight a fourteen-year-old of this height and build is assumed to be.
 
-    This is not what a character weighs. Since the create page grew a slider, that is his own
-    number and it is stored on the row as `weight_lbs`; this is only where the slider starts,
-    and the fallback for characters made before the column existed.
+    A FALLBACK, not the truth. A character created since the builder grew a weight slider
+    carries `weight_lbs` and that is what he weighs; this answers for everybody made before it,
+    and for anyone who never touched the slider, with exactly the number the site has always
+    shown them. It is also where the slider starts.
     """
-    h = int(height_inches or 70)
     # _js_round, not round(): Math.round is half-up and Python's round() is half-even, and the
     # JS copy is the one a person watches move on the slider. See the height model above.
-    return _js_round((h - 60) * 4.6 + 96) + BUILD_LBS.get(build or "solid", 0)
+    h = _js_round(height_inches) if height_inches else 70
+    return _js_round((h - 60) * 4.6 + 96) + BUILD_LBS.get(str(build_id or "").lower(), 0)
 
 
 # What a body of this height carries at this age, before anything personal about him.

@@ -939,6 +939,12 @@ HEIGHT_CASES = [(cid, start, genes)
                 for genes in (0, 18, 50, 73, 100)]
 
 
+# Every build, across the legal height range, including the ends of it.
+WEIGHT_CASES = [(inches, build_id)
+                for inches in (60, 64, 68, 70, 72, 76, 80, 84, 88, 95)
+                for build_id in ("wiry", "lean", "solid", "strong", "heavy")]
+
+
 def test_height_agreement(results, base):
     """The JS and the Python must produce the same inches, year by year, for every case.
 
@@ -980,6 +986,35 @@ def test_height_agreement(results, base):
     check("the expected adult height agrees", not bad_expected, str(bad_expected[:3]))
     check("the projected range shown on the create page agrees", not bad_outlook,
           str(bad_outlook[:2]))
+    return i
+
+
+def test_weight_agreement(results, base):
+    """The weight the browser shows and the weight the commissioner writes must be one number.
+
+    Weight used to be derived in the site and NEVER WRITTEN to league.dat at all - the game
+    played everybody at whatever the reserve slot he claimed weighed. That was invisible while
+    the site was the only place a weight appeared. Now the builder has a slider and the
+    commissioner writes the pounds in, and for everybody created before the slider it writes
+    this derived fallback instead. If the two formulas drift, his card and his player disagree
+    and nothing raises.
+    """
+    bad, i = [], base
+    for inches, build_id in WEIGHT_CASES:
+        js = value(results, i, "buildWeight"); i += 1
+        py = PY_GROWTH.build_weight(inches, build_id)
+        if js != py:
+            bad.append(f"{inches}in {build_id}: js {js} != py {py}")
+    check(f"JS and Python agree on the weight for {len(WEIGHT_CASES)} height/build pairs",
+          not bad, "; ".join(bad[:4]))
+    # and the derived number must sit inside the band the database will accept, or a character
+    # made before the slider cannot be re-inserted by his own fallback
+    outside = [f"{inches}in {build_id}: {PY_GROWTH.build_weight(inches, build_id)}"
+               for inches, build_id in WEIGHT_CASES
+               if abs(PY_GROWTH.build_weight(inches, build_id)
+                      - round((inches - 60) * 4.6 + 96)) > 50]
+    check("every derived weight is inside the check constraint in schema.sql", not outside,
+          str(outside[:3]))
     return i
 
 
@@ -1063,10 +1098,6 @@ def test_height_model(results, base, consts):
 # ---------------------------------------------------------------------------------------
 
 
-WEIGHT_CASES = [(h, b)
-                for h in (60, 64, 70, 74, 80, 86, 95)
-                for b in ("wiry", "lean", "solid", "strong", "heavy")]
-
 # (character, height now, age) - a fourteen-year-old growing up, including one with no weight
 # of his own (made before the column existed) and one at each end of the slider.
 GROWN_CASES = [
@@ -1083,29 +1114,22 @@ GROWN_CASES = [
 ]
 
 
-def test_weight_agreement(results, base, consts):
-    """buildWeight() in rules.js and build_weight() in growth.py must be the same number.
+def test_weight_range(results, base, consts):
+    """The band the slider offers, and the number that ends up in the save.
 
-    The same reason the height model is pinned: the browser shows the slider's starting point
-    and the commissioner writes a weight into league.dat, and if the two drift the create page
-    is quoting a number the save will never hold. The spread has to agree too - it is what
-    bounds the range validateBuild() accepts, and therefore what can reach the file.
+    test_weight_agreement above pins buildWeight() itself across both languages. This is the
+    half that decides what a person can actually choose: the range is what validateBuild()
+    accepts, and whatever it accepts is what reaches league.dat.
     """
-    bad_weight, bad_range = [], []
+    bad_range = []
     i = base
     for height, build_id in WEIGHT_CASES:
-        js_weight = value(results, i, "buildWeight"); i += 1
         js_range = value(results, i, "weightRange"); i += 1
         py_weight = PY_GROWTH.build_weight(height, build_id)
-        if js_weight != py_weight:
-            bad_weight.append(f"{height}in {build_id}: js {js_weight} != py {py_weight}")
         if js_range is not None and (js_range["base"] != py_weight
                                      or js_range["low"] != py_weight - consts["WEIGHT_SPREAD"]
                                      or js_range["high"] != py_weight + consts["WEIGHT_SPREAD"]):
             bad_range.append(f"{height}in {build_id}: {js_range} around {py_weight}")
-
-    check(f"JS and Python agree on the suggested weight over {len(WEIGHT_CASES)} cases",
-          not bad_weight, "; ".join(bad_weight[:3]))
     check("the slider's range is the suggestion plus or minus the spread",
           not bad_range, str(bad_range[:2]))
 
@@ -1354,6 +1378,11 @@ def main():
         calls.append({"op": "expectedAdultHeight", "args": [start, genes]})
         calls.append({"op": "heightOutlook", "args": [start, genes]})
 
+    # --- weight --------------------------------------------------------------------------
+    weight_base = len(calls)
+    for inches, build_id in WEIGHT_CASES:
+        calls.append({"op": "buildWeight", "args": [inches, build_id]})
+
     # --- validateBuild -------------------------------------------------------------------
     good_answers = sample_answers(consts["QUIZ"], 3)
     identity = {"firstName": "Milo", "lastName": "Trask", "hometown": "Scarborough, ON",
@@ -1422,10 +1451,9 @@ def main():
     calls.append({"op": "formatHeight", "args": [76]})
     calls.append({"op": "buildWeight", "args": [74, "heavy"]})
 
-    # --- weight ---------------------------------------------------------------------------
-    weight_base = len(calls)
+    # --- the slider's range, and weight after fourteen -------------------------------------
+    range_base = len(calls)
     for height, build_id in WEIGHT_CASES:
-        calls.append({"op": "buildWeight", "args": [height, build_id]})
         calls.append({"op": "weightRange", "args": [height, build_id]})
 
     grown_base = len(calls)
@@ -1452,8 +1480,9 @@ def main():
     test_classes_are_labels_only(consts)
     test_height_agreement(results, height_base)
     test_height_model(results, height_base, consts)
+    test_weight_agreement(results, weight_base)
     test_build_validation(results, build_base)
-    test_weight_agreement(results, weight_base, consts)
+    test_weight_range(results, range_base, consts)
     test_weight_after_fourteen(results, grown_base, consts)
     test_upgrade_validation(results, upgrade_base)
     test_limits(results, limit_base)

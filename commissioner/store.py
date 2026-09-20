@@ -21,6 +21,7 @@ import argparse
 import json
 import re
 import sys
+import threading
 
 import requests
 
@@ -40,7 +41,7 @@ __all__ = [
 # The character columns the public career pages need. Kept explicit rather than `*` so a
 # new column added to the table does not silently start leaking into the export.
 CHARACTER_COLUMNS = (
-    "id,owner,first_name,last_name,position,height_inches,archetype,league,team_abbrev,"
+    "id,owner,first_name,last_name,position,height_inches,weight_lbs,archetype,league,team_abbrev,"
     "status,game_dob,ratings,potentials,points_available,points_spent,claimed_slot,"
     # league_player_ids is how anything outside the codec finds a character in the
     # generated league site: it maps each level to his FBPB3 player id. Leaving it out
@@ -53,10 +54,12 @@ CHARACTER_COLUMNS = (
     # traits carries height_genes, which apply_growth needs. Without it every character
     # read None, growth skipped all of them, and the offseason reported "0 grew" - so
     # nobody would ever have got taller, in a game whose whole premise is growing up.
-    # weight_lbs is what stamp_character writes into the save as Weight. Read as None it
-    # does not fail loudly - it falls back to build_weight(), so a character would quietly
-    # be given the weight his build suggests instead of the one he chose.
-    "traits,weight_lbs,build,created_at"
+    # build is the other half of the weight: characters made before the slider have a null
+    # weight_lbs and stamp_character derives one from height and build for them. Left out, build
+    # reads None, every one of them derives as "solid", and a wiry or heavy kid is quietly handed
+    # a weight up to 20 lbs from the one his own page has always shown him. weight_lbs itself is
+    # in the first line of this list.
+    "traits,build,created_at"
 )
 
 DRY_RUN = False  # set by --selftest; makes every call describe itself instead of firing
@@ -98,6 +101,56 @@ def _headers(prefer=None):
     return head
 
 
+_local = threading.local()
+
+
+def _session():
+    """A pooled HTTPS connection, one per thread.
+
+    WHY THIS IS WORTH A MODULE-LEVEL GLOBAL. `requests.request()` builds a new session for every
+    call, which means a new TCP connection and a new TLS handshake every time. Measured against
+    this project from this machine, twice and independently: a fresh GET of `settings` takes
+    1.53 s and the same GET on a kept-alive connection takes 0.06 s. Twenty-five times. A Sim
+    Week makes dozens of these calls - settings and characters in every phase, one snapshot POST
+    per character - so the handshake, not the query, was most of what "talking to Supabase" cost.
+
+    PER THREAD, because the panel answers requests on several of them and a requests.Session is
+    not documented as thread-safe. Sharing one would trade a measured, repeatable win for a rare
+    and unreproducible failure in the middle of a sim, which is a bad trade at any speed.
+
+    NO urllib3 RETRY POLICY HERE, deliberately, and the reason is worth keeping. The obvious
+    version of this mounted an HTTPAdapter with Retry(allowed_methods=DEFAULT_ALLOWED_METHODS)
+    on the grounds that the default set excludes POST. It does - but `allowed_methods` only
+    gates urllib3's READ-error branch. Its connect-error and "other"-error branches carry no
+    method check at all, so a POST can be replayed by a policy that looks like it forbids
+    exactly that. `grant_week_points`, `activate_character` and `apply_upgrade_requests` are all
+    POSTs and every one of them must happen exactly once, so the retry that does exist is done
+    in `_request`, in code, where the method is checked by something readable. (Caught in review
+    by a Codex session, 2026-09-20.)
+    """
+    session = getattr(_local, "session", None)
+    if session is None:
+        session = requests.Session()
+        _local.session = session
+    return session
+
+
+def _drop_session():
+    """Throw this thread's session away, so the next call dials a fresh connection."""
+    session = getattr(_local, "session", None)
+    _local.session = None
+    if session is not None:
+        try:
+            session.close()
+        except Exception:                                        # noqa: BLE001
+            pass
+
+
+# Only these are replayed when the connection fails. Not a policy object, not a set somebody can
+# widen without reading this line: a GET asks a question twice, a POST pays somebody twice.
+REPLAYABLE = ("GET", "HEAD")
+
+
 def _request(method, path, params=None, body=None, prefer=None):
     """One PostgREST call. In DRY_RUN, returns a description of it instead."""
     plan = {"method": method, "path": path, "params": params or {}, "body": body, "prefer": prefer}
@@ -108,22 +161,32 @@ def _request(method, path, params=None, body=None, prefer=None):
         raise StoreNotConfigured(f"Wanted: {method} {path}")
     url = f"{cfg.supabase_url()}{path}"
     try:
-        resp = requests.request(method, url, headers=_headers(prefer), params=params,
-                                json=body, timeout=cfg.timeout())
+        resp = _session().request(method, url, headers=_headers(prefer), params=params,
+                                  json=body, timeout=cfg.timeout())
     except requests.RequestException as exc:
-        raise StoreError(f"{method} {path} failed to reach Supabase: {exc}") from exc
+        # A POOLED CONNECTION CAN GO STALE, which a fresh one per call never could: the far end
+        # closes a kept-alive socket between phases of a sim and the next call fails on a
+        # connection that looked fine. That is the cost of pooling, and this is the whole of the
+        # answer to it - throw the dead session away and ask ONCE more, and only for a method
+        # where asking twice is the same as asking once.
+        #
+        # A write is never replayed. It may have reached Supabase and failed on the way back,
+        # and there is no way from here to tell that apart from never arriving. Paying weekly
+        # points twice or activating a character twice is worse than a run that stops and says
+        # so, which is the whole reason activations are written one at a time.
+        if method.upper() not in REPLAYABLE:
+            raise StoreError(f"{method} {path} failed to reach Supabase: {exc}") from exc
+        _drop_session()
+        try:
+            resp = _session().request(method, url, headers=_headers(prefer), params=params,
+                                      json=body, timeout=cfg.timeout())
+        except requests.RequestException as exc2:
+            raise StoreError(f"{method} {path} failed to reach Supabase twice: {exc2}") from exc2
     if resp.status_code >= 400:
-        # 42703 is "column does not exist", and it means one thing here: supabase/schema.sql has
-        # been edited but never run against the project. PostgREST's own wording sends people
-        # looking for a typo in the code, so say what it actually is. Editing that file deploys
-        # nothing; it has to be pasted into the SQL Editor.
-        if "42703" in resp.text:
-            column = re.search(r"column \S*?\.?(\w+) does not exist", resp.text)
-            raise StoreError(
-                f"{method} {path} -> the database does not have "
-                f"{'column ' + column.group(1) if column else 'a column this code asks for'}. "
-                "supabase/schema.sql is ahead of the project: open the Supabase SQL Editor, "
-                "paste that file and run it. Nothing here can add a column.")
+        # PostgREST's own wording is kept verbatim, and that is load-bearing: _missing_column()
+        # below reads "42703" and "column x.y does not exist" straight out of this message to
+        # decide whether a pending column can be dropped and the read retried. Rewording it here
+        # into something friendlier turned that recovery off without failing anything.
         raise StoreError(f"{method} {path} -> HTTP {resp.status_code}: {resp.text[:500]}")
     if not resp.content or resp.status_code == 204:
         return []
@@ -143,8 +206,50 @@ def _print_plan(plan):
         print("         body: " + json.dumps(plan["body"], default=str)[:400])
 
 
+# Columns this code selects that the database may not have yet, and what is lost while it does
+# not. A migration is a thing a person pastes into the Supabase SQL editor, so there is always a
+# window between the code that wants a column and the column existing - and PostgREST does not
+# ignore an unknown column in `select`, it 400s the whole request. Selecting one before it
+# exists therefore does not degrade the read, it kills it: every character, for every caller,
+# including the panel and a running sim.
+PENDING_COLUMNS = {
+    "weight_lbs": "the weight he chose in the builder; until supabase/weight_column.sql is run, "
+                  "the commissioner derives it from height and build as it always has",
+}
+_warned_missing = set()
+
+
 def _table(name, params=None, prefer=None):
-    return _request("GET", f"/rest/v1/{name}", params=params, prefer=prefer)
+    try:
+        return _request("GET", f"/rest/v1/{name}", params=params, prefer=prefer)
+    except StoreError as exc:
+        missing = _missing_column(exc, params)
+        if not missing:
+            raise
+        # Drop it and ask again, once. Only ever a column named in PENDING_COLUMNS: an unknown
+        # column that nobody declared as pending is a typo in a select, and a typo that silently
+        # answers with the field missing is the exact failure CHARACTER_COLUMNS already cost us
+        # five times in a day.
+        if missing not in _warned_missing:
+            _warned_missing.add(missing)
+            print(f"[store] {name}.{missing} does not exist yet - {PENDING_COLUMNS[missing]}")
+        thinner = dict(params or {})
+        thinner["select"] = _drop_column(thinner.get("select", ""), missing)
+        return _request("GET", f"/rest/v1/{name}", params=thinner, prefer=prefer)
+
+
+def _missing_column(exc, params):
+    """The PENDING_COLUMNS name PostgREST just refused, or None."""
+    m = re.search(r"column \w+\.(\w+) does not exist", str(exc))
+    if not m or "42703" not in str(exc):
+        return None
+    name = m.group(1)
+    return name if name in PENDING_COLUMNS and name in (params or {}).get("select", "") else None
+
+
+def _drop_column(select, name):
+    """`select` without `name`, at the top level and inside any embedded resource."""
+    return re.sub(rf"(?<![\w.]){re.escape(name)},|,{re.escape(name)}(?![\w(])", "", select)
 
 
 def _rpc(name, body):

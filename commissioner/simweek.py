@@ -25,6 +25,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import announce
 from . import characters as ch
 from . import notify
 from . import settings as cfgenv
@@ -95,6 +96,33 @@ def round_one_days(spec):
     if not live:
         return None
     return 1 + 2 * (int(live[0]) - 1)
+
+
+def phase_totals(steps, total):
+    """[(phase, seconds)] for one run, biggest first, from the step log it already keeps.
+
+    Every speed decision made on this pipeline so far came from somebody timing a log stream by
+    hand, which is how a 30-second sleep sat inside every load for months without anybody being
+    able to say what a load cost. The steps are already stamped with `t`; this is only the
+    subtraction, and it turns "the sim feels slow" into a number per phase that the next change
+    can be measured against.
+
+    A step's time is charged to the step BEFORE the next one starts, because emit() is called as
+    each piece of work begins. The last step runs until the end of the run.
+    """
+    if not steps:
+        return []
+    totals = {}
+    for i, row in enumerate(steps):
+        start = row.get("t")
+        if start is None:
+            continue
+        end = steps[i + 1].get("t") if i + 1 < len(steps) else total
+        if end is None or end < start:
+            continue
+        name = row.get("step") or "other"
+        totals[name] = totals.get(name, 0.0) + (end - start)
+    return sorted(totals.items(), key=lambda kv: -kv[1])
 
 
 def _league_status(spec, st, settings=None, characters=None):
@@ -381,8 +409,11 @@ def _activate_pending(league_key, L, st, log, season=None):
         dob = ch.codec_dob(c.get("dob") or slot.dob)
         ch.stamp_character(L, slot, {**c, "dob": dob})
 
-        def _write(c=c, slot=slot, dob=dob):
+        def _write(c=c, slot=slot, dob=dob, landed=landed):
             st.activate_character(c["id"], league_key, slot.team, slot.as_json(), dob)
+            # Announced from inside the write, after the save has already been committed, so
+            # Discord never gets a card for a character who did not actually land.
+            announce.arrival(c, league_key, spec.name, landed, log=log)
             if not hasattr(st, "record_level"):
                 return
             try:
@@ -399,7 +430,11 @@ def _activate_pending(league_key, L, st, log, season=None):
         writes.append(_write)
         done.append(c)
         expect.append((f'{c["first_name"]} {c["last_name"]}', dob,
-                       {"Height": int(c["height_inches"])}))
+                       {"Height": int(c["height_inches"]),
+                        # Weight is written now, so the commit check proves it landed. A weight
+                        # that silently did not take is exactly the mismatch the slider exists
+                        # to remove: his card says one number and the game plays another.
+                        "Weight": ch.weight_for(c)}))
         log(f'{c["first_name"]} {c["last_name"]} claimed {slot.team} (was {slot.name})'
             + (f", from day {day_now}" if day_now else ""))
     return done, expect, writes
@@ -976,7 +1011,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             emit("sim", f"simming {days} days of {spec.name}", key)
             game.sim_days(days)
             emit("sim", "saving", key)
-            game.save_game()
+            # The path lets the driver watch the file finish instead of sleeping a fixed 15 s,
+            # and turns a save that silently did not happen into an error rather than an export
+            # of yesterday's league.
+            game.save_game(path=ch.save_path(key))
             emit("export", f"writing {spec.name} pages", key)
             # old_boxes=True writes the BOX SCORES for the games in the export's window, so the
             # schedule's links lead somewhere instead of 404ing. The control is a DATE dropdown -
@@ -1177,10 +1215,15 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # the run rather than a fresh request: this is the worst possible place for a network
         # call, since the lock is still held.
         try:
+            phases = phase_totals(steps, time.time() - started)
+            if phases and not dry_run:
+                emit("done", "where the time went: " + ", ".join(
+                    f"{name} {secs:.0f}s" for name, secs in phases[:6]))
             st.record_run({**result, "seconds": round(time.time() - started),
                            "started_at": datetime.fromtimestamp(started, timezone.utc)
                            .isoformat(timespec="seconds"),
-                           "season": season_now})
+                           "season": season_now,
+                           "phases": {name: round(secs, 1) for name, secs in phases}})
         finally:
             # ALWAYS, even if the log write raised. record_run swallows OSError but not a
             # PermissionError from a held file, nor a TypeError from a hand-edited log - and a

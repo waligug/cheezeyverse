@@ -21,45 +21,19 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+# One implementation of the matching, not two. The commissioner needs it at runtime for the
+# Discord card, this file needs it to build the data in the first place, and two copies of a
+# similarity measure is how the site and the save came to disagree about potentials.
+from commissioner.archetypes import SHAPE, most_like, shape_of, similarity  # noqa: E402
 SOURCE = Path(r"C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3\PlayerFiles"
               r"\2015 Season Start.csv")
 DEST = ROOT / "site" / "data" / "nba-archetypes.json"
-
-# The ratings that describe HOW somebody plays. Stamina and Fouling are left out: they say how
-# long he lasts and how carelessly he defends, not what kind of player he is.
-SHAPE = ["InsideScoring", "JumpShot", "FtShot", "3pShot", "3pUsage", "Handling", "Passing",
-         "PostDefense", "PerimeterDefense", "Stealing", "Blocking", "OReb", "DReb",
-         "Strength", "Quickness", "Jumping"]
-# Kept for display, not for matching.
-SHOW = ["Height", "Weight", "Position"]
-
-
-def shape_of(ratings):
-    """A player's ratings as a shape: centred on his own mean, scaled by his own spread.
-
-    This is what makes a 15-year-old comparable to an All-Star. Returns None when a player has
-    no spread at all (every rating identical), which no real row does but a hand-made one might.
-    """
-    values = [float(ratings.get(k) or 0) for k in SHAPE]
-    mean = sum(values) / len(values)
-    spread = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
-    if spread < 1e-6:
-        return None
-    return [round((v - mean) / spread, 4) for v in values]
-
-
-def similarity(a, b):
-    """Cosine similarity between two shapes, 1.0 being the same style of player."""
-    dot = sum(x * y for x, y in zip(a, b))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(y * y for y in b))
-    return dot / (na * nb) if na and nb else 0.0
-
 
 def load_source(path=SOURCE):
     rows = []
@@ -77,22 +51,12 @@ def load_source(path=SOURCE):
                 "pos": (row.get("Position") or "").strip(),
                 "ht": int(row.get("Height") or 0),
                 "wt": int(row.get("Weight") or 0),
-                "shape": shape,
+                "shape": [round(v, 4) for v in shape],
                 # a few raw numbers, so the builder can say WHY he is the match
                 "top": sorted(((k, int(row.get(k) or 0)) for k in SHAPE),
                               key=lambda kv: -kv[1])[:3],
             })
     return rows
-
-
-def most_like(ratings, players, count=3):
-    """The `count` closest real players to a set of ratings, best first."""
-    mine = shape_of(ratings)
-    if mine is None:
-        return []
-    scored = [(similarity(mine, p["shape"]), p) for p in players]
-    scored.sort(key=lambda sp: -sp[0])
-    return [{**p, "score": round(s, 3)} for s, p in scored[:count]]
 
 
 def main():
@@ -106,7 +70,7 @@ def main():
         from commissioner import store
         c = next(x for x in store.characters() if f'{x["first_name"]} {x["last_name"]}' == name)
         print(f"{name} plays most like:")
-        for m in most_like(c.get("ratings") or {}, players, 5):
+        for m in most_like(c.get("ratings") or {}, 5, pool=players):
             best = ", ".join(f"{k} {v}" for k, v in m["top"])
             print(f'  {m["score"]:.3f}  {m["name"]:<22} {m["pos"]:<3} {m["team"]:<4} ({best})')
         return 0

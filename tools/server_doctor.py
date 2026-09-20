@@ -13,6 +13,7 @@ that actually matters - whether there is a desktop here that pywinauto can click
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -39,6 +40,111 @@ def check(name, ok, detail="", fix=""):
 
 def section(title):
     print(f"\n{title}")
+
+
+# Where Task Scheduler keeps a task's definition. A SYSTEM task registered by an elevated
+# process is NOT READABLE by an ordinary user - and, far worse, it is also not LISTED: both
+# Get-ScheduledTask and schtasks /query silently leave it out rather than saying "access
+# denied". On 2026-09-20 that made this check report the tscon task missing twice, on a machine
+# that had it, and sent somebody off to install a second copy of it. The file's existence is
+# visible even when its contents are not, because opening it fails with "access denied" rather
+# than "not found" - so that is what existence is tested with.
+TASK_DIR = Path(r"C:\Windows\System32\Tasks")
+
+
+def _task_exists(name):
+    """True if a task of this name is registered, readable by us or not."""
+    try:
+        (TASK_DIR / name).stat()
+        return True
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
+def _scheduled_tasks():
+    """{lowercased task name: "Name [State]"} for every task this user can see.
+
+    Only what is VISIBLE. Anything running as SYSTEM will be missing from this, so a task that
+    matters must be confirmed with _task_exists rather than by its absence here.
+
+    Asked through PowerShell because schtasks.exe localises its output and parsing a localised
+    table is how a check ends up reporting "missing" on a machine that has the task.
+    """
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "Get-ScheduledTask | ForEach-Object { \"$($_.TaskName)|$($_.State)\" }"],
+            capture_output=True, text=True, timeout=90).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    found = {}
+    for line in out.splitlines():
+        if "|" in line:
+            name, state = line.rsplit("|", 1)
+            found[name.strip().lower()] = f"{name.strip()} [{state.strip()}]"
+    return found
+
+
+def _task_script(name):
+    """The -File path a scheduled task's action runs, or "" if it has none."""
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             f"(Get-ScheduledTask -TaskName '{name}').Actions "
+             "| ForEach-Object { $_.Arguments }"],
+            capture_output=True, text=True, timeout=60).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    m = re.search(r'-File\s+"([^"]+)"', out) or re.search(r"-File\s+(\S+)", out)
+    return m.group(1) if m else ""
+
+
+def _lan_reachable(port=5095):
+    """(ok, why) - is there an enabled firewall rule for the panel, on a Private network?"""
+    script = (
+        "$r = Get-NetFirewallRule -DisplayName 'Cheezeyverse panel' -ErrorAction SilentlyContinue"
+        " | Where-Object { $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' };"
+        "$cat = (Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory;"
+        "\"$([bool]$r)|$cat\""
+    )
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", script],
+                             capture_output=True, text=True, timeout=90).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return False, "could not read the firewall rules"
+    has_rule, _, category = out.partition("|")
+    ok = has_rule.strip().lower() == "true"
+    if not ok:
+        return False, f"no enabled rule for TCP {port}"
+    if category.strip() in ("Public", ""):
+        # The rule is scoped to LocalSubnet on the Private profile, so a network that has become
+        # Public silently stops matching it.
+        return False, f"rule exists, but this network is {category.strip() or 'unknown'}"
+    return True, f"TCP {port} from LocalSubnet, {category.strip()} network"
+
+
+def _panel_up(port=5095):
+    try:
+        import urllib.request
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=8) as r:
+            return 200 <= r.status < 300
+    except Exception:                                            # noqa: BLE001
+        return False
+
+
+def _auto_logon():
+    """True when Windows logs this machine back in by itself after a reboot."""
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                             r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon")
+        with key:
+            value, _ = winreg.QueryValueEx(key, "AutoAdminLogon")
+            return str(value).strip() == "1"
+    except Exception:                                            # noqa: BLE001
+        return False
 
 
 def main():
@@ -200,6 +306,88 @@ def main():
         print("  Hand the session back to the console before disconnecting (a scheduled task")
         print("  can do it: tools\\install_session_keeper.bat), or start sims only while")
         print("  connected. See docs/SERVER.md.")
+
+    # ---- what happens when nobody is watching -----------------------------------------------
+    section("Surviving a reboot (and a disconnect)")
+    # Everything above answers "can this machine sim right now". This answers "will it still be
+    # able to tomorrow", which is a different question and the one that had never been asked.
+    # Found on 2026-09-20: the panel was running only as a child of an agent session, so it
+    # would have died with it and nothing would have brought it back, and the task that keeps a
+    # disconnected RDP session clickable had been installed in September and was simply GONE.
+    tasks = _scheduled_tasks()
+
+    panel_task = tasks.get("cheezeyverse panel")
+    check("the panel restarts itself (scheduled task)", bool(panel_task),
+          panel_task or "not registered",
+          "powershell -NoProfile -ExecutionPolicy Bypass -File tools\\install_serverpc_tasks.ps1")
+
+    check("the panel is answering", _panel_up(), "http://127.0.0.1:5095/healthz",
+          'schtasks /run /tn "Cheezeyverse panel"   (then check '
+          '%LOCALAPPDATA%\\Cheezeyverse\\panel.log)')
+
+    # Both names this job has ever had. Asked by FILE, because these run as SYSTEM and do not
+    # appear in any listing an ordinary user can get.
+    KEEPERS = ("Cheezeyverse session keeper", "Cheezeyverse - keep desktop on RDP disconnect")
+    keepers = [n for n in KEEPERS if _task_exists(n)]
+    check("a disconnected RDP session stays clickable", bool(keepers),
+          ", ".join(keepers) or "no tscon task - closing Remote Desktop will LOCK the session",
+          "right-click tools\\install_session_keeper.bat -> Run as administrator. Until then, "
+          "do not disconnect while a sim is running.")
+    # Two of them is not twice as safe. Both fire on the same disconnect and both call tscon;
+    # the second arrives to find the session already moved, and on a bad day arrives while the
+    # first is still moving it.
+    check("...and only one of them", len(keepers) < 2,
+          f"{len(keepers)} tscon tasks: {', '.join(keepers)}" if len(keepers) > 1 else "one",
+          'as administrator: schtasks /delete /tn "Cheezeyverse - keep desktop on RDP '
+          'disconnect" /f   (keeps the one the repo describes)')
+    if "Cheezeyverse session keeper" in keepers:
+        # A registered task proves nothing if it points at a script that has moved. This one
+        # runs as SYSTEM on an event nobody watches, so a broken path would sit there looking
+        # installed until the day somebody disconnects mid-sim. Readable only when elevated, so
+        # a blank answer here is "cannot tell", not "broken".
+        script = ROOT / "tools" / "console_handoff.ps1"
+        pointed = _task_script("Cheezeyverse session keeper")
+        check("...and its script is where the task points", (not pointed) or Path(pointed).exists(),
+              pointed or f"cannot read the task's action unelevated; expected {script}",
+              f"re-run the installer; the script belongs at {script}")
+
+    # A logon-triggered task only fires if somebody logs on, and nobody is here to type a
+    # password after a power cut.
+    auto = _auto_logon()
+    check("the machine logs itself back in after a reboot", auto,
+          "AutoAdminLogon" if auto else "no auto-logon: after a reboot there is no desktop, so "
+          "the panel task never fires and the game could not be clicked anyway",
+          "set it with netplwiz (uncheck 'Users must enter a user name and password')")
+
+    # A panel nobody can reach is not a running panel. The rule and the network category are
+    # both things Windows changes on its own - a new adapter, a driver update, a "do you want
+    # this PC to be discoverable" prompt answered No - and neither announces itself.
+    reachable, why = _lan_reachable()
+    check("the panel is reachable from the house", reachable, why,
+          'New-NetFirewallRule -DisplayName "Cheezeyverse panel" -Direction Inbound '
+          "-LocalPort 5095 -Protocol TCP -RemoteAddress LocalSubnet -Action Allow  "
+          "(as administrator), and set the Ethernet profile to Private")
+
+    backup_task = tasks.get("cheezeyverse offsite backup")
+    check("the saves are copied off this drive, daily", bool(backup_task),
+          backup_task or "not registered",
+          "powershell -NoProfile -ExecutionPolicy Bypass -File tools\\install_serverpc_tasks.ps1")
+    try:
+        from tools.offsite_backup import DEST, newest
+        when, payload = newest()
+        if when:
+            from datetime import datetime, timezone
+            hours = (datetime.now(timezone.utc) - when).total_seconds() / 3600
+            size = sum(f.get("bytes", 0) for f in payload.get("files") or [])
+            check("that copy is recent", hours <= 48,
+                  f"{hours:.0f} h old, {len(payload.get('files') or [])} files, "
+                  f"{size / 1e6:.0f} MB, {DEST}",
+                  "python tools/offsite_backup.py")
+        else:
+            check("that copy is recent", False, f"nothing in {DEST}",
+                  "python tools/offsite_backup.py")
+    except Exception as exc:                                     # noqa: BLE001
+        check("the off-drive backup is readable", False, str(exc)[:70])
 
     # ---- verdict --------------------------------------------------------------------------
     bad = [n for n, ok, _, _ in rows if not ok]

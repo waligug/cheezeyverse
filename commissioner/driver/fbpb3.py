@@ -48,6 +48,20 @@ PHASE_PROCESS_ALL = (805, 662)
 HOTSEAT_SIM_TO_PLAYOFFS = (910, 651)
 NAV_HOT_SEAT = (55, 95)
 
+# The furthest point this driver ever clicks, in window coordinates: TOP_EXIT is at x=955 and
+# the bottom row of buttons at y=663. Every click has to land inside the visible desktop, so
+# this is the rectangle the game window needs to actually occupy. tests/test_clickable.py
+# asserts that no coordinate in this file falls outside it, so adding a button further out
+# fails the suite instead of failing a sim.
+CLICK_EXTENT = (960, 670)
+
+# Floors for the two adaptive waits (load and save). They are not how long those steps take -
+# both finish when the game says so - but how long the driver will hold on before calling the
+# step failed. A slow disk on a 6 MB save has never come near either. Named so the tests can
+# shrink them; nothing else should.
+LOAD_LIMIT_FLOOR = 30
+SAVE_LIMIT_FLOOR = 30
+
 
 class DriverError(Exception):
     pass
@@ -70,7 +84,70 @@ class FBPB3:
         self.main = self.app.window(class_name="ThunderRT6MDIForm")
         self.main.wait("visible", timeout=timeout)
         time.sleep(3)
+        self.assert_clickable()
         return self
+
+    def assert_clickable(self, move=True):
+        """Refuse to drive the game unless every point we click can actually be clicked.
+
+        THE TWO WAYS THIS MACHINE STOPS BEING CLICKABLE, both of which look completely healthy
+        from a command line:
+
+        LOCKED OR DISCONNECTED SESSION. Closing a Remote Desktop window locks the session; the
+        processes keep running and nothing renders. Real mouse input lands nowhere.
+        GetForegroundWindow returns 0 there, which is the cheapest honest test there is.
+
+        A DESKTOP TOO SMALL FOR THE WINDOW. FBPB3's window is 1019x762 and the driver clicks by
+        position, out to (955, 663). The console on this box with no monitor attached is
+        1024x768, and once the taskbar takes its forty pixels the bottom row of buttons is
+        underneath it - so a click meant for LOAD lands on the taskbar, and the driver waits out
+        a load that was never started. That is the failure the whole dummy-plug conversation is
+        about, and until now nothing checked for it.
+
+        Both are refusals rather than warnings. A sim that cannot click is not a slower sim; it
+        is a sim that does something else, and FBPB3 has no undo.
+        """
+        import win32api
+        import win32con
+        import win32gui
+
+        if win32gui.GetForegroundWindow() == 0:
+            raise DriverError(
+                "this desktop is not rendering - the session is locked or disconnected, and "
+                "every real mouse click would land nowhere. Reconnect, or hand the session "
+                "back to the console (tools\\install_session_keeper.ps1).")
+
+        r = self.main.rectangle()
+        need_w, need_h = CLICK_EXTENT
+        work = win32api.GetMonitorInfo(
+            win32api.MonitorFromWindow(self.main.handle, win32con.MONITOR_DEFAULTTONEAREST)
+        )["Work"]
+
+        def fits(left, top):
+            return (left >= work[0] and top >= work[1]
+                    and left + need_w <= work[2] and top + need_h <= work[3])
+
+        if fits(r.left, r.top):
+            return True
+        if move:
+            # Usually it does fit and is merely sitting too low or too far right - a window the
+            # game restored to where it was on a bigger screen. Move it to the corner of the
+            # work area and ask again before refusing.
+            try:
+                self.main.move_window(x=work[0], y=work[1])
+                time.sleep(0.5)
+                r = self.main.rectangle()
+                if fits(r.left, r.top):
+                    return True
+            except Exception:                                    # noqa: BLE001
+                pass
+        raise DriverError(
+            f"the desktop is too small to drive the game: the usable area is "
+            f"{work[2] - work[0]}x{work[3] - work[1]} and the driver needs {need_w}x{need_h} "
+            f"from the window's top-left corner (the window is at {r.left},{r.top}). Clicks "
+            "meant for the bottom row of buttons would land on the taskbar or off-screen. "
+            "Raise the resolution - a headless console falls back to 1024x768, and a dummy "
+            "HDMI/DP plug makes it report a real monitor's size.")
 
     @staticmethod
     def kill():
@@ -128,6 +205,14 @@ class FBPB3:
         import win32con
         import win32gui
         hwnd = self.main.handle
+        # If the game is ALREADY the foreground window, the raise below and its 0.3 s settle
+        # are 300 ms of doing nothing - and they are paid on every single click, which measured
+        # 520 ms each and made up roughly a fifth of a simulated day. The check is exact
+        # (GetForegroundWindow, not "probably still ours"), so a stolen focus or an FBPB3 dialog
+        # - a different top-level window - still takes the full path.
+        if win32gui.GetForegroundWindow() == hwnd and not win32gui.IsIconic(hwnd):
+            yield
+            return
         if win32gui.IsIconic(hwnd):
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
         win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)
@@ -345,11 +430,82 @@ class FBPB3:
         the title-screen button from inside a loaded league does nothing at all, which silently
         leaves the previous league loaded and sends the next export into the wrong save.
         """
-        self.click(TOP_LOAD, 3)
-        self.click((LOAD_ROW_X, LOAD_FIRST_ROW_Y + row * LOAD_ROW_H), 1, real=True)
-        if not self._load_button().is_enabled():
+        # Each of these three used to be a fixed sleep as well. The Load screen arriving IS the
+        # LOAD button existing, and the row being selected IS that button going enabled, so
+        # both are things to watch for rather than to wait out.
+        self._load_hwnd = None          # never trust a handle found on an earlier load
+        self.click(TOP_LOAD, 0)
+        if not self._wait_for(lambda: self._load_screen_open(unknown=False), 10):
+            raise DriverError("the Load Saved Game screen never appeared")
+        self.click((LOAD_ROW_X, LOAD_FIRST_ROW_Y + row * LOAD_ROW_H), 0, real=True)
+        if not self._wait_for(lambda: self._load_button().is_enabled(), 5):
             raise DriverError(f"row {row} did not select a save")
-        self.click(LOAD_BUTTON, wait)
+        # Click, then WAIT FOR THE LOAD TO FINISH rather than sleeping a flat 30 s. A load cost
+        # 36 s a league in the three-league run of 2026-09-19 and almost all of it was the
+        # sleep; the game is on the Hot Seat long before it ends. `wait` is now a ceiling
+        # instead of a price.
+        #
+        # The signal is the LOAD SCREEN GOING AWAY, not the picture settling. A settled picture
+        # would be the obvious test and the wrong one: while VB6 reads league.dat it stops
+        # pumping messages, and an unresponsive window repaints to the same pixels every time,
+        # so "nothing is moving" is exactly what the middle of a load looks like. The button
+        # only vanishes once the game has actually navigated off the Load screen.
+        limit = max(LOAD_LIMIT_FLOOR, wait * 3)
+        deadline = time.time() + limit
+        self.click(LOAD_BUTTON, 0)
+        while self._load_screen_open(unknown=True):
+            if time.time() > deadline:
+                raise DriverError(f"row {row} was still on the Load screen {limit}s after "
+                                  "LOAD was clicked")
+            time.sleep(0.25)
+        # A short settle, not a long one: this only has to outlast the Hot Seat's own repaint so
+        # that whatever reads the date label next reads a finished one.
+        self._wait_until_still(settle=0.5, timeout=30, poll=0.1)
+
+    @staticmethod
+    def _wait_for(cond, timeout, poll=0.05):
+        """True as soon as `cond()` is, False at `timeout`.
+
+        A condition that raises counts as "not yet", whatever it raised. Reading a VB6 window
+        tree while the game is rebuilding it throws from inside pywinauto - InvalidWindowHandle
+        on a control destroyed between being listed and being wrapped - and that is a normal
+        thing to see mid-transition, not a reason to abandon the run. The timeout is what makes
+        this safe: a condition that never becomes true still ends, and ends as a refusal.
+        """
+        end = time.time() + timeout
+        while time.time() < end:
+            try:
+                if cond():
+                    return True
+            except Exception:                                    # noqa: BLE001 - see above
+                pass
+            time.sleep(poll)
+        return False
+
+    def _load_screen_open(self, unknown=True):
+        """True while the Load Saved Game screen's LOAD button is there.
+
+        `unknown` is the answer when the window tree cannot be read at all, and the two callers
+        want opposite answers. Waiting for the screen to ARRIVE, an unreadable tree means keep
+        looking (False, not yet). Waiting for a load to FINISH, it must mean keep waiting
+        (True): the one thing that must never happen is a transient pywinauto error being read
+        as "the load is done", which would send the export at a league still being read in.
+
+        After the first look the button's handle is remembered and the question becomes a bare
+        IsWindowVisible. Enumerating a VB6 form's controls costs a good fraction of a second and
+        this is asked four times a second for the length of every load.
+        """
+        import win32gui
+        hwnd = getattr(self, "_load_hwnd", None)
+        try:
+            if hwnd:
+                return bool(win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd))
+            self._load_hwnd = self._load_button().handle
+            return True
+        except DriverError:
+            return False
+        except Exception:                                        # noqa: BLE001 - see above
+            return unknown
 
     def load_save(self, name, wait=20):
         """Load a save by folder name, resolving its row from the save list order."""
@@ -389,7 +545,11 @@ class FBPB3:
         second failure raises. `timeout` is ~13x the slowest day measured, so a slow day is not
         mistaken for a lost click and simmed twice.
         """
-        self.click(NAV_HOT_SEAT, 3)
+        # Settle rather than sleep 3 s, and settle BEFORE the first date is read: a label caught
+        # half-painted is a `before` that nothing will ever match, which reads as a day that
+        # advanced when it did not.
+        self.click(NAV_HOT_SEAT, 0)
+        self._wait_until_still(settle=0.4, timeout=15, poll=0.1)
         for day in range(1, n + 1):
             before = self._date_signature()
             for _attempt in range(2):
@@ -559,10 +719,68 @@ class FBPB3:
         self.click(HOTSEAT_SIM_PRESEASON, wait)
         self.dismiss_all()
 
-    def save_game(self, wait=15):
-        """Top-bar SAVE; the name box is prefilled with the loaded save's name."""
-        self.click(TOP_SAVE, 3)
-        self.click(SAVE_NAME_OK, wait)
+    def save_game(self, wait=15, path=None):
+        """Top-bar SAVE; the name box is prefilled with the loaded save's name.
+
+        With `path` (the league.dat being written) this waits for THE FILE'S TIMESTAMP TO MOVE
+        rather than for a fixed sleep, and raises if it never does. That is both faster and
+        stricter: a save that silently did not happen used to look exactly like one that did,
+        and the next step would export or roll over a league whose work was still only in
+        memory.
+        """
+        limit = max(SAVE_LIMIT_FLOOR, wait * 6)
+        before = self._file_mark(path)
+        self.click(TOP_SAVE, 0)
+        self._wait_until_still(settle=0.4, timeout=15, poll=0.1)   # the name box coming up
+        self.click(SAVE_NAME_OK, 0)
+        if before is None:
+            self._wait_until_still(settle=1.5, timeout=limit)
+            return
+        # Two conditions, and the second is the one that matters: the file has been touched AND
+        # it has stopped growing. mtime alone moves when the write BEGINS, so waiting only for
+        # that would hand a half-written league.dat to the export that comes next.
+        end, last, quiet_since = time.time() + limit, before, None
+        while time.time() < end:
+            mark = self._file_mark(path)
+            if mark != last:
+                last, quiet_since = mark, time.time()
+            # A full second of quiet, not less. The other waits here can be shaved because the
+            # thing they watch is a screen; this one is a 6 MB file being written by a process
+            # that owes us no promises about its pauses, and being wrong costs a half-written
+            # league.dat handed to the export.
+            elif quiet_since and time.time() - quiet_since >= 1.0:
+                self._wait_until_still(settle=0.4, timeout=30, poll=0.1)
+                return
+            time.sleep(0.1)
+        raise DriverError(f"save did not finish writing {path} within {limit}s")
+
+    @staticmethod
+    def _file_mark(path):
+        """(mtime, size) for a file, or None if there is no path or nothing there yet."""
+        if not path:
+            return None
+        p = Path(path)
+        if not p.exists():
+            return None
+        s = p.stat()
+        return (s.st_mtime, s.st_size)
+
+    def _wait_until_still(self, settle=1.0, timeout=60, poll=0.15):
+        """Block until the window has looked the same for `settle` seconds. True if it did.
+
+        The general form of what sim_days does per day: the game is busy while the screen is
+        changing and done when it stops, which is a far better signal than any sleep somebody
+        picked once and nobody measured since.
+        """
+        end, last, still_since = time.time() + timeout, None, None
+        while time.time() < end:
+            now = self._grab().tobytes()
+            if now != last:
+                last, still_since = now, time.time()
+            elif time.time() - still_since >= settle:
+                return True
+            time.sleep(poll)
+        return False
 
     def exit_game(self, save=False):
         """Close the game. With save=False this cannot fail - closing is the whole job.

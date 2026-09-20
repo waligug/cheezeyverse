@@ -89,6 +89,20 @@ create table if not exists public.characters (
   "position"       text not null check ("position" in ('C','PF','SF','SG','PG')),
   -- Height AT FOURTEEN. He grows from here, every offseason, by commissioner/growth.py.
   height_inches    int  not null check (height_inches between 60 and 95),
+  -- Weight he CHOSE in the builder, in pounds. Null means he never chose one - everybody made
+  -- before the slider existed - and the commissioner derives height+build for those, which is
+  -- what the site used to do everywhere. Banded against his own height, not a flat range: see
+  -- supabase/weight_column.sql, which is this same column as a migration.
+  --
+  -- The band is what the slider can reach: validateBuild() in site/js/rules.js allows
+  -- buildWeight(height, build) +/- WEIGHT_SPREAD, and build is worth -14 to +20, so every legal
+  -- choice lands inside +/- 50 of the solid-build weight for that height. SQL cannot re-derive
+  -- it exactly - BUILDS lives in the JS - so this is the plausibility net and the form is the
+  -- real guard, exactly as with growth_bias. See THE TRUST MODEL at the top of this file.
+  weight_lbs       int  check (
+    weight_lbs is null
+    or weight_lbs between round((height_inches - 60) * 4.6 + 96) - 50
+                      and round((height_inches - 60) * 4.6 + 96) + 50),
   -- The class he looked like the day he was created. A record, not a rule - see the note
   -- at the top of this file.
   archetype        text not null,
@@ -140,14 +154,6 @@ create table if not exists public.characters (
   -- one of BUILDS in site/js/rules.js: wiry / lean / solid / strong / heavy. It suggests his
   -- starting weight and it weights three traits; it is not the weight itself.
   build            text,
-  -- What he WEIGHS at fourteen, in pounds, and the number FBPB3 is given when the
-  -- commissioner stamps him onto a reserve slot. It used to be derived from height_inches +
-  -- build every time anybody needed it, which was fine until the form grew a slider: the
-  -- review card promised a weight the save was never told about. The range here is
-  -- deliberately wide - SQL cannot re-derive buildWeight() because the BUILDS table lives in
-  -- site/js/rules.js, so this is a plausibility check and validateBuild() is the real guard,
-  -- exactly as with growth_bias. See THE TRUST MODEL at the top of this file.
-  weight_lbs       int  check (weight_lbs is null or weight_lbs between 50 and 400),
   -- one of CAREER_GOALS in site/js/rules.js. Flavour, plus a 5% discount on the four
   -- ratings it names, which is already folded into growth_bias below.
   career_goal      text,
@@ -893,10 +899,10 @@ grant  update (first_name, last_name) on public.characters to authenticated;
 -- else's. Keep this list in step with CHARACTER_COLUMNS in site/js/supabase.js - the site
 -- never does select('*'), precisely because a column without a grant here would 403.
 revoke select on public.characters from anon, authenticated;
-grant  select (id, owner, first_name, last_name, "position", height_inches, archetype,
+grant  select (id, owner, first_name, last_name, "position", height_inches, weight_lbs, archetype,
                league, team_abbrev, status, game_dob, ratings, potentials,
                points_available, points_spent, created_at,
-               jersey_preference, hometown, build, weight_lbs, career_goal, traits, quiz_answers,
+               jersey_preference, hometown, build, career_goal, traits, quiz_answers,
                growth_bias, height_seed, expected_adult_height,
                -- the career page's thread between levels; the commissioner writes all of these
                college_years, declared, level_history, league_player_ids,
@@ -908,9 +914,9 @@ grant  select (id, owner, first_name, last_name, "position", height_inches, arch
 -- height_seed is NOT insertable: it is derived from the row's own id, which does not exist
 -- until the insert lands, so the commissioner writes it with the service role afterwards.
 revoke insert on public.characters from anon, authenticated;
-grant  insert (owner, first_name, last_name, "position", height_inches, archetype,
+grant  insert (owner, first_name, last_name, "position", height_inches, weight_lbs, archetype,
                ratings, potentials, points_spent, league,
-               jersey_preference, hometown, build, weight_lbs, career_goal, traits, quiz_answers,
+               jersey_preference, hometown, build, career_goal, traits, quiz_answers,
                growth_bias, expected_adult_height)
   on public.characters to authenticated;
 grant delete on public.characters to authenticated;
