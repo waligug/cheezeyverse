@@ -490,13 +490,20 @@ class FBPB3:
         computed from the finished season's own pages, and this is the moment they stop
         describing the season that just ended.
         """
+        # THE PANEL HAS TO BE SHOWING FIRST. It replaces the sim buttons only once the calendar
+        # reaches it - 6/21 in the rehearsal - and until then these same coordinates are SIM
+        # MONTH and friends. Pressed early on the live saves, "END SEASON" was SIM MONTH and
+        # quietly simmed sixteen idle days instead, on all three leagues. The calendar moved,
+        # so a check for "did anything happen" was satisfied by the wrong thing happening.
+        self.advance_to_offseason(log=log)
+
         seen = []
         for label, xy, phase in (("END SEASON", HOTSEAT_END_SEASON, None),
                                  ("OFFSEASON", HOTSEAT_OFFSEASON, None),
                                  ("HIRE STAFF", HOTSEAT_HIRE_STAFF, True),
                                  ("TRAINING CAMPS", HOTSEAT_TRAINING_CAMPS, None)):
             self.click(NAV_HOT_SEAT, 3)
-            before = self._date_signature()
+            before, stage_before = self._date_signature(), self._stage_signature()
             self.click(xy, wait)
             if phase:
                 # PROCESS ALL, then the same button as PROCEED. Two presses, each confirmed by
@@ -506,11 +513,41 @@ class FBPB3:
                 self.click(PHASE_PROCESS_ALL, wait)
             self._settle_dialogs(grace=3, timeout=60)
             moved = self._date_signature() != before
-            seen.append((label, moved))
-            log(f"   {label}: {'the calendar moved' if moved else 'no calendar change'}")
-        if not any(moved for _l, moved in seen):
-            raise DriverError(f"the rollover changed nothing: {seen}")
+            staged = self._stage_signature() != stage_before
+            seen.append((label, moved, staged))
+            log(f"   {label}: calendar {'moved' if moved else 'unchanged'}, "
+                f"stage {'changed' if staged else 'unchanged'}")
+            # EVERY step of the rollover changes the stage - POSTSEASON, OFFSEASON, STAFF
+            # HIRING, TRAINING, PRESEASON. A step that moves the calendar without changing the
+            # stage is a sim button being pressed by mistake, which is exactly what happened.
+            if not staged:
+                raise DriverError(
+                    f"{label} did not change the stage (calendar {'moved' if moved else 'did not move'}). "
+                    "That is what pressing a sim button by mistake looks like; the offseason "
+                    "panel is probably not showing.")
         return seen
+
+    def advance_to_offseason(self, limit=90, log=print):
+        """Sim day by day until the offseason panel replaces the sim buttons.
+
+        The panel appears on a fixed date - 6/21 in the rehearsal, 51 idle days after the final
+        - and the only way to know it has arrived is that SIM DAY stops moving the calendar,
+        which is precisely what sim_days already raises on.
+        """
+        try:
+            self.sim_days(limit)
+        except DriverError as exc:
+            log(f"   reached the offseason panel: {exc}")
+            return True
+        raise DriverError(
+            f"simmed {limit} days without reaching the offseason panel - the season may not be "
+            "over, or the panel is somewhere this does not know about.")
+
+    # window-relative box around the STAGE label and its progress bar, bottom left
+    STAGE_BOX = (20, 712, 175, 742)
+
+    def _stage_signature(self):
+        return self._grab().crop(self.STAGE_BOX).tobytes()
 
     def sim_preseason(self, wait=90):
         """Blast through the preseason so the regular season can start.
