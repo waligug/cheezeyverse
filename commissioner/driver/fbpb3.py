@@ -48,6 +48,13 @@ PHASE_PROCESS_ALL = (805, 662)
 HOTSEAT_SIM_TO_PLAYOFFS = (910, 651)
 NAV_HOT_SEAT = (55, 95)
 
+# The furthest point this driver ever clicks, in window coordinates: TOP_EXIT is at x=955 and
+# the bottom row of buttons at y=663. Every click has to land inside the visible desktop, so
+# this is the rectangle the game window needs to actually occupy. tests/test_clickable.py
+# asserts that no coordinate in this file falls outside it, so adding a button further out
+# fails the suite instead of failing a sim.
+CLICK_EXTENT = (960, 670)
+
 # Floors for the two adaptive waits (load and save). They are not how long those steps take -
 # both finish when the game says so - but how long the driver will hold on before calling the
 # step failed. A slow disk on a 6 MB save has never come near either. Named so the tests can
@@ -77,7 +84,70 @@ class FBPB3:
         self.main = self.app.window(class_name="ThunderRT6MDIForm")
         self.main.wait("visible", timeout=timeout)
         time.sleep(3)
+        self.assert_clickable()
         return self
+
+    def assert_clickable(self, move=True):
+        """Refuse to drive the game unless every point we click can actually be clicked.
+
+        THE TWO WAYS THIS MACHINE STOPS BEING CLICKABLE, both of which look completely healthy
+        from a command line:
+
+        LOCKED OR DISCONNECTED SESSION. Closing a Remote Desktop window locks the session; the
+        processes keep running and nothing renders. Real mouse input lands nowhere.
+        GetForegroundWindow returns 0 there, which is the cheapest honest test there is.
+
+        A DESKTOP TOO SMALL FOR THE WINDOW. FBPB3's window is 1019x762 and the driver clicks by
+        position, out to (955, 663). The console on this box with no monitor attached is
+        1024x768, and once the taskbar takes its forty pixels the bottom row of buttons is
+        underneath it - so a click meant for LOAD lands on the taskbar, and the driver waits out
+        a load that was never started. That is the failure the whole dummy-plug conversation is
+        about, and until now nothing checked for it.
+
+        Both are refusals rather than warnings. A sim that cannot click is not a slower sim; it
+        is a sim that does something else, and FBPB3 has no undo.
+        """
+        import win32api
+        import win32con
+        import win32gui
+
+        if win32gui.GetForegroundWindow() == 0:
+            raise DriverError(
+                "this desktop is not rendering - the session is locked or disconnected, and "
+                "every real mouse click would land nowhere. Reconnect, or hand the session "
+                "back to the console (tools\\install_session_keeper.ps1).")
+
+        r = self.main.rectangle()
+        need_w, need_h = CLICK_EXTENT
+        work = win32api.GetMonitorInfo(
+            win32api.MonitorFromWindow(self.main.handle, win32con.MONITOR_DEFAULTTONEAREST)
+        )["Work"]
+
+        def fits(left, top):
+            return (left >= work[0] and top >= work[1]
+                    and left + need_w <= work[2] and top + need_h <= work[3])
+
+        if fits(r.left, r.top):
+            return True
+        if move:
+            # Usually it does fit and is merely sitting too low or too far right - a window the
+            # game restored to where it was on a bigger screen. Move it to the corner of the
+            # work area and ask again before refusing.
+            try:
+                self.main.move_window(x=work[0], y=work[1])
+                time.sleep(0.5)
+                r = self.main.rectangle()
+                if fits(r.left, r.top):
+                    return True
+            except Exception:                                    # noqa: BLE001
+                pass
+        raise DriverError(
+            f"the desktop is too small to drive the game: the usable area is "
+            f"{work[2] - work[0]}x{work[3] - work[1]} and the driver needs {need_w}x{need_h} "
+            f"from the window's top-left corner (the window is at {r.left},{r.top}). Clicks "
+            "meant for the bottom row of buttons would land on the taskbar or off-screen. "
+            "Raise the resolution - a headless console falls back to 1024x768, and a dummy "
+            "HDMI/DP plug makes it report a real monitor's size.")
 
     @staticmethod
     def kill():

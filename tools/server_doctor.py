@@ -13,6 +13,7 @@ that actually matters - whether there is a desktop here that pywinauto can click
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -60,6 +61,44 @@ def _scheduled_tasks():
             name, state = line.rsplit("|", 1)
             found[name.strip().lower()] = f"{name.strip()} [{state.strip()}]"
     return found
+
+
+def _task_script(name):
+    """The -File path a scheduled task's action runs, or "" if it has none."""
+    try:
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             f"(Get-ScheduledTask -TaskName '{name}').Actions "
+             "| ForEach-Object { $_.Arguments }"],
+            capture_output=True, text=True, timeout=60).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    m = re.search(r'-File\s+"([^"]+)"', out) or re.search(r"-File\s+(\S+)", out)
+    return m.group(1) if m else ""
+
+
+def _lan_reachable(port=5095):
+    """(ok, why) - is there an enabled firewall rule for the panel, on a Private network?"""
+    script = (
+        "$r = Get-NetFirewallRule -DisplayName 'Cheezeyverse panel' -ErrorAction SilentlyContinue"
+        " | Where-Object { $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' };"
+        "$cat = (Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory;"
+        "\"$([bool]$r)|$cat\""
+    )
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", script],
+                             capture_output=True, text=True, timeout=90).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return False, "could not read the firewall rules"
+    has_rule, _, category = out.partition("|")
+    ok = has_rule.strip().lower() == "true"
+    if not ok:
+        return False, f"no enabled rule for TCP {port}"
+    if category.strip() in ("Public", ""):
+        # The rule is scoped to LocalSubnet on the Private profile, so a network that has become
+        # Public silently stops matching it.
+        return False, f"rule exists, but this network is {category.strip() or 'unknown'}"
+    return True, f"TCP {port} from LocalSubnet, {category.strip()} network"
 
 
 def _panel_up(port=5095):
@@ -268,6 +307,15 @@ def main():
           keeper or "no tscon task - closing Remote Desktop will LOCK the session",
           "right-click tools\\install_session_keeper.bat -> Run as administrator. Until then, "
           "do not disconnect while a sim is running.")
+    if keeper:
+        # A registered task proves nothing if it points at a script that has moved. This one
+        # runs as SYSTEM on an event nobody watches, so a broken path would sit there looking
+        # installed until the day somebody disconnects mid-sim.
+        script = ROOT / "tools" / "console_handoff.ps1"
+        pointed = _task_script("Cheezeyverse session keeper")
+        check("...and the script it points at is there", bool(pointed) and Path(pointed).exists(),
+              pointed or "could not read the task's action",
+              f"re-run the installer; the script belongs at {script}")
 
     # A logon-triggered task only fires if somebody logs on, and nobody is here to type a
     # password after a power cut.
@@ -276,6 +324,15 @@ def main():
           "AutoAdminLogon" if auto else "no auto-logon: after a reboot there is no desktop, so "
           "the panel task never fires and the game could not be clicked anyway",
           "set it with netplwiz (uncheck 'Users must enter a user name and password')")
+
+    # A panel nobody can reach is not a running panel. The rule and the network category are
+    # both things Windows changes on its own - a new adapter, a driver update, a "do you want
+    # this PC to be discoverable" prompt answered No - and neither announces itself.
+    reachable, why = _lan_reachable()
+    check("the panel is reachable from the house", reachable, why,
+          'New-NetFirewallRule -DisplayName "Cheezeyverse panel" -Direction Inbound '
+          "-LocalPort 5095 -Protocol TCP -RemoteAddress LocalSubnet -Action Allow  "
+          "(as administrator), and set the Ethernet profile to Private")
 
     backup_task = tasks.get("cheezeyverse offsite backup")
     check("the saves are copied off this drive, daily", bool(backup_task),
