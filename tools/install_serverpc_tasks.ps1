@@ -68,10 +68,19 @@ function Install-Task($name, $action, $trigger, $description) {
 # logon trigger only starts counting when that trigger FIRES - so on a machine that is already
 # logged in, which is every machine you are fixing this on, the watchdog is armed no earlier
 # than the next reboot. The one that matters would have been the one not running.
+#
+# AND THE WATCHDOG IS THE ONE THAT ACTUALLY WORKS. Measured on a real reboot, 2026-09-20: the
+# machine came up at 11:40:35, auto-logged itself in, and THE LOGON TRIGGER DID NOT FIRE - the
+# task's first run afterwards was the watchdog tick at 11:43:39. A logon trigger is missed when
+# the Task Scheduler service is still starting as the logon completes, and StartWhenAvailable
+# does not rescue it because that setting only applies to time-based triggers. So the interval
+# is ONE minute, not five: a tick costs nothing while the task is already running (IgnoreNew
+# records it and moves on), and it is the difference between a minute of no panel after a
+# reboot and three.
 $panelTriggers = @(
     (New-ScheduledTaskTrigger -AtLogOn -User $me),
     (New-ScheduledTaskTrigger -Once -At (Get-Date) `
-        -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650))
+        -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650))
 )
 
 Install-Task -name 'Cheezeyverse panel' `
