@@ -89,6 +89,7 @@ def main():
     real = ch.save_path
     real_post = None
     real_store = None
+    real_fbpb3, real_backups = simweek.FBPB3, simweek.BACKUPS
     try:
         # ---- the same season in both date formats must give the same answer -----------------
         for iso in (False, True):
@@ -148,6 +149,14 @@ def main():
             else:
                 raise AssertionError(f"a finished season was allowed to sim (flag={flag})")
         assert simweek._champion(won / "prep") == "Derricks", "the champion must come off the bracket"
+        # LAST SEASON'S BRACKET IS NOT THIS SEASON'S RESULT. The rollover clears the playoffs
+        # from the schedule but the EXPORT keeps the old bracket page until new playoffs are
+        # played, so the day after a rollover it still reads "2026 Playoff Brackets" and still
+        # names a champion. Unchecked, the guard read that as "the season is over" and refused
+        # every sim of the new season - for good, since only playing the new playoffs would
+        # replace the page. The fixture's bracket says 2026.
+        assert simweek._champion(won / "prep", 2027) is None, "an old bracket blocked the new season"
+        assert simweek._champion(won / "prep", 2026) == "Derricks", "this season's champion still counts"
         shutil.rmtree(won, ignore_errors=True)
         ch.save_path = lambda key: root / key / "league.dat"
         simweek.ch.save_path = ch.save_path
@@ -229,7 +238,6 @@ def main():
         # would have killed a real week in progress, the panel being a separate process with its
         # own lock. The backup step then mkdir'd into the real backups/, which is where ten empty
         # 20260919-*-CV_Prep folders came from.
-        real_fbpb3, real_backups = simweek.FBPB3, simweek.BACKUPS
 
         class _NoGame:
             @staticmethod

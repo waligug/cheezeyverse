@@ -137,7 +137,7 @@ def _league_status(spec, st, settings=None, characters=None):
         #   champion          - set once the final is decided, after which nothing may sim here
         "regular_season_left": _regular_season_left(save_dir),
         "days_to_season_end": days_to_regular_end(spec.key),
-        "champion": _champion(save_dir),
+        "champion": _champion(save_dir, settings.get("current_season")),
         #   round_one_days    - days to play the first playoff round, from the bracket
         "round_one_days": round_one_days(spec),
     }
@@ -661,16 +661,27 @@ def _regular_season_left(save_dir):
     return len(blocks) - 1 - last
 
 
-def _champion(save_dir):
-    """The team that has won this league's final, or None while it is undecided.
+def _champion(save_dir, season=None):
+    """The team that has won THIS season's final, or None while it is undecided.
 
     Read from playoffs.htm through seasonbonus, which is the page that is complete the moment
     the final ends - champs.htm stays empty for some days after it, as the season-end rehearsal
     found by exporting at both points.
+
+    THE YEAR MATTERS. The rollover clears the playoffs from the schedule but the EXPORT keeps
+    last season's bracket page until somebody plays a new one, so the day after a rollover the
+    file still reads "2026 Playoff Brackets" and still names a champion. Without this check the
+    boundary guard read that as "the season is over" and refused every sim of the new season -
+    permanently, since only playing the new playoffs would have replaced the page.
     """
     try:
-        from .seasonbonus import playoff_bracket
-        return playoff_bracket(Path(save_dir) / "html")[1]
+        from .seasonbonus import playoff_bracket, _text
+        html = Path(save_dir) / "html"
+        if season is not None:
+            year = re.search(r"(\d{4})\s+Playoff Brackets", _text(html / "playoffs.htm"))
+            if year and int(year.group(1)) != int(season):
+                return None
+        return playoff_bracket(html)[1]
     except Exception:
         return None
 
@@ -737,7 +748,7 @@ def days_to_regular_end(key, compute=False):
     return value
 
 
-def _refuse_to_cross_the_season(keys, days, emit, allow_season_end=False):
+def _refuse_to_cross_the_season(keys, days, emit, allow_season_end=False, season=None):
     """Stop a run that would sim past the last day of the regular season.
 
     `allow_season_end` is the deliberate way into the PLAYOFFS, and it is not a bypass: what it
@@ -767,7 +778,7 @@ def _refuse_to_cross_the_season(keys, days, emit, allow_season_end=False):
     """
     # FIRST, and whatever the flags say: a league whose final is over has nothing left to sim.
     for key in keys:
-        champ = _champion(ch.save_path(key).parent)
+        champ = _champion(ch.save_path(key).parent, season)
         if champ:
             raise SeasonEnd(
                 f"{key}'s season is over - {champ} won it. What comes next is FBPB3's own "
@@ -852,7 +863,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # else: a league whose final is decided is refused either way, since the only thing
         # after that is the rollover behind END SEASON.
         if not dry_run:
-            _refuse_to_cross_the_season(keys, days, emit, allow_season_end=allow_season_end)
+            _refuse_to_cross_the_season(keys, days, emit, allow_season_end=allow_season_end,
+                                        season=season_now)
 
         # ONE read of the settings for the whole run. There were three, with three different
         # defaults, and a fourth inside the finally - which went out over the network while
@@ -1062,7 +1074,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 stage = _stage(html / "schedule.htm", sum(1 for _d, was in blocks if was))
             except Exception:
                 stage = "unknown"
-            champ = _champion(ch.save_path(key).parent)
+            champ = _champion(ch.save_path(key).parent, season_now)
             result["stages"][key] = {"stage": stage, "champion": champ}
             if champ:
                 emit("done", f"{key}: {champ} have won it. The season is over here - the "
