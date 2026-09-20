@@ -15,6 +15,7 @@ most common "something is broken" question, and the card is the first thing anyb
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -22,6 +23,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from commissioner import announce, notify  # noqa: E402
+
+# The card only carries a link when SITE_URL is set, and it is set in SERVERPC's `.env` and
+# nowhere else - so this test passed there and failed on every other machine, for a reason that
+# had nothing to do with the card. A test that reads a machine's own configuration is testing
+# the machine. os.environ wins over `.env` in settings.get(), so this pins it either way.
+os.environ["SITE_URL"] = "https://example.invalid/cheezeyverse"
 
 HIM = {
     "id": "abc-123",

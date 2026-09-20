@@ -768,3 +768,18 @@ hand; the store is the half they can.
 
 `python tools/offseason_rehearsal.py` proves all of it against copies of real saves, including
 that a rerun after a restore does not double-grow anybody.
+
+## A reserve slot remembers the body it had (2026-09-20)
+
+`Slot` carries `height` and `weight`; `stamp_character` reads them off the row just before it
+overwrites it, `as_json()` puts them in `claimed_slot`, and `reset_reserve` writes them back when
+the slot is handed over. The manifest never recorded either, which is why they travel on the
+claim instead.
+
+Ratings were always scrubbed on the way out and the body never was, so a recycled slot kept the
+departed character's height - and, now that weight follows growth, his weight too. A slot that a
+7'2" pro vacated came back as a dormant fourteen-year-old filler listed at 7'2" and 230 lbs.
+
+A slot claimed before this existed has no body recorded and is left alone: the number is gone and
+a guess would be worse. `tools/protect_rosters.py` passes a bare manifest row for the same reason
+- it is recovering a slot whose character is unknown, so it genuinely does not know the body.

@@ -315,6 +315,16 @@ def rehearse(keep=False):
               moved.values["Height"] >= by_who["ages out of prep"]["height"]
               and moved.values["Weight"] >= by_who["ages out of prep"]["weight"] - 2,
               f'{moved.values["Height"]}in {moved.values["Weight"]}lbs')
+    # The slot has to go back to being the filler it was, body included: ratings were always
+    # scrubbed here and the body never was, so a recycled row used to keep the departed
+    # character's height - and now his weight, which follows growth.
+    was = by_who["ages out of prep"]["slot"]
+    back = in_save(paths["prep"], was["name"])
+    check("the vacated slot got its own body back, not the character's",
+          back is not None and was.get("height") and back.values["Height"] == was["height"]
+          and back.values["Weight"] == was["weight"],
+          f'slot was {was.get("height")}in {was.get("weight")}lbs, row now '
+          f'{back and back.values["Height"]}in {back and back.values["Weight"]}lbs')
     check("his prep slot went back to being a filler",
           in_save(paths["prep"], by_who["ages out of prep"]["slot"]["name"]) is not None
           and in_save(paths["prep"], "Brie Halloumi") is None)

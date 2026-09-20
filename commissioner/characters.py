@@ -46,14 +46,28 @@ class Slot:
     dob: str
     position: str
     uniform: int
+    # The dormant filler's own body, read off the row by stamp_character just before it is
+    # overwritten, so that handing the slot back can put it there. The manifest never recorded
+    # height or weight, and without these the recycled filler keeps the departed character's -
+    # a 7'2" fourteen-year-old who is really the 5'10" kid the slot was generated as.
+    height: int = None
+    weight: int = None
 
     @classmethod
     def from_manifest(cls, row):
-        return cls(row["league"], row["team"], row["name"], row["dob"], row["position"], row["uniform"])
+        return cls(row["league"], row["team"], row["name"], row["dob"], row["position"],
+                   row["uniform"], row.get("height"), row.get("weight"))
 
     def as_json(self):
-        return {"league": self.league, "team": self.team, "name": self.name,
-                "dob": self.dob, "position": self.position, "uniform": self.uniform}
+        out = {"league": self.league, "team": self.team, "name": self.name,
+               "dob": self.dob, "position": self.position, "uniform": self.uniform}
+        # Only when known: a slot claimed before this existed has no body recorded, and writing
+        # nulls into claimed_slot would say "it was zero" rather than "nobody looked".
+        if self.height:
+            out["height"] = int(self.height)
+        if self.weight:
+            out["weight"] = int(self.weight)
+        return out
 
 
 def codec_dob(value):
@@ -192,6 +206,9 @@ def stamp_character(L, slot, character):
         raise ApplyError(f'{character.get("first_name")} {character.get("last_name")} has no position')
 
     pl = L.find(slot.name, codec_dob(slot.dob))
+    # What this row was before he took it. `refill` writes it back when he leaves; see Slot.
+    slot.height = pl.values["Height"]
+    slot.weight = pl.values["Weight"]
     L.rename(pl, character["first_name"], character["last_name"])
     pl = L.find(f'{character["first_name"]} {character["last_name"]}', codec_dob(slot.dob))
 
@@ -278,6 +295,14 @@ def reset_reserve(L, pl, original):
     L.set(pl, "BirthMonth", month)
     L.set(pl, "BirthDay", day)
     L.set(pl, "BirthYear", year)
+
+    # His body goes back too, when we know what it was. Ratings were always scrubbed here and
+    # height was not, so a recycled slot walked around at the departed character's height - and
+    # now his weight as well, since weight follows growth. Nothing to do for a slot claimed
+    # before Slot started recording it: the number is gone and a guess would be worse.
+    for field in ("height", "weight"):
+        if original.get(field):
+            L.set(pl, field.capitalize(), int(original[field]))
 
     rng = random.Random(f'{original["name"]}|{original["dob"]}')
     for field in RATINGS:

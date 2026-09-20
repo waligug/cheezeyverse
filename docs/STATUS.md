@@ -1,6 +1,6 @@
 # Where the Cheezeyverse is — and how to pick it back up
 
-Last updated 2026-09-19. `CONVENTIONS.md` is the source of truth for decisions and the file
+Last updated 2026-09-20. `CONVENTIONS.md` is the source of truth for decisions and the file
 format; this file is the "what state is everything in" page.
 
 **Everything runs on SERVERPC now** (192.168.1.97), not on the desktop. The saves, FBPB3, the
@@ -8,6 +8,41 @@ commissioner panel and the `.env` holding the Supabase key and the Discord webho
 there; the desktop is for editing code and pressing Sim Week in a browser. A checkout on the
 desktop can run the codec and every test, but its copies of the saves are stale by design.
 
+## FOR SERVERPC - read this before the next sim (2026-09-20, from the desktop)
+
+Two sessions worked on this universe today, one per machine, and they collided once already:
+both built `weight_lbs` four hours apart. **`git fetch` before starting anything here.** The
+desktop's work is all on master now.
+
+**Pull before the next sim.** Two of today's fixes change what happens when something goes
+wrong mid-run, and they only exist in the repo:
+
+- `_activate_pending` no longer lets one unplaceable character abort the whole week. A slot the
+  store thinks is free that the save cannot produce used to raise straight out of the
+  activation phase and take everybody's sim with it. He stays pending; the week carries on.
+  (This is the one edit the desktop made inside `simweek.py` - ten lines around the existing
+  `ch.stamp_character` call.)
+- The offseason now copies all three saves before its first write and puts every one of them
+  back if anything raises. It never restored anything before, despite its own docstring saying
+  so, and growth is cumulative - so a half-finished offseason plus the obvious retry grew
+  people twice with nothing to detect it.
+
+**What else landed:** weight is stored, written into league.dat and follows a character as he
+grows (CONVENTIONS.md has the curve and the measurements behind it); `promote()` now carries
+his weight across a level change; a vacated reserve slot gets its own height and weight back
+instead of keeping the departed character's; five columns the commissioner could write but
+never read are in `CHARACTER_COLUMNS`.
+
+**`tests/test_announce.py` was failing on the desktop and passing here.** Not a bug in the
+card: it reads `SITE_URL`, which is set in this machine's `.env` and nowhere else, so the test
+was testing the machine. It now sets the variable itself and passes on both.
+
+**Still yours, and still the last unknown:** a sim crossing the end of a season. `run_sim`
+refuses to cross it. Rehearse on a copy of CV_Prep before lifting that - the desktop built
+`tools/offseason_rehearsal.py` for the step after it, and the same sandbox pattern applies.
+
+**Not done, and nobody should assume it is:** the offseason has never talked to Supabase. The
+rehearsal uses the local JSON store.
 ## Restarting your PC and getting back here
 
 Nothing is lost by a restart. Everything that matters is on disk and in git.

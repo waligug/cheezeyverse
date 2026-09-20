@@ -525,7 +525,10 @@ def refill(league_key, character, log=print):
         log(f"   ! {slot.get('name')} is not in the manifest; slot left as is")
         return False
 
-    ch.reset_reserve(L, pl, original)
+    # The manifest knows the slot's name, birthday and position; only `claimed_slot` knows the
+    # body it had before this character took it over, because stamp_character recorded it there.
+    ch.reset_reserve(L, pl, {**original,
+                             "height": slot.get("height"), "weight": slot.get("weight")})
     L.save(backup_dir=BACKUPS)
     log(f'   slot {original["name"]} is free again in {league_key}')
     return True
