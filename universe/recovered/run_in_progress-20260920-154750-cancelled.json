@@ -1,0 +1,20 @@
+{
+ "started_at": "2026-09-20T21:47:52+00:00",
+ "kind": "sim",
+ "phase": "save",
+ "leagues": [
+  "prep",
+  "college",
+  "pro"
+ ],
+ "days": 7,
+ "season": 2027,
+ "unconfirmed": [],
+ "backups": {
+  "prep": "C:\\claude\\hoops-universe\\backups\\20260920-154752-CV_Prep",
+  "college": "C:\\claude\\hoops-universe\\backups\\20260920-154809-CV_College\\league.dat",
+  "pro": "C:\\claude\\hoops-universe\\backups\\20260920-154818-CV_Pro\\league.dat"
+ },
+ "store_writes_started": true,
+ "league": "prep"
+}
