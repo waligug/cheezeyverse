@@ -567,80 +567,70 @@ on their own:
 Proven end to end 2026-09-18: Gouda Kid, created through the real quiz rules, 6th of 15 on the
 Saskatoon Berries, played 18 minutes with 5 rebounds and 0 points in his first simmed week.
 
-## Box scores: why the schedule's scores are not links
+## Box scores: SOLVED (2026-09-19)
 
-FBPB3's schedule links every result to `boxes/boxN-N.htm` whether or not any box score exists.
-Ours had none, so every one was a 404 - 52 on prep's schedule alone, and roster pages carry them
-too. `restyle.py` now renders a score as plain text when the file is absent, and will link it
-again automatically if boxes ever appear.
+**"Output old boxes" in HTML Output is a DATE dropdown, not a Yes/No.** Set it to a date and
+FBPB3 writes real box scores into `html/boxes/` - quarter-by-quarter scores and full player lines
+(MIN, FGM-A, 3PM-A, FTM-A, OFF, REB, AST, STL, BLK, TO, PF, +/-, PTS), ~21 KB a page. Measured on
+a throwaway copy: 55 pages written, and `restyle` then keeps all 55 schedule links as links with
+zero falling back to plain text, because it already checks whether the file exists.
 
-That repair only reaches pages that have been re-skinned SINCE it landed. A league published
-before it still serves dead links, and `site/leagues/` is generated output that no test covers,
-so check the deployed site rather than a local copy when asking whether it is fixed.
+### Why every previous attempt proved nothing
 
-What we know, from reading strings in FBPB3.exe and from testing on a throwaway save
-(2026-09-18):
+`html_output` mapped its flags through `{True: "Yes", False: "No"}`, and **"Yes" is not one of
+that control's options** - they are `No`, `After 2030-11-14`, `After 2030-11-13`, ... So the
+experiment that was supposed to test the setting could not set it, and reported a negative
+result. The driver takes `old_boxes=True` now, meaning the oldest date offered, read off the
+control rather than constructed from a calendar.
 
-- The game stores each game as `<save>\box\*.box` and HTML Output converts those into
-  `html/boxes/`. The dialog's box controls are "Include box links" and "Output old boxes".
-- **No `box\` folder is ever created** in any of our three saves, and `pbp\` stays empty. So
-  there is nothing for HTML Output to convert - the games are being simmed without being
-  recorded.
-- Probably **not** an HTML Output setting: exporting with "Output old boxes" = Yes still
-  produced no `boxes/` folder. Treat that as unconfirmed. At the time of the test the driver
-  set dropdowns without reading them back, and it skipped in silence when the option was not
-  there - so the export may have run with the setting unchanged and the experiment proved
-  nothing. The driver verifies now (`FBPB3.combo`), so repeating it would settle it; nobody has.
-  The stronger evidence is simply that no `.box` files exist for it to convert.
+### What the four dropdowns actually offer, read off the real dialog
 
-- **Those dropdowns have THREE options, not two**: `No`, `Yes`, `Human Coaches Only`.
-  Read off the real dialog, not inferred. The third value matters here rather than being
-  trivia: the standing hypothesis below is that FBPB3 only records games involving a
-  human-coached team, and `Human Coaches Only` sits on these very controls. The driver
-  cannot reach it yet - `html_output` maps its flags through `{True: "Yes", False: "No"}`,
-  so the parameter whose whole purpose is testing this question cannot express the answer.
-- It is **not** a League Option, as far as the form's controls show: Randomization, Attributes,
-  Autosave, Staff, Finances, Historical Mods, Scouting, Fictional History, Draft Trade, 60 Day
-  Rule and Rating Style. `FBPB3help.htm` does not mention storing box scores anywhere.
+| Control | Options |
+|---|---|
+| Output player pages | `No`, `Yes`, `Human Only` |
+| Output coach pages | `No`, `Yes`, `Human Only` |
+| **Output old boxes** | `No`, then **one entry per day**, ~31 of them |
+| Include box links | `No`, `Yes` |
 
-  Treat that list as *what was enumerated*, not as exhaustive: it omits `Cpu offers trades`,
-  which this file documents above with a measured coordinate the driver depends on. One of the
-  two readings is incomplete, and the one with a coordinate behind it is the one to trust.
-- Simming one day through Hot Seat SIM DAY - the path the driver uses - creates no `.box` file.
+The earlier note here put the three-value list on the *box* controls. It belongs to the player and
+coach ones; "Include box links" has only two, and "Output old boxes" has thirty-two.
 
-### The human-coached hypothesis is dead (measured 2026-09-19)
+### THE CONSTRAINT THAT MATTERS: the window is rolling
 
-Both halves were checked against the live Stabbyverse site rather than the capture, and the
-hypothesis does not survive it.
+The date list reaches about **31 days back from the save's own current date**, and there is no
+"everything ever" option. Box scores must therefore be exported **while the games are still inside
+that window**. A season's early games are gone from it long before the season ends, and after a
+rollover the previous season is far outside it.
 
-- **Their box scores are real.** 12 of their 273 links, sampled across the whole season
-  (`box1-1`, `box40-2`, `box124-1`, `box183-1`, ...), all return HTTP 200 at ~22 KB. So FBPB3
-  does produce `boxes/` for a league like theirs. That is the evidence this section said nobody
-  had fetched.
-- **And they have NO human coaches.** `humancoaches.htm` holds the header row and nothing else -
-  no entries, and `linkhuman` appears zero times - in the 2026-09-17 capture *and* on the live
-  page today. The whole file is 1953 bytes.
+So: `html_output(..., old_boxes=True)` on every publish captures the recent stretch and the
+`boxes/` folder accumulates on the site, since `restyle` copies what it finds. Skipping publishes
+loses the games that fall out of the window in between - which is the same shape as the games.json
+problem, and the same answer: what is not archived while it exists cannot be recovered later.
 
-So a league with no human coaches gets a box score for every game. **Ours has none for any.**
-The difference between the two leagues is therefore not the coaches, and `Human Coaches Only` on
-those dropdowns is not the explanation either - on that setting, a league with no human coaches
-would get exactly what theirs gets only if it meant the opposite of what it says.
+### What was wrong before, and why
 
-Note how the dead half got its support: this file argued their league "really does have human
-coaches" because `humancoaches.htm` **exists in the capture**. Every FBPB3 export writes that
-page whether or not anybody coaches. The claim was read off a filename instead of the file -
-the same convenience-copy mistake this document warns about twice elsewhere, made while
-reasoning about evidence.
+This file previously said the game stores each game as a `.box` file under the save, that HTML Output
+converts those into `html/boxes/`, that no `box\` folder is ever created, and therefore "the
+games are being simmed without being recorded". **All of that is wrong.** No `box\` folder was
+created during this test either, and 55 box scores were written anyway: FBPB3 builds them from the
+game history already in `league.dat`. The `.box` wildcard string in the executable is not the
+mechanism the HTML export uses.
 
-**What is still open**: which setting or sim path records a `.box` file at all. Ours never
-creates the `box\` folder, so there is nothing for HTML Output to convert, and every output-side
-setting is downstream of that. The cheap experiment nobody has run: on a throwaway save, sim a
-day and look for `box\`, then repeat with the three-valued dropdowns set each way - the driver
-verifies combo values now (`FBPB3.combo`), which it did not when this was last attempted, so the
-result would finally mean something.
+Two hypotheses were also carried here for days and both are dead:
+- **Human-coached teams**: the Stabbyverse's `humancoaches.htm` is an empty header row, in the
+  2026-09-17 capture and live, while all 273 of their games have box scores. No human coaches
+  needed. (This file had argued they *did* have human coaches because the FILE EXISTS in the
+  capture - every export writes that page whether anybody coaches or not. A claim read off a
+  filename instead of the file.)
+- **A different sim path**: not needed; Hot Seat SIM DAY is fine.
 
-Not worth chasing for its own sake - the scores read fine as text - but worth knowing before
-anybody asks why they cannot click a result. Somebody did ask, which is why this got tested.
+`Save all play by play logs` (League Options -> DATA SETTINGS) is a **separate** feature: turning
+it on wrote `pbp/30-1.txt`, a 99 KB text play-by-play, for a day that had previously written
+nothing. It is not required for box scores. Worth knowing it exists and that it is off by default.
+
+That whole panel - Team record list size, Save retired coaches, Save retired players, Autosave,
+Save all play by play logs, Pbp style - was **missing from this file's list of League Options**,
+which is exactly the incompleteness the list warned about itself.
 
 ## A publish is not visible everywhere at once, and a verifier can pass against the old copy
 

@@ -736,20 +736,44 @@ class FBPB3:
         Player pages are off by default in FBPB3 (which is why the reference Stabbyverse site has
         none). Turning them on is what gives every character a page of his own.
 
-        `old_boxes` drives the dialog's "Output old boxes" control. It is exposed rather than
-        hardcoded so the box-score question can be tested rather than assumed - and it is known
-        to change nothing today, because our saves contain no `.box` files for it to convert
-        (see CONVENTIONS). Left False, which is the value that was hardcoded before.
+        `old_boxes` drives the dialog's "Output old boxes" control. **IT IS NOT A YES/NO.** Its
+        options are "No" followed by one entry per day - "After 2030-11-14", "After 2030-11-13",
+        ... - so mapping it through {True: "Yes", False: "No"} could never set it to anything but
+        No, and "Yes" is not among its choices at all. That is why every previous attempt to test
+        the box-score question proved nothing: the control the experiment turned on could not be
+        turned on.
+
+        Pass True for the OLDEST date offered (every box score the game still has), False for
+        "No", or an exact option string. Measured 2026-09-19: setting it to the oldest date wrote
+        55 real box scores - quarter scores and full player lines - into html/boxes/.
+
+        THE WINDOW IS ROLLING, about 31 days back from the save's own current date, and that is
+        the whole constraint: box scores are available for RECENT games only. There is no
+        "everything ever" option, so they have to be exported while they are still inside it.
         """
         out = DOCS / "leaguedata" / save_name / "html"
         before = max((p.stat().st_mtime for p in out.glob("*.htm")), default=0) if out.exists() else 0
         self._open_html_screen()
 
         yes_no = {True: "Yes", False: "No"}
+        # "Output old boxes" is a DATE list, not a Yes/No - see the docstring. True means the
+        # oldest date it offers, which is every box score the game still holds. Read off the
+        # control itself rather than computed from a calendar: the window moves with the save's
+        # own date, and a date we constructed would be one it does not offer.
+        if old_boxes is True:
+            try:
+                old = list(self._control_at(self.HTML_OLD_BOXES).item_texts())
+                boxes_want = old[-1] if len(old) > 1 else "No"
+            except Exception:
+                boxes_want = "No"
+        elif old_boxes in (False, None):
+            boxes_want = "No"
+        else:
+            boxes_want = str(old_boxes)
         for rel, want in ((self.HTML_PLAYER_PAGES, yes_no[player_pages]),
                           (self.HTML_COACH_PAGES, yes_no[coach_pages]),
                           (self.HTML_BOX_LINKS, yes_no[box_links]),
-                          (self.HTML_OLD_BOXES, yes_no[old_boxes])):
+                          (self.HTML_OLD_BOXES, boxes_want)):
             try:
                 self.combo(rel, want)
             except DriverError:
