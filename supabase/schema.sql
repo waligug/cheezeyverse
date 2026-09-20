@@ -3,7 +3,7 @@
 -- =====================================================================================
 --
 -- CHANGED BY THE PLAYER-CREATION REDESIGN (edit in place, nothing is deployed yet)
---   * public.characters gains nine columns: jersey_preference, hometown, build,
+--   * public.characters gains ten columns: jersey_preference, hometown, build, weight_lbs,
 --     career_goal, traits, quiz_answers, growth_bias, height_seed, expected_adult_height.
 --     They are also written as `alter table ... add column if not exists` just below the
 --     create table, so re-running this file on an existing project is still safe.
@@ -137,9 +137,17 @@ create table if not exists public.characters (
   -- a roster; whatever ends up in league.dat is the number he actually wears.
   jersey_preference int check (jersey_preference between 0 and 99),
   hometown         text check (hometown is null or length(btrim(hometown)) between 1 and 40),
-  -- one of BUILDS in site/js/rules.js: wiry / lean / solid / strong / heavy. Weight in lbs
-  -- is derived from height_inches + build, not stored.
+  -- one of BUILDS in site/js/rules.js: wiry / lean / solid / strong / heavy. It suggests his
+  -- starting weight and it weights three traits; it is not the weight itself.
   build            text,
+  -- What he WEIGHS at fourteen, in pounds, and the number FBPB3 is given when the
+  -- commissioner stamps him onto a reserve slot. It used to be derived from height_inches +
+  -- build every time anybody needed it, which was fine until the form grew a slider: the
+  -- review card promised a weight the save was never told about. The range here is
+  -- deliberately wide - SQL cannot re-derive buildWeight() because the BUILDS table lives in
+  -- site/js/rules.js, so this is a plausibility check and validateBuild() is the real guard,
+  -- exactly as with growth_bias. See THE TRUST MODEL at the top of this file.
+  weight_lbs       int  check (weight_lbs is null or weight_lbs between 50 and 400),
   -- one of CAREER_GOALS in site/js/rules.js. Flavour, plus a 5% discount on the four
   -- ratings it names, which is already folded into growth_bias below.
   career_goal      text,
@@ -171,6 +179,7 @@ alter table public.characters add column if not exists potentials jsonb not null
 alter table public.characters add column if not exists jersey_preference int;
 alter table public.characters add column if not exists hometown          text;
 alter table public.characters add column if not exists build             text;
+alter table public.characters add column if not exists weight_lbs        int;
 alter table public.characters add column if not exists career_goal       text;
 alter table public.characters add column if not exists traits       jsonb not null default '{}'::jsonb;
 alter table public.characters add column if not exists quiz_answers jsonb not null default '{}'::jsonb;
@@ -887,7 +896,7 @@ revoke select on public.characters from anon, authenticated;
 grant  select (id, owner, first_name, last_name, "position", height_inches, archetype,
                league, team_abbrev, status, game_dob, ratings, potentials,
                points_available, points_spent, created_at,
-               jersey_preference, hometown, build, career_goal, traits, quiz_answers,
+               jersey_preference, hometown, build, weight_lbs, career_goal, traits, quiz_answers,
                growth_bias, height_seed, expected_adult_height,
                -- the career page's thread between levels; the commissioner writes all of these
                college_years, declared, level_history, league_player_ids,
@@ -901,7 +910,7 @@ grant  select (id, owner, first_name, last_name, "position", height_inches, arch
 revoke insert on public.characters from anon, authenticated;
 grant  insert (owner, first_name, last_name, "position", height_inches, archetype,
                ratings, potentials, points_spent, league,
-               jersey_preference, hometown, build, career_goal, traits, quiz_answers,
+               jersey_preference, hometown, build, weight_lbs, career_goal, traits, quiz_answers,
                growth_bias, expected_adult_height)
   on public.characters to authenticated;
 grant delete on public.characters to authenticated;

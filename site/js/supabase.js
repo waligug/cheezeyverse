@@ -25,7 +25,7 @@ export const CHARACTER_COLUMNS = [
   'league', 'team_abbrev', 'status', 'game_dob', 'ratings', 'potentials',
   'points_available', 'points_spent', 'created_at',
   // the creation redesign: everything the quiz produced, plus the height model's cache
-  'jersey_preference', 'hometown', 'build', 'career_goal', 'traits', 'quiz_answers',
+  'jersey_preference', 'hometown', 'build', 'weight_lbs', 'career_goal', 'traits', 'quiz_answers',
   'growth_bias', 'height_seed', 'expected_adult_height',
   // the thread between levels, written by the commissioner: without these the career page
   // cannot name a team he has left or link to his page on that league's site
@@ -332,6 +332,9 @@ export async function createCharacter(build) {
     jersey_preference: Number(build.jersey),
     hometown: String(build.hometown || '').trim(),
     build: build.build,
+    // What the slider was left on. Stored rather than re-derived from height and build,
+    // because the two stopped being the same number the day the slider arrived.
+    weight_lbs: Number(build.weightLbs),
     career_goal: build.goal,
     traits: d.traits,
     // the fourteen answers plus the summer, which is a question in everything but name.
@@ -409,6 +412,13 @@ export function errorText(err) {
   if (!err) return 'Something went wrong.';
   if (err instanceof ConfigError) return err.message;
   const msg = err.message || err.error_description || err.hint || String(err);
+  // 42703 is "column does not exist", and on this site it means one thing: the project is
+  // running an older schema than the code. Nobody visiting can do anything about it, so say
+  // who can - otherwise every page just reads "column characters.weight_lbs does not exist".
+  if (err.code === '42703') {
+    return `${String(msg)} - the site is ahead of the database. The commissioner needs to run `
+      + 'supabase/schema.sql.';
+  }
   // postgres RAISE EXCEPTION text arrives with this prefix from PostgREST
   return String(msg).replace(/^ERROR:\s*/i, '');
 }

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 
 import requests
@@ -52,7 +53,10 @@ CHARACTER_COLUMNS = (
     # traits carries height_genes, which apply_growth needs. Without it every character
     # read None, growth skipped all of them, and the offseason reported "0 grew" - so
     # nobody would ever have got taller, in a game whose whole premise is growing up.
-    "traits,created_at"
+    # weight_lbs is what stamp_character writes into the save as Weight. Read as None it
+    # does not fail loudly - it falls back to build_weight(), so a character would quietly
+    # be given the weight his build suggests instead of the one he chose.
+    "traits,weight_lbs,build,created_at"
 )
 
 DRY_RUN = False  # set by --selftest; makes every call describe itself instead of firing
@@ -109,6 +113,17 @@ def _request(method, path, params=None, body=None, prefer=None):
     except requests.RequestException as exc:
         raise StoreError(f"{method} {path} failed to reach Supabase: {exc}") from exc
     if resp.status_code >= 400:
+        # 42703 is "column does not exist", and it means one thing here: supabase/schema.sql has
+        # been edited but never run against the project. PostgREST's own wording sends people
+        # looking for a typo in the code, so say what it actually is. Editing that file deploys
+        # nothing; it has to be pasted into the SQL Editor.
+        if "42703" in resp.text:
+            column = re.search(r"column \S*?\.?(\w+) does not exist", resp.text)
+            raise StoreError(
+                f"{method} {path} -> the database does not have "
+                f"{'column ' + column.group(1) if column else 'a column this code asks for'}. "
+                "supabase/schema.sql is ahead of the project: open the Supabase SQL Editor, "
+                "paste that file and run it. Nothing here can add a column.")
         raise StoreError(f"{method} {path} -> HTTP {resp.status_code}: {resp.text[:500]}")
     if not resp.content or resp.status_code == 204:
         return []
@@ -384,6 +399,7 @@ SETTABLE_FIELDS = {
     "draft_round", "draft_pick", "draft_season",
     "retired_season", "retired_reason", "archetype", "height_inches",
     "ratings", "potentials", "league_player_ids", "level_history",
+    "weight_lbs",
 }
 
 

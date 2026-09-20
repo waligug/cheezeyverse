@@ -287,7 +287,18 @@ def run_retirements(characters, store, season, log=print, dry_run=False):
 
 # ---- 1. growth ------------------------------------------------------------------------------
 def apply_growth(league_key, characters, season, log=print, dry_run=False):
-    """Write this year's inches into the save for every character in this league."""
+    """Write this year's inches - and this year's weight - into the save, character by character.
+
+    WEIGHT IS NOT CONDITIONAL ON INCHES. A sixteen-year-old who gains no height still fills out,
+    because the frame curve carries a maturation term to eighteen, so the weight is recomputed
+    for everybody who is still here rather than only for whoever grew. Writing it only when the
+    height moved would leave a character stuck at his fourteen-year-old weight for any year he
+    happened not to grow, which is most of the late ones.
+
+    Both writes go into the SAME `expect` entry: ch.commit re-reads the file and refuses the
+    whole offseason unless every value in it landed. A write outside that dict is a write
+    nobody checks.
+    """
     live = [c for c in characters if c.get("league") == league_key and c.get("status") == "active"]
     if not live:
         return [], []
@@ -306,15 +317,33 @@ def apply_growth(league_key, characters, season, log=print, dry_run=False):
             log(f"   ! {name}: {exc}")
             continue
         inches = growth.grew_this_offseason(c["id"], int(c["height_inches"]), int(genes), age)
-        if inches <= 0:
+        now = pl.values["Height"] + max(0, inches)
+        # Off the height the SAVE holds, not off the model's own curve: the game is allowed to
+        # have moved him, and his weight should describe the body that is actually in there.
+        # weight_step, not weight_at: this year's growth lands in full, but an old wrong weight
+        # is walked toward the truth rather than snapped to it. See growth.WEIGHT_CATCHUP_PER_YEAR.
+        pounds = growth.weight_step(c, pl.values["Weight"], pl.values["Height"], now, age)
+        wants = {}
+        if inches > 0:
+            wants["Height"] = now
+        if pounds != pl.values["Weight"]:
+            wants["Weight"] = pounds
+        if not wants:
             continue
-        now = pl.values["Height"] + inches
         if not dry_run:
-            L.set(pl, "Height", now)
-        expect.append((name, ch.codec_dob(c.get("game_dob")), {"Height": now}))
-        grown.append({"character": c, "inches": inches, "height": now})
-        log(f'   {name} grew {inches}" to {now // 12}\'{now % 12}" at {age}')
-    if grown and not dry_run:
+            for field, value in wants.items():
+                L.set(pl, field, value)
+        expect.append((name, ch.codec_dob(c.get("game_dob")), wants))
+        # `grown` stays what it has always been: the people who gained INCHES. The offseason
+        # report counts it and names them, and "3 grew" meaning "3 got heavier" would be a
+        # quietly wrong sentence in a message people read.
+        if inches > 0:
+            grown.append({"character": c, "inches": inches, "height": now, "weight": pounds})
+            log(f'   {name} grew {inches}" to {now // 12}\'{now % 12}" at {age}'
+                + (f", {pounds} lbs" if "Weight" in wants else ""))
+        else:
+            log(f"   {name} filled out to {pounds} lbs at {age}")
+    if expect and not dry_run:
         ch.commit(L, expect)
     return grown, expect
 
@@ -380,7 +409,14 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
     src = LeagueDat(src_path)
     pl = src.find(name, ch.codec_dob(character.get("game_dob")))
     ratings, potentials = _ratings_of(pl)
+    # The BODY he has at the old level, both numbers, read out of the save he is leaving. Height
+    # was already carried; weight was not, and stamp_character would then have fallen back to
+    # build_weight() - the fourteen-year-old curve - at his adult height. A 6'4" nineteen-year-old
+    # arrived at college 27 lbs lighter than he left prep, and the catch-up then spent two
+    # offseasons walking it back. He keeps who he is across a level; only his ratings are
+    # converted, and that is deliberate and priced.
     height = pl.values["Height"]
+    weight = pl.values["Weight"]
 
     conv = conversion_for(character, to_league, None)
     if conv["factor"] < 1.0:
@@ -412,9 +448,13 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
     ch.stamp_character(dst, slot, {
         "first_name": character["first_name"], "last_name": character["last_name"],
         "dob": ch.codec_dob(character.get("game_dob") or slot.dob), "height_inches": height,
+        # `weight_lbs` here is what he weighs NOW, not at fourteen - the same way `height_inches`
+        # carries his current height into the new save rather than his starting one.
+        "weight_lbs": weight,
         "position": character.get("position"), "ratings": ratings, "potentials": potentials,
     })
-    ch.commit(dst, [(name, ch.codec_dob(character.get("game_dob") or slot.dob), {"Height": height})])
+    ch.commit(dst, [(name, ch.codec_dob(character.get("game_dob") or slot.dob),
+                     {"Height": height, "Weight": weight})])
 
     refill(from_league, character, log=log)
     store.activate_character(character["id"], to_league, slot.team, slot.as_json(),

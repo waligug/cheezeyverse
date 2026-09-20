@@ -41,7 +41,8 @@ and are not in git. `backups/` in this project holds timestamped copies of every
 - **The New Game wizard is automated** end to end (`tools/create_universe.py`), so the universe can
   be rebuilt from scratch in about five minutes if anything is ever wrong with it.
 - **`supabase/schema.sql` is live** on project `ldybkcsmgleausdnwdmb`, including the trigger that
-  prices every upgrade server-side. The browser cannot name its own price.
+  prices every upgrade server-side. The browser cannot name its own price. Live as of the schema
+  BEFORE `weight_lbs` - the file has moved on since and has not been re-run. See Amber.
 - **The Supabase store is complete.** It was not: seven functions the app calls existed only in the
   local JSON fallback, so with Supabase configured, creating a character, every sim week and the
   whole offseason each raised. Fixed 2026-09-17.
@@ -61,6 +62,23 @@ and are not in git. `backups/` in this project holds timestamped copies of every
   My players and the at-a-glance panel on the front page.
 
 ## Amber — works, with a known rough edge
+
+- **`supabase/schema.sql` is ahead of the live project: `weight_lbs` is not there yet.** Until it
+  is run in the Supabase SQL Editor, `commissioner/store.py` and the website both ask for a column
+  the database does not have, and every read of `characters` comes back HTTP 400 - so the sim, the
+  panel and every page that lists a character are down until it is pasted and run. Both sides now
+  say that in words rather than repeating PostgREST's "column does not exist". Editing that file
+  deploys nothing; running it is the deploy. `python tests/test_character_columns.py` asks the
+  live database and is the check that it landed.
+- **The seven are catching up to their real weight over the next few offseasons.** Weight now
+  follows height and age (CONVENTIONS.md has the curve), and all seven are currently carrying the
+  weight of the filler whose slot they took - two of them the generator's 120 lb floor. Rather
+  than one correction of up to 50 lbs, `growth.WEIGHT_CATCHUP_PER_YEAR` closes 12 lbs of the gap
+  a year on top of their own growth, so they land on the curve between the next offseason and
+  four of them. While that runs, a character's career page (the model) and his league page (the
+  file) show different weights; set that constant to `None` to correct everybody at once instead.
+  Nothing needs backfilling in the database: with no `weight_lbs` recorded their offset falls out
+  of `build_weight(height, build)`.
 
 - **The AI will cut a 14-year-old** for an adult free agent given the chance, and signs 70-95
   replacements a week. League Options has settings for trades but none for signings, so

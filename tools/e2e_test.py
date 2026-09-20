@@ -120,6 +120,12 @@ def main():
         check("he is on a team", pl.values["Team"] >= 1, f'team {pl.values["Team"]}')
         check("he is not flagged inactive", pl.values.get("Inactive", 0) == 0,
               f'Inactive={pl.values.get("Inactive")}')
+        # Height and weight are his, not the dormant slot's. Weight is the one that went
+        # missing for a while: the create page had a slider and nothing wrote the number.
+        check("his height is in the save", pl.values["Height"] == row["height_inches"],
+              f'save says {pl.values["Height"]}, he is {row["height_inches"]}')
+        check("his weight is in the save", pl.values["Weight"] == row["weight_lbs"],
+              f'save says {pl.values["Weight"]}, he chose {row["weight_lbs"]}')
         stamped = {k: v for k, v in row["ratings"].items() if k in pl.values}
         wrong = {k: (pl.values[k], v) for k, v in stamped.items() if pl.values[k] != v}
         check("his ratings are the ones the quiz produced", not wrong,

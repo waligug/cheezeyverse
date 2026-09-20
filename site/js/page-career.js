@@ -38,7 +38,7 @@
 import {
   POSITION_LABELS, RATING_LABELS, RATING_GROUPS, RATINGS, POTENTIAL_RATINGS,
   START_AGE, GROWTH_END_AGE, RATING_MAX,
-  classify, playerClass, growthCurve, formatHeight, startingSheet, identitySeed,
+  classify, playerClass, growthCurve, formatHeight, startingSheet, identitySeed, weightAt,
   expectedAdultHeight, hasPotential, deriveCharacter, buildWeight, buildOption,
 } from './rules.js';
 import {
@@ -261,9 +261,14 @@ function whoHeIsNow(character, season, age, preview) {
 
   fact('Age', String(age));
   fact('Height now', inches ? formatHeight(inches) : '—');
-  fact('Weight', character.build
-    ? `about ${buildWeight(inches || character.height_inches, character.build)} lbs`
-    : null);
+  // What the save holds now, on the same curve the commissioner writes each offseason: his
+  // frame at this year's height and age, plus the number he chose at fourteen as an offset.
+  // Characters made before the weight column existed have no choice recorded, so their build
+  // stands in for one - weightAt() handles that, and it is why this is never blank.
+  const weighsNow = weightAt(character, inches || character.height_inches, age);
+  fact('Weight', `${weighsNow} lbs`
+    + (character.weight_lbs && weighsNow !== character.weight_lbs
+      ? ` · ${character.weight_lbs} at ${START_AGE}` : ''));
   fact('Build', character.build ? (buildOption(character.build) || {}).label : null);
   fact('Listed at', POSITION_LABELS[character.position] || character.position);
   fact('Reads as', klass.label);
@@ -1073,6 +1078,9 @@ function exampleCharacter() {
     jersey_preference: form.jersey,
     hometown: form.hometown,
     build: form.build,
+    // The example has a weight of his own, like a real character: the facts list reads the
+    // column and only falls back to the build when the row predates it.
+    weight_lbs: buildWeight(form.heightInches, form.build) + 6,
     career_goal: form.goal,
     traits: derived.traits,
     quiz_answers: { ...form.answers, summer: form.summer },

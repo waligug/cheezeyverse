@@ -670,3 +670,77 @@ can have -
 Counting rows is a content check, not a freshness check, and the two are easy to confuse precisely
 when the content is supposed to be unchanged - which, for an archive whose whole purpose is that
 nothing is lost, is every single time.
+
+## Weight is chosen, not derived (2026-09-20)
+
+`weight_lbs` is a column on `public.characters` and the number the commissioner writes into
+league.dat's int16 `Weight` when it stamps a character onto a reserve slot.
+
+It used to be derived from height and build wherever anybody needed it - `buildWeight()` in
+`site/js/rules.js`, and nothing in Python at all. That stopped being true the day the create page
+grew a weight slider: the review card promised a number nobody stored and the game was never
+told. Deriving it in three places was fine only while there was one right answer.
+
+- **The slider's range is `buildWeight(height, build) ± WEIGHT_SPREAD` (25 lbs).** `validateBuild()`
+  enforces exactly that range, because whatever the form accepts goes into the save. SQL cannot
+  re-derive it (BUILDS lives in JS), so the column's `between 50 and 400` is a plausibility net,
+  not the guard - the same posture `growth_bias` has.
+- **`buildWeight()` in rules.js and `build_weight()` in commissioner/growth.py are the same
+  function**, pinned by `tests/test_rules.py` over 35 height-and-build cases. The Python copy is
+  what runs when a character has no weight of his own: a commissioner-created one, or anybody made
+  before the column existed.
+- **Weight follows him.** `stamp_character` writes what he chose; from his next offseason on,
+  `offseason.apply_growth` writes `Height` and `Weight` together, in the same `expect` entry so
+  `ch.commit` verifies both or refuses the offseason.
+
+### The curve after fourteen (decided 2026-09-20, off the saves themselves)
+
+```
+frame_weight(h, age) = 100 + (h - 60) * 5.2 - max(0, 18 - age) * 4
+offset               = weight_lbs - frame_weight(height_at_14, 14)
+weight_now           = frame_weight(height_in_the_save_now, age) + offset
+```
+
+`buildWeight()` was the obvious candidate and it is the wrong one: it describes a fourteen-year-old
+and has no age in it. Measured against 955 real players in the saves it is 15-25 lbs light at every
+adult height band, while the curve above lands within 3-9:
+
+| | real | buildWeight | frame |
+|---|---|---|---|
+| pro, 6'2"-6'5" (mean age 26) | 186 | 170 | 183 |
+| pro, 6'6"-6'9" | 208 | 183 | 199 |
+| pro, 6'10"+ | 230 | 206 | 220 |
+
+So a character grows on the same curve the league's own population was built with - it is the
+deterministic core of `universe/generate.weight_for`, duplicated into `growth.py` without the gauss
+noise or its `max(120)` floor, which are population-generation details and would flatten every small
+prep kid onto one number.
+
+Three properties worth keeping in mind when touching it:
+
+- **The level cancels; only the shape matters.** A constant added to `frame_weight` disappears from
+  `weight_at`, because the offset subtracts the same curve at fourteen that it adds back later. What
+  is load-bearing is the 5.2 lbs an inch (the saves say 5.4 across 516 pro players) and the 4 lbs a
+  year to eighteen.
+- **His slider choice is worth the same pounds for life.** Two characters 25 lbs apart at fourteen
+  are still 25 lbs apart at twenty-five.
+- **Weight moves even when height does not.** A sixteen-year-old who gains no inches still fills
+  out, so `apply_growth` recomputes it for everybody rather than only for whoever grew.
+  `tests/test_growth_weight.py` runs both paths against a copy of a real save.
+- **An old wrong weight is walked to the truth, not snapped to it.** `growth.weight_step` applies
+  this year's real change in full and then closes at most `WEIGHT_CATCHUP_PER_YEAR` (12 lbs) of
+  whatever gap is left between the file and the model. Set that constant to `None` to correct
+  everybody in one write.
+
+  It exists for the seven characters who predate the column: they are carrying the weight of the
+  dormant filler whose slot they took, and two of those sat on the generator's 120 lb floor, so an
+  instant correction moves a 6'0" fourteen-year-old 50 lbs in one summer. Anybody created since is
+  stamped with his own weight and therefore has no gap at all - the catch-up is dormant for him.
+
+  The cost, and it is the only one: while a character is catching up, his career page shows the
+  model's number and his league page shows the file's, and for those few years they disagree. The
+  page cannot know what the save holds - the site has never been able to see a league.dat.
+- Adding a character column means adding its name to **four** lists: the create table, the
+  `grant select`, the `grant insert`, and `CHARACTER_COLUMNS` in *both* `site/js/supabase.js` and
+  `commissioner/store.py`. Only the first two fail loudly. `tests/test_column_grants.py` reads all
+  of them out of the source and compares them.

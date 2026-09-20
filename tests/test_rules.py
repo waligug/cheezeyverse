@@ -74,6 +74,7 @@ const ops = {
     CAREER_GOALS: R.CAREER_GOALS,
     SUMMER_WORK: R.SUMMER_WORK,
     BUILDS: R.BUILDS,
+    WEIGHT_SPREAD: R.WEIGHT_SPREAD,
     CLASSES: R.CLASSES,
     CLASS_IDS: R.CLASS_IDS,
     GROWTH_END_AGE: R.GROWTH_END_AGE,
@@ -112,6 +113,9 @@ const ops = {
   heightAtAge: (a) => R.heightAtAge(...a),
   heightOutlook: (a) => R.heightOutlook(...a),
   buildWeight: (a) => R.buildWeight(...a),
+  weightRange: (a) => R.weightRange(...a),
+  frameWeight: (a) => R.frameWeight(...a),
+  weightAt: (a) => R.weightAt(...a),
   scoutingWord: (a) => R.scoutingWord(...a),
 };
 
@@ -1059,6 +1063,127 @@ def test_height_model(results, base, consts):
 # ---------------------------------------------------------------------------------------
 
 
+WEIGHT_CASES = [(h, b)
+                for h in (60, 64, 70, 74, 80, 86, 95)
+                for b in ("wiry", "lean", "solid", "strong", "heavy")]
+
+# (character, height now, age) - a fourteen-year-old growing up, including one with no weight
+# of his own (made before the column existed) and one at each end of the slider.
+GROWN_CASES = [
+    ({"weight_lbs": 177, "height_inches": 80, "build": "lean"}, 80, 14),
+    ({"weight_lbs": 177, "height_inches": 80, "build": "lean"}, 82, 16),
+    ({"weight_lbs": 177, "height_inches": 80, "build": "lean"}, 86, 18),
+    ({"weight_lbs": 177, "height_inches": 80, "build": "lean"}, 86, 25),
+    ({"weight_lbs": 117, "height_inches": 66, "build": "wiry"}, 66, 14),
+    ({"weight_lbs": 117, "height_inches": 66, "build": "wiry"}, 71, 17),
+    ({"weight_lbs": 117, "height_inches": 66, "build": "wiry"}, 78, 23),
+    ({"weight_lbs": None, "height_inches": 70, "build": "solid"}, 70, 14),
+    ({"weight_lbs": None, "height_inches": 70, "build": "solid"}, 75, 19),
+    ({"weight_lbs": None, "height_inches": 72, "build": None}, 79, 26),
+]
+
+
+def test_weight_agreement(results, base, consts):
+    """buildWeight() in rules.js and build_weight() in growth.py must be the same number.
+
+    The same reason the height model is pinned: the browser shows the slider's starting point
+    and the commissioner writes a weight into league.dat, and if the two drift the create page
+    is quoting a number the save will never hold. The spread has to agree too - it is what
+    bounds the range validateBuild() accepts, and therefore what can reach the file.
+    """
+    bad_weight, bad_range = [], []
+    i = base
+    for height, build_id in WEIGHT_CASES:
+        js_weight = value(results, i, "buildWeight"); i += 1
+        js_range = value(results, i, "weightRange"); i += 1
+        py_weight = PY_GROWTH.build_weight(height, build_id)
+        if js_weight != py_weight:
+            bad_weight.append(f"{height}in {build_id}: js {js_weight} != py {py_weight}")
+        if js_range is not None and (js_range["base"] != py_weight
+                                     or js_range["low"] != py_weight - consts["WEIGHT_SPREAD"]
+                                     or js_range["high"] != py_weight + consts["WEIGHT_SPREAD"]):
+            bad_range.append(f"{height}in {build_id}: {js_range} around {py_weight}")
+
+    check(f"JS and Python agree on the suggested weight over {len(WEIGHT_CASES)} cases",
+          not bad_weight, "; ".join(bad_weight[:3]))
+    check("the slider's range is the suggestion plus or minus the spread",
+          not bad_range, str(bad_range[:2]))
+
+    # The Python half alone: what actually reaches the save file.
+    bad_save = []
+    if PY_GROWTH.weight_for_save({"weight_lbs": 206, "height_inches": 80, "build": "lean"}) != 206:
+        bad_save.append("a stored weight is not used as-is")
+    fallback = PY_GROWTH.weight_for_save({"height_inches": 80, "build": "lean"})
+    if fallback != PY_GROWTH.build_weight(80, "lean"):
+        bad_save.append(f"a character with no weight got {fallback}")
+    if PY_GROWTH.weight_for_save({"weight_lbs": 9000}) != 400:
+        bad_save.append("an absurd weight was not clamped")
+    if PY_GROWTH.weight_for_save({"weight_lbs": None, "height_inches": None,
+                                  "build": None}) <= 0:
+        bad_save.append("a character with nothing at all got a nonsense weight")
+    check("the weight written into league.dat is his own, or the one his build suggests",
+          not bad_save, str(bad_save))
+    return i
+
+
+def test_weight_after_fourteen(results, base, consts):
+    """The curve he grows on, and the promise that his own choice survives all of it."""
+    bad_frame, bad_now = [], []
+    i = base
+    for character, height_now, age in GROWN_CASES:
+        js_frame = value(results, i, "frameWeight"); i += 1
+        js_now = value(results, i, "weightAt"); i += 1
+        py_frame = PY_GROWTH.frame_weight(height_now, age)
+        py_now = PY_GROWTH.weight_at(character, height_now, age)
+        if js_frame != py_frame:
+            bad_frame.append(f"{height_now}in at {age}: js {js_frame} != py {py_frame}")
+        if js_now != py_now:
+            bad_now.append(f"{character} at {height_now}in/{age}: js {js_now} != py {py_now}")
+    check(f"JS and Python agree on the frame curve over {len(GROWN_CASES)} cases",
+          not bad_frame, "; ".join(bad_frame[:3]))
+    check("JS and Python agree on what he weighs after he has grown",
+          not bad_now, "; ".join(bad_now[:2]))
+
+    # The shape of it, in Python, where the offseason reads it.
+    him = {"weight_lbs": 177, "height_inches": 80, "build": "lean"}
+    light = {"weight_lbs": 152, "height_inches": 80, "build": "lean"}
+    bad = []
+    if PY_GROWTH.weight_at(him, 80, PY_GROWTH.START_AGE) != 177:
+        bad.append("at fourteen he does not weigh what he chose")
+    series = [PY_GROWTH.weight_at(him, 80 + a - 14, a) for a in range(14, 24)]
+    if any(b < a for a, b in zip(series, series[1:])):
+        bad.append(f"weight goes down as he grows up: {series}")
+    if PY_GROWTH.weight_at(him, 84, 18) - PY_GROWTH.weight_at(light, 84, 18) != 25:
+        bad.append("the slider's choice stopped being worth what it was at fourteen")
+    if PY_GROWTH.weight_at(him, 80, 19) != PY_GROWTH.weight_at(him, 80, 25):
+        bad.append("he keeps filling out past eighteen")
+    if PY_GROWTH.weight_at(him, 80, 16) <= PY_GROWTH.weight_at(him, 80, 14):
+        bad.append("a character who did not grow an inch does not fill out either")
+    if PY_GROWTH.weight_at({"weight_lbs": 400, "height_inches": 95, "build": "heavy"},
+                           95, 25) > PY_GROWTH.WEIGHT_MAX:
+        bad.append("the int16 is not clamped")
+    check("he grows into the frame without ever stopping being himself", not bad, str(bad))
+
+    # And the one that matters in the game: does he put weight on at the rate the league's own
+    # players carry it? The SHAPE is what has to be right, not the level - a constant added to
+    # frame_weight cancels out of weight_at entirely, because the offset subtracts the same
+    # curve at fourteen that it adds back at every later age. So this pins the slope and the
+    # maturation, which are the two things that do not cancel.
+    #
+    # Measured off the pro save: mean height 71.9in -> 169.8 lbs and 83.5in -> 229.7 lbs at a
+    # mean age of 26, which is 5.4 lbs an inch across 516 men.
+    shape = []
+    per_inch = (PY_GROWTH.frame_weight(83, 26) - PY_GROWTH.frame_weight(72, 26)) / 11
+    if abs(per_inch - 5.4) > 0.5:
+        shape.append(f"{per_inch:.2f} lbs an inch, the save says 5.4")
+    filled = PY_GROWTH.frame_weight(76, 18) - PY_GROWTH.frame_weight(76, 14)
+    if filled != PY_GROWTH.MATURATION_LBS * 4:
+        shape.append(f"four years of filling out is {filled} lbs")
+    check("he puts weight on at the rate the league's own players carry it",
+          not shape, str(shape))
+    return i
+
+
 def test_build_validation(results, base):
     labels = ["a complete build is accepted",
               "an unanswered question is rejected",
@@ -1067,8 +1192,13 @@ def test_build_validation(results, base):
               "a 5'6\" center is rejected",
               "a jersey number of 100 is rejected",
               "no hometown is rejected",
-              "a hand-edited stat sheet is rejected"]
-    wants = [True, False, False, False, False, False, False, False]
+              "a hand-edited stat sheet is rejected",
+              # the weight goes straight into league.dat, so the form is the only thing
+              # standing between the slider's range and the save file
+              "a weight above the slider's range is rejected",
+              "a weight below the slider's range is rejected",
+              "no weight at all is rejected"]
+    wants = [True, False, False, False, False, False, False, False, False, False, False]
     bad = []
     for i, (label, want) in enumerate(zip(labels, wants)):
         got = value(results, base + i, label)
@@ -1235,6 +1365,8 @@ def main():
 
     def build(**over):
         b = {**identity, "position": "SG", "heightInches": 70, "build": "lean",
+             # what the slider would be sitting on, untouched, for that height and build
+             "weightLbs": PY_GROWTH.build_weight(70, "lean"),
              "answers": dict(good_answers), "goal": "bucket", "summer": "jumper",
              "ratings": dict(derived["ratings"]), "potentials": dict(derived["potentials"])}
         b.update(over)
@@ -1253,7 +1385,10 @@ def main():
               build(position="C", heightInches=66),
               build(jersey=100),
               build(hometown=""),
-              build(ratings=tampered)):
+              build(ratings=tampered),
+              build(weightLbs=PY_GROWTH.build_weight(70, "lean") + consts["WEIGHT_SPREAD"] + 1),
+              build(weightLbs=PY_GROWTH.build_weight(70, "lean") - consts["WEIGHT_SPREAD"] - 1),
+              build(weightLbs=None)):
         calls.append({"op": "validateBuild", "args": [b]})
 
     # --- validateUpgrade -----------------------------------------------------------------
@@ -1287,6 +1422,17 @@ def main():
     calls.append({"op": "formatHeight", "args": [76]})
     calls.append({"op": "buildWeight", "args": [74, "heavy"]})
 
+    # --- weight ---------------------------------------------------------------------------
+    weight_base = len(calls)
+    for height, build_id in WEIGHT_CASES:
+        calls.append({"op": "buildWeight", "args": [height, build_id]})
+        calls.append({"op": "weightRange", "args": [height, build_id]})
+
+    grown_base = len(calls)
+    for character, height_now, age in GROWN_CASES:
+        calls.append({"op": "frameWeight", "args": [height_now, age]})
+        calls.append({"op": "weightAt", "args": [character, height_now, age]})
+
     results = run_js(calls)
 
     i = test_cost_curve(results, 0)
@@ -1307,6 +1453,8 @@ def main():
     test_height_agreement(results, height_base)
     test_height_model(results, height_base, consts)
     test_build_validation(results, build_base)
+    test_weight_agreement(results, weight_base, consts)
+    test_weight_after_fourteen(results, grown_base, consts)
     test_upgrade_validation(results, upgrade_base)
     test_limits(results, limit_base)
 
@@ -1316,7 +1464,8 @@ def main():
           f"{sum(len(q['answers']) for q in consts['QUIZ'])} answers, "
           f"{len(consts['TRAITS'])} traits, {len(consts['CLASSES'])} classes, "
           f"{len(consts['RATINGS'])} ratings")
-    print(f"{len(inputs)} sampled builds, {len(HEIGHT_CASES)} height cases checked against "
+    print(f"{len(inputs)} sampled builds, {len(HEIGHT_CASES)} height cases and "
+          f"{len(WEIGHT_CASES) + len(GROWN_CASES)} weight cases checked against "
           f"commissioner/growth.py")
     print()
     if failures:

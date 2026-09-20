@@ -1000,6 +1000,11 @@ function createCharacter() {
     height_inches: parseInt($('cc-height').value, 10),
     dob: $('cc-dob').value.trim()
   };
+  // Blank is allowed and is the usual case: commissioner.growth.weight_for_save() then gives
+  // him the weight his height suggests. The website's slider is where a weight normally
+  // comes from - this box exists so a character made here is not stuck with a filler's.
+  var weight = parseInt($('cc-weight').value, 10);
+  if (weight) { payload.weight_lbs = weight; }
   if (!payload.first_name || !payload.last_name) {
     toast('A character needs both names.', true);
     return;

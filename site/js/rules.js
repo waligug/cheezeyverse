@@ -641,15 +641,76 @@ export function summerWork(id) { return SUMMER_WORK.find((s) => s.id === id) || 
 export function buildOption(id) { return BUILDS.find((b) => b.id === id) || null; }
 
 /**
- * Weight in pounds, for the save file and for the review screen. FBPB3 stores an int16.
- * Derived rather than stored, so there is one fewer column and one fewer thing to keep in
- * step: the commissioner recomputes it from height_inches and build whenever it writes a
- * player into league.dat.
+ * The weight height and build SUGGEST, in pounds. FBPB3 stores an int16.
+ *
+ * This is where the slider starts, not what he weighs: the number he leaves the slider on is
+ * stored in `weight_lbs` and is what the commissioner writes into league.dat. Keep this in step
+ * with build_weight() in commissioner/growth.py - tests/test_rules.py pins them together.
  */
 export function buildWeight(heightInches, buildId) {
   const h = Number(heightInches) || 70;
   const b = buildOption(buildId);
   return Math.round((h - 60) * 4.6 + 96) + (b ? b.lbs : 0);
+}
+
+/**
+ * How far either side of buildWeight() the slider goes - about the distance from "wiry" to
+ * "heavy" twice over, so it is a real choice without stopping being a fourteen-year-old.
+ *
+ * It lives here rather than in page-create.js because the slider and validateBuild() have to
+ * agree: whatever the slider can reach is exactly what the form will accept, and a number the
+ * form accepts is a number that goes into the save.
+ */
+export const WEIGHT_SPREAD = 25;
+
+/** The pounds a fourteen-year-old of this height and build is allowed to be. */
+export function weightRange(heightInches, buildId) {
+  const base = buildWeight(heightInches, buildId);
+  return { base, low: base - WEIGHT_SPREAD, high: base + WEIGHT_SPREAD };
+}
+
+/* -----------------------------------------------------------------------------------------
+ * Weight after fourteen
+ *
+ * buildWeight() describes a fourteen-year-old and nothing else. Growing on it would leave a
+ * character 15-25 lbs lighter than every filler his own height - measured against 955 players
+ * in the real saves. So from fifteen on he rides the same curve the league's population was
+ * built with, carrying his own slider choice as a constant offset.
+ *
+ * MIRRORS frame_weight() / weight_at() in commissioner/growth.py, which is the copy that
+ * writes the number into league.dat each offseason. tests/test_rules.py pins them together.
+ * --------------------------------------------------------------------------------------- */
+
+export const WEIGHT_PER_INCH = 5.2;
+export const WEIGHT_AT_60IN = 100;
+export const MATURATION_LBS = 4;
+export const MATURATION_END_AGE = 18;
+export const WEIGHT_MIN = 50;
+export const WEIGHT_MAX = 400;
+
+/** What the population model gives a body this tall at this age, before anything personal. */
+export function frameWeight(heightInches, age) {
+  const h = Number(heightInches) || 70;
+  const a = Number.isFinite(Number(age)) ? Number(age) : START_AGE;
+  const grownIn = Math.max(0, MATURATION_END_AGE - a) * MATURATION_LBS;
+  return Math.round(WEIGHT_AT_60IN + (h - 60) * WEIGHT_PER_INCH - grownIn);
+}
+
+/**
+ * How far from the usual frame HE is - measured at fourteen, where both his stored numbers are.
+ * `character` is a row: weight_lbs and height_inches, with build as the fallback for anybody
+ * created before the weight column existed.
+ */
+export function weightOffset(character) {
+  const c = character || {};
+  const chosen = Number(c.weight_lbs) || buildWeight(c.height_inches, c.build);
+  return chosen - frameWeight(c.height_inches, START_AGE);
+}
+
+/** What he weighs now: this year's frame at this year's height, plus the man he chose to be. */
+export function weightAt(character, heightNow, age) {
+  const total = frameWeight(heightNow, age) + weightOffset(character);
+  return Math.max(WEIGHT_MIN, Math.min(WEIGHT_MAX, total));
 }
 
 /* ---------------------------------------------------------------------------------------
@@ -1750,6 +1811,19 @@ export function validateBuild(build) {
   }
 
   if (!BUILD_IDS.includes(b.build)) errors.push('Pick a build.');
+
+  // The weight is the one number on this form that goes straight into the save, so it is
+  // checked against the same range the slider offers rather than merely being a number. SQL
+  // cannot do this check - BUILDS lives here - so this is the real guard, and the column's
+  // 50..400 is only a plausibility net. See supabase/schema.sql.
+  if (BUILD_IDS.includes(b.build) && POSITIONS.includes(b.position)) {
+    const range = weightRange(b.heightInches, b.build);
+    const weight = Number(b.weightLbs);
+    if (!Number.isInteger(weight) || weight < range.low || weight > range.high) {
+      errors.push(`A ${formatHeight(b.heightInches)} ${buildOption(b.build).label.toLowerCase()} `
+        + `fourteen-year-old weighs ${range.low} to ${range.high} lbs.`);
+    }
+  }
 
   const progress = quizProgress(b.answers);
   if (!progress.complete) {

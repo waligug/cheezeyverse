@@ -65,6 +65,10 @@ const row = {
   jersey_preference: Number(state.jersey),
   hometown: state.hometown,
   build: state.build,
+  // No slider out here, so this is where it would be sitting: the suggestion for his height
+  // and build. The point is that the KEY is present - a row without it is not the row the
+  // website sends, and the whole reason this file exists is that it is.
+  weight_lbs: Number(d.weightLbs),
   career_goal: state.goal,
   traits: d.traits,
   quiz_answers: { ...state.answers, summer: state.summer },

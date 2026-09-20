@@ -318,6 +318,124 @@ def height_outlook(start_inches, height_genes) -> dict:
     }
 
 
+# ---- weight ---------------------------------------------------------------------------------
+# MIRRORS BUILDS[].lbs and buildWeight() in site/js/rules.js. Duplicated rather than imported
+# for the same reason everything else here is: this file is the Python half of a two-language
+# model and there is no JS runtime on the commissioner machine. tests/test_rules.py pins the
+# two copies together.
+BUILD_LBS = {"wiry": -14, "lean": -7, "solid": 0, "strong": 9, "heavy": 20}
+
+
+def build_weight(height_inches, build=None) -> int:
+    """The weight a height and a build SUGGEST, in pounds.
+
+    This is not what a character weighs. Since the create page grew a slider, that is his own
+    number and it is stored on the row as `weight_lbs`; this is only where the slider starts,
+    and the fallback for characters made before the column existed.
+    """
+    h = int(height_inches or 70)
+    # _js_round, not round(): Math.round is half-up and Python's round() is half-even, and the
+    # JS copy is the one a person watches move on the slider. See the height model above.
+    return _js_round((h - 60) * 4.6 + 96) + BUILD_LBS.get(build or "solid", 0)
+
+
+# What a body of this height carries at this age, before anything personal about him.
+#
+# MIRRORS the deterministic core of weight_for() in commissioner/universe/generate.py, which is
+# what every filler in all three leagues was built with - duplicated rather than imported for the
+# reason characters.py already gives about that module: importing it would drag the whole universe
+# builder into every codec call. The gauss noise and its max(120) floor are deliberately NOT here.
+# That floor is a population-generation detail; applied to one character it would quietly make
+# every small prep fourteen-year-old weigh the same.
+#
+# WHY THIS CURVE AND NOT buildWeight(). buildWeight has no age in it - it describes a fourteen
+# year old, and that is all it was ever asked to do. Checked against 955 real players in the
+# saves, it runs 15-25 lbs light at every adult height band, while this one lands within 3-6:
+#
+#   pro, 6'2"-6'5"   real 186   buildWeight 170   this 183
+#   pro, 6'6"-6'9"   real 208   buildWeight 183   this 199
+#
+# A character who kept growing on buildWeight would be visibly the lightest man on his team for
+# his whole career, next to fillers this curve produced.
+WEIGHT_PER_INCH = 5.2
+WEIGHT_AT_60IN = 100
+MATURATION_LBS = 4          # a year of filling out, until he is done at 18
+MATURATION_END_AGE = 18
+WEIGHT_MIN, WEIGHT_MAX = 50, 400   # the int16 the game stores, kept plausible
+
+
+def frame_weight(height_inches, age) -> int:
+    """The weight the population model gives a body this tall at this age."""
+    h = int(height_inches or 70)
+    a = int(age if age is not None else START_AGE)
+    grown_in = max(0, MATURATION_END_AGE - a) * MATURATION_LBS
+    return _js_round(WEIGHT_AT_60IN + (h - 60) * WEIGHT_PER_INCH - grown_in)
+
+
+def weight_offset(character) -> int:
+    """How far from the usual frame HE is - the slider's choice, kept for life.
+
+    Measured at fourteen, where both his stored numbers live: `weight_lbs` is what he chose and
+    `height_inches` is how tall he was when he chose it. It absorbs his own decision and the
+    small constant gap between buildWeight (which the slider is built around) and the frame
+    curve, so neither drifts as he grows.
+    """
+    chosen = character.get("weight_lbs")
+    if chosen in (None, ""):
+        chosen = build_weight(character.get("height_inches"), character.get("build"))
+    return int(chosen) - frame_weight(character.get("height_inches"), START_AGE)
+
+
+def weight_at(character, height_now, age) -> int:
+    """What he should weigh in the save now: this year's frame, plus the man he chose to be."""
+    total = frame_weight(height_now, age) + weight_offset(character)
+    return max(WEIGHT_MIN, min(WEIGHT_MAX, total))
+
+
+# How much of a HISTORICAL error the offseason is allowed to correct in one summer. This year's
+# real change - his inches, his year of filling out - is always applied in full; only the gap
+# between what the file says and what the model says is rationed.
+#
+# It exists because the seven characters who predate the weight column are carrying the weight of
+# the dormant filler whose slot they took, and two of those sat on the generator's 120 lb floor.
+# Correcting that in one write moves a 6'0" fourteen-year-old 50 lbs in a single offseason, which
+# FBPB3 then posts up and rebounds with. At 12 a year everybody is on the curve within one to four
+# offseasons and no year looks like anything other than a teenager growing.
+#
+# Set it to None to correct everybody at once.
+WEIGHT_CATCHUP_PER_YEAR = 12
+
+
+def weight_step(character, weight_in_save, height_before, height_now, age) -> int:
+    """What to write into the save this offseason: this year's change, plus a step toward truth.
+
+    Returns the model's own answer when the file has nothing usable, which is what a character
+    stamped this season wants - he arrives already correct.
+    """
+    target = weight_at(character, height_now, age)
+    if not weight_in_save:
+        return target
+    was = weight_at(character, height_before, max(START_AGE, age - 1))
+    natural = target - was
+    gap = target - (int(weight_in_save) + natural)
+    if WEIGHT_CATCHUP_PER_YEAR is not None:
+        gap = max(-WEIGHT_CATCHUP_PER_YEAR, min(WEIGHT_CATCHUP_PER_YEAR, gap))
+    return max(WEIGHT_MIN, min(WEIGHT_MAX, int(weight_in_save) + natural + gap))
+
+
+def weight_for_save(character) -> int:
+    """What to write into league.dat's Weight for this character.
+
+    His own number when he has one, the suggestion from his height and build when he does not.
+    Clamped to the same 50..400 the `weight_lbs` column allows, because this goes into an int16
+    the game will happily display as nonsense.
+    """
+    chosen = character.get("weight_lbs")
+    if chosen in (None, ""):
+        chosen = build_weight(character.get("height_inches"), character.get("build"))
+    return max(50, min(400, int(chosen)))
+
+
 def format_height(inches) -> str:
     """76 -> 6'4\"."""
     n = _js_round(inches)

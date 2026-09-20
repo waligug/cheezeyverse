@@ -28,6 +28,7 @@ export const SHAPE_FIELDS = [
 ];
 
 let CACHE = null;
+let ARRIVED = null;
 
 /** The archetype file, fetched once. Null when it is missing - the page carries on without it. */
 export function loadArchetypes(path = 'data/nba-archetypes.json') {
@@ -35,9 +36,21 @@ export function loadArchetypes(path = 'data/nba-archetypes.json') {
     CACHE = fetch(path)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => (d && Array.isArray(d.players) ? d : null))
+      .then((d) => { ARRIVED = d; return d; })
       .catch(() => null);
   }
   return CACHE;
+}
+
+/**
+ * The file if it is already here, null if it is not - no promise, no await.
+ *
+ * A caller that has something to build RIGHT NOW uses this: awaiting a promise that has long
+ * since resolved still costs a turn of the event loop, and one turn is enough to land the
+ * comparison after the card it belongs to is already on the page.
+ */
+export function archetypesIfReady() {
+  return ARRIVED;
 }
 
 /**

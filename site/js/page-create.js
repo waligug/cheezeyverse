@@ -14,9 +14,11 @@ import {
   QUIZ, CAREER_GOALS, SUMMER_WORK, BUILDS, careerGoal,
   deriveCharacter, quizProgress, validateBuild, canCreateAnother,
   formatHeight, describeCurve, GOAL_DISCOUNT, START_AGE, GROWTH_END_AGE, buildWeight,
-  RATING_LABELS,
+  WEIGHT_SPREAD, RATING_LABELS,
 } from './rules.js';
-import { loadArchetypes, matchArchetypes, archetypeStrengths } from './archetypes.js';
+import {
+  loadArchetypes, archetypesIfReady, matchArchetypes, archetypeStrengths,
+} from './archetypes.js';
 import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
   myCharacters, createCharacter, errorText,
@@ -62,13 +64,6 @@ $('#signin').addEventListener('click', () => signIn().catch(
 // file would still be in its temporal dead zone at that point.
 let previewOnly = false;
 
-// Same reason, and this file had already written the rule down: boot() and preview() run at the
-// top of the module and both reach syncWeightRange(), so a `const` declared further down is
-// still uninitialised when they get there. Function declarations hoist; const does not.
-// How far either side of the usual weight the slider goes - about the distance from "wiry" to
-// "heavy" twice over, so it is a real choice without stopping being a fourteen-year-old.
-const WEIGHT_SPREAD = 25;
-
 /* An OAuth failure comes back in the URL, not as an exception - see oauthErrorFromUrl().
    Read it before anything else so the page can say what happened instead of just looking
    signed out. This runs even when the Supabase client is never constructed. */
@@ -87,6 +82,7 @@ if (!isConfigured()) {
 
 function preview() {
   previewOnly = true;
+  loadArchetypes();
   $('#gate').hidden = true;
   $('#form').hidden = false;
   $('#intro').textContent = `He turns ${START_AGE} this season and he is not good yet. That is `
@@ -103,6 +99,8 @@ function preview() {
 }
 
 async function boot() {
+  // long before he can possibly need it - see renderSigned()
+  loadArchetypes();
   const user = await currentUser();
   const profile = user ? await ensureProfile() : null;
   chrome.refresh(user, profile);
@@ -447,9 +445,12 @@ function renderReview() {
  * the twenties and an All-Star rated in the nineties can be the same KIND of player, which is
  * the only claim being made here. Nobody is being told the kid is Dwight Howard.
  */
-async function showArchetype(box, ratings) {
+/* The guard lives HERE rather than in the async wrapper, because renderSigned() now calls this
+   one synchronously, in the middle of building the card. A throw from the old async version
+   could only lose the comparison; a throw from here would abandon the card half built - head,
+   class and height, no numbers, no button - on a character who has already been inserted. */
+function fillArchetype(box, data, ratings) {
   try {
-    const data = await loadArchetypes();
     const [best, ...rest] = matchArchetypes(ratings, data, 3);
     if (!best) return;
     clear(box);
@@ -465,6 +466,10 @@ async function showArchetype(box, ratings) {
   } catch (err) { /* a flourish must never take the page down with it */ }
 }
 
+async function showArchetype(box, ratings) {
+  fillArchetype(box, await loadArchetypes(), ratings);
+}
+
 function renderSigned(created, derived) {
   const box = $('#signed');
   clear(box);
@@ -477,18 +482,28 @@ function renderSigned(created, derived) {
   card.append(el('div', { class: 'cv-readout cv-cheese' },
     el('b', {}, classLine(derived.klass)),
     el('span', {}, derived.klass.blurb)));
+  // Every number on this line comes off the row that came BACK from the database, not out of
+  // `derived`. They look identical when it works, and only the stored one is the truth if the
+  // column is missing or the write was refused - which is exactly the bug this card had.
   card.append(el('p', {},
-    `${formatHeight(created.height_inches)} and about ${derived.weightLbs} lbs, from `
+    `${formatHeight(created.height_inches)} and about ${created.weight_lbs} lbs, from `
     + `${created.hometown}. He is expected to finish around `
     + `${formatHeight(derived.expectedAdultHeight)}; his own curve is on `,
     el('a', { href: 'me.html' }, 'his page'), '.'));
 
-  // The NBA comparison, filled in when the file arrives. Appended empty and populated later so
-  // the rest of the card is not waiting on a fetch: signing him is the moment people care about,
-  // and holding the whole thing back for 140 KB of data that may 404 is the wrong trade.
+  // The NBA comparison. The file is asked for when the form is built, so by the time anyone has
+  // answered fourteen questions it is almost always here already - and then the panel goes into
+  // the card BEFORE the card goes on the page, which is what the staged CSS delays in
+  // `#signed .cv-archetype` were written for. Arriving late it still works, but it lands after
+  // the fanfare has finished and shoves everything below it down the page.
+  //
+  // It is still never waited FOR: signing him is the moment people care about, and holding the
+  // whole card back for 140 KB of data that may 404 is the wrong trade.
   const archetype = el('div', { class: 'cv-archetype-slot' });
+  const ready = archetypesIfReady();
+  if (ready) fillArchetype(archetype, ready, derived.ratings);
+  else showArchetype(archetype, derived.ratings);
   card.append(archetype);
-  showArchetype(archetype, derived.ratings);
 
   card.append(el('h3', {}, 'The numbers, now that he is yours'));
   const sheet = el('div', {});

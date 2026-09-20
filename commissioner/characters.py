@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import growth
 from .codec.league_dat import POTENTIALS, RATING_MAX, RATINGS, CodecError, LeagueDat
 from .universe import config as cfg
 
@@ -162,7 +163,9 @@ def stamp_character(L, slot, character):
     """Turn a dormant reserve slot into a real character, in place.
 
     `character` needs: first_name, last_name, ratings {name: value}, potentials {name: value},
-    dob "M/D/YYYY", height_inches, position. Returns the player record.
+    dob "M/D/YYYY", height_inches, position. `weight_lbs` and `build` are optional - between
+    them they decide what he weighs, and without either he gets the weight his height suggests.
+    Returns the player record.
     """
     # A character with no ratings would be stamped over the reserve row and silently keep ITS
     # floor ratings - 3 to 12 across the board, an unplayable player nobody would notice until
@@ -190,6 +193,12 @@ def stamp_character(L, slot, character):
     L.set(pl, "BirthDay", day)
     L.set(pl, "BirthYear", year)
     L.set(pl, "Height", int(character["height_inches"]))
+    # Weight, like height, is his and not the slot's. Leave it out and he keeps the dormant
+    # filler's weight: a 7'2" fourteen-year-old listed at whatever the row he took over
+    # happened to weigh, and a create page that promised a number the game never heard.
+    # This is the weight he arrives with. From his next offseason on, growth.weight_step() moves
+    # it with his height and his age - see offseason.apply_growth, which writes both together.
+    L.set(pl, "Weight", growth.weight_for_save(character))
     if character.get("position"):
         L.set(pl, "Position", POSITION_CODES[character["position"]])
 

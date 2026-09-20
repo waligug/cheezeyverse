@@ -81,6 +81,18 @@ def main():
 
     print(f"{len(columns)} columns on characters, {len(selected & columns)} selected, "
           f"{len(used & columns)} read by the code")
+
+    # The other direction, and it is not symmetrical: a column the code SELECTS but the live
+    # table does not have is not a silent None, it is HTTP 400 on every read of the table -
+    # the sim, the panel and every page at once. It means supabase/schema.sql has been edited
+    # and never run, which editing it does not do.
+    undeployed = sorted(selected - columns)
+    for f in undeployed:
+        print(f"  FAIL  CHARACTER_COLUMNS asks for {f!r}, which the project does not have. "
+              "Paste supabase/schema.sql into the Supabase SQL Editor and run it.")
+    if undeployed:
+        print(f"\nthe schema is {len(undeployed)} column(s) ahead of the live project")
+        return 1
     for f in missing:
         print(f"  FAIL  the code reads {f!r}, which CHARACTER_COLUMNS does not select - "
               "it will always read as None")
