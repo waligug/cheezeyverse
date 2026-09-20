@@ -35,16 +35,27 @@
     refreshCalendarButtons();
   }
   function loadCalendar() {
-    if (busy()) { return; }
+    if (busy()) { return Promise.resolve(); }
     var request = ++view.request;
     view.plan = null;
     refreshCalendarButtons();
-    api('/api/calendar').then(function (data) {
+    return api('/api/calendar').then(function (data) {
       if (request !== view.request) { return; }
       if (!data.ok) { showError(data.error || 'Calendar unavailable.'); return; }
       view.data = data;
       renderCalendarDates();
-      if (!view.month) { view.month = league().current_date.slice(0,7); }
+      // MOVE THE GRID WHEN THE SEASON MOVES. Setting the month only when it is null is right
+      // for an ordinary refresh - somebody browsing ahead to March should stay in March - and
+      // wrong across a rollover: the new season starts in a different month, so the grid sat
+      // on the old one with every date disabled, showing a calendar nobody could click.
+      // Jumping only when the SEASON changes keeps deliberate browsing intact.
+      var now = league();
+      if (now && (view.season !== now.season || view.month < now.first.slice(0,7)
+                  || view.month > now.last.slice(0,7))) {
+        view.month = now.current_date.slice(0,7);
+      }
+      view.season = now ? now.season : null;
+      if (!view.month && now) { view.month = now.current_date.slice(0,7); }
       view.selected = null;
       populateTeams(); render();
       $('calendar-preview').textContent = 'Choose a day to see the exact plan for all three leagues.';
@@ -119,22 +130,49 @@
   }
   function init() {
     $('calendar-refresh').addEventListener('click',loadCalendar);
-    $('calendar-league').addEventListener('change',function() {if(!view.data) {return;} view.league=this.value;view.plan=null;view.selected=null;view.month=league().current_date.slice(0,7);populateTeams();render();showError('Choose a target date.');});
+    // ++view.request, not just view.plan=null. Clearing the plan does not stop the reply that
+    // is already in the air: switching from Prep to Pro while a Prep preview was in flight let
+    // the old reply land, so view.league was pro, view.plan.reference was prep, "Sim to this
+    // target" lit up, and starting it would have run the PREP plan. The generation counter is
+    // what selectDate already checks; every action that invalidates a plan has to bump it.
+    $('calendar-league').addEventListener('change',function() {if(!view.data) {return;} ++view.request;view.league=this.value;view.plan=null;view.selected=null;view.month=league().current_date.slice(0,7);view.season=league().season;populateTeams();render();showError('Choose a target date.');});
     $('calendar-team').addEventListener('change',function() {view.team=this.value;render();});
     [['calendar-prev',-1],['calendar-next',1]].forEach(function(pair) {$(pair[0]).addEventListener('click',function() {
       if(!view.month) {return;} var p=view.month.split('-').map(Number);view.month=new Date(Date.UTC(p[0],p[1]-1+pair[1],1)).toISOString().slice(0,7);render();
     });});
     $('calendar-end').addEventListener('click',function() {if(league()) {view.month=league().last.slice(0,7);selectDate(league().last);}});
     $('calendar-start').addEventListener('click',startCalendar);
+    // THE PLAYOFF BUTTON SAYS WHAT IT WANTS, rather than ticking hidden boxes and hoping.
+    // It used to set #allow-season-end and call startSim(7) - but startSim only forwards that
+    // flag when #season-end-group is VISIBLE, so with the advanced controls collapsed the
+    // request went out as allow_season_end:false and the backend refused the very thing the
+    // button exists to do. It also inherited whatever #dry-run happened to be left on, so a
+    // forgotten tick turned "play the playoffs" into a run that played nothing.
     $('btn-playoffs').addEventListener('click',function() {
       var rows=(state.plan && state.plan.transition && state.plan.transition.leagues)||[];
+      var eligible=rows.filter(function(r){return !r.champion && r.regular_remaining===0;})
+                       .map(function(r){return r.key;});
+      // The checkboxes still move, because somebody watching the panel should see which
+      // leagues are going - but they are a REFLECTION of the request now, not its source.
       document.querySelectorAll('.league-pick').forEach(function(pick) {
-        var row=rows.find(function(r){return r.key===pick.value;});pick.checked=!!row&&!row.champion&&row.regular_remaining===0;pick.disabled=!!row&&!!row.champion;
+        var row=rows.find(function(r){return r.key===pick.value;});pick.checked=eligible.indexOf(pick.value)>=0;pick.disabled=!!row&&!!row.champion;
       });
-      $('allow-season-end').checked=true;startSim(7);
+      if(!eligible.length) {toast('No league is waiting on playoffs.',true);return;}
+      startSim(7,{leagues:eligible,dryRun:false,allowSeasonEnd:true});
     });
     renderSeasonReadiness(state.plan);loadCalendar();
-    var wasBusy=busy();setInterval(function(){var now=busy();if(wasBusy&&!now) {loadCalendar();}wasBusy=now;refreshCalendarButtons();},1500);
+    // SERIALISED, not fired together. Both /api/calendar and the readiness inside /api/state
+    // take the same save lock without blocking, so issuing them at once means one of them
+    // loses and reports a transient failure - either a calendar stuck in an error state or a
+    // season panel that believes a save is running. Chaining them costs one round trip and
+    // removes the race entirely; refreshState retries once on its own if it still lost.
+    var wasBusy=busy();setInterval(function(){
+      var now=busy();
+      if(wasBusy&&!now) {
+        Promise.resolve(loadCalendar()).then(function(){ if(window.refreshState) {refreshState();} });
+      }
+      wasBusy=now;refreshCalendarButtons();
+    },1500);
   }
   if(document.readyState==='loading') {document.addEventListener('DOMContentLoaded',init);} else {init();}
 })();

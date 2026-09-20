@@ -331,16 +331,21 @@ function refreshPace() {
   }
 }
 
-function startSim(days) {
+function startSim(days, opts) {
   if (state.busy) { toast('A sim is already running.', true); return; }
-  var leagues = pickedLeagues();
+  // `opts` lets a dedicated button state its own intent - {leagues, dryRun, allowSeasonEnd} -
+  // instead of ticking the advanced controls and calling this. Reading the UI stays the
+  // default, so the ordinary Sim button is unchanged.
+  opts = opts || {};
+  var leagues = opts.leagues !== undefined ? opts.leagues : pickedLeagues();
   if (leagues !== null && leagues.length === 0) { toast('Pick at least one league.', true); return; }
-  var dry = $('dry-run').checked;
+  var dry = opts.dryRun !== undefined ? opts.dryRun : $('dry-run').checked;
   var crossBox = $('allow-season-end');
   // Only send it when the control is actually showing. A checkbox left ticked from an earlier
   // arrangement of leagues must not silently grant permission to cross a different league's
   // boundary than the one it was ticked for.
-  var cross = !!(crossBox && crossBox.checked && !$('season-end-group').hidden);
+  var cross = opts.allowSeasonEnd !== undefined ? !!opts.allowSeasonEnd
+            : !!(crossBox && crossBox.checked && !$('season-end-group').hidden);
 
   setBusy(true, 'starting...');
   clearLog(null);
@@ -408,11 +413,27 @@ function setButtons() {
 }
 
 /* --------------------------------------------------------------------- refreshers ---- */
-function refreshState() {
-  api('/api/state').then(function (data) {
+/* True when a readiness answer says only that something else held the save lock while it
+   looked. calendarplan.snapshot and seasonflow.readiness both take the SAME lock without
+   blocking, so a calendar GET in flight makes an otherwise-ready transition report
+   {ready:false, reasons:['A save operation is running.']}. That answer is a moment in time,
+   not a fact about the season - and the panel used to cache it, because its interval only
+   recalculates button states and never asks again. The next-season controls then stayed
+   greyed out until somebody reloaded the page. */
+function heldTheLock(plan) {
+  var reasons = (plan && plan.transition && plan.transition.reasons) || [];
+  return reasons.some(function (r) { return /save operation is running/i.test(String(r)); });
+}
+
+function refreshState(retries) {
+  return api('/api/state').then(function (data) {
     if (!data.ok) { return; }
     renderLeagues(data.universe);
     if (data.plan) { renderPlan(data.plan); }
+    // One retry, only for the transient case, and only when nothing is actually running.
+    if (data.plan && heldTheLock(data.plan) && !data.busy && (retries === undefined ? 1 : retries) > 0) {
+      setTimeout(function () { refreshState((retries === undefined ? 1 : retries) - 1); }, 900);
+    }
     if (data.busy && !state.source) {
       // a sim started somewhere else (another tab): follow it
       state.busy = true;
