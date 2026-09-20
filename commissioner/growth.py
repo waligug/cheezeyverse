@@ -324,6 +324,23 @@ def format_height(inches) -> str:
     return f"{n // 12}'{n % 12}\""
 
 
+# Pounds each build adds to the weight for a height. Mirrors BUILDS in site/js/rules.js;
+# tests/test_rules.py runs both and refuses a disagreement.
+BUILD_LBS = {"wiry": -14, "lean": -7, "solid": 0, "strong": 9, "heavy": 20}
+
+
+def build_weight(height_inches, build_id) -> int:
+    """The weight a fourteen-year-old of this height and build is assumed to be.
+
+    This is a FALLBACK, not the truth. A character created since the builder grew a weight
+    slider carries `weight_lbs` and that is what he weighs; this answers for everybody made
+    before it, and for anyone who never touched the slider, with exactly the number the site
+    has always shown them.
+    """
+    h = _js_round(height_inches) if height_inches else 70
+    return _js_round((h - 60) * 4.6 + 96) + BUILD_LBS.get(str(build_id or "").lower(), 0)
+
+
 if __name__ == "__main__":  # a quick look at the model, for tuning
     import sys
 

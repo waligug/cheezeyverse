@@ -89,6 +89,14 @@ create table if not exists public.characters (
   "position"       text not null check ("position" in ('C','PF','SF','SG','PG')),
   -- Height AT FOURTEEN. He grows from here, every offseason, by commissioner/growth.py.
   height_inches    int  not null check (height_inches between 60 and 95),
+  -- Weight he CHOSE in the builder, in pounds. Null means he never chose one - everybody made
+  -- before the slider existed - and the commissioner derives height+build for those, which is
+  -- what the site used to do everywhere. Banded against his own height, not a flat range: see
+  -- supabase/weight_column.sql, which is this same column as a migration.
+  weight_lbs       int  check (
+    weight_lbs is null
+    or weight_lbs between round((height_inches - 60) * 4.6 + 96) - 50
+                      and round((height_inches - 60) * 4.6 + 96) + 50),
   -- The class he looked like the day he was created. A record, not a rule - see the note
   -- at the top of this file.
   archetype        text not null,
@@ -884,7 +892,7 @@ grant  update (first_name, last_name) on public.characters to authenticated;
 -- else's. Keep this list in step with CHARACTER_COLUMNS in site/js/supabase.js - the site
 -- never does select('*'), precisely because a column without a grant here would 403.
 revoke select on public.characters from anon, authenticated;
-grant  select (id, owner, first_name, last_name, "position", height_inches, archetype,
+grant  select (id, owner, first_name, last_name, "position", height_inches, weight_lbs, archetype,
                league, team_abbrev, status, game_dob, ratings, potentials,
                points_available, points_spent, created_at,
                jersey_preference, hometown, build, career_goal, traits, quiz_answers,
@@ -899,7 +907,7 @@ grant  select (id, owner, first_name, last_name, "position", height_inches, arch
 -- height_seed is NOT insertable: it is derived from the row's own id, which does not exist
 -- until the insert lands, so the commissioner writes it with the service role afterwards.
 revoke insert on public.characters from anon, authenticated;
-grant  insert (owner, first_name, last_name, "position", height_inches, archetype,
+grant  insert (owner, first_name, last_name, "position", height_inches, weight_lbs, archetype,
                ratings, potentials, points_spent, league,
                jersey_preference, hometown, build, career_goal, traits, quiz_answers,
                growth_bias, expected_adult_height)

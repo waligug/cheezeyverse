@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .codec.league_dat import POTENTIALS, RATING_MAX, RATINGS, CodecError, LeagueDat
+from .growth import build_weight
 from .universe import config as cfg
 
 DOCS = Path(r"C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3")
@@ -190,6 +191,18 @@ def stamp_character(L, slot, character):
     L.set(pl, "BirthDay", day)
     L.set(pl, "BirthYear", year)
     L.set(pl, "Height", int(character["height_inches"]))
+    # WEIGHT WAS NEVER WRITTEN AT ALL until the builder grew a slider, so the game gave every
+    # character whatever the reserve slot he claimed happened to weigh. Nobody noticed because
+    # the site derived its own number from height and build and only ever showed that one.
+    # Now that somebody can CHOOSE it, the two have to be the same number: a review card that
+    # says 185 and a game that plays him at 160 is a lie with no error attached.
+    #
+    # Null is not "no weight", it is "never asked" - everybody made before the slider - and
+    # those keep the number the site has always shown them, derived the same way it derives it.
+    weight = character.get("weight_lbs")
+    if not weight:
+        weight = build_weight(character.get("height_inches"), character.get("build"))
+    L.set(pl, "Weight", int(weight))
     if character.get("position"):
         L.set(pl, "Position", POSITION_CODES[character["position"]])
 

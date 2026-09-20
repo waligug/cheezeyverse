@@ -935,6 +935,12 @@ HEIGHT_CASES = [(cid, start, genes)
                 for genes in (0, 18, 50, 73, 100)]
 
 
+# Every build, across the legal height range, including the ends of it.
+WEIGHT_CASES = [(inches, build_id)
+                for inches in (60, 64, 68, 70, 72, 76, 80, 84, 88, 95)
+                for build_id in ("wiry", "lean", "solid", "strong", "heavy")]
+
+
 def test_height_agreement(results, base):
     """The JS and the Python must produce the same inches, year by year, for every case.
 
@@ -976,6 +982,35 @@ def test_height_agreement(results, base):
     check("the expected adult height agrees", not bad_expected, str(bad_expected[:3]))
     check("the projected range shown on the create page agrees", not bad_outlook,
           str(bad_outlook[:2]))
+    return i
+
+
+def test_weight_agreement(results, base):
+    """The weight the browser shows and the weight the commissioner writes must be one number.
+
+    Weight used to be derived in the site and NEVER WRITTEN to league.dat at all - the game
+    played everybody at whatever the reserve slot he claimed weighed. That was invisible while
+    the site was the only place a weight appeared. Now the builder has a slider and the
+    commissioner writes the pounds in, and for everybody created before the slider it writes
+    this derived fallback instead. If the two formulas drift, his card and his player disagree
+    and nothing raises.
+    """
+    bad, i = [], base
+    for inches, build_id in WEIGHT_CASES:
+        js = value(results, i, "buildWeight"); i += 1
+        py = PY_GROWTH.build_weight(inches, build_id)
+        if js != py:
+            bad.append(f"{inches}in {build_id}: js {js} != py {py}")
+    check(f"JS and Python agree on the weight for {len(WEIGHT_CASES)} height/build pairs",
+          not bad, "; ".join(bad[:4]))
+    # and the derived number must sit inside the band the database will accept, or a character
+    # made before the slider cannot be re-inserted by his own fallback
+    outside = [f"{inches}in {build_id}: {PY_GROWTH.build_weight(inches, build_id)}"
+               for inches, build_id in WEIGHT_CASES
+               if abs(PY_GROWTH.build_weight(inches, build_id)
+                      - round((inches - 60) * 4.6 + 96)) > 50]
+    check("every derived weight is inside the check constraint in schema.sql", not outside,
+          str(outside[:3]))
     return i
 
 
@@ -1224,6 +1259,11 @@ def main():
         calls.append({"op": "expectedAdultHeight", "args": [start, genes]})
         calls.append({"op": "heightOutlook", "args": [start, genes]})
 
+    # --- weight --------------------------------------------------------------------------
+    weight_base = len(calls)
+    for inches, build_id in WEIGHT_CASES:
+        calls.append({"op": "buildWeight", "args": [inches, build_id]})
+
     # --- validateBuild -------------------------------------------------------------------
     good_answers = sample_answers(consts["QUIZ"], 3)
     identity = {"firstName": "Milo", "lastName": "Trask", "hometown": "Scarborough, ON",
@@ -1306,6 +1346,7 @@ def main():
     test_classes_are_labels_only(consts)
     test_height_agreement(results, height_base)
     test_height_model(results, height_base, consts)
+    test_weight_agreement(results, weight_base)
     test_build_validation(results, build_base)
     test_upgrade_validation(results, upgrade_base)
     test_limits(results, limit_base)

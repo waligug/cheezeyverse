@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 
 import requests
@@ -39,7 +40,7 @@ __all__ = [
 # The character columns the public career pages need. Kept explicit rather than `*` so a
 # new column added to the table does not silently start leaking into the export.
 CHARACTER_COLUMNS = (
-    "id,owner,first_name,last_name,position,height_inches,archetype,league,team_abbrev,"
+    "id,owner,first_name,last_name,position,height_inches,weight_lbs,archetype,league,team_abbrev,"
     "status,game_dob,ratings,potentials,points_available,points_spent,claimed_slot,"
     # league_player_ids is how anything outside the codec finds a character in the
     # generated league site: it maps each level to his FBPB3 player id. Leaving it out
@@ -52,7 +53,11 @@ CHARACTER_COLUMNS = (
     # traits carries height_genes, which apply_growth needs. Without it every character
     # read None, growth skipped all of them, and the offseason reported "0 grew" - so
     # nobody would ever have got taller, in a game whose whole premise is growing up.
-    "traits,created_at"
+    # build is the fallback half of weight: characters made before the slider have a null
+    # weight_lbs and stamp_character derives height+build for them. Left out, build reads
+    # None, every one of them derives as "solid", and a wiry or heavy kid is quietly handed
+    # a weight up to 20 lbs from the one his own page has always shown him.
+    "traits,build,created_at"
 )
 
 DRY_RUN = False  # set by --selftest; makes every call describe itself instead of firing
@@ -128,8 +133,50 @@ def _print_plan(plan):
         print("         body: " + json.dumps(plan["body"], default=str)[:400])
 
 
+# Columns this code selects that the database may not have yet, and what is lost while it does
+# not. A migration is a thing a person pastes into the Supabase SQL editor, so there is always a
+# window between the code that wants a column and the column existing - and PostgREST does not
+# ignore an unknown column in `select`, it 400s the whole request. Selecting one before it
+# exists therefore does not degrade the read, it kills it: every character, for every caller,
+# including the panel and a running sim.
+PENDING_COLUMNS = {
+    "weight_lbs": "the weight he chose in the builder; until supabase/weight_column.sql is run, "
+                  "the commissioner derives it from height and build as it always has",
+}
+_warned_missing = set()
+
+
 def _table(name, params=None, prefer=None):
-    return _request("GET", f"/rest/v1/{name}", params=params, prefer=prefer)
+    try:
+        return _request("GET", f"/rest/v1/{name}", params=params, prefer=prefer)
+    except StoreError as exc:
+        missing = _missing_column(exc, params)
+        if not missing:
+            raise
+        # Drop it and ask again, once. Only ever a column named in PENDING_COLUMNS: an unknown
+        # column that nobody declared as pending is a typo in a select, and a typo that silently
+        # answers with the field missing is the exact failure CHARACTER_COLUMNS already cost us
+        # five times in a day.
+        if missing not in _warned_missing:
+            _warned_missing.add(missing)
+            print(f"[store] {name}.{missing} does not exist yet - {PENDING_COLUMNS[missing]}")
+        thinner = dict(params or {})
+        thinner["select"] = _drop_column(thinner.get("select", ""), missing)
+        return _request("GET", f"/rest/v1/{name}", params=thinner, prefer=prefer)
+
+
+def _missing_column(exc, params):
+    """The PENDING_COLUMNS name PostgREST just refused, or None."""
+    m = re.search(r"column \w+\.(\w+) does not exist", str(exc))
+    if not m or "42703" not in str(exc):
+        return None
+    name = m.group(1)
+    return name if name in PENDING_COLUMNS and name in (params or {}).get("select", "") else None
+
+
+def _drop_column(select, name):
+    """`select` without `name`, at the top level and inside any embedded resource."""
+    return re.sub(rf"(?<![\w.]){re.escape(name)},|,{re.escape(name)}(?![\w(])", "", select)
 
 
 def _rpc(name, body):
