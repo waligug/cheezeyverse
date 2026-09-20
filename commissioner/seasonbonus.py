@@ -60,6 +60,10 @@ DEFAULTS = {
     "bonus_title": 2,           # was 3; a team RESULT, not an award, so it never came off
     "bonus_potw": 0,            # was 1
     "bonus_potm": 2,            # the only award that pays
+    # The All-Star game, which the engine selects itself. Nate's call, 2026-09-20: worth 2, the
+    # same as Player of the Month, because it is the league saying he was one of its best that
+    # year rather than one good month.
+    "bonus_allstar": 2,
     "bonus_season_award": 0,    # was 3 (MVP, All-League)
     "bonus_catchup": 3,
     "catchup_share": 0.25,      # played in fewer than this share of his team's games
@@ -336,6 +340,52 @@ def award_counts(html_dir):
     return out
 
 
+# "2027 CVP All-Star" as the player page writes it: the season, the league's abbreviation, and
+# the award. Anchored at both ends, which is the whole trick - "2027 CVP All-Star Game MVP" is a
+# DIFFERENT award printed on the same page, and a prefix match pays the wrong people. The middle
+# is loose because the abbreviation is per league and some award lines spell it out in full
+# ("2026 Cheezeyverse Prep Champion").
+ALL_STAR_LINE = re.compile(r"(\d{4})\s+.+\bAll-Star", re.I)
+
+
+def all_star_seasons(html_dir):
+    """{player name: {season, ...}} - the seasons each player was named an All-Star.
+
+    READ FROM THE PLAYER PAGES, because that is the only place the export states it. Neither
+    awards.htm nor seasonawards.htm mentions the All-Star game at all - checked on a real
+    export, both come back with no match - so there is no league-wide page to read and the 425
+    player pages are the source. Parsed once per league and kept in the caller's cache.
+
+    The page is a run of `&nbsp;`-separated items: the player's name is the first, and his
+    honours are one item each. Splitting on that separator is what keeps "All-Star" apart from
+    "All-Star Game MVP"; searching the page for the words would conflate them.
+    """
+    out = {}
+    players = Path(html_dir) / "players"
+    if not players.is_dir():
+        return out
+    for page in players.glob("player*.htm"):
+        items = [i.strip() for i in _text(page).split("&nbsp;")]
+        # THE NAME IS THE ITEM BEFORE THE DESCRIPTOR, not the second item on the page. The
+        # second item only works when the stylesheet happens to sit in front of it, which is
+        # true of a real export and not of a hand-built one - and when it is wrong it is not
+        # empty, it is "#7 SF | 5-10, 138lbs | Tulips | ...". Two players on the same team then
+        # collapse into one key and inherit each other's honours, which a test caught.
+        # "#1 SF | 6-8, 202lbs | Tulips | ..." is the landmark, and it is on every player page.
+        name = ""
+        for i, item in enumerate(items):
+            if re.match(r"#\d+\s+\S+\s*\|", item):
+                name = next((prev for prev in reversed(items[:i]) if prev), "")
+                break
+        if not name:
+            continue
+        for item in items:
+            m = ALL_STAR_LINE.fullmatch(item)
+            if m:
+                out.setdefault(name, set()).add(int(m.group(1)))
+    return out
+
+
 def season_award_winners(html_dir):
     """Every name on seasonawards.htm. Empty until the season has actually ended."""
     text = _text(Path(html_dir) / "seasonawards.htm")
@@ -435,6 +485,7 @@ def for_character(name, html_dir, settings=None, cache=None):
         c["elite"] = elite_lines(c["totals"], setting(s, "stat_bonus_elite_rank"))
         c["awards"] = award_counts(html_dir)
         c["season_awards"] = season_award_winners(html_dir)
+        c["all_stars"] = all_star_seasons(html_dir)
         c["playoffs"], c["champion"] = playoff_bracket(html_dir)
 
     line = c["totals"].get(name)
@@ -462,6 +513,19 @@ def for_character(name, html_dir, settings=None, cache=None):
                      got["potm"] * setting(s, "bonus_potm")))
     if name in c["season_awards"]:
         rows.append(("season bonus: a season award", setting(s, "bonus_season_award")))
+
+    # -- the All-Star game, ONLY for the season being settled.
+    # The player page lists every honour of his career, so a man picked in 2026 still carries
+    # that line in 2027 and would be paid again every single year. The season comes from the
+    # settings the offseason is running against, and if it cannot be read the bonus is NOT paid
+    # - silently paying for the wrong year is worse than not paying at all, and the ledger line
+    # would name a season nobody could check.
+    try:
+        this_season = int(s.get("current_season"))
+    except (TypeError, ValueError):
+        this_season = None
+    if this_season and this_season in c["all_stars"].get(name, ()):
+        rows.append((f"season bonus: {this_season} All-Star", setting(s, "bonus_allstar")))
 
     # -- statistics, both halves league-relative
     top_n, top_max = setting(s, "stat_bonus_top_n"), setting(s, "stat_bonus_top_max")

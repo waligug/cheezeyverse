@@ -57,11 +57,15 @@ PLAYERS = [
 ]
 
 
-def _player_page(name, team, g, pts, reb, ast, stl, blk):
+def _player_page(name, team, g, pts, reb, ast, stl, blk, honours=()):
+    """`honours` are the award lines FBPB3 prints one per &nbsp;-separated item, exactly as a
+    real page does: "2027 CVP All-Star", and separately "2027 CVP All-Star Game MVP"."""
     row = [g, g, 300, 1, 2, 1, 2, 1, 2, pts, 1, reb, ast, stl, 5, stl, blk, 3, 0]
     cells = "".join(f"<td>{v}</td>" for v in row)
+    honour_html = "".join(f"<td>&nbsp;{h}</td>" for h in honours)
     return f"""<html><body>
       <b>{name}&nbsp;</b><td>#7 SF | 5-10, 138lbs | {team} | Experience: 1 year</td>
+      {honour_html}
       <table><tr><td>&nbsp;Season Totals</td></tr>
       <tr><td>&nbsp;Season</td><td>G</td><td>GS</td><td>MIN</td><td>FGM</td><td>FGA</td>
           <td>FTM</td><td>FTA</td><td>3PM</td><td>3PA</td><td>PTS</td><td>OREB</td><td>REB</td>
@@ -71,11 +75,14 @@ def _player_page(name, team, g, pts, reb, ast, stl, blk):
       </body></html>"""
 
 
-def _build(tmp, *, champion=None, season_awards=False, postseason=True):
+def _build(tmp, *, champion=None, season_awards=False, postseason=True, honours=None):
+    """`honours` is {player name: [award line, ...]} written onto that player's page."""
     d = Path(tmp)
     (d / "players").mkdir(parents=True, exist_ok=True)
+    honours = honours or {}
     for i, p in enumerate(PLAYERS):
-        (d / "players" / f"player{i}.htm").write_text(_player_page(*p), encoding="latin-1")
+        (d / "players" / f"player{i}.htm").write_text(
+            _player_page(*p, honours=honours.get(p[0], ())), encoding="latin-1")
 
     # Tulips are undefeated, so their percentage has a digit before the dot.
     (d / "standings.htm").write_text(
@@ -165,6 +172,30 @@ def main():
         assert sb.champion(nopost) is None
         assert not any("playoffs" in r for r, _ in sb.for_character("Our Guy", nopost, {}, {})),             "a league with no bracket paid a playoff bonus"
         shutil.rmtree(nopost, ignore_errors=True)
+
+        # ---- the All-Star game, and the season it belongs to -----------------------------
+        # Every honour a player ever won stays printed on his page, so the season filter is the
+        # whole correctness of this bonus: without it a man picked once is paid every year for
+        # the rest of his career, and the ledger line would look perfectly reasonable.
+        stars = _build(Path(tempfile.mkdtemp(prefix="stars-")), honours={
+            "Our Guy": ["2026 CVP All-Star", "2027 CVP All-Star Game MVP"],
+            "Ace Elite": ["2027 CVP All-Star"],
+        })
+        found = sb.all_star_seasons(stars)
+        assert found.get("Our Guy") == {2026}, f"the Game MVP line was read as a selection: {found}"
+        assert found.get("Ace Elite") == {2027}, found
+
+        paid = dict(sb.for_character("Ace Elite", stars, {"current_season": 2027}, {}))
+        assert paid.get("season bonus: 2027 All-Star") == 2, paid
+        old_star = dict(sb.for_character("Our Guy", stars, {"current_season": 2027}, {}))
+        assert not any("All-Star" in r for r in old_star),             f"a 2026 All-Star was paid again in 2027: {old_star}"
+        back_then = dict(sb.for_character("Our Guy", stars, {"current_season": 2026}, {}))
+        assert back_then.get("season bonus: 2026 All-Star") == 2, back_then
+        # and with no season to check against, it pays nothing rather than guessing
+        unknown = dict(sb.for_character("Ace Elite", stars, {}, {}))
+        assert not any("All-Star" in r for r in unknown),             f"paid an All-Star bonus without knowing the season: {unknown}"
+        assert sb.DEFAULTS["bonus_allstar"] == 2, sb.DEFAULTS["bonus_allstar"]
+        shutil.rmtree(stars, ignore_errors=True)
 
         # The two AWARD components are off by default; the two TEAM ones pay 2 apiece. Assert
         # both explicitly: a component silently switching itself back on would pay real points
