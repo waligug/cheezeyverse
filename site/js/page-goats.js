@@ -30,17 +30,53 @@ const BOARDS = [
 
 /* The columns of the full table. `key` reads a career row; `rate` marks the ones that are
    averages so they can be right-aligned with one decimal. */
+/* [key, heading, isRate, what the hover says]. The fourth is spelled out because a column
+   headed PF or EFF tells a newcomer nothing, and the tooltip is the only place to say it. */
 const COLUMNS = [
-  ['name', 'Player', false], ['team', 'Team', false], ['Games', 'G', false],
-  ['Points', 'PTS', false], ['ppg', 'PPG', true], ['Rebounds', 'REB', false],
-  ['rpg', 'RPG', true], ['Assists', 'AST', false], ['apg', 'APG', true],
-  ['Steals', 'STL', false], ['Blocks', 'BLK', false], ['efficiency', 'EFF', false],
-  ['fg_pct', 'FG%', true], ['tp_pct', '3P%', true], ['ft_pct', 'FT%', true],
+  ['name', 'Player', false, 'name'],
+  ['team', 'Team', false, 'team'],
+  ['Games', 'G', false, 'games played'],
+  ['Points', 'PTS', false, 'total points'],
+  ['ppg', 'PPG', true, 'points per game'],
+  ['Rebounds', 'REB', false, 'total rebounds'],
+  ['rpg', 'RPG', true, 'rebounds per game'],
+  ['Assists', 'AST', false, 'total assists'],
+  ['apg', 'APG', true, 'assists per game'],
+  ['Steals', 'STL', false, 'total steals'],
+  ['Blocks', 'BLK', false, 'total blocks'],
+  ['efficiency', 'EFF', false, 'efficiency: points + rebounds + assists + steals + blocks, '
+    + 'minus missed shots and turnovers'],
+  ['fg_pct', 'FG%', true, 'field goal percentage'],
+  ['tp_pct', '3P%', true, 'three point percentage'],
+  ['ft_pct', 'FT%', true, 'free throw percentage'],
 ];
 
 let LEAGUE = 'pro';          // the deepest history, so the page opens on something worth reading
 let SORT = 'Points';
+let DIR = -1;                // -1 biggest first, 1 smallest first
+let ONLY_OURS = false;
 let OURS = new Set();        // lower-cased names of the characters, for the marker
+
+function isOurs(row) {
+  return OURS.has(String(row && row.name || '').toLowerCase());
+}
+
+/* Our players on one board, each carrying the rank he holds among EVERYBODY.
+   Filtering the published top-ten would usually show nothing at all - none of the seven is top
+   ten in a league of four hundred - and worse, re-ranking the survivors 1..7 would invent a
+   standing that does not exist. The whole question is "where does he actually come", so the
+   rank is taken from the full career list before anyone is filtered out. */
+function oursRanked(careers, stat, limit) {
+  const ordered = careers.slice().sort((a, b) => num(b[stat]) - num(a[stat]));
+  const out = [];
+  for (let i = 0; i < ordered.length && out.length < limit; i += 1) {
+    if (!isOurs(ordered[i])) continue;
+    const c = ordered[i];
+    out.push({ name: c.name, value: c[stat], games: c.Games, rank: i + 1,
+               from: c.first_season, to: c.last_season });
+  }
+  return out;
+}
 
 const CACHE = new Map();
 function careersOf(league) {
@@ -73,25 +109,55 @@ function renderLeaders(data) {
   }
   const grid = el('div', { class: 'cv-grid' });
   for (const [key, label] of BOARDS) {
-    const rows = (data.leaders[key] || []).slice(0, 10);
+    const rows = ONLY_OURS
+      ? oursRanked(data.careers || [], key, 10)
+      : (data.leaders[key] || []).slice(0, 10).map((r, i) => ({ ...r, rank: i + 1 }));
     if (!rows.length) continue;
     grid.append(el('div', { class: 'cv-card cv-sub' },
       el('h3', {}, `Most ${label.toLowerCase()}`),
       el('table', { class: 'cv-table cv-tight' },
-        el('tbody', {}, rows.map((r, i) => leaderRow(r, i + 1, label))))));
+        el('tbody', {}, rows.map((r) => leaderRow(r, r.rank, label))))));
   }
   host.append(grid);
 }
+
+/* Click the sorted column to reverse it; click a new one to sort it biggest-first, since that
+   is what somebody asking "who has the most" wants. Name and team start A-Z instead. */
+function sortBy(key) {
+  if (SORT === key) {
+    DIR = -DIR;
+  } else {
+    SORT = key;
+    DIR = (key === 'name' || key === 'team') ? 1 : -1;
+  }
+}
+
 
 function renderTable(data) {
   const host = $('#table');
   clear(host);
   if (!data || !data.careers || !data.careers.length) return;
-  const rows = data.careers.slice().sort((a, b) => num(b[SORT]) - num(a[SORT]));
-  const head = el('tr', {}, COLUMNS.map(([key, label]) => el('th', {
-    class: key === 'name' || key === 'team' ? null : 'cv-num',
-    'aria-sort': key === SORT ? 'descending' : null,
-    onclick: () => { SORT = key; renderTable(data); },
+  let rows = data.careers.slice();
+  if (ONLY_OURS) rows = rows.filter(isOurs);
+  rows.sort((a, b) => {
+    const x = num(a[SORT]);
+    const y = num(b[SORT]);
+    if (x === y) return String(a.name || '').localeCompare(String(b.name || ''));
+    return (x < y ? -1 : 1) * DIR;
+  });
+  const head = el('tr', {}, COLUMNS.map(([key, label, , hint]) => el('th', {
+    class: `cv-sortable${key === 'name' || key === 'team' ? '' : ' cv-num'}`,
+    // The title is the hover hint; the aria-sort is what a screen reader and the arrow both
+    // read. A second click on the same column flips the direction, like a spreadsheet.
+    title: key === SORT
+      ? `Sorted by ${hint || label} - click to reverse`
+      : `Sort by ${hint || label}`,
+    tabindex: '0',
+    'aria-sort': key === SORT ? (DIR === -1 ? 'descending' : 'ascending') : null,
+    onclick: () => { sortBy(key); renderTable(data); },
+    onkeydown: (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortBy(key); renderTable(data); }
+    },
   }, label)));
   const body = rows.slice(0, 250).map((c) => {
     const ours = OURS.has(String(c.name || '').toLowerCase());
@@ -107,9 +173,25 @@ function renderTable(data) {
       return el('td', { class: 'cv-num' }, rate ? num(v).toFixed(1) : num(v).toLocaleString());
     }));
   });
+  const mine = data.careers.filter(isOurs).length;
+  const filter = el('div', { class: 'cv-filter' },
+    el('label', {},
+      el('input', {
+        type: 'checkbox',
+        checked: ONLY_OURS || null,
+        disabled: mine ? null : true,
+        onchange: (e) => { ONLY_OURS = e.target.checked; renderLeaders(data); renderTable(data); },
+      }),
+      el('span', {}, 'Only our players')),
+    el('span', { class: 'cv-muted cv-small' }, mine
+      ? `${mine} of ${data.careers.length} careers in this league are ours`
+      : 'nobody of ours has played in this league yet'));
   host.append(
-    el('p', { class: 'cv-muted cv-small' }, 'Click a column to sort. Showing the top 250.'),
-    el('table', { class: 'cv-table' }, el('thead', {}, head), el('tbody', {}, body)));
+    filter,
+    el('p', { class: 'cv-muted cv-small' },
+      `Click a column to sort, again to reverse. Showing ${Math.min(rows.length, 250)} of ${rows.length}.`),
+    el('div', { class: 'cv-scroll' },
+      el('table', { class: 'cv-table' }, el('thead', {}, head), el('tbody', {}, body))));
 }
 
 function renderTabs() {

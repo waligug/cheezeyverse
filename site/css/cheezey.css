@@ -535,6 +535,30 @@ table.cv-table th {
 }
 table.cv-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 table.cv-table tr:nth-child(even) td { background: var(--cream2); }
+
+/* ---- sortable headers ----
+   A column you can sort has to LOOK like one before it is clicked, or nobody discovers it.
+   The arrow is always there - faint when the column is idle, solid on the one in use - so the
+   header reads as a control rather than as a label that happens to respond. */
+table.cv-table th.cv-sortable { cursor: pointer; user-select: none; }
+table.cv-table th.cv-sortable::after {
+  content: "\2195";                 /* up-down arrow: "this sorts" */
+  margin-left: 5px;
+  opacity: .35;
+  font-weight: 400;
+}
+table.cv-table th.cv-sortable:hover { background: var(--crust); }
+table.cv-table th.cv-sortable:hover::after { opacity: .8; }
+table.cv-table th.cv-sortable:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+table.cv-table th.cv-sortable[aria-sort="descending"]::after { content: "\25BC"; opacity: 1; }
+table.cv-table th.cv-sortable[aria-sort="ascending"]::after { content: "\25B2"; opacity: 1; }
+table.cv-table th.cv-sortable[aria-sort] { background: var(--crust); }
+
+/* ---- the "ours only" switch on the all-time page ---- */
+.cv-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
+.cv-filter label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+tr.cv-ours td { background: var(--butter, #FFF3C4) !important; }
+tr.cv-ours td:first-child { box-shadow: inset 3px 0 0 var(--crust); }
 .cv-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* ---------------------------------------------------------------------------- notices */
