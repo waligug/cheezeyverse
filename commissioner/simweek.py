@@ -1165,9 +1165,16 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # covers its own games comfortably and a season left unexported cannot be recovered.
             out = game.html_output(spec.save_name, old_boxes=True)
             emit("export", f"{len(list(out.rglob('*.htm')))} pages", key)
-            # The MDB is the only place per-game stats exist - FBPB3 writes no box scores and
-            # has no setting for them. About 7 s a league, measured, against the ~400 s the new
-            # sim_days gives back. Done while the save is still loaded, and never fatal: the
+            # The MDB is where the per-game and season-total tables come from, and it is also
+            # the only chance to write a career down before the save retires the man: SeasonStats
+            # is rebuilt from scratch every export, so whatever is not captured here is gone.
+            #
+            # NOT "about 7 s a league" - that was measured when the leagues were new and it is
+            # what made a 180 s budget look generous. Measured 2026-09-20: prep 8 s, college 9 s,
+            # PRO 211 s, because pro has twenty teams and a 9.8 MB database. It grows with every
+            # season played, so this is the line to watch as the universe ages.
+            #
+            # Done while the save is still loaded, and never fatal: the
             # week's basketball is already saved and exported by this point, and head-to-head
             # going stale is not worth losing it.
             try:
