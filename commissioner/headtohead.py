@@ -291,9 +291,20 @@ def powershell():
 def query(mdb_path, sql, script=None):
     """Run one SQL statement against an Access MDB and return a list of dicts.
 
-    Raises on failure rather than returning nothing. The scripts set $ErrorActionPreference =
-    "Stop" so a provider or SQL problem is a non-zero exit instead of silence, and an empty
-    result here now means the table really is empty.
+    THE EXIT CODE IS WHAT SAYS WHETHER IT WORKED, and nothing else can. `mdb_query.ps1` sets
+    $ErrorActionPreference = "Stop", so a missing provider, a bad path or a SQL error is a
+    NON-ZERO exit; that is raised above. A zero exit is a query that ran.
+
+    Empty stdout on a zero exit therefore means NO ROWS, and must return []. This used to raise,
+    on the reasoning that a real result always has at least a header line - which is not true:
+    `ConvertTo-Csv` of an empty DataTable emits nothing whatsoever, header included. That guard
+    was written for the 64-bit-PowerShell failure, where the script silently produced nothing,
+    and it was the right guard before the .ps1 learned to fail loudly. Once it did, the guard was
+    catching the wrong thing.
+
+    It cost a publish: after FBPB3's rollover PlayerGameStats is legitimately empty, which is the
+    exact state the games archive exists to survive, and this raised instead of returning [] - so
+    the merge that would have preserved 161 game lines never ran at all.
     """
     import csv
     import io
@@ -306,13 +317,7 @@ def query(mdb_path, sql, script=None):
         capture_output=True, text=True, timeout=180)
     if out.returncode != 0:
         raise RuntimeError(f"mdb_query failed: {(out.stderr or out.stdout)[:300]}")
-    rows = list(csv.DictReader(io.StringIO(out.stdout)))
-    if not rows and not out.stdout.strip():
-        # not even a header line: the script produced nothing at all, which is what the 64-bit
-        # shell did for months of nobody noticing
-        raise RuntimeError(f"mdb_query returned no output at all for {sql[:60]!r} - "
-                           f"check the Jet provider and the PowerShell bitness ({powershell()})")
-    return rows
+    return list(csv.DictReader(io.StringIO(out.stdout)))
 
 
 def from_mdb(mdb_path, characters, runs=None, league=None, opener=None, season=None):

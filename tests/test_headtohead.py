@@ -239,6 +239,34 @@ def main():
     else:
         raise AssertionError("a missing database returned rows instead of raising")
 
+    # ---- BUT AN EMPTY RESULT IS NOT A FAILURE ---------------------------------------------
+    # The two are told apart by the EXIT CODE and nothing else: mdb_query.ps1 stops on error, so
+    # a provider or SQL problem exits non-zero. An earlier version also raised when stdout was
+    # empty, reasoning that a real result always carries a header line - which is false, because
+    # ConvertTo-Csv of an empty DataTable emits nothing at all.
+    #
+    # That cost a publish. After FBPB3's rollover PlayerGameStats is legitimately empty - the
+    # exact state the games archive exists to survive - and query() raised, so the merge that
+    # would have preserved 161 game lines never ran and no games.json was written for any league.
+    mdb = next((p for p in [
+        Path(os.environ.get("PUBLIC", r"C:\Users\Public")) / "Documents" / "GDS"
+        / "Fast Break Pro Basketball 3" / "leaguedata" / d / "LeagueOutput.mdb"
+        for d in ("Chung_test", "CV_Prep")] if p.exists()), None)
+    if mdb is None:
+        print("    (no MDB on this machine: the empty-result check is skipped)")
+    else:
+        rows = query(mdb, "SELECT * FROM PlayerGameStats WHERE ID = -1")
+        assert rows == [], f"a query matching nothing must return [], got {rows!r}"
+        assert query(mdb, "SELECT COUNT(*) AS n FROM PlayerGameStats"), \
+            "a query that DOES match must still return its rows"
+        for bad in ("SELECT * FROM NoSuchTable", "SELECT nonsense FROM"):
+            try:
+                query(mdb, bad)
+            except Exception:
+                pass
+            else:
+                raise AssertionError(f"{bad!r} returned rows instead of raising")
+
     print("OK  head-to-head: the filler's games stay out, preseason stays out, numbers match")
     return 0
 
