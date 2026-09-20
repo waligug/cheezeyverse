@@ -71,6 +71,7 @@ class FBPB3:
     def __init__(self):
         self.app = None
         self.main = None
+        self._hwnd_cache = None
 
     # ---- process ---------------------------------------------------------------------------
     def launch(self, timeout=60):
@@ -82,6 +83,7 @@ class FBPB3:
         except Exception:
             self.app = Application(backend="win32").start(str(EXE), work_dir=str(GAME_DIR))
         self.main = self.app.window(class_name="ThunderRT6MDIForm")
+        self._hwnd_cache = None          # a new window; forget the one _grab remembered
         self.main.wait("visible", timeout=timeout)
         time.sleep(3)
         self.assert_clickable()
@@ -576,51 +578,115 @@ class FBPB3:
     # window-relative box around the Hot Seat calendar's date label ("MARCH 23, 2027")
     HOTSEAT_DATE_BOX = (775, 247, 935, 268)
 
-    def _grab(self):
-        """The main window as a PIL image, even when other windows cover it (PrintWindow)."""
+    def _grab(self, box=None, cheap=False):
+        """The main window, or one window-relative `box` of it, as a PIL image.
+
+        TWO WAYS TO READ THE SCREEN, and the difference is most of a sim's waiting.
+
+        PrintWindow (cheap=False) asks the window to render itself into our bitmap, so it is
+        right even when something covers FBPB3 - which is why it has always been used here. It
+        costs what it costs: 28 ms measured, and it always renders the WHOLE 1019x762 window
+        however little of it we wanted.
+
+        BitBlt (cheap=True) copies pixels that are already on screen, so it costs in proportion
+        to the area asked for - 0.51 ms for the 160x21 date label, about 130x cheaper than a
+        _grab() was - but it reads whatever is actually in front of those pixels. Covered, it
+        returns the covering window.
+
+        Measured 2026-09-20 on the title screen: PrintWindow whole window 27.7 ms, BitBlt whole
+        window 10.9 ms, BitBlt the date box 0.51 ms - and PrintWindow-then-crop and BitBlt-the-box
+        returned byte-identical images. So the cheap read is used to WATCH, and PrintWindow is
+        still what CONFIRMS anything the run acts on. See _wait_for_new_day.
+        """
         import win32gui
         import win32ui
         from PIL import Image
-        hwnd = self.main.handle
-        r = self.main.rectangle()
-        w, h = r.width(), r.height()
+        # `self.main` is a pywinauto WindowSpecification, and .handle RESOLVES it - a window
+        # search, every time, measured at about 4 ms. On a path called twenty times a simulated
+        # day that is the largest cost left in a cheap capture. The handle of a window that is
+        # still open never changes, so it is remembered and checked with IsWindow (a pointer
+        # lookup) rather than searched for again; a window that has gone away, or a game that has
+        # been relaunched, falls back to asking pywinauto properly.
+        hwnd = getattr(self, "_hwnd_cache", None)
+        if not hwnd or not win32gui.IsWindow(hwnd):
+            hwnd = self._hwnd_cache = self.main.handle
+        # LAZILY, because main.rectangle() is a pywinauto round trip that measured 7.6 ms - more
+        # than fourteen times the BitBlt it was being fetched for. Reading the date box needs
+        # only the box, so on the hot path the window is never measured at all: that one line
+        # was costing more than every other part of a cheap capture put together.
+        x, y = (box[0], box[1]) if box else (0, 0)
+        if cheap and box:
+            full_w, full_h = box[2] - box[0], box[3] - box[1]
+        else:
+            r = self.main.rectangle()
+            full_w, full_h = r.width(), r.height()   # PrintWindow renders all of it regardless
+        w, h = (box[2] - box[0], box[3] - box[1]) if box else (full_w, full_h)
         hdc = win32gui.GetWindowDC(hwnd)
         src = win32ui.CreateDCFromHandle(hdc)
         mem = src.CreateCompatibleDC()
         bmp = win32ui.CreateBitmap()
-        bmp.CreateCompatibleBitmap(src, w, h)
+        bmp.CreateCompatibleBitmap(src, full_w, full_h)
         mem.SelectObject(bmp)
         try:
-            ctypes.windll.user32.PrintWindow(hwnd, mem.GetSafeHdc(), 2)
+            if cheap:
+                mem.BitBlt((0, 0), (w, h), src, (x, y), 0x00CC0020)      # SRCCOPY
+            else:
+                ctypes.windll.user32.PrintWindow(hwnd, mem.GetSafeHdc(), 2)
             info = bmp.GetInfo()
-            return Image.frombuffer("RGB", (info["bmWidth"], info["bmHeight"]),
-                                    bmp.GetBitmapBits(True), "raw", "BGRX", 0, 1)
+            image = Image.frombuffer("RGB", (info["bmWidth"], info["bmHeight"]),
+                                     bmp.GetBitmapBits(True), "raw", "BGRX", 0, 1)
+            return image.crop(box) if (box and not cheap) else image
         finally:
             win32gui.DeleteObject(bmp.GetHandle())
             mem.DeleteDC()
             src.DeleteDC()
             win32gui.ReleaseDC(hwnd, hdc)
 
-    def _date_signature(self):
-        return self._grab().crop(self.HOTSEAT_DATE_BOX).tobytes()
+    def _date_signature(self, cheap=False):
+        return self._grab(self.HOTSEAT_DATE_BOX, cheap).tobytes()
 
     def _wait_for_new_day(self, before, timeout, settle):
         """True once the date label differs from `before` and the window has been still for
-        `settle` seconds (capped at 5 s, so a busy screen cannot hold the run). False on timeout."""
+        `settle` seconds (capped at 5 s, so a busy screen cannot hold the run). False on timeout.
+
+        WATCHED CHEAPLY, CONFIRMED EXPENSIVELY. This used to PrintWindow the entire window every
+        0.1 s - about thirteen full captures per league-day at 66 ms each, which over the 177
+        league-days of a 59-day three-league week came to something like two and a half minutes
+        of a sim doing nothing but photographing a screen that had not changed.
+
+        Now the 160x21 date label is watched with a 0.51 ms BitBlt, and NOTHING is acted on
+        until a PrintWindow says the same thing. That matters because BitBlt reads the pixels
+        actually on screen: if another window covers FBPB3 it returns the covering window, which
+        would otherwise read as a date that changed when it had not - and a day wrongly called
+        finished is a day never simmed.
+
+        So a cheap read that DISAGREES only earns an authoritative second opinion, at most twice
+        a second, and the run advances on the authoritative one. A cheap read that agrees is not
+        trusted either: PrintWindow checks anyway once a second, because a window covered by
+        something static would otherwise never look like it had changed at all, and the day would
+        time out and be clicked a second time.
+
+        The upshot: exactly the same captures decide the outcome as before. Only the waiting in
+        between got cheap.
+        """
         end = time.time() + timeout
+        # The cheap read is believed until it is caught being wrong. `quiet_until` is set ONLY
+        # by a confirmation that failed - so in the ordinary case a changed date is confirmed
+        # the instant it is seen, with no rate limit standing in front of it, and only a screen
+        # that has already lied once gets asked more slowly. Rate-limiting every confirmation
+        # instead would put up to half a second back onto every single day.
+        quiet_until = 0.0
+        next_periodic = time.time() + 1.0
         while time.time() < end:
-            image = self._grab()
-            if image.crop(self.HOTSEAT_DATE_BOX).tobytes() != before:
-                last, still_since, cap = image.tobytes(), time.time(), time.time() + 5
-                while time.time() < cap:
-                    time.sleep(0.1)
-                    now = self._grab().tobytes()
-                    if now != last:
-                        last, still_since = now, time.time()
-                    elif time.time() - still_since >= settle:
-                        break
-                return True
-            time.sleep(0.1)
+            now = time.time()
+            suspect = self._date_signature(cheap=True) != before and now >= quiet_until
+            if suspect or now >= next_periodic:
+                next_periodic = now + 1.0
+                if self._date_signature() != before:
+                    self._wait_until_still(settle=settle, timeout=5, poll=0.1, cheap=True)
+                    return True
+                quiet_until = now + 0.5
+            time.sleep(0.05)
         return False
 
     def _message_boxes(self):
@@ -777,16 +843,22 @@ class FBPB3:
         s = p.stat()
         return (s.st_mtime, s.st_size)
 
-    def _wait_until_still(self, settle=1.0, timeout=60, poll=0.15):
+    def _wait_until_still(self, settle=1.0, timeout=60, poll=0.15, cheap=False):
         """Block until the window has looked the same for `settle` seconds. True if it did.
 
         The general form of what sim_days does per day: the game is busy while the screen is
         changing and done when it stops, which is a far better signal than any sleep somebody
         picked once and nobody measured since.
+
+        `cheap` reads the screen with BitBlt (10.9 ms for the whole window against 27.7 ms for
+        PrintWindow). This is a TIMING signal, not a decision: nothing is accepted or rejected on
+        the strength of it, so reading a covering window instead costs at worst a click that
+        lands early - and sim_days already clicks a second time and re-confirms the date when
+        one is swallowed. The checks that decide anything stay on PrintWindow.
         """
         end, last, still_since = time.time() + timeout, None, None
         while time.time() < end:
-            now = self._grab().tobytes()
+            now = self._grab(cheap=cheap).tobytes()
             if now != last:
                 last, still_since = now, time.time()
             elif time.time() - still_since >= settle:
