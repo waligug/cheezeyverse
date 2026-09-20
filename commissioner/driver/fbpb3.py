@@ -37,6 +37,14 @@ EDITOR_EXIT = (917, 662)
 SAVE_NAME_OK = (622, 495)
 HOTSEAT_SIM_DAY = (794, 585)
 HOTSEAT_SIM_PRESEASON = (910, 585)
+# The offseason panel that REPLACES the sim buttons once the season is over (6/21 in the
+# rehearsal). Same grid, one row higher, and the labels change as each phase completes.
+HOTSEAT_END_SEASON = (794, 552)
+HOTSEAT_OFFSEASON = (910, 552)
+HOTSEAT_HIRE_STAFF = (910, 585)
+HOTSEAT_TRAINING_CAMPS = (910, 651)
+# On a phase screen (Hire Staff and friends): PROCESS ALL, which then becomes PROCEED.
+PHASE_PROCESS_ALL = (805, 662)
 HOTSEAT_SIM_TO_PLAYOFFS = (910, 651)
 NAV_HOT_SEAT = (55, 95)
 
@@ -456,6 +464,53 @@ class FBPB3:
             except Exception:
                 found.append("(unreadable)")
         return found
+
+    def roll_over_season(self, wait=12, log=print):
+        """Take a finished season through FBPB3's own rollover to the next PRESEASON.
+
+        Rehearsed end to end on a copy of the live CV_Prep, 2026-09-19, the season having been
+        won. The sequence, and what each step does:
+
+          END SEASON      no dialog. Stage -> OFFSEASON, records reset, 12 of 425 players
+                          retired, every player +1 experience and some ratings developed.
+          OFFSEASON       stage -> STAFF HIRING.
+          HIRE STAFF      opens a screen. PROCESS ALL runs the CPU's hiring and the button then
+                          becomes PROCEED, which is what advances the phase - pressing EXIT
+                          instead leaves the stage exactly where it was, which is how this was
+                          first got wrong.
+          TRAINING CAMPS  stage -> PRESEASON, on the new season's calendar.
+
+        Afterwards: Season 2027, SeasonDay back to 1, a fresh 240-game schedule with the
+        playoffs cleared, 425 players again, and all seven characters still on their teams.
+        The draft and free-agency phases are skipped entirely because this universe has them
+        off; a league with them on would stop at a button this does not press, which is why
+        every step verifies instead of assuming.
+
+        THE GAME DEVELOPS PLAYERS HERE, so offseason.py must have run BEFORE this: the bonus is
+        computed from the finished season's own pages, and this is the moment they stop
+        describing the season that just ended.
+        """
+        seen = []
+        for label, xy, phase in (("END SEASON", HOTSEAT_END_SEASON, None),
+                                 ("OFFSEASON", HOTSEAT_OFFSEASON, None),
+                                 ("HIRE STAFF", HOTSEAT_HIRE_STAFF, True),
+                                 ("TRAINING CAMPS", HOTSEAT_TRAINING_CAMPS, None)):
+            self.click(NAV_HOT_SEAT, 3)
+            before = self._date_signature()
+            self.click(xy, wait)
+            if phase:
+                # PROCESS ALL, then the same button as PROCEED. Two presses, each confirmed by
+                # the screen changing, because a phase left half-done looks identical to one
+                # that never started.
+                self.click(PHASE_PROCESS_ALL, wait)
+                self.click(PHASE_PROCESS_ALL, wait)
+            self._settle_dialogs(grace=3, timeout=60)
+            moved = self._date_signature() != before
+            seen.append((label, moved))
+            log(f"   {label}: {'the calendar moved' if moved else 'no calendar change'}")
+        if not any(moved for _l, moved in seen):
+            raise DriverError(f"the rollover changed nothing: {seen}")
+        return seen
 
     def sim_preseason(self, wait=90):
         """Blast through the preseason so the regular season can start.
