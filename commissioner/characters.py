@@ -159,6 +159,16 @@ def pick_slot(slots, position=None, team=None, busy=None, divisions=None, team_o
     return None
 
 
+def weight_for(character):
+    """The pounds he should weigh: the number he chose, or the one the site derives for him.
+
+    One function because two callers need the SAME answer - stamp_character writes it into
+    league.dat, and the Sim Week commit check reads it back out to prove it landed.
+    """
+    return int(character.get("weight_lbs")
+               or build_weight(character.get("height_inches"), character.get("build")))
+
+
 def stamp_character(L, slot, character):
     """Turn a dormant reserve slot into a real character, in place.
 
@@ -199,10 +209,7 @@ def stamp_character(L, slot, character):
     #
     # Null is not "no weight", it is "never asked" - everybody made before the slider - and
     # those keep the number the site has always shown them, derived the same way it derives it.
-    weight = character.get("weight_lbs")
-    if not weight:
-        weight = build_weight(character.get("height_inches"), character.get("build"))
-    L.set(pl, "Weight", int(weight))
+    L.set(pl, "Weight", weight_for(character))
     if character.get("position"):
         L.set(pl, "Position", POSITION_CODES[character["position"]])
 

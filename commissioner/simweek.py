@@ -25,6 +25,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import announce
 from . import characters as ch
 from . import notify
 from . import settings as cfgenv
@@ -381,8 +382,11 @@ def _activate_pending(league_key, L, st, log, season=None):
         dob = ch.codec_dob(c.get("dob") or slot.dob)
         ch.stamp_character(L, slot, {**c, "dob": dob})
 
-        def _write(c=c, slot=slot, dob=dob):
+        def _write(c=c, slot=slot, dob=dob, landed=landed):
             st.activate_character(c["id"], league_key, slot.team, slot.as_json(), dob)
+            # Announced from inside the write, after the save has already been committed, so
+            # Discord never gets a card for a character who did not actually land.
+            announce.arrival(c, league_key, spec.name, landed, log=log)
             if not hasattr(st, "record_level"):
                 return
             try:
@@ -399,7 +403,11 @@ def _activate_pending(league_key, L, st, log, season=None):
         writes.append(_write)
         done.append(c)
         expect.append((f'{c["first_name"]} {c["last_name"]}', dob,
-                       {"Height": int(c["height_inches"])}))
+                       {"Height": int(c["height_inches"]),
+                        # Weight is written now, so the commit check proves it landed. A weight
+                        # that silently did not take is exactly the mismatch the slider exists
+                        # to remove: his card says one number and the game plays another.
+                        "Weight": ch.weight_for(c)}))
         log(f'{c["first_name"]} {c["last_name"]} claimed {slot.team} (was {slot.name})'
             + (f", from day {day_now}" if day_now else ""))
     return done, expect, writes
