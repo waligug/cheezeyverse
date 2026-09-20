@@ -42,8 +42,32 @@ def section(title):
     print(f"\n{title}")
 
 
+# Where Task Scheduler keeps a task's definition. A SYSTEM task registered by an elevated
+# process is NOT READABLE by an ordinary user - and, far worse, it is also not LISTED: both
+# Get-ScheduledTask and schtasks /query silently leave it out rather than saying "access
+# denied". On 2026-09-20 that made this check report the tscon task missing twice, on a machine
+# that had it, and sent somebody off to install a second copy of it. The file's existence is
+# visible even when its contents are not, because opening it fails with "access denied" rather
+# than "not found" - so that is what existence is tested with.
+TASK_DIR = Path(r"C:\Windows\System32\Tasks")
+
+
+def _task_exists(name):
+    """True if a task of this name is registered, readable by us or not."""
+    try:
+        (TASK_DIR / name).stat()
+        return True
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
 def _scheduled_tasks():
     """{lowercased task name: "Name [State]"} for every task this user can see.
+
+    Only what is VISIBLE. Anything running as SYSTEM will be missing from this, so a task that
+    matters must be confirmed with _task_exists rather than by its absence here.
 
     Asked through PowerShell because schtasks.exe localises its output and parsing a localised
     table is how a check ends up reporting "missing" on a machine that has the task.
@@ -301,20 +325,30 @@ def main():
           'schtasks /run /tn "Cheezeyverse panel"   (then check '
           '%LOCALAPPDATA%\\Cheezeyverse\\panel.log)')
 
-    keeper = next((v for k, v in tasks.items() if "session keeper" in k or "keep desktop" in k),
-                  None)
-    check("a disconnected RDP session stays clickable", bool(keeper),
-          keeper or "no tscon task - closing Remote Desktop will LOCK the session",
+    # Both names this job has ever had. Asked by FILE, because these run as SYSTEM and do not
+    # appear in any listing an ordinary user can get.
+    KEEPERS = ("Cheezeyverse session keeper", "Cheezeyverse - keep desktop on RDP disconnect")
+    keepers = [n for n in KEEPERS if _task_exists(n)]
+    check("a disconnected RDP session stays clickable", bool(keepers),
+          ", ".join(keepers) or "no tscon task - closing Remote Desktop will LOCK the session",
           "right-click tools\\install_session_keeper.bat -> Run as administrator. Until then, "
           "do not disconnect while a sim is running.")
-    if keeper:
+    # Two of them is not twice as safe. Both fire on the same disconnect and both call tscon;
+    # the second arrives to find the session already moved, and on a bad day arrives while the
+    # first is still moving it.
+    check("...and only one of them", len(keepers) < 2,
+          f"{len(keepers)} tscon tasks: {', '.join(keepers)}" if len(keepers) > 1 else "one",
+          'as administrator: schtasks /delete /tn "Cheezeyverse - keep desktop on RDP '
+          'disconnect" /f   (keeps the one the repo describes)')
+    if "Cheezeyverse session keeper" in keepers:
         # A registered task proves nothing if it points at a script that has moved. This one
         # runs as SYSTEM on an event nobody watches, so a broken path would sit there looking
-        # installed until the day somebody disconnects mid-sim.
+        # installed until the day somebody disconnects mid-sim. Readable only when elevated, so
+        # a blank answer here is "cannot tell", not "broken".
         script = ROOT / "tools" / "console_handoff.ps1"
         pointed = _task_script("Cheezeyverse session keeper")
-        check("...and the script it points at is there", bool(pointed) and Path(pointed).exists(),
-              pointed or "could not read the task's action",
+        check("...and its script is where the task points", (not pointed) or Path(pointed).exists(),
+              pointed or f"cannot read the task's action unelevated; expected {script}",
               f"re-run the installer; the script belongs at {script}")
 
     # A logon-triggered task only fires if somebody logs on, and nobody is here to type a
