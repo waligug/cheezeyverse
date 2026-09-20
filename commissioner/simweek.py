@@ -688,8 +688,12 @@ def _discord_report(steps, result, seconds):
     published = any("the public site is live" == r.get("message") for r in steps)
 
     weeks = max(1, round(int(result.get("days") or 7) / 7))
-    lines = [f'**Sim done** - {weeks} week(s) of '
-             f'{", ".join(result.get("leagues") or [])} in {round(seconds / 60)} min']
+    if result.get("days_by_league"):
+        advanced = ", ".join(f"{key}: {count} days" for key, count in result["days_by_league"].items())
+        lines = [f'**Sim done** - {advanced} in {round(seconds / 60)} min']
+    else:
+        lines = [f'**Sim done** - {weeks} week(s) of '
+                 f'{", ".join(result.get("leagues") or [])} in {round(seconds / 60)} min']
     for line in placed:
         lines.append(f"- {line}")
     for line in points:
