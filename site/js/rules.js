@@ -1622,7 +1622,11 @@ export function deriveCharacter(input) {
     klass: classify(sheet.ratings, position),
     outlook: heightOutlook(heightInches, traits.height_genes),
     expectedAdultHeight: expectedAdultHeight(heightInches, traits.height_genes),
-    weightLbs: buildWeight(heightInches, input.build),
+    // What he was SET to, falling back to the usual weight for that height and build. Derived
+    // was the only option while nothing stored a weight; now that the builder offers a slider,
+    // recomputing here would quietly discard whatever the person chose with it and show them a
+    // review card that disagreed with the control they had just dragged.
+    weightLbs: Number(input.weightLbs) || buildWeight(heightInches, input.build),
   };
 }
 

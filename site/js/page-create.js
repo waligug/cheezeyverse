@@ -13,7 +13,7 @@ import {
   POSITIONS, POSITION_LABELS, HEIGHT_RANGES, HEIGHT_DEFAULTS, ADULT_HEIGHT_RANGES,
   QUIZ, CAREER_GOALS, SUMMER_WORK, BUILDS, careerGoal,
   deriveCharacter, quizProgress, validateBuild, canCreateAnother,
-  formatHeight, describeCurve, GOAL_DISCOUNT, START_AGE, GROWTH_END_AGE,
+  formatHeight, describeCurve, GOAL_DISCOUNT, START_AGE, GROWTH_END_AGE, buildWeight,
 } from './rules.js';
 import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
@@ -39,6 +39,9 @@ function blankState() {
     position: 'SG',
     heightInches: HEIGHT_DEFAULTS.SG,
     build: 'solid',
+    // set from height and build until he drags the slider, then his
+    weightLbs: buildWeight(HEIGHT_DEFAULTS.SG, 'solid'),
+    weightTouched: false,
     answers: {},
     goal: null,
     summer: null,
@@ -56,6 +59,13 @@ $('#signin').addEventListener('click', () => signIn().catch(
 // Declared before first use: `preview()` runs immediately below, and a `let` further down the
 // file would still be in its temporal dead zone at that point.
 let previewOnly = false;
+
+// Same reason, and this file had already written the rule down: boot() and preview() run at the
+// top of the module and both reach syncWeightRange(), so a `const` declared further down is
+// still uninitialised when they get there. Function declarations hoist; const does not.
+// How far either side of the usual weight the slider goes - about the distance from "wiry" to
+// "heavy" twice over, so it is a real choice without stopping being a fourteen-year-old.
+const WEIGHT_SPREAD = 25;
 
 /* An OAuth failure comes back in the URL, not as an exception - see oauthErrorFromUrl().
    Read it before anything else so the page can say what happened instead of just looking
@@ -154,6 +164,17 @@ function wireForm() {
   $('#height').addEventListener('input', (e) => {
     state.heightInches = Number(e.target.value);
     syncHeightRead();
+    syncWeightRange();
+    draw();
+  });
+
+  $('#weight').addEventListener('input', (e) => {
+    // From here the number is HIS. Height and build stop moving it, exactly as the day box on
+    // the commissioner panel stops re-suggesting once somebody types - the alternative is a
+    // slider that silently undoes the choice the person just made with it.
+    state.weightTouched = true;
+    state.weightLbs = Number(e.target.value);
+    syncWeightRead();
     draw();
   });
 
@@ -187,6 +208,8 @@ function syncHeightRange() {
   slider.value = String(state.heightInches);
   syncHeightRead();
 
+  syncWeightRange();
+
   const [aLo, aHi] = ADULT_HEIGHT_RANGES[state.position];
   $('#position-note').textContent = 'This is what he is listed at. The coach picks the '
     + 'lineups and will happily play him somewhere else. A grown '
@@ -198,6 +221,37 @@ function syncHeightRead() {
   $('#height-read').textContent =
     `${formatHeight(state.heightInches)} (${state.heightInches} in) at ${START_AGE} · `
     + `a fourteen year old is ${formatHeight(lo)} to ${formatHeight(hi)}. He is not done growing.`;
+}
+
+/* WEIGHT USED TO BE DERIVED AND NEVER STORED - buildWeight(height, build), recomputed by the
+ * commissioner every time it wrote him into league.dat. That is still the DEFAULT, and it still
+ * follows height and build around, so somebody who does not care never has to think about it.
+ *
+ * Once he drags it, it is his: `weightTouched` stops the default from overwriting the choice.
+ * The band is the derived weight plus or minus 25 lbs, which at these heights is roughly the
+ * distance between "wiry" and "heavy" twice over - wide enough to be a real choice, narrow
+ * enough that it stays a fourteen-year-old. */
+function syncWeightRange() {
+  const base = buildWeight(state.heightInches, state.build);
+  const slider = $('#weight');
+  slider.min = String(base - WEIGHT_SPREAD);
+  slider.max = String(base + WEIGHT_SPREAD);
+  if (!state.weightTouched) {
+    state.weightLbs = base;
+  } else {
+    // he moved it, then changed height or build: keep his choice, but it must stay in the band
+    state.weightLbs = Math.min(base + WEIGHT_SPREAD, Math.max(base - WEIGHT_SPREAD, state.weightLbs));
+  }
+  slider.value = String(state.weightLbs);
+  syncWeightRead();
+}
+
+function syncWeightRead() {
+  const base = buildWeight(state.heightInches, state.build);
+  const diff = state.weightLbs - base;
+  const how = diff === 0 ? 'usual for that height and build'
+    : `${Math.abs(diff)} lbs ${diff > 0 ? 'heavier' : 'lighter'} than usual for that build`;
+  $('#weight-read').textContent = `${state.weightLbs} lbs at ${START_AGE} · ${how}.`;
 }
 
 /* ---------------------------------------------------------------------------- choices */
@@ -240,6 +294,7 @@ function renderBuilds() {
     box.append(choiceCard('build', b.id, state.build === b.id, b.label, b.blurb, (v) => {
       state.build = v;
       syncChoiceGroup('build');
+      syncWeightRange();
       draw();
     }));
   }
