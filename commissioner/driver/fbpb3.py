@@ -585,10 +585,9 @@ class FBPB3:
     def sim_to_date(self, n, start_date, on_day=None, timeout=None):
         """Use the Hot Seat calendar to advance exactly ``n`` days in one FBPB action.
 
-        FBPB's selected date is a STOP date: selecting February 21 from January 8 writes
-        season day +44 and leaves the league on the morning of February 21. That matches
-        ``n`` SIM DAY clicks and the Commissioner calendar's existing "play through the
-        previous day" arithmetic.
+        FBPB's selected date is inclusive: SIM TO GAME plays that date's games and advances
+        to the following morning.  The Commissioner plan's ``n`` is inclusive too, so a run
+        beginning March 18 and playing through April 19 has 33 dates and must select April 19.
 
         Every action is bounded by visible UI state. Each month arrow must change the calendar
         heading, the computed target cell must acquire the blue selection, SIM TO GAME must
@@ -602,7 +601,11 @@ class FBPB3:
             raise DriverError(f"cannot use calendar sim with start date {start_date!r}") from exc
         if n < 1:
             return True
-        target = current + timedelta(days=n)
+        # ``current`` is the first date to be played, not day zero. Adding n selected the day
+        # after the requested endpoint; FBPB then advanced once more after that day's games.
+        # A request through April 19 therefore landed on April 21. Keep the inclusive count on
+        # the same basis as calendarplan.plan: first + (count - 1).
+        target = current + timedelta(days=n - 1)
         months = (target.year - current.year) * 12 + target.month - current.month
         if months < 0:
             raise DriverError("calendar sim cannot move backwards")

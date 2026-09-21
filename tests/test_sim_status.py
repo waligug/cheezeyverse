@@ -231,7 +231,7 @@ class StatusTests(unittest.TestCase):
         game._date_signature = lambda: next(signatures)
         self.assertTrue(game.sim_to_date(
             2, "2029-03-18", on_day=lambda day, total: seen.append((day, total))))
-        self.assertIn((822, 392), clicks)  # March 20, the morning after two sim days.
+        self.assertIn((793, 392), clicks)  # March 19: March 18-19 is two inclusive dates.
         self.assertIn((794, 651), clicks)
         self.assertEqual(seen, [(1, 2), (2, 2)])
 
