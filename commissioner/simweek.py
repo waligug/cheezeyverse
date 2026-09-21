@@ -979,6 +979,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     result = {"ok": False, "leagues": keys, "days": days, "dry_run": dry_run, "applied": 0,
               "activated": 0, "snapshots": 0, "news": {}, "errors": []}
     game = None
+    fresh_mdb = set()
     # Defined before the try because the finally logs it, and a refusal raises above the read.
     season_now, settings = None, {}
     marked = False
@@ -1200,12 +1201,27 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # Done while the save is still loaded, and never fatal: the
             # week's basketball is already saved and exported by this point, and head-to-head
             # going stale is not worth losing it.
+            # Midseason MDBs exist for character game logs. A league with no live character has
+            # nobody whose head-to-head or career page can change, while its current standings,
+            # leaders and player pages already come from the fresh HTML above. Exporting those
+            # empty leagues cost minutes and, in this run, held a completed sim for nine more.
+            # Season-ending runs still archive everyone before retirements can remove them.
             try:
-                at("mdb", key)
-                emit("export", "writing the game-by-game table", key)
-                game.output_mdb(spec.save_name)
-            except Exception as exc:
-                emit("export", f"no MDB for {key} ({exc}); head-to-head will not update", key)
+                league_characters = st.characters(league=key)
+            except TypeError:  # small test/local stores may only expose characters()
+                league_characters = [c for c in st.characters() if c.get("league") == key]
+            has_characters = any(c.get("status") in ("active", "declared")
+                                 for c in league_characters)
+            if has_characters or allow_season_end:
+                try:
+                    at("mdb", key)
+                    emit("export", "writing the game-by-game table", key)
+                    game.output_mdb(spec.save_name, attempts=1, timeout=45, max_seconds=120)
+                    fresh_mdb.add(key)
+                except Exception as exc:
+                    emit("export", f"no MDB for {key} ({exc}); head-to-head will not update", key)
+            else:
+                emit("export", "MDB deferred: no active characters; current HTML is complete", key)
         game.exit_game(save=False)
         game = None
 
@@ -1336,7 +1352,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # ---- 4. publish and pay ---------------------------------------------------------------
         at("publish")
         emit("publish", "skinning and staging the sites")
-        rows = publish(keys)
+        rows = publish(keys, fresh_mdb)
         for row in rows:
             emit("publish", f'{row["league"]}: {row["pages"]} pages', row["league"])
 

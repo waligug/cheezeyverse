@@ -180,6 +180,13 @@ def protect(key, dry_run=False, store_characters=None):
                 touched = True
         defanged += 1 if touched else 0
 
+    # A clean guard used to rewrite and reparse every 5-10 MB save anyway. This path runs before
+    # every league and was charging a full save cycle for proving there was nothing to do.
+    if not defanged and not intruders and not exiled:
+        sizes = Counter(len(v["ids"]) for v in L.teams().values())
+        print(f"   already clean; roster sizes {dict(sizes)}")
+        return {"defanged": 0, "released": 0, "signed": 0, "unrostered": 0}
+
     # 2. release the intruders, then sign our exiles back onto their own teams. Do each side as
     # one structural edit. release()/sign() re-parse the entire 5-10 MB save after every player;
     # Pro commonly has 100+ intruders after preseason, which made this guard appear frozen for

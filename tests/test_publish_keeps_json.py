@@ -31,7 +31,8 @@ from commissioner.publish import publish as pub  # noqa: E402
 def main():
     tmp = Path(tempfile.mkdtemp(prefix="publish-"))
     real = {"SITE": pub.SITE, "restyle": pub.restyle, "stats": pub._write_stats,
-            "games": pub._write_games, "ours": pub._our_players, "docs": pub.DOCS}
+            "games": pub._write_games, "careers": pub._write_careers,
+            "ours": pub._our_players, "docs": pub.DOCS}
     try:
         src = tmp / "export"
         (src / "players").mkdir(parents=True)
@@ -63,7 +64,13 @@ def main():
             order.append("games")
             return {"characters": 1, "games": 2}
 
-        pub.restyle, pub._write_stats, pub._write_games = fake_restyle, fake_stats, fake_games
+        def fake_careers(s, d, key):
+            (Path(d) / "careers.json").write_text('{"careers": []}', encoding="utf-8")
+            order.append("careers")
+            return {"careers": 1}
+
+        pub.restyle, pub._write_stats = fake_restyle, fake_stats
+        pub._write_games, pub._write_careers = fake_games, fake_careers
 
         row = pub.publish_league("prep")
         dst = pub.SITE / "leagues" / "prep"
@@ -71,7 +78,7 @@ def main():
         assert (dst / "stats.json").exists(), "restyle's rmtree ate stats.json"
         assert (dst / "games.json").exists(), \
             "restyle's rmtree ate games.json - it must be written AFTER restyle, not before"
-        assert order == ["restyle", "stats", "games"], f"wrong order: {order}"
+        assert order == ["restyle", "stats", "games", "careers"], f"wrong order: {order}"
         assert row["games"] == {"characters": 1, "games": 2}, row
 
         # and the failure that started this: written before, it does not survive
@@ -84,10 +91,22 @@ def main():
         pub._write_games = lambda *_a, **_k: None
         row = pub.publish_league("prep")
         assert row["games"] is None and (dst / "stats.json").exists(), row
+
+        # A deliberately deferred MDB keeps the last known game/career payloads through the
+        # clean rebuild and never invokes either stale-MDB writer.
+        (dst / "games.json").write_text('{"old":"games"}', encoding="utf-8")
+        (dst / "careers.json").write_text('{"old":"careers"}', encoding="utf-8")
+        pub._write_games = lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("stale games"))
+        pub._write_careers = lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("stale careers"))
+        row = pub.publish_league("prep", mdb_fresh=False)
+        assert (dst / "games.json").read_text(encoding="utf-8") == '{"old":"games"}'
+        assert (dst / "careers.json").read_text(encoding="utf-8") == '{"old":"careers"}'
+        assert row["games"]["deferred"] is True, row
     finally:
         pub.SITE, pub.DOCS = real["SITE"], real["docs"]
         pub.restyle, pub._write_stats = real["restyle"], real["stats"]
-        pub._write_games, pub._our_players = real["games"], real["ours"]
+        pub._write_games, pub._write_careers = real["games"], real["careers"]
+        pub._our_players = real["ours"]
         shutil.rmtree(tmp, ignore_errors=True)
 
     print("OK  publish: stats.json and games.json both survive restyle's rmtree")

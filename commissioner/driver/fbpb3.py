@@ -893,7 +893,7 @@ class FBPB3:
         if self.is_running():
             self.kill()
 
-    def output_mdb(self, save_name, attempts=3, timeout=600):
+    def output_mdb(self, save_name, attempts=1, timeout=60, max_seconds=120):
         """Tools -> Output MDB for the loaded save. Menu-label clicks are occasionally swallowed,
         so this retries and confirms by the file's timestamp rather than by the dialog alone.
 
@@ -910,7 +910,8 @@ class FBPB3:
         """
         target = DOCS / "leaguedata" / save_name / "LeagueOutput.mdb"
         before = self._file_mark(target)
-        for _ in range(attempts):
+        failure = "did not start"
+        for attempt in range(attempts):
             self.click(TOP_TOOLS, 2)
             self.click(TOOLS_OUTPUT_MDB, 2)
             # THE BUDGET HAS TO EXCEED THE SLOWEST LEAGUE, and 180s did not. Measured on
@@ -921,13 +922,24 @@ class FBPB3:
             # cancels the export still running underneath. Four attempts, four cancellations,
             # twelve minutes, and a "did not refresh" at the end of it. Caught live, mid-run,
             # with pro's MDB still carrying the previous week's timestamp.
-            # `timeout` is a NO-PROGRESS budget, not an absolute wall clock. Pro's real export
-            # took ~620s; the old 600s absolute limit cancelled healthy work seconds before it
-            # finished. Jet grows/truncates the MDB while working, so every observed size/mtime
-            # change renews the budget. A genuinely stuck export still fails after `timeout`
-            # seconds with no file activity.
-            progress_deadline, last = time.time() + timeout, before
-            while time.time() < progress_deadline:
+            # `timeout` is a NO-PROGRESS budget. Jet grows/truncates the MDB while working, so
+            # every observed size/mtime change renews it, up to the separate absolute deadline.
+            # File churn is useful evidence, but it is not permission to hold a completed Sim
+            # Week forever. The Pro exporter that prompted this guard kept touching the MDB for
+            # more than nine minutes without ever raising its completion box. The save and HTML
+            # were already good; only this optional table was holding snapshots, points and the
+            # public site hostage. Keep both limits: inactivity catches a dead export, and the
+            # absolute cap catches an exporter that churns forever.
+            started = time.monotonic()
+            progress_deadline = started + timeout
+            absolute_deadline = started + max_seconds
+            last = before
+            while time.monotonic() < min(progress_deadline, absolute_deadline):
+                # Killing or crashing FBPB3 used to leave this loop alive for the full timeout,
+                # followed by two more attempts. Once the process is gone no completion dialog
+                # can arrive and retrying clicks against a dead window cannot help.
+                if not self.is_running():
+                    raise DriverError(f"FBPB3 exited while exporting {target}")
                 created = False
                 try:
                     self.dismiss_message("File Created", timeout=2)
@@ -937,16 +949,21 @@ class FBPB3:
                 mark = self._file_mark(target)
                 if mark is not None and mark != last:
                     last = mark
-                    progress_deadline = time.time() + timeout
+                    progress_deadline = time.monotonic() + timeout
                 if mark is not None and mark != before and created:
                     self._settle_dialogs()
                     return target
+            if time.monotonic() >= absolute_deadline:
+                failure = f"exceeded its {max_seconds}s absolute limit"
+            else:
+                failure = f"made no file progress for {timeout}s"
             # Only tidy up if something is actually open. An unconditional dismiss_all is how
             # a slow export got killed by the thing meant to rescue it.
             if self._message_boxes():
                 self.dismiss_all()
-        raise DriverError(f"Output MDB made no progress on {target} for {timeout}s across "
-                          f"{attempts} attempts")
+            if attempt + 1 < attempts and not self.is_running():
+                raise DriverError(f"FBPB3 exited while exporting {target}")
+        raise DriverError(f"Output MDB {failure} on {target} across {attempts} attempt(s)")
 
     def _settle_dialogs(self, grace=10, timeout=30):
         """Clear every message box, INCLUDING one that has not appeared yet.

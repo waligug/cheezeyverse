@@ -1,4 +1,4 @@
-"""Output MDB uses an inactivity timeout, so a growing export is never cancelled."""
+"""Output MDB accepts healthy progress but cannot hold a completed sim forever."""
 from pathlib import Path
 import sys
 import tempfile
@@ -28,10 +28,37 @@ with tempfile.TemporaryDirectory() as tmp:
 
     game.dismiss_message = dialog
     game._settle_dialogs = lambda: True
+    game._message_boxes = lambda: []
+    game.is_running = lambda: True
     started = time.monotonic()
     with patch.object(fbpb3, "DOCS", root):
-        got = game.output_mdb("Test", attempts=1, timeout=.05)
+        got = game.output_mdb("Test", attempts=1, timeout=.05, max_seconds=.5)
     elapsed = time.monotonic() - started
     assert got == target and elapsed > .05 and calls[0] == 3, (got, elapsed, calls)
 
-print("OK  MDB export: continued file growth renews the timeout until File Created arrives")
+    # Continuous file churn without a completion box used to renew the timeout forever.
+    game._file_mark = lambda _path: (time.monotonic(), 1)
+    game.dismiss_message = lambda *_a, **_k: (_ for _ in ()).throw(
+        fbpb3.DriverError("still exporting"))
+    started = time.monotonic()
+    with patch.object(fbpb3, "DOCS", root):
+        try:
+            game.output_mdb("Test", attempts=1, timeout=.2, max_seconds=.05)
+        except fbpb3.DriverError as exc:
+            assert "absolute limit" in str(exc), exc
+        else:
+            raise AssertionError("continuous churn escaped the absolute MDB deadline")
+    assert time.monotonic() - started < .2
+
+    # A dead game process cannot ever produce the completion dialog. Fail immediately rather
+    # than waiting out the no-progress window and retrying clicks against a dead window.
+    game.is_running = lambda: False
+    with patch.object(fbpb3, "DOCS", root):
+        try:
+            game.output_mdb("Test", attempts=3, timeout=10, max_seconds=20)
+        except fbpb3.DriverError as exc:
+            assert "exited" in str(exc), exc
+        else:
+            raise AssertionError("a dead FBPB3 process was treated as an active export")
+
+print("OK  MDB export: progress succeeds, churn is capped, and process death fails fast")

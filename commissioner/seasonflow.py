@@ -97,8 +97,16 @@ def protect_character_progress(store, key, floors=None, live_path=None, dry_run=
         live = ch.commit(live, expected)
     for row in planned:
         player = live.find(row["name"], row["dob"])
-        store.set_character_field(row["id"], "ratings", {f: player.values[f] for f in RATINGS})
-        store.set_character_field(row["id"], "potentials", ch.store_potentials(player.values))
+        ratings = {f: player.values[f] for f in RATINGS}
+        potentials = ch.store_potentials(player.values)
+        character = next(c for c in characters if c["id"] == row["id"])
+        # Supabase writes dominate this stage's wall time. Most weeks the native game changes
+        # only a few sheets, but this used to send two PATCH requests for every character even
+        # when both payloads were byte-for-byte what the store already held.
+        if ratings != (character.get("ratings") or {}):
+            store.set_character_field(row["id"], "ratings", ratings)
+        if potentials != (character.get("potentials") or {}):
+            store.set_character_field(row["id"], "potentials", potentials)
     return planned
 
 

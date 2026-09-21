@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -74,12 +75,21 @@ def _our_players(league_key):
         return {}
 
 
-def publish_league(key):
+def publish_league(key, mdb_fresh=True):
     spec = cfg.BY_KEY[key]
     src = DOCS / "leaguedata" / spec.save_name / "html"
     dst = SITE / "leagues" / key
     if not (src / "index.htm").exists():
         raise FileNotFoundError(f"{spec.save_name} has no HTML output yet - run the driver's html_output() first")
+    # restyle rebuilds the folder. When this Sim Week deliberately deferred an MDB, preserve
+    # the last valid game/career payload instead of regenerating it from a stale database or
+    # deleting it from the public site.
+    retained = {}
+    if not mdb_fresh:
+        for name in ("games.json", "careers.json"):
+            path = dst / name
+            if path.exists():
+                retained[name] = path.read_bytes()
     pages = restyle(src, dst, league=spec.name, season=season_label(key), key=key,
                     ours=_our_players(key))
     # AFTER restyle, both of them. restyle(clean=True) does an rmtree of the league's folder and
@@ -87,8 +97,13 @@ def publish_league(key):
     # is exactly what happened to games.json: run_sim wrote it before publish(), a publish then
     # removed it from the site, and the comment on that call claimed the opposite.
     stats = _write_stats(src, dst, key)
-    games = _write_games(src, dst, key)
-    careers = _write_careers(src, dst, key)
+    if mdb_fresh:
+        games = _write_games(src, dst, key)
+        careers = _write_careers(src, dst, key)
+    else:
+        for name, payload in retained.items():
+            (dst / name).write_bytes(payload)
+        games = careers = {"deferred": True, "retained": sorted(retained)}
     return {"league": key, "name": spec.name, "pages": pages, "path": str(dst),
             "stats": stats, "games": games, "careers": careers}
 
@@ -247,8 +262,14 @@ def _write_stats(src, dst, key):
         return None
 
 
-def publish(keys=None):
-    out = [publish_league(k) for k in (keys or [s.key for s in cfg.LEAGUES])]
+def publish(keys=None, fresh_mdb=None):
+    keys = list(keys or [s.key for s in cfg.LEAGUES])
+    freshness = set(keys) if fresh_mdb is None else set(fresh_mdb)
+    # Each league writes its own destination and history files. Running their transforms
+    # together overlaps thousands of small file reads/writes and store requests; ordering the
+    # returned rows through executor.map keeps the public manifest deterministic.
+    with ThreadPoolExecutor(max_workers=min(3, len(keys))) as pool:
+        out = list(pool.map(lambda k: publish_league(k, k in freshness), keys))
     (SITE / "leagues" / "published.json").write_text(
         json.dumps({"published_at": datetime.now().isoformat(timespec="seconds"), "leagues": out}, indent=1),
         encoding="utf-8")
