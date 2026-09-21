@@ -353,7 +353,7 @@ ALL_LEAGUE_TIERS = {"first": 1, "second": 2, "third": 3, "1st": 1, "2nd": 2, "3r
 ALL_LEAGUE_LABELS = {1: "1st", 2: "2nd", 3: "3rd"}
 
 
-def player_honours(html_dir):
+def player_honours(html_dir, player_ids=None):
     """Player identity, profile link and season-specific All-Star / All-League selections.
 
     READ FROM THE PLAYER PAGES, because that is the only place the export states it. Neither
@@ -369,7 +369,11 @@ def player_honours(html_dir):
     players = Path(html_dir) / "players"
     if not players.is_dir():
         return out
-    for page in players.glob("player*.htm"):
+    pages = ([(players / f"player{int(pid)}.htm") for pid in player_ids]
+             if player_ids is not None else players.glob("player*.htm"))
+    for page in pages:
+        if not page.is_file():
+            continue
         items = [i.strip() for i in _text(page).split("&nbsp;")]
         # THE NAME IS THE ITEM BEFORE THE DESCRIPTOR, not the second item on the page. The
         # second item only works when the stylesheet happens to sit in front of it, which is
