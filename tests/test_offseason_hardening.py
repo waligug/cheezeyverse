@@ -106,4 +106,52 @@ class HardeningTests(unittest.TestCase):
         self.assertEqual(seen.get("takeaways"), 2029, "for_season still got None")
         self.assertTrue(result.get("ok"))
 
+    def test_the_manifest_is_backed_up_and_restored_with_the_saves(self):
+        """Since the age-out re-ages unclaimed seats, a save and the manifest only mean anything together.
+
+        The manifest maps a reserve slot to a row in the file by name AND date of birth. Restore
+        league.dat on its own after a re-base and the save holds the old birthdays while the
+        manifest holds the new ones - stamp_character's find raises CodecError and no signup can
+        be placed until somebody repairs it by hand. That is reachable today: a rollover runs the
+        age-out, something later fails, and the operator restores the backup as instructed.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            manifest = root / "manifest.json"
+            manifest.write_text('{"slots": "before"}', encoding="utf-8")
+            saves = {}
+            for key in ("prep", "college", "pro"):
+                d = root / "saves" / key
+                d.mkdir(parents=True)
+                (d / "league.dat").write_bytes(f"{key} before".encode())
+                saves[key] = d / "league.dat"
+            with patch.object(offseason.ch, "save_path", lambda key: saves[key]),                  patch.object(offseason, "BACKUPS", root / "backups"),                  patch.object(offseason.ageout, "MANIFEST", manifest):
+                taken = offseason.back_up_every_save(log=lambda m: None)
+                self.assertEqual(len(taken), 3)
+                for backup in taken.values():
+                    self.assertTrue((Path(backup).parent / "manifest.json").exists(),
+                                    "the manifest was not copied beside the save")
+                # the age-out moves both, then something later fails
+                manifest.write_text('{"slots": "after the re-base"}', encoding="utf-8")
+                for key, path in saves.items():
+                    path.write_bytes(f"{key} after".encode())
+                self.assertTrue(offseason.restore_saves(taken, log=lambda m: None))
+                self.assertEqual(manifest.read_text(encoding="utf-8"), '{"slots": "before"}',
+                                 "the manifest did not come back with the saves")
+                for key, path in saves.items():
+                    self.assertEqual(path.read_bytes(), f"{key} before".encode())
+
+    def test_a_backup_taken_without_a_manifest_still_restores(self):
+        """No manifest on disk must not make restore_saves report failure."""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            d = root / "saves" / "prep"
+            d.mkdir(parents=True)
+            (d / "league.dat").write_bytes(b"before")
+            with patch.object(offseason.ch, "save_path", lambda key: d / "league.dat"),                  patch.object(offseason, "BACKUPS", root / "backups"),                  patch.object(offseason.ageout, "MANIFEST", root / "absent.json"):
+                taken = offseason.back_up_every_save(log=lambda m: None)
+                (d / "league.dat").write_bytes(b"after")
+                self.assertTrue(offseason.restore_saves(taken, log=lambda m: None))
+            self.assertEqual((d / "league.dat").read_bytes(), b"before")
+
 if __name__ == "__main__": unittest.main()

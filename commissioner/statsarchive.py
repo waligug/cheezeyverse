@@ -64,14 +64,13 @@ def _int(value):
         return 0
 
 
-def read_mdb(mdb, kind="stats"):
-    """{season: [row]} straight out of one LeagueOutput.mdb, with names attached.
+def read_people(mdb):
+    """{id: identity} from the Player table.
 
-    `kind` picks the table: "stats" is the regular season, "playoffs" the postseason. See KINDS.
-
-    The join is done in Python rather than in Access SQL for the reason headtohead already
-    gives about this database: its own SQL dialect refuses things that look ordinary, and a
-    query that fails here fails in the middle of a publish.
+    Split out so a caller reading more than one stats table pays for this join ONCE. Every
+    `query()` spawns a PowerShell + ADODB process, and `_write_careers` runs per league on every
+    publish inside every Sim Week, so reading it per kind doubled the subprocess count for a
+    table that is identical both times.
     """
     from .headtohead import query
     people = {}
@@ -84,6 +83,22 @@ def read_mdb(mdb, kind="stats"):
             "birth_year": _int(row.get("BirthYear")),
             "position": _int(row.get("PositionNumber")),
         }
+    return people
+
+
+def read_mdb(mdb, kind="stats", people=None):
+    """{season: [row]} straight out of one LeagueOutput.mdb, with names attached.
+
+    `kind` picks the table: "stats" is the regular season, "playoffs" the postseason. See KINDS.
+    `people` is a prebuilt identity map from `read_people`, so a caller reading both tables does
+    not run the same Player join twice.
+
+    The join is done in Python rather than in Access SQL for the reason headtohead already
+    gives about this database: its own SQL dialect refuses things that look ordinary, and a
+    query that fails here fails in the middle of a publish.
+    """
+    from .headtohead import query
+    people = read_people(mdb) if people is None else people
     seasons = {}
     for row in query(mdb, f"SELECT * FROM {KINDS[kind]}"):
         season = _int(row.get("Season"))
@@ -224,9 +239,12 @@ def capture(key, mdb, log=print, overwrite_current=None, force=False, kinds=("st
         log(f"  no MDB for {key}; nothing captured")
         return []
     written = []
+    people = None
     for kind in kinds:
         try:
-            seasons = sorted(read_mdb(mdb, kind).items())
+            if people is None:
+                people = read_people(mdb)
+            seasons = sorted(read_mdb(mdb, kind, people).items())
         except Exception as exc:                                        # noqa: BLE001
             # THE POSTSEASON MUST NOT BE ABLE TO COST US THE REGULAR SEASON. An MDB without a
             # PlayoffStats table - an older export, or a schema that moves - is skipped rather

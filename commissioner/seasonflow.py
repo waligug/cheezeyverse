@@ -163,6 +163,25 @@ def archive_finished(store, season, backups, log):
             raise RuntimeError(f'{key}: finished-season statistics are missing from the export')
         takeaways.archive_overview(key, season, dest / "html")
         statsarchive.save(key, season, rows[season], source=str(mdb), overwrite=True)
+        # THE POSTSEASON NEEDS THE SAME FREEZE, and for a sharper reason than the regular season.
+        # A playoff file is only written by capture() while its season is still the current one,
+        # and save() refuses to rewrite a finished season afterwards - only force=True repairs
+        # it. So a Sim Week that sims and saves the finals but whose publish fails (simweek says
+        # "the site did NOT publish; the week itself is saved") would leave
+        # playoffs-<key>-<season>.json frozen pre-finals, or absent, permanently, and the
+        # all-time postseason board would quietly lose a finals.
+        #
+        # MISSING IS NOT FATAL here, unlike the regular season above: a league can legitimately
+        # reach a rollover having played no postseason at all, and an older export may have no
+        # PlayoffStats table to read.
+        try:
+            postseason = statsarchive.read_mdb(mdb, "playoffs").get(season)
+        except Exception as exc:                                        # noqa: BLE001
+            postseason = None
+            log(f'{key}: no postseason statistics to freeze ({exc})')
+        if postseason:
+            statsarchive.save(key, season, postseason, source=str(mdb), overwrite=True,
+                              kind="playoffs")
         people = [c for c in store.characters(league=key) if c.get('status') in ('active', 'declared')]
         data = headtohead.from_mdb(mdb, people, runs=store.runs(limit=None), league=key, season=season)
         prior = dict(gamesarchive.archived_seasons(key)).get(season, {})

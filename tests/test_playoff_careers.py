@@ -257,6 +257,68 @@ def test_the_published_payload_offers_the_choice(root):
     check("careers still published", len(bare["careers"]), 2)
 
 
+def test_the_player_join_is_read_once(root):
+    """Every query() spawns a PowerShell + ADODB process, and this runs per league per publish."""
+    print("the Player join")
+    Path(root).mkdir(parents=True, exist_ok=True)
+    mdb = Path(root) / "LeagueOutput.mdb"
+    mdb.write_bytes(b"not really a database")
+    calls = []
+    base = fake_query()
+
+    def counting(mdbp, sql, script=None):
+        calls.append(sql)
+        return base(mdbp, sql, script)
+
+    with patch.object(statsarchive, "ARCHIVE", Path(root) / "history"),          patch("commissioner.headtohead.query", counting):
+        statsarchive.capture("prep", mdb, log=lambda m: None)
+    check("Player read once for both tables",
+          sum("FROM Player" in sql for sql in calls), 1)
+    check("both stat tables still read",
+          sorted(t for t in ("SeasonStats", "PlayoffStats")
+                 if any(t in sql for sql in calls)), ["PlayoffStats", "SeasonStats"])
+
+
+def test_the_rollover_freezes_the_postseason_too(root):
+    """A playoff file is only written while its season is current; after that save() refuses.
+
+    So a Sim Week that sims and saves the finals but fails to publish would leave the postseason
+    archive frozen pre-finals, or absent, permanently - the all-time board quietly losing a
+    finals. archive_finished is the last moment that can be repaired, so it freezes both.
+    """
+    print("the rollover freezes both archives")
+    from commissioner import seasonflow
+    Path(root).mkdir(parents=True, exist_ok=True)
+    saved = []
+    src = Path(root) / "save"
+    (src / "html").mkdir(parents=True, exist_ok=True)
+    (src / "html" / "schedule.htm").write_text("<html></html>", encoding="latin-1")
+    (src / "LeagueOutput.mdb").write_bytes(b"not really a database")
+    backups = {}
+    for spec_key in ("prep", "college", "pro"):
+        d = Path(root) / "backups" / spec_key
+        d.mkdir(parents=True, exist_ok=True)
+        backups[spec_key] = d / "league.dat"
+
+    class Store:
+        def characters(self, league=None):
+            return []
+
+        def runs(self, limit=None):
+            return []
+
+    def read(mdbp, kind="stats", people=None):
+        return {2028: [{"id": "1", "name": "Ada Vance", "Games": 30 if kind == "stats" else 3}]}
+
+    with patch.object(statsarchive, "read_mdb", read),          patch.object(statsarchive, "save",
+                      lambda key, season, rows, source="", overwrite=False, kind="stats":
+                      saved.append((key, season, kind)) or Path("x")),          patch("commissioner.takeaways.archive_overview", lambda *a, **k: None),          patch("commissioner.headtohead.from_mdb", lambda *a, **k: {"characters": []}),          patch("commissioner.gamesarchive.archived_seasons", lambda key: []),          patch("commissioner.gamesarchive.save", lambda *a, **k: None),          patch.object(seasonflow.ch, "save_path", lambda key: src / "league.dat"):
+        seasonflow.archive_finished(Store(), 2028, backups, log=lambda m: None)
+    kinds = sorted({k for _key, _season, k in saved})
+    check("both archives frozen", kinds, ["playoffs", "stats"])
+    check("one of each per league", len(saved), 6)
+
+
 def test_the_page_cannot_strand_itself_on_an_empty_view():
     """Source check, because the alternative needs a DOM, Supabase and the whole module graph.
 
@@ -284,6 +346,8 @@ def main():
         test_a_broken_regular_season_read_is_never_swallowed(Path(root) / "f")
         test_a_finished_postseason_is_never_rewritten(Path(root) / "d")
         test_the_published_payload_offers_the_choice(Path(root) / "e")
+        test_the_player_join_is_read_once(Path(root) / "g")
+        test_the_rollover_freezes_the_postseason_too(Path(root) / "h")
         test_the_page_cannot_strand_itself_on_an_empty_view()
     print()
     for f in FAILS:

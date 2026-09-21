@@ -805,6 +805,20 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
         journal._SIM_LOCK.release()
 
 
+def _rebased_count(info):
+    """How many unclaimed reserve seats were, or would be, re-aged to the intake age.
+
+    `apply` reports them under `rebased_reserves` and `plan` is gaining its own preview of the
+    same thing. Read whichever is present rather than pinning one name: a missing key here has
+    to mean "none reported", not a KeyError raised inside the offseason's own never-fatal block.
+    """
+    for field in ("rebased_reserves", "rebasing", "rebased"):
+        value = info.get(field)
+        if value is not None:
+            return len(value) if isinstance(value, (list, tuple, set)) else int(value)
+    return 0
+
+
 def back_up_every_save(log=print):
     """A copy of all three saves before ANYTHING is written, keyed by league.
 
@@ -821,6 +835,14 @@ def back_up_every_save(log=print):
         dest = BACKUPS / f"{stamp}-offseason-{cfg.BY_KEY[key].save_name}"
         dest.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, dest / "league.dat")
+        # THE MANIFEST TRAVELS WITH THE SAVES. It is the map from a reserve slot to a row in the
+        # file, matched on name AND date of birth, and since the age-out began re-aging unclaimed
+        # seats the two are only meaningful together. Restoring league.dat alone would leave the
+        # save holding the old reserve birthdays and the manifest the new ones, and every
+        # unclaimed seat would become unfindable: stamp_character's L.find raises CodecError and
+        # no new signup can be placed until somebody repairs the manifest by hand.
+        if ageout.MANIFEST.exists():
+            shutil.copy2(ageout.MANIFEST, dest / "manifest.json")
         taken[key] = dest / "league.dat"
     if taken:
         log(f"backed up {len(taken)} save(s) to {BACKUPS}")
@@ -843,6 +865,20 @@ def restore_saves(backups, log=print):
         except Exception as exc:
             ok = False
             log(f"   ! could not restore the {key} save from {backup}: {exc}")
+    # ONCE, and after the saves. There is one manifest for the whole universe, and the copy
+    # beside any of these backups was taken at the same moment as all three, so restoring it
+    # from the first one that has it puts the pair back in step. See back_up_every_save.
+    for backup in backups.values():
+        saved = Path(backup).parent / "manifest.json"
+        if not saved.exists():
+            continue
+        try:
+            shutil.copy2(saved, ageout.MANIFEST)
+            log(f"   restored universe/manifest.json from {saved.parent.name}")
+        except Exception as exc:                                        # noqa: BLE001
+            ok = False
+            log(f"   ! could not restore the manifest from {saved}: {exc}")
+        break
     return ok
 
 
@@ -1189,17 +1225,25 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
                 log(f'   {key}: {len(p["retiring"])} would age out at {p["cap"]}+, '
                     f'{p["intake"]} would arrive at {ageout.INTAKE_AGE[key]}')
                 result["aged_out"][key] = {"retired": len(p["retiring"]),
-                                           "arrived": p["intake"], "dry_run": True}
+                                           "arrived": p["intake"], "dry_run": True,
+                                           "rebased": _rebased_count(p)}
                 continue
             out = ageout.apply(key, season, store=store, dry_run=False, log=log)
             result["aged_out"][key] = {"retired": len(out["retired"]),
-                                       "arrived": len(out["arrived"])}
+                                       "arrived": len(out["arrived"]),
+                                       "rebased": _rebased_count(out)}
         except Exception as exc:                                        # noqa: BLE001
             # Never fatal, and never a raise. By this point characters have moved leagues and
             # the store has been written; an intake that did not happen is a cosmetic problem
             # next season, while a half-run offseason leaves the saves and the store disagreeing
             # forever. Say so loudly and carry on.
-            log(f"   ! {key}: the age-out did not run ({exc}); the rest of the offseason stands")
+            # NOT "did not run". By the time this can raise, the age-out may already have
+            # written the save AND the manifest, and with the reserve re-base those two have to
+            # agree - so the difference between "nothing happened" and "something half happened"
+            # is the difference between ignoring this line and checking the file.
+            log(f"   ! {key}: the age-out failed partway ({exc}); it may already have written "
+                f"the save and the manifest, so check both before running it again. The rest of "
+                f"the offseason stands")
             result["aged_out"][key] = {"error": str(exc)}
 
     # The offseason lump sum: every active character is a year older and gets paid for it,
