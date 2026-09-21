@@ -24,7 +24,8 @@ class TransitionTests(unittest.TestCase):
         def setting(key,value): self.events.append(('setting',key,value))
         self.store=SimpleNamespace(get_settings=lambda:{'current_season':2027,'auto_publish':False},
                                    characters=lambda **kw:[],set_setting=setting)
-        patches=[patch.object(simweek,'MARKER',self.root/'journal.json'),
+        patches=[patch.object(offseason, 'RESULT_PATH', self.root/'offseason.json'),
+                 patch.object(simweek,'MARKER',self.root/'journal.json'),
                  patch.object(simweek,'_SIM_LOCK',SaveLock(self.root/'lock')),
                  patch.object(offseason.ch,'save_path',side_effect=self.paths.get),
                  patch.object(offseason,'back_up_every_save',return_value=self.backups),
@@ -198,13 +199,16 @@ class PromotionCommitTests(unittest.TestCase):
             for key,path in paths.items(): self.assertEqual(path.read_bytes(),key.encode())
 
 class DriverArrivalTests(unittest.TestCase):
-    def test_only_a_calendar_stall_is_treated_as_offseason_arrival(self):
-        from commissioner.driver.fbpb3 import FBPB3, DriverError
+    def test_only_visible_end_season_is_treated_as_offseason_arrival(self):
+        from commissioner.driver.fbpb3 import FBPB3, DriverError, OffseasonReached
         game = FBPB3()
         with patch.object(game, 'sim_days', side_effect=DriverError('a message box is open')):
             with self.assertRaisesRegex(DriverError, 'message box'):
                 game.advance_to_offseason(log=lambda m: None)
         with patch.object(game, 'sim_days', side_effect=DriverError('SIM DAY did not advance the calendar')):
+            with self.assertRaises(DriverError):
+                game.advance_to_offseason(log=lambda m: None)
+        with patch.object(game, 'sim_days', side_effect=OffseasonReached('END SEASON visible')):
             self.assertTrue(game.advance_to_offseason(log=lambda m: None))
 
 if __name__=='__main__':unittest.main()

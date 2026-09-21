@@ -58,6 +58,8 @@ class Screen:
 
 def watcher(screen, settle_calls=None):
     game = FBPB3.__new__(FBPB3)
+    game._button_text = lambda xy: "SIMDAY"
+    game._message_boxes = lambda: []
     game._date_signature = screen.signature
     game._wait_until_still = lambda **kw: (settle_calls.append(kw) if settle_calls is not None
                                            else None) or True

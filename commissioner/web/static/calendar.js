@@ -126,13 +126,26 @@
     view.plan = null;
     refreshCalendarButtons();
   }
+  function readWithRetry(read, request, attempt) {
+    return read().then(function (data) {
+      if (request !== view.request || busy()) { return {ok:false, stale:true}; }
+      if (!data.ok && /save operation is running/i.test(data.error || '') && (attempt || 0) < 5) {
+        $('calendar-preview').textContent = 'Waiting for the save check to finish…';
+        return new Promise(function (resolve) { setTimeout(resolve, 700); }).then(function () {
+          if (request !== view.request || busy()) { return {ok:false, stale:true}; }
+          return readWithRetry(read, request, (attempt || 0) + 1);
+        });
+      }
+      return data;
+    });
+  }
   function loadCalendar() {
     if (busy()) { return Promise.resolve(); }
     var request = ++view.request;
     view.plan = null;
     refreshCalendarButtons();
-    return api('/api/calendar').then(function (data) {
-      if (request !== view.request) { return; }
+    return readWithRetry(function () { return api('/api/calendar'); }, request).then(function (data) {
+      if (request !== view.request || data.stale) { return; }
       if (!data.ok) { showError(data.error || 'Calendar unavailable.'); return; }
       view.data = data;
       renderCalendarDates();
@@ -195,8 +208,9 @@
     $('calendar-preview').textContent='Calculating the other leagues…';
     var games=$('calendar-games'); games.innerHTML='';
     league().games.filter(function(g) {return g.date===iso && (!view.team || g.teams.indexOf(view.team)>=0);}).forEach(function(g) { games.appendChild(el('p',null,g.label)); });
-    postJSON('/api/calendar/plan',{reference:view.league,target:iso}).then(function(data) {
-      if(request!==view.request) {return;}
+    var reference = view.league;
+    readWithRetry(function () { return postJSON('/api/calendar/plan',{reference:reference,target:iso}); }, request).then(function(data) {
+      if(request!==view.request || data.stale) {return;}
       if(!data.ok) {showError(data.error);return;}
       view.plan=data.plan;
       var host=$('calendar-preview');host.innerHTML='';

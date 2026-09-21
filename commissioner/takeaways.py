@@ -22,10 +22,12 @@ would just disagree with it in public.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
+ARCHIVE = ROOT / "universe" / "history"
 
 # Fewer than this and a rate is noise: a man who played twice and shot 100% did not shoot 100%.
 MIN_GAMES = 8
@@ -96,12 +98,14 @@ def _doubles(rows):
 
 def for_league(league, season, names):
     """Discord lines about one league. `names` is the set of our characters in it."""
-    stats, games = _load(league, "stats.json"), _load(league, "games.json")
+    stats, games = _season_stats(league, season), _load(league, "games.json")
     if not stats and not games:
         return []
     lines = []
     ours = _our_games(games, season) if games else {}
     ours = {n: r for n, r in ours.items() if n in names} if names else ours
+    if stats and stats.get("season") is not None and _season_number(stats["season"]) != int(season):
+        stats = None  # Never attach next season's standings to archived games.
     by_name = {p["name"]: p for p in (stats or {}).get("players") or []}
     table = {r["name"]: r for r in (stats or {}).get("table") or []}
 
@@ -119,8 +123,6 @@ def for_league(league, season, names):
         got = [(cat, row["rank"][cat], row.get(cat, 0))
                for cat in (row.get("rank") or {})
                if row["rank"][cat] <= NOTABLE_RANK]
-        if not got:
-            continue
         got.sort(key=lambda t: t[1])
         bits = ", ".join(f'{_ordinal(rank)} in {CATEGORY_WORD.get(cat, cat)} ({value})'
                          for cat, rank, value in got[:2])
@@ -217,3 +219,57 @@ def for_season(season, store=None, leagues=("prep", "college", "pro")):
             out.extend(lines)
             out.append("")
     return out
+
+
+def season_records(season, store):
+    """Participation records from archived box scores, captured before players move leagues."""
+    records = []
+    names = {f'{c["first_name"]} {c["last_name"]}' for c in store.characters()}
+    for key in ("prep", "college", "pro"):
+        stats = _season_stats(key, season) or {}
+        table = {r["name"]: r for r in stats.get("table", [])} if _season_number(stats.get("season")) == int(season) else {}
+        players = {p["name"]: p for p in stats.get("players", [])} if table else {}
+        games = _our_games(_load(key, "games.json"), season)
+        for name in sorted(names & (set(games) | set(players))):
+            rows = games.get(name, [])
+            regular = [g for g in rows if not g.get("playoff") and isinstance(g.get("won"), bool)]
+            playoffs = [g for g in rows if g.get("playoff") and isinstance(g.get("won"), bool)]
+            team = players.get(name, {}).get("team")
+            standing = table.get(team, {})
+            records.append(dict(name=name, league=key, team=team,
+                team_w=standing.get("w"), team_l=standing.get("l"),
+                wins=sum(g["won"] for g in regular), losses=sum(not g["won"] for g in regular),
+                playoff_wins=sum(g["won"] for g in playoffs),
+                playoff_losses=sum(not g["won"] for g in playoffs), games=len(regular)))
+    return records
+
+
+def _season_number(value):
+    match = re.fullmatch(r"(?:Season\s+)?(\d{4})", str(value or "").strip())
+    return int(match[1]) if match else None
+
+
+def _season_stats(league, season):
+    path = ARCHIVE / f"overview-{league}-{int(season)}.json"
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if _season_number(data.get("season")) == int(season):
+            return data
+    data = _load(league, "stats.json")
+    if data and data.get("season") is not None and _season_number(data["season"]) != int(season):
+        return None
+    return data
+
+
+def archive_overview(league, season, html_dir):
+    from .seasonbonus import league_stats
+    data = league_stats(html_dir)
+    if not data.get("table"):
+        raise ValueError(f"{league}: finished-season standings missing")
+    data.update(league=league, season=int(season))
+    ARCHIVE.mkdir(parents=True, exist_ok=True)
+    path = ARCHIVE / f"overview-{league}-{int(season)}.json"
+    temp = path.with_suffix(".tmp")
+    temp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    temp.replace(path)
+    return data

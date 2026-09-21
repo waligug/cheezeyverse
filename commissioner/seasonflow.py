@@ -147,7 +147,7 @@ def _readiness(season):
 
 def archive_finished(store, season, backups, log):
     """Keep raw exports plus structured history before any character changes or rollover."""
-    from . import headtohead, gamesarchive, statsarchive
+    from . import headtohead, gamesarchive, statsarchive, takeaways
     for spec in cfg.LEAGUES:
         key = spec.key
         source = ch.save_path(key).parent
@@ -161,6 +161,7 @@ def archive_finished(store, season, backups, log):
         rows = statsarchive.read_mdb(mdb)
         if not rows.get(season):
             raise RuntimeError(f'{key}: finished-season statistics are missing from the export')
+        takeaways.archive_overview(key, season, dest / "html")
         statsarchive.save(key, season, rows[season], source=str(mdb), overwrite=True)
         people = [c for c in store.characters(league=key) if c.get('status') in ('active', 'declared')]
         data = headtohead.from_mdb(mdb, people, runs=store.runs(limit=None), league=key, season=season)

@@ -661,11 +661,33 @@ function logBlock(lines) {
   return section;
 }
 
+function renderSeasonRecords(host, result) {
+  if (result.season_records) {
+    var records = el('div', 'os-section');
+    records.appendChild(el('h3', null, 'Season ' + result.season + ' · wins and losses'));
+    records.appendChild(el('p', 'muted', 'Player records count games with minutes played. Team record is the final regular-season standings.'));
+    var rt = table(['Player', 'League', 'Team record', 'Games played W–L', 'Playoffs W–L']);
+    result.season_records.forEach(function (r) {
+      var tr = document.createElement('tr');
+      [r.name, r.league, r.team_w == null ? 'Not available' : r.team + ' ' + r.team_w + '–' + r.team_l,
+       r.games ? r.wins + '–' + r.losses : 'No recorded appearances',
+       r.playoff_wins + r.playoff_losses ? r.playoff_wins + '–' + r.playoff_losses : 'No appearances'].forEach(function (v) { tr.appendChild(el('td', null, v)); });
+      rt.tBodies[0].appendChild(tr);
+    });
+    records.appendChild(rt); host.appendChild(records);
+  }
+}
+
 function renderOffseasonResult(result, lines, wasDry) {
-  if (!wasDry && window.recordVerifiedOffseason) window.recordVerifiedOffseason(result);
+  if (result && !wasDry && !result.archive_only && window.recordVerifiedOffseason) window.recordVerifiedOffseason(result);
   var host = $('os-result');
   host.innerHTML = '';
   if (!result) { host.appendChild(el('div', 'empty-note', 'No result came back.')); return; }
+  if (result.archive_only) {
+    host.appendChild(el('p', 'muted', 'Recovered season overview from the finished-season archive. Development details were not saved by the older panel.'));
+    renderSeasonRecords(host, result);
+    return;
+  }
   var dry = result.dry_run === undefined ? !!wasDry : !!result.dry_run;
 
   var head = el('div', 'os-headline');
@@ -686,6 +708,7 @@ function renderOffseasonResult(result, lines, wasDry) {
   // Failures first and loudest: everything below this is only true if this box is empty.
   host.appendChild(troubleBlock(result, dry));
 
+  renderSeasonRecords(host, result);
   host.appendChild(promotionsBlock(result, dry));
   host.appendChild(draftBlock(result, dry));
   host.appendChild(retiredBlock(result, dry));

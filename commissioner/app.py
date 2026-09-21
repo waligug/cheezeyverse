@@ -104,6 +104,7 @@ try:  # pragma: no cover - exercised by importing with commissioner.offseason bl
         conversion_for,
         movers,
         run_offseason,
+        saved_result,
     )
     from .simweek import store as offseason_store  # type: ignore
 except Exception as _exc:  # noqa: BLE001
@@ -634,6 +635,8 @@ def _offseason_view(result):
     season = result.get("season")
     out = {
         "season": season,
+        "season_records": result.get("season_records", []),
+        "archive_only": bool(result.get("archive_only")),
         "dry_run": bool(result.get("dry_run")),
         "grown": result.get("grown", 0),
         "paid": result.get("paid"),
@@ -1292,8 +1295,13 @@ def api_offseason_result():
         runs = [r for r in _HISTORY_HINT if r.kind == "offseason"]
     run = next((r for r in runs if r.id == wanted), None) if wanted else (runs[0] if runs else None)
     if run is None:
+        saved = saved_result() if OFFSEASON_OK and not wanted else None
+        if saved:
+            return jsonify({"ok": True, "run": {"status": "ok", "season": saved.get("season"),
+                            "kind": "offseason", "archived": True}, "result": _offseason_view(saved),
+                            "refused": False, "error": ""})
         return jsonify({"ok": True, "run": None, "result": None, "refused": False, "error": "",
-                        "note": "No offseason has been run in this process."})
+                        "note": "No offseason report has been saved yet."})
     return jsonify({"ok": run.status in ("ok", "running"), "run": run.summary(),
                     "result": run.result, "refused": run.refused, "error": run.error})
 

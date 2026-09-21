@@ -202,6 +202,8 @@ class StatusTests(unittest.TestCase):
         game._wait_until_still = lambda **kw: None
         game._date_signature = lambda: b"date"
         game._message_boxes = lambda: []
+        game._button_text = lambda xy: "SIMDAY"
+        game._expect_button = lambda *a, **kw: None
         game._wait_for_new_day = lambda *args: True
         seen = []
         game.sim_days(3, on_day=lambda day, total: seen.append((day, total)))

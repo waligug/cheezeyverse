@@ -25,3 +25,7 @@ universe/.save-operation.lock
 # Discord statistical-feats delivery ledger
 universe/feats_sent.json
 universe/feats_sent.tmp
+
+# Local persisted panel report
+universe/offseason_last_result.json
+universe/offseason_last_result.tmp

@@ -69,6 +69,10 @@ class DriverError(Exception):
     pass
 
 
+class OffseasonReached(DriverError):
+    """The END SEASON button was read on screen; not a simulation timeout."""
+
+
 class FBPB3:
     def __init__(self):
         self.app = None
@@ -557,6 +561,9 @@ class FBPB3:
         for day in range(1, n + 1):
             before = self._date_signature()
             for _attempt in range(2):
+                if self._button_text(HOTSEAT_END_SEASON) == "ENDSEASON":
+                    raise OffseasonReached("END SEASON is visible; SIM DAY has ended")
+                self._expect_button(HOTSEAT_SIM_DAY, "SIM DAY", timeout=3)
                 self.click(HOTSEAT_SIM_DAY, 0)
                 if self._wait_for_new_day(before, timeout, settle):
                     break
@@ -785,6 +792,10 @@ class FBPB3:
                 if self._date_signature() != before:
                     self._wait_until_still(settle=settle, timeout=5, poll=0.1, cheap=True)
                     return True
+                if self._button_text(HOTSEAT_END_SEASON) == "ENDSEASON":
+                    raise OffseasonReached("END SEASON replaced SIM DAY")
+                if self._message_boxes():
+                    raise DriverError("A message box interrupted SIM DAY")
                 quiet_until = now + 0.5
             time.sleep(0.05)
         return False
@@ -831,55 +842,94 @@ class FBPB3:
         self.advance_to_offseason(log=log)
 
         seen = []
-        for label, xy, phase in (("END SEASON", HOTSEAT_END_SEASON, None),
-                                 ("OFFSEASON", HOTSEAT_OFFSEASON, None),
+        for label, xy, phase in (("END SEASON", HOTSEAT_END_SEASON, False),
+                                 ("OFFSEASON", HOTSEAT_OFFSEASON, False),
                                  ("HIRE STAFF", HOTSEAT_HIRE_STAFF, True),
-                                 ("TRAINING CAMPS", HOTSEAT_TRAINING_CAMPS, None)):
-            self.click(NAV_HOT_SEAT, 3)
+                                 ("TRAINING CAMPS", HOTSEAT_TRAINING_CAMPS, False)):
+            self.click(NAV_HOT_SEAT, 0)
+            self._expect_button(xy, label)
             before, stage_before = self._date_signature(), self._stage_signature()
-            self.click(xy, wait)
+            self.click(xy, 0)
             if phase:
-                # PROCESS ALL, then the same button as PROCEED. Two presses, each confirmed by
-                # the screen changing, because a phase left half-done looks identical to one
-                # that never started.
-                self.click(PHASE_PROCESS_ALL, wait)
-                self.click(PHASE_PROCESS_ALL, wait)
-            self._settle_dialogs(grace=3, timeout=60)
+                self._expect_button(PHASE_PROCESS_ALL, "PROCESS ALL", timeout=60)
+                self.click(PHASE_PROCESS_ALL, 0)
+                self._expect_button(PHASE_PROCESS_ALL, "PROCEED", timeout=120)
+                self.click(PHASE_PROCESS_ALL, 0)
+            self._wait_stage_change(stage_before, timeout=max(60, wait * 10))
             moved = self._date_signature() != before
-            staged = self._stage_signature() != stage_before
-            seen.append((label, moved, staged))
-            log(f"   {label}: calendar {'moved' if moved else 'unchanged'}, "
-                f"stage {'changed' if staged else 'unchanged'}")
-            # EVERY step of the rollover changes the stage - POSTSEASON, OFFSEASON, STAFF
-            # HIRING, TRAINING, PRESEASON. A step that moves the calendar without changing the
-            # stage is a sim button being pressed by mistake, which is exactly what happened.
-            if not staged:
-                raise DriverError(
-                    f"{label} did not change the stage (calendar {'moved' if moved else 'did not move'}). "
-                    "That is what pressing a sim button by mistake looks like; the offseason "
-                    "panel is probably not showing.")
+            seen.append((label, moved, True))
+            log(f"   {label}: confirmed stage change; calendar {'moved' if moved else 'unchanged'}")
         return seen
 
     def advance_to_offseason(self, limit=90, log=print):
-        """Sim day by day until the offseason panel replaces the sim buttons.
-
-        The panel appears on a fixed date - 6/21 in the rehearsal, 51 idle days after the final
-        - and the only way to know it has arrived is that SIM DAY stops moving the calendar,
-        which is precisely what sim_days already raises on.
-        """
+        """Stop only when END SEASON is actually read, never on an arbitrary timeout."""
         try:
             self.sim_days(limit)
-        except DriverError as exc:
-            if "SIM DAY did not advance the calendar" not in str(exc):
-                raise
-            log(f"   reached the offseason panel: {exc}")
+        except OffseasonReached:
+            log("   reached the offseason panel: END SEASON detected")
             return True
         raise DriverError(
             f"simmed {limit} days without reaching the offseason panel - the season may not be "
             "over, or the panel is somewhere this does not know about.")
 
-    # window-relative box around the STAGE label and its progress bar, bottom left
-    STAGE_BOX = (20, 712, 175, 742)
+    def _button_text(self, xy):
+        from . import screen_text
+        x, y = xy
+        image = self._grab((x - 57, y - 12, x + 57, y + 12))
+        signature = image.tobytes()
+        cache = getattr(self, "_button_cache", {})
+        if xy in cache and cache[xy][0] == signature:
+            return cache[xy][1]
+        try:
+            text = screen_text.read(image)
+        except Exception as exc:
+            raise DriverError(f"Cannot read the button at {xy}: {exc}") from exc
+        cache[xy] = (signature, text)
+        self._button_cache = cache
+        return text
+
+    def _progress_popup_visible(self):
+        # END SEASON changes the stage *before* its scouting/progress popup closes.
+        # Underlying button labels remain visible; they are not proof that work is done.
+        if any(w.handle != self.main.handle and w.class_name().startswith("ThunderRT6")
+               for w in self.app.windows(visible_only=True)):
+            return True
+        # Some VB6 progress forms are owned child windows, not enumerated top-level dialogs.
+        for window in self.main.descendants(class_name="ThunderRT6FormDC"):
+            if window.is_visible():
+                rect = window.rectangle()
+                if 300 <= rect.width() <= 600 and 120 <= rect.height() <= 350:
+                    return True
+        return False
+
+    def _expect_button(self, xy, label, timeout=15):
+        from .screen_text import normalize
+        end = time.monotonic() + timeout
+        last = ""
+        while time.monotonic() < end:
+            boxes = self._message_boxes()
+            if boxes:
+                raise DriverError(f"Waiting for {label}, but a message box is open: {boxes}")
+            last = self._button_text(xy)
+            if not self._progress_popup_visible() and last == normalize(label):
+                return
+            time.sleep(0.2)
+        raise DriverError(f"Expected {label} at {xy}; read {last!r}. No further click was sent.")
+
+    def _wait_stage_change(self, before, timeout=120):
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            if self._message_boxes():
+                raise DriverError("A dialog blocked the offseason stage transition")
+            if not self._progress_popup_visible() and self._stage_signature() != before:
+                if self._wait_until_still(settle=0.4, timeout=5, poll=0.1):
+                    if not self._progress_popup_visible() and self._stage_signature() != before:
+                        return
+            time.sleep(0.2)
+        raise DriverError("The offseason stage did not change; further steps were stopped")
+
+    # Stage text only: the animated progress bar is not a phase change.
+    STAGE_BOX = (20, 712, 175, 728)
 
     def _stage_signature(self):
         return self._grab().crop(self.STAGE_BOX).tobytes()
@@ -890,9 +940,12 @@ class FBPB3:
         A freshly created league opens in Preseason and SIM DAY only advances exhibition games;
         nothing lands in the standings until this button has been pressed.
         """
-        self.click(NAV_HOT_SEAT, 3)
-        self.click(HOTSEAT_SIM_PRESEASON, wait)
-        self.dismiss_all()
+        self.click(NAV_HOT_SEAT, 0)
+        self._expect_button(HOTSEAT_SIM_PRESEASON, "SIM PRESEASON")
+        before = self._stage_signature()
+        self.click(HOTSEAT_SIM_PRESEASON, 0)
+        self._wait_stage_change(before, timeout=max(120, wait * 2))
+        self._expect_button(HOTSEAT_SIM_DAY, "SIM DAY")
 
     def save_game(self, wait=15, path=None):
         """Top-bar SAVE; the name box is prefilled with the loaded save's name.
@@ -1141,6 +1194,23 @@ class FBPB3:
         raise DriverError(f"no control at window-relative {rel} after {timeout}s"
                           + (f" ({last})" if last else ""))
 
+    def _set_export_text(self, box, value):
+        """Skip matching styles; set the native Edit in one message and verify it."""
+        if box.window_text() == value:
+            return
+        try:
+            box.set_edit_text(value)
+        except Exception:
+            pass
+        if box.window_text() != value:
+            with self._foreground():
+                box.set_focus()
+                box.type_keys("^a{BACKSPACE}", set_foreground=True)
+                if value:
+                    box.type_keys(value, with_spaces=True, set_foreground=True)
+        if box.window_text() != value:
+            raise DriverError("HTML export style did not accept the requested value")
+
     def _open_html_screen(self, attempts=3):
         """Tools -> HTML Output, checked, and retried if the screen did not actually open.
 
@@ -1232,12 +1302,7 @@ class FBPB3:
 
         for key, value in (style if style is not None else self.CHEEZEY_STYLE).items():
             box = self._control_at(self.HTML_STYLE[key])
-            with self._foreground():
-                box.set_focus()
-                box.type_keys("^a{BACKSPACE}", set_foreground=True)
-                if value:
-                    box.type_keys(value, with_spaces=True, set_foreground=True)
-            time.sleep(0.15)
+            self._set_export_text(box, value)
 
         self.click(self.HTML_OUTPUT_BTN, 3)
         end = time.time() + timeout

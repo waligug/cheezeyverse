@@ -25,3 +25,11 @@ requests==2.32.5
 
 # Screenshots, used by the driver when a step needs to prove what was on screen.
 Pillow==12.0.0
+
+# Read the actual offseason buttons, rather than mistaking a timeout for season end.
+winrt-Windows.Media.Ocr==3.2.1
+winrt-Windows.Graphics.Imaging==3.2.1
+winrt-Windows.Globalization==3.2.1
+winrt-Windows.Foundation==3.2.1
+winrt-Windows.Foundation.Collections==3.2.1
+winrt-Windows.Storage.Streams==3.2.1

@@ -44,6 +44,19 @@ class FeatsTests(unittest.TestCase):
             self.assertEqual(send.call_args.kwargs["setting"], "DISCORD_FEATS_WEBHOOK_URL")
             self.assertEqual(send.call_args.args[0]["allowed_mentions"], {"parse": []})
 
+    def test_embeds_are_bounded_and_partial_batches_are_checkpointed(self):
+        events = feats.collect(self.root, 2028)
+        events = [dict(events[0], id=str(i), name="Player " + str(i), feats=["x" * 250] * 8) for i in range(9)]
+        with patch.object(feats, "LEDGER", self.root / "sent.json"), patch.object(feats.settings, "get", return_value="configured"), patch.object(notify, "_send", side_effect=[True, False]) as send:
+            with self.assertRaisesRegex(ValueError, "delivery failed"):
+                feats.send(events)
+            first = send.call_args_list[0].args[0]
+            self.assertTrue(first["embeds"])
+            self.assertLessEqual(len(first["embeds"]), 10)
+            size = sum(len(e["title"]) + len(e["description"]) + len(e["footer"]["text"]) + len(e["author"]["name"]) for e in first["embeds"])
+            self.assertLessEqual(size, 6000)
+            self.assertEqual(len(feats.sent_ids()), len(first["embeds"]))
+
     def test_failed_delivery_does_not_mark_sent(self):
         with patch.object(feats, "LEDGER", self.root / "sent.json"), patch.object(feats.settings, "get", return_value="configured"), patch.object(notify, "_send", return_value=False):
             with self.assertRaisesRegex(ValueError, "delivery failed"):

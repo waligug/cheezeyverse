@@ -114,16 +114,15 @@ def send(events):
         pending = [e for e in events if e["id"] not in sent]
         delivered = 0
         while pending:
-            batch, lines = [], ["**Cheezeyverse statistical feats**"]
-            while pending:
+            batch, embeds, size = [], [], 0
+            while pending and len(embeds) < 5:
                 e = pending[0]
-                line = (f"**{e['name']}** — {e['league']} {e['season']}, day {e['day']}"
-                        f"{' (playoffs)' if e['playoff'] else ''} vs {e['opponent']}: "
-                        + "; ".join(e["feats"]) + f". {e['line']}")
-                if batch and len("\n".join(lines + [line])) > 1800:
+                embed = event_embed(e)
+                count = len(embed["title"]) + len(embed["description"]) + len(embed["footer"]["text"]) + len(embed["author"]["name"])
+                if batch and size + count > 5800:
                     break
-                pending.pop(0); batch.append(e); lines.append(line)
-            ok = notify._send({"content": "\n".join(lines), "allowed_mentions": {"parse": []}},
+                pending.pop(0); batch.append(e); embeds.append(embed); size += count
+            ok = notify._send({"embeds": embeds, "allowed_mentions": {"parse": []}},
                               setting="DISCORD_FEATS_WEBHOOK_URL")
             if not ok:
                 raise ValueError(f"Discord delivery failed after {delivered} feats. Delivered batches are saved; retry skips them.")
@@ -136,3 +135,17 @@ def send(events):
         return delivered
     finally:
         LOCK.release()
+
+
+def event_embed(event):
+    """A compact gold scorecard; bounded before batching to Discord's aggregate limit."""
+    clean = lambda value, limit: str(value).replace("`", "").replace("@", "＠")[:limit]
+    feats = "\n".join("• " + clean(t, 180) for t in event["feats"][:8])
+    context = f"{event['league'].title()} · {event['season']} · Day {event['day']}"
+    return {
+        "author": {"name": "CHEEZEYVERSE · STATISTICAL FEATS"},
+        "title": clean(event["name"], 220), "color": 0xD89A18,
+        "description": ("**vs " + clean(event["opponent"], 120) + "**\n"
+                        + "```text\n" + clean(event["line"], 160) + "\n```\n" + feats)[:2200],
+        "footer": {"text": clean(context, 180) + (" · PLAYOFFS" if event["playoff"] else " · REGULAR SEASON")},
+    }

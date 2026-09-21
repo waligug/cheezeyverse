@@ -153,6 +153,23 @@ function ok(cond, msg) { if (!cond) { fails.push(msg); } }
   ok($('calendar-start').disabled === true,
      'FINDING 1: a prep plan landed after switching to pro and enabled the start button');
 
+  // Temporary lock failures retry the preview, but cannot start a simulation.
+  day.fire('click', {currentTarget:day});
+  settle('/api/calendar/plan', {ok:false, error:'A save operation is running. Calendar will refresh when it finishes.'});
+  await new Promise(function(resolve) {setTimeout(resolve, 750);});
+  ok(PENDING.some(function(p) {return p.url === '/api/calendar/plan';}), 'lock failure never retried');
+  settle('/api/calendar/plan', {ok:true, plan:{reference:'pro', target:'2028-04-20', percent:50, token:'t1',
+    leagues:[{key:'pro', days:2, games:1, from:'2028-04-18', through:'2028-04-20'}]}});
+  await tick();
+  ok(!$('calendar-start').disabled, 'successful preview retry left the calendar disabled');
+  ok(!CALLS.includes('/api/calendar/start'), 'preview retry started a sim');
+  // A league switch while the delay is pending cancels that retry.
+  day.fire('click', {currentTarget:day});
+  settle('/api/calendar/plan', {ok:false,error:'A save operation is running.'}); await tick();
+  $('calendar-league').value='prep'; $('calendar-league').fire('change');
+  await new Promise(function(resolve) {setTimeout(resolve, 750);});
+  ok(!PENDING.some(function(p) {return p.url === '/api/calendar/plan';}), 'stale preview retried after league switch');
+
   // ---- 3. the month follows the season across a rollover ----------------------------------
   $('calendar-refresh').fire('click');
   settle('/api/calendar', CAL_2028); await tick();

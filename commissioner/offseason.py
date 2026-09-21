@@ -732,10 +732,15 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
                 status.start()
             except Exception:                                           # noqa: BLE001
                 status = None
+        # Freeze the finished season before rollover replaces exports and promotions change leagues.
+        season_takeaways = takeaways.for_season(season, store=store)
+        season_records = takeaways.season_records(season, store)
         result = _run_offseason(store if dry_run else tracked, season=season, log=log,
                                 status=status,
                                 dry_run=dry_run, force=force, backups=taken,
                                 advance_settings=not rollover)
+        result["season_takeaways"] = season_takeaways
+        result["season_records"] = season_records
         if not dry_run:
             if tracked.failed_write:
                 raise OffseasonError("a database write failed: " + tracked.failed_write)
@@ -768,6 +773,11 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
                 notify.post(_offseason_report(result, store=store), log=log)
         except Exception:
             pass
+        if not dry_run:
+            try:
+                save_result(result)
+            except OSError as exc:
+                log(f"Offseason completed, but saving its report failed: {exc}")
         _finish(status, True, _one_line(result))
         return result
     except Exception as exc:
@@ -918,7 +928,8 @@ def _offseason_report(result, store=None):
     # about basketball, and it is the part a group chat argues over. Built from the stats.json
     # and games.json every publish already writes, so it costs no parsing. See takeaways.py.
     try:
-        colour = takeaways.for_season(result.get("season"), store=store)
+        colour = (result["season_takeaways"] if "season_takeaways" in result else
+                  takeaways.for_season(result.get("season"), store=store))
     except Exception as exc:                                            # noqa: BLE001
         colour = []
         print(f"  no takeaways in the report ({exc}); the rest of it stands")
@@ -1227,3 +1238,20 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
     log(f"offseason complete: {result['grown']} grew, {len(result['promoted'])} promoted, "
         f"{len(result['drafted'])} drafted, {len(result['retired'])} retired")
     return result
+
+
+RESULT_PATH = Path(__file__).resolve().parents[1] / "universe" / "offseason_last_result.json"
+
+
+def save_result(result):
+    RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temp = RESULT_PATH.with_suffix(".tmp")
+    temp.write_text(json.dumps(result, ensure_ascii=False, default=str), encoding="utf-8")
+    temp.replace(RESULT_PATH)
+
+
+def saved_result():
+    try:
+        return json.loads(RESULT_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
