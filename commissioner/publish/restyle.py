@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import re
 import shutil
+import hashlib
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -835,7 +837,8 @@ def _skin_index(html, league, season):
             f'<script>location.replace("{_v("standings.htm")}");</script></body></html>')
 
 
-def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ours=None):
+def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ours=None,
+            cache_path=None):
     """Copy an FBPB3 html output folder to `dst` wearing the Cheezeyverse skin.
 
     Returns the number of pages skinned. `src` is left untouched.
@@ -846,13 +849,36 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
     # the cache it was meant to be using.
     STAMP = datetime.now().strftime("%Y%m%d%H%M%S")
     src, dst = Path(src), Path(dst)
+    cache_path = Path(cache_path) if cache_path else None
     if not (src / "index.htm").exists():
         raise FileNotFoundError(f"{src} does not look like an FBPB3 HTML Output folder (no index.htm)")
-    if clean and dst.exists():
+    # The game rewrites every output file, and the old publisher then transformed every one of
+    # the 3,000+ pages and stamped every link again even when the bytes were unchanged. Keep a
+    # content manifest outside site/ so unchanged pages retain their already-skinned output.
+    # Hash this module into the context: a skin-code edit invalidates the cache automatically.
+    context = hashlib.sha256(
+        Path(__file__).read_bytes()
+        + f"\0{league}\0{season}\0{key or dst.name}".encode("utf-8")
+    ).hexdigest()
+    old_cache = {}
+    if cache_path and cache_path.exists():
+        try:
+            payload = json.loads(cache_path.read_text(encoding="utf-8"))
+            if payload.get("context") == context:
+                old_cache = payload.get("files") or {}
+        except (OSError, ValueError):
+            pass
+    incremental = bool(old_cache) and dst.exists()
+    if clean and dst.exists() and not incremental:
         shutil.rmtree(dst)
     dst.mkdir(parents=True, exist_ok=True)
 
     pages = 0
+    new_cache = {}
+    ours = ours or {}
+    membership = json.dumps({str(pid): who.get("name", "") for pid, who in ours.items()},
+                            sort_keys=True, separators=(",", ":"))
+    roster_data = json.dumps(ours, sort_keys=True, separators=(",", ":"), default=str)
     for path in sorted(src.rglob("*")):
         rel = path.relative_to(src)
         target = dst / rel
@@ -860,12 +886,30 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
             target.mkdir(parents=True, exist_ok=True)
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
+        raw = path.read_bytes()
+        extra = membership
+        name = rel.name.lower()
+        player = re.fullmatch(r"player(\d+)\.htm", name)
+        if player and int(player.group(1)) in ours:
+            extra += json.dumps(ours[int(player.group(1))], sort_keys=True,
+                                separators=(",", ":"), default=str)
+        if rel.parts and rel.parts[0].lower() == "rosters":
+            extra += roster_data
+        digest = hashlib.sha256(raw + extra.encode("utf-8")).hexdigest()
+        rel_key = rel.as_posix()
+        new_cache[rel_key] = digest
+        # seasonawards also reads award pages beside itself, so its own source hash is not its
+        # complete input. It is one page; always rebuilding it is cheaper and safer.
+        if (incremental and name != "seasonawards.htm" and target.exists()
+                and old_cache.get(rel_key) == digest):
+            if path.suffix.lower() in (".htm", ".html"):
+                pages += 1
+            continue
         if path.suffix.lower() not in (".htm", ".html"):
             shutil.copy2(path, target)
             continue
-        html = path.read_text(encoding="latin-1")
+        html = raw.decode("latin-1")
         prefix = "../" * len(rel.parent.parts)
-        name = rel.name.lower()
         if name == "index.htm":
             html = _skin_index(html, league, season)
         html = _drop_empty_images(html)
@@ -890,5 +934,18 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
         target.write_text(html, encoding="latin-1", errors="replace")
         pages += 1
 
-    (dst / CSS_NAME).write_text(_css_text(), encoding="utf-8")
+    # Remove only files previously owned by this transform. Generated JSON lives in the same
+    # folder and is intentionally absent from the cache, so it cannot be swept away here.
+    for missing in set(old_cache) - set(new_cache):
+        (dst / Path(missing)).unlink(missing_ok=True)
+    css = _css_text()
+    css_path = dst / CSS_NAME
+    if not css_path.exists() or css_path.read_text(encoding="utf-8") != css:
+        css_path.write_text(css, encoding="utf-8")
+    if cache_path:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cache_path.with_suffix(cache_path.suffix + ".tmp")
+        tmp.write_text(json.dumps({"context": context, "files": new_cache}, separators=(",", ":")),
+                       encoding="utf-8")
+        tmp.replace(cache_path)
     return pages

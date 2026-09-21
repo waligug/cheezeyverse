@@ -45,7 +45,7 @@ def season_label(key):
     return f"Season {cfg.START_YEAR}"
 
 
-def _our_players(league_key):
+def _our_players(league_key, characters=None):
     """{fbpb3 player id: owner-facing name} for the real people's characters in this league.
 
     Keyed by the game's own player id rather than by name, because two players can share a
@@ -55,7 +55,12 @@ def _our_players(league_key):
     try:
         from ..simweek import store
         out = {}
-        for c in store().characters(league=league_key):
+        rows = characters
+        if rows is None:
+            rows = store().characters(league=league_key)
+        for c in rows:
+            if c.get("league") != league_key:
+                continue
             if c.get("status") == "retired":
                 continue
             pid = (c.get("league_player_ids") or {}).get(league_key)
@@ -75,7 +80,7 @@ def _our_players(league_key):
         return {}
 
 
-def publish_league(key, mdb_fresh=True):
+def publish_league(key, mdb_fresh=True, season=None, ours=None):
     spec = cfg.BY_KEY[key]
     src = DOCS / "leaguedata" / spec.save_name / "html"
     dst = SITE / "leagues" / key
@@ -90,8 +95,9 @@ def publish_league(key, mdb_fresh=True):
             path = dst / name
             if path.exists():
                 retained[name] = path.read_bytes()
-    pages = restyle(src, dst, league=spec.name, season=season_label(key), key=key,
-                    ours=_our_players(key))
+    pages = restyle(src, dst, league=spec.name, season=season or season_label(key), key=key,
+                    ours=_our_players(key) if ours is None else ours,
+                    cache_path=ROOT / "tmp" / "restyle-cache" / f"{key}.json")
     # AFTER restyle, both of them. restyle(clean=True) does an rmtree of the league's folder and
     # rebuilds it from the game's export, so anything written there beforehand is deleted. That
     # is exactly what happened to games.json: run_sim wrote it before publish(), a publish then
@@ -265,11 +271,30 @@ def _write_stats(src, dst, key):
 def publish(keys=None, fresh_mdb=None):
     keys = list(keys or [s.key for s in cfg.LEAGUES])
     freshness = set(keys) if fresh_mdb is None else set(fresh_mdb)
+    # The old per-league calls made six serial network requests inside three workers: settings
+    # once and characters once for every league. They describe the same publish transaction, so
+    # take one consistent snapshot and share it with each independent transform.
+    shared_season, shared_characters = None, None
+    try:
+        from ..simweek import store
+        st = store()
+        settings = st.get_settings()
+        current = settings.get("current_season")
+        if current:
+            shared_season = f"Season {int(current)}"
+        shared_characters = st.characters()
+    except Exception:
+        pass
+
+    def build(k):
+        ours = _our_players(k, shared_characters) if shared_characters is not None else None
+        return publish_league(k, k in freshness, season=shared_season, ours=ours)
+
     # Each league writes its own destination and history files. Running their transforms
     # together overlaps thousands of small file reads/writes and store requests; ordering the
     # returned rows through executor.map keeps the public manifest deterministic.
     with ThreadPoolExecutor(max_workers=min(3, len(keys))) as pool:
-        out = list(pool.map(lambda k: publish_league(k, k in freshness), keys))
+        out = list(pool.map(build, keys))
     (SITE / "leagues" / "published.json").write_text(
         json.dumps({"published_at": datetime.now().isoformat(timespec="seconds"), "leagues": out}, indent=1),
         encoding="utf-8")
