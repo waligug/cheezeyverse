@@ -24,7 +24,16 @@ with tempfile.TemporaryDirectory() as tmp:
         {"date": "11/8/2028", "team": "Rails", "action": "Traded A & B to Kings"},
         {"date": "11/1/2028", "team": "Spies", "action": "Cut C Same Guy"},
     ], got
-    lines = leaguenews.report_lines({"prep": got}, limit=1)
-    assert "Traded A & B" in lines[0] and "1 more" in lines[1], lines
+    rows = [
+        {"date": "11/9/2028", "team": "Rails", "action": "Trade C Same Guy to Kings"},
+        {"date": "11/8/2028", "team": "Rails", "action": "Traded CPU Player to Kings"},
+        {"date": "11/7/2028", "team": "Rails", "action": "Cut C Same Guy"},
+        {"date": "11/6/2028", "team": "Rails", "action": "Traded Same Guyton to Kings"},
+    ]
+    filtered = leaguenews.real_player_trades(
+        rows, [{"first_name": "Same", "last_name": "Guy"}])
+    assert filtered == [rows[0]], filtered
+    lines = leaguenews.report_lines({"prep": filtered}, limit=1)
+    assert "Same Guy" in lines[0] and len(lines) == 1, lines
 
-print("OK  league news: parses the ledger, preserves duplicate rows, and reports only new business")
+print("OK  league news: reports only trades involving tracked real players")

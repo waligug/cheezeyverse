@@ -5,6 +5,7 @@ from collections import Counter
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
+import re
 
 
 class _Rows(HTMLParser):
@@ -57,6 +58,22 @@ def new_rows(before, after):
             remaining[row] -= 1
         else:
             out.append({"date": row[0], "team": row[1], "action": row[2]})
+    return out
+
+
+def real_player_trades(rows, characters):
+    """Return only trades that name one of the community's tracked characters."""
+    names = []
+    for character in characters or []:
+        name = f'{character.get("first_name", "")} {character.get("last_name", "")}'.strip()
+        if name:
+            names.append(re.compile(rf'(?<!\w){re.escape(name)}(?!\w)', re.IGNORECASE))
+    out = []
+    for row in rows:
+        action = row.get("action", "")
+        if re.search(r"\btrad(?:e|ed|es|ing)\b", action, re.IGNORECASE) and any(
+                pattern.search(action) for pattern in names):
+            out.append(row)
     return out
 
 

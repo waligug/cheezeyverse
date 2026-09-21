@@ -1168,6 +1168,12 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # ---- 2. drive the game ---------------------------------------------------------------
         from . import leaguenews
         news_before = {key: leaguenews.snapshot(ch.save_path(key).parent / "html") for key in keys}
+        try:
+            news_characters = st.characters()
+        except Exception as exc:
+            # News is optional reporting after the basketball; it must never stop a run.
+            emit("export", f"real-player trade news unavailable ({exc}); omitting league news")
+            news_characters = []
         at("load", keys[0])
         emit("sim", "starting the basketball game", keys[0])
         game = FBPB3().launch()
@@ -1219,10 +1225,12 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # covers its own games comfortably and a season left unexported cannot be recovered.
             out = game.html_output(spec.save_name, old_boxes=True)
             emit("export", f"{len(list(out.rglob('*.htm')))} pages", key)
-            new_business = leaguenews.new_rows(news_before[key], leaguenews.snapshot(out))
+            new_business = leaguenews.real_player_trades(
+                leaguenews.new_rows(news_before[key], leaguenews.snapshot(out)),
+                news_characters)
             if new_business:
                 result["news"][key] = new_business
-                emit("export", f"{len(new_business)} new transaction(s) recorded", key)
+                emit("export", f"{len(new_business)} real-player trade(s) recorded", key)
             # The MDB is where the per-game and season-total tables come from, and it is also
             # the only chance to write a career down before the save retires the man: SeasonStats
             # is rebuilt from scratch every export, so whatever is not captured here is gone.
