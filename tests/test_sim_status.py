@@ -115,6 +115,14 @@ class StatusTests(unittest.TestCase):
                          days=35, leagues=["prep"], elapsed=65)
         self.assertIn("🟩" * 16, card["embeds"][0]["description"])
 
+    def test_long_calendar_run_shows_progress_during_roster_preparation(self):
+        progress = ss.RunProgress(["prep", "college", "pro"],
+                                  {"prep": 32, "college": 36, "pro": 38})
+        self.assertGreater(progress.at("prepare", "prep", .15), 0)
+        after_prep = progress.at("prepare", "prep", .75)
+        self.assertGreater(after_prep, 1)
+        self.assertGreater(progress.at("prepare", "college", .15), after_prep)
+
     def test_offseason_card_names_the_transition_and_never_claims_games_are_playing(self):
         card = ss.render({"percent": 55, "stage": "ageout", "detail": "Prep: new class"},
                          days=0, leagues=["prep", "college", "pro"], elapsed=754,

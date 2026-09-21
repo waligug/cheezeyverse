@@ -180,9 +180,16 @@ def protect(key, dry_run=False, store_characters=None):
                 touched = True
         defanged += 1 if touched else 0
 
-    # 2. release the intruders, then sign our exiles back onto their own teams
+    # 2. release the intruders, then sign our exiles back onto their own teams. Do each side as
+    # one structural edit. release()/sign() re-parse the entire 5-10 MB save after every player;
+    # Pro commonly has 100+ intruders after preseason, which made this guard appear frozen for
+    # several minutes before FBPB3 even launched.
+    exiled_keys = [(p.name, p.dob) for p in exiled]
+    release_groups = {}
     for p in intruders:
-        L.release(L.find(p.name, p.dob))
+        release_groups.setdefault(p.values["Team"], []).append(p)
+    L.release_groups(release_groups)
+    exiled = [L.find(name, dob) for name, dob in exiled_keys]
 
     team_of = {}
     abbrev_to_id = {}
@@ -194,7 +201,8 @@ def protect(key, dry_run=False, store_characters=None):
     ids = sorted({p.values["Team"] for p in L.players if p.values["Team"] >= 1})
     by_abbrev = {t.abbrev: ids[i] for i, t in enumerate(spec.teams) if i < len(ids)}
 
-    signed = 0
+    assignments = []
+    team_sizes = {t: len(v["ids"]) for t, v in L.teams().items()}
     for p in exiled:
         abbrev = manifest_team.get((p.name, p.dob))
         if abbrev is None:
@@ -206,17 +214,20 @@ def protect(key, dry_run=False, store_characters=None):
         if team_id is None:
             print(f"   ! no team for {p.name}; left in free agency")
             continue
-        if len(L.teams().get(team_id, {}).get("ids", ())) >= spec.roster_size:
+        if team_sizes.get(team_id, 0) >= spec.roster_size:
             # His own team filled up while he was out. Anywhere is better than free agency,
             # where the AI will not re-sign a defanged 14-year-old and he never plays again.
-            room = [t for t, v in L.teams().items() if len(v["ids"]) < spec.roster_size]
+            room = [t for t, size in team_sizes.items() if size < spec.roster_size]
             if not room:
                 print(f"   ! every roster is full; {p.name} left in free agency")
                 continue
             team_id = room[0]
             print(f"   {abbrev} was full, {p.name} goes to team {team_id} instead")
-        L.sign(L.find(p.name, p.dob), team_id)
-        signed += 1
+        assignments.append((p, team_id))
+        team_sizes[team_id] = team_sizes.get(team_id, 0) + 1
+
+    L.sign_many(assignments)
+    signed = len(assignments)
 
     L.save(backup_dir=BACKUPS)
     check = LeagueDat(path)

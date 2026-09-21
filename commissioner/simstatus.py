@@ -46,7 +46,11 @@ class RunProgress:
         day_counts = days if isinstance(days, dict) else {}
         self.days = max(1, max(day_counts.values()) if day_counts else int(days))
         keys = list(leagues)
-        plan = [("prepare", key, 1) for key in keys]
+        # Roster protection is real work: on an aged universe it can take two minutes per
+        # league while it releases dozens of AI signings and restores reserved players. Giving
+        # it weight 1 made a three-league calendar run display 0% for six minutes because the
+        # simulated-day weights dwarf it and integer rounding erased every preparation step.
+        plan = [("prepare", key, 12) for key in keys]
         for key in keys:
             plan.extend((stage, key, day_counts.get(key, self.days) if stage == "sim" else 1)
                         for stage in ("load", "sim", "save", "export", "mdb"))

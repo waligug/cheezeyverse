@@ -1071,6 +1071,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # the pool and put anyone it already took back, before anything else is applied.
             if not dry_run:
                 from tools.protect_rosters import protect as _protect
+                pct = at("prepare", key, .15)
+                emit("apply", f"checking {spec.name} rosters before the games", key, pct=pct)
                 # The guard repairs the roster; it must never be able to stop the week from
                 # running. A sim that skips the repair is recoverable, a sim that refuses to
                 # start because the repair threw is not.
@@ -1080,8 +1082,9 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                     emit("apply", f"roster guard failed for {key} ({exc}); continuing", key)
                     guard = {}
                 if guard.get("released") or guard.get("signed"):
+                    pct = at("prepare", key, .75)
                     emit("apply", f'AI roster churn undone: {guard["released"]} out, '
-                                  f'{guard["signed"]} of ours back in', key)
+                                  f'{guard["signed"]} of ours back in', key, pct=pct)
 
             # Opened AFTER the guard, which writes the file itself - an object opened before it
             # would hold a stale copy and overwrite the repair on save.
@@ -1134,6 +1137,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 emit("apply", f"{len(activated)} characters in, {len(applied)} spends applied", key)
             else:
                 emit("apply", "nothing pending", key)
+            at("prepare", key, 1)
 
         if dry_run:
             emit("done", "dry run complete - nothing was written or simmed", pct=100)
