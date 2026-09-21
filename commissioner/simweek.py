@@ -700,7 +700,8 @@ def _discord_report(steps, result, seconds):
     placed = [r["message"] for r in steps
               if r.get("step") == "apply" and " claimed " in str(r.get("message", ""))]
     points = [r["message"] for r in steps if r.get("step") == "points"]
-    published = any("the public site is live" == r.get("message") for r in steps)
+    published = any(r.get("message") in ("the public site is live",
+                    "site uploaded; GitHub Pages deployment pending") for r in steps)
 
     weeks = max(1, round(int(result.get("days") or 7) / 7))
     if result.get("days_by_league"):
@@ -723,7 +724,7 @@ def _discord_report(steps, result, seconds):
         lines.extend(news)
     if published:
         site = (cfgenv.get("SITE_URL", "") or "").strip()
-        lines.append(f"- the site is live{': ' + site if site else ''}")
+        lines.append(f"- site uploaded; GitHub Pages deployment pending{': ' + site if site else ''}")
     elif not result.get("dry_run"):
         lines.append("- the site did NOT publish; the week itself is saved")
     return "\n".join(lines)
@@ -1519,7 +1520,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             try:
                 from .publish.publish import git_push
                 git_push(f"Sim Week {datetime.now():%Y-%m-%d %H:%M}")
-                emit("publish", "the public site is live")
+                emit("publish", "site uploaded; GitHub Pages deployment pending")
             except Exception as exc:
                 emit("publish", f"the site did NOT publish ({exc}); the week itself is saved")
 

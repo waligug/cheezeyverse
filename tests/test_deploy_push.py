@@ -110,7 +110,7 @@ def main():
         ok(not (site / ".nojekyll").exists(),
            "the deploy wrote .nojekyll into site/; deploy files must not touch the sources")
 
-        # It reached the REMOTE, which is what "the public site is live" means.
+        # It reached the remote branch; GitHub Pages deployment is a separate step.
         remote_head = git("rev-parse", branch, cwd=bare)
         ok(remote_head == git("rev-parse", branch, cwd=root), "the local branch and the remote disagree")
 

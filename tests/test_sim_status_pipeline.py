@@ -127,6 +127,8 @@ class PipelineTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(len(Status.instances), 1)
         self.assertTrue(Status.instances[0].result[0])
+        self.assertIn("GitHub Pages deployment pending", Status.instances[0].result[1])
+        self.assertNotIn("site is live", Status.instances[0].result[1])
         percents = [e["pct"] for e in events]
         self.assertEqual(percents, sorted(percents))
         self.assertEqual(percents[-1], 100)
