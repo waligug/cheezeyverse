@@ -6,6 +6,7 @@
   function busy() { return state.busy || state.osBusy; }
   window.renderCalendarDates = function () {
     if (!view.data) { return; }
+    if (window.renderLeagueDetails) window.renderLeagueDetails(view.data, state.plan, busy());
     view.data.leagues.forEach(function(lg) {
       var card = document.querySelector('.league[data-key="' + lg.key + '"]');
       if (!card) { return; }
@@ -35,6 +36,8 @@
   };
   window.renderSeasonReadiness = function (plan) {
     var host = $('season-readiness'), transition = plan && plan.transition;
+    if (window.renderOffseasonGuide) window.renderOffseasonGuide(plan);
+    if (view.data && window.renderLeagueDetails) window.renderLeagueDetails(view.data, plan, busy());
     if (!host) { return; }
     host.className = 'season-readiness' + (transition && transition.ready ? ' ready' : '');
     host.textContent = !transition ? 'Checking the three season states…' : transition.ready

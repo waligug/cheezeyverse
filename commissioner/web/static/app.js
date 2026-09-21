@@ -174,6 +174,7 @@ function detach() {
 
 function finishRun(ev) {
   state.busy = false;
+  if (window.clearOffseasonPreview) window.clearOffseasonPreview();
   setButtons();
   var okay = ev.status === 'ok';
   var refused = !!ev.refused || ev.status === 'refused';
@@ -496,6 +497,7 @@ function renderLeagues(universe) {
 function renderPlan(plan) {
   if (!plan) { return; }
   state.plan = plan;
+  if (window.renderOffseasonGuide) window.renderOffseasonGuide(plan);
   if (window.renderSeasonReadiness) { window.renderSeasonReadiness(plan); }
   $('os-season-chip').textContent = plan.season ? ('season ' + plan.season + ' → ' + (Number(plan.season) + 1)) : 'season unknown';
   $('os-last-chip').textContent = plan.last_offseason
@@ -567,6 +569,7 @@ function previewOffseason() {
       return;
     }
     if (data.plan) { renderPlan(data.plan); }
+    if (window.recordOffseasonPreview) window.recordOffseasonPreview(data);
     renderOffseasonResult(data.result, data.log, true);
   }).catch(function (err) {
     state.osBusy = false;
@@ -659,6 +662,7 @@ function logBlock(lines) {
 }
 
 function renderOffseasonResult(result, lines, wasDry) {
+  if (!wasDry && window.recordVerifiedOffseason) window.recordVerifiedOffseason(result);
   var host = $('os-result');
   host.innerHTML = '';
   if (!result) { host.appendChild(el('div', 'empty-note', 'No result came back.')); return; }
@@ -983,6 +987,7 @@ function refreshHistory() {
     var host = $('history');
     host.innerHTML = '';
     var rows = data.runs || [];
+    if (window.renderSimRecap) window.renderSimRecap(rows);
     if (data.error) { host.appendChild(el('div', 'empty-note', data.error)); }
     if (!rows.length && (data.this_session || []).length) {
       rows = data.this_session;

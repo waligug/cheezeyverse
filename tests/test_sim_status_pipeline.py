@@ -136,6 +136,22 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(len(self.store.records), 1)
         self.assertFalse(simweek._SIM_LOCK.locked())
 
+    def test_recap_persists_observed_dates_points_and_growth(self):
+        from commissioner import calendarplan, seasonflow
+        before = {"current_date": "2029-04-19", "games": [{"played": False}]}
+        after = {"current_date": "2029-04-21", "games": [{"played": True}]}
+        with patch.object(calendarplan, "read_league", side_effect=[before, after]), \
+             patch.object(seasonflow, "capture_character_progress", return_value={"c": {"JumpShot": 40}}), \
+             patch.object(seasonflow, "protect_character_progress", return_value=[
+                 {"id": "c", "name": "Real Player", "values": {"JumpShot": 42}, "changed": {}}]):
+            result = simweek.run_sim(leagues=["prep"], days=1)
+        recap = self.store.records[-1]["summary"]
+        self.assertEqual(recap["dates"]["prep"]["to"], "2029-04-21")
+        self.assertEqual(recap["dates"]["prep"]["games_played"], 1)
+        self.assertEqual(recap["growth"][0]["ratings"], {"JumpShot": [40, 42]})
+        self.assertEqual(recap["points"], [{"league": "prep", "per_player": 1, "players": 0}])
+        self.assertTrue(result["ok"])
+
     def test_game_failure_finishes_same_card_at_partial_progress(self):
         self.day_failure = True
         with self.assertRaisesRegex(RuntimeError, "game stopped"):

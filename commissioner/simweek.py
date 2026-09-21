@@ -1213,6 +1213,17 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # the complete snapshot history before FBPB3 gets a chance to run development logic.
         from . import seasonflow
         progress_floors = {key: seasonflow.capture_character_progress(st, key) for key in keys}
+        result["summary"] = {"dates": {}, "points": [], "growth": []}
+        # Informational reads of existing exports; never turn a reporting problem into a sim failure.
+        from .calendarplan import read_league
+        for key in keys:
+            try:
+                calendar = read_league(key)
+                result["summary"]["dates"][key] = {"from": calendar["current_date"],
+                    "games_before": sum(g["played"] for g in calendar["games"])}
+            except Exception:
+                result["summary"]["dates"][key] = {}
+
 
         # ---- 2. drive the game ---------------------------------------------------------------
         from . import leaguenews
@@ -1452,6 +1463,21 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # ceilings at season boundaries. Apply the lifetime floor before snapshots or the
             # site can record and publish the damaged sheet as if it were legitimate progress.
             repaired = seasonflow.protect_character_progress(st, key, progress_floors.get(key))
+            for person in repaired:
+                floor = progress_floors.get(key, {}).get(person["id"], {})
+                gains = {field: [floor[field], person["values"][field]] for field in RATINGS
+                         if field in floor and person["values"].get(field, 0) > floor[field]}
+                if gains:
+                    result["summary"]["growth"].append({"name": person["name"], "league": key, "ratings": gains})
+            try:
+                calendar = read_league(key)
+                dates = result["summary"]["dates"][key]
+                dates["to"] = calendar["current_date"]
+                if "games_before" in dates:
+                    dates["games_played"] = sum(g["played"] for g in calendar["games"]) - dates["games_before"]
+            except Exception:
+                pass
+
             changed = [row for row in repaired if row["changed"]]
             if changed:
                 emit("apply", f"restored protected progress for {len(changed)} character(s)", key)
@@ -1529,6 +1555,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             emit("points", f"awarding weekly points in {cfg.BY_KEY[key].name}", key)
             league_weeks = max(1, round(day_counts[key] / 7))
             n = st.grant_week_points(league=key, weeks=league_weeks)
+            result["summary"]["points"].append({"league": key, "per_player": league_weeks, "players": n})
             if n:
                 emit("points", f"{league_weeks} point(s) to {n} character(s) in {key}", key)
         at("finish")
@@ -1571,6 +1598,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             if phases and not dry_run:
                 emit("done", "where the time went: " + ", ".join(
                     f"{name} {secs:.0f}s" for name, secs in phases[:6]))
+            if result.get("summary") is not None:
+                result["summary"]["changes"] = [r["message"] for r in steps
+                    if r.get("step") == "apply" and ("->" in r.get("message", "") or "→" in r.get("message", ""))]
+                result["summary"]["publishing"] = [r["message"] for r in steps if r.get("step") == "publish"][-1:]
             recorded = st.record_run({**result, "seconds": round(time.time() - started),
                            "started_at": datetime.fromtimestamp(started, timezone.utc)
                            .isoformat(timespec="seconds"),

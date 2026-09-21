@@ -85,6 +85,7 @@
         {% if lg.get('season') %} &middot; season {{ lg.get('season') }}{% endif %}
         {% if lg.get('day') is not none and lg.get('day') != '' %} &middot; day {{ lg.get('day') }}{% endif %}
       </div>
+      <div class="league-detail" aria-live="polite">Checking schedule…</div>
       <dl>
         <dt>Games played</dt>
         <dd>{% if lg.get('games_played') is not none %}{{ lg.get('games_played') }}{% else %}<span class="dash">&mdash;</span>{% endif %}</dd>
@@ -109,6 +110,13 @@
     </div>
     {% endfor %}
   </div>
+
+  <section class="card" id="post-sim-summary">
+    <header><h2>Last simulation</h2></header>
+    <div class="body"><div id="sim-recap" aria-live="polite">Loading last run…</div>
+      <button type="button" id="summary-feats" class="plain">Look for feats from the last sim</button>
+    </div>
+  </section>
 
   <!-- ------------------------------------------------------------------ run + log -->
   <div class="card">
@@ -219,7 +227,8 @@
       </div>
       {% endif %}
 
-      <ol class="season-steps"><li>Finish all three playoffs</li><li>Archive stats &amp; develop players</li><li>Promote, draft &amp; roll forward</li><li>Verify the new season</li></ol>
+      <div id="offseason-guide" aria-live="polite"></div>
+      <p class="muted">Start with the highlighted step. Each action uses the existing checks; nothing advances automatically.</p>
       <div id="season-readiness" class="season-readiness" aria-live="polite"></div>
       <p class="os-blurb">One transition handles player growth, college moves, the draft, points, and the game's new-season setup. Your finished-season stats are archived first. The season changes only after all three saves are verified.</p>
       <p class="muted">Step 1 is up in <b>Where do you want to play to?</b> - the playoff buttons sit beside the calendar.</p>
@@ -391,6 +400,7 @@
 <div id="toast" hidden></div>
 
 <script type="application/json" id="boot">{{ boot|tojson }}</script>
+<script src="{{ url_for('static', filename='panel-guide.js') }}"></script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 <script src="{{ url_for('static', filename='calendar.js') }}"></script>
 <script src="{{ url_for('static', filename='feats.js') }}"></script>
