@@ -38,6 +38,7 @@ sys.path.insert(0, str(ROOT))
 
 from commissioner import characters as ch  # noqa: E402
 from commissioner import simweek  # noqa: E402
+from commissioner.saveguard import SaveLock  # noqa: E402
 
 
 def _row(date, played, n):
@@ -90,6 +91,10 @@ def main():
     real_post = None
     real_store = None
     real_fbpb3, real_backups = simweek.FBPB3, simweek.BACKUPS
+    real_lock = simweek._SIM_LOCK
+    # This test proves run_sim releases its lock; it does not need or deserve the live universe's
+    # cross-process lock. Using an isolated OS lock makes the test safe while the panel is busy.
+    simweek._SIM_LOCK = SaveLock(tmp / ".test-save.lock")
     try:
         # ---- the same season in both date formats must give the same answer -----------------
         for iso in (False, True):
@@ -318,6 +323,7 @@ def main():
         if real_store is not None:
             simweek.store = real_store
         simweek.FBPB3, simweek.BACKUPS = real_fbpb3, real_backups
+        simweek._SIM_LOCK = real_lock
         ch.save_path = real
         simweek.ch.save_path = real
         shutil.rmtree(tmp, ignore_errors=True)

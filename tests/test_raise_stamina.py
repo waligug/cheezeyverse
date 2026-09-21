@@ -32,7 +32,9 @@ sys.path.insert(0, str(ROOT / "tools"))
 from commissioner import characters as ch          # noqa: E402
 from commissioner.codec.league_dat import LeagueDat  # noqa: E402
 
-FIXTURE = ROOT / "fixtures/saves/chung-baseline/league.dat"
+HISTORICAL = ROOT / "fixtures/saves/chung-baseline/league.dat"
+LIVE = Path(r"C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3\leaguedata\CV_Prep\league.dat")
+FIXTURE = HISTORICAL if HISTORICAL.exists() else LIVE
 FLOOR = 50
 
 
@@ -57,8 +59,7 @@ def main():
     # does". It did not: test_codec guarded its AGED fixture and opened its BASELINE one
     # unguarded, so it tracebacked on every clone. Both skip as of 2026-09-19.)
     if not FIXTURE.exists():
-        print(f"SKIP  raise_stamina: no save fixture at {FIXTURE.relative_to(ROOT)} "
-              "(fixtures/saves/ is gitignored, so a clone does not carry it)")
+        print("SKIP  raise_stamina: neither the historical fixture nor a live save exists")
         return 0
 
     tmp = Path(tempfile.mkdtemp(prefix="stamina-"))
