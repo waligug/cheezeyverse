@@ -795,8 +795,21 @@ def test_nothing_leaks_before_signing():
     # number the roll was introduced to withhold.
     me = (ROOT / "site/js/page-me.js").read_text(encoding="utf-8")
     block = me[me.index("function heightBlock("):me.index("function requestTable(")]
-    check("the player page only shows the offseasons that have happened",
-          "filter((p) => p.age <= age)" in block and "curve[curve.length - 1]" not in block)
+    # heightBlock used to render the curve and filter it to the offseasons that had happened.
+    # It now prints the recorded height and nothing else, which withholds the future outright
+    # rather than by filtering it - a stronger guarantee, so this asserts the PROPERTY (no part
+    # of the future curve reaches the page) instead of the filter that used to deliver it. The
+    # old assertion failed against code that had become safer, which is the wrong way round.
+    # THREE NEGATIVE CHECKS AND NOTHING POSITIVE IS A TEST THAT CAN PASS ON AN EMPTY STRING.
+    # `block` is a slice between two function names; move requestTable above heightBlock and the
+    # slice is '', every `not in` is true, and this reports success while checking nothing. So
+    # the slice is asserted non-empty and one positive fact is kept about what the block DOES.
+    check("the height block was actually found", bool(block.strip()), True)
+    check("it prints the recorded height", "formatHeight(character.height_inches)" in block)
+    check("the player page never prints the future of the height curve",
+          "curve[curve.length - 1]" not in block
+          and "growthCurve(" not in block
+          and "expectedAdultHeight(" not in block)
     check("and it derives his age rather than assuming one",
           "currentAge(character, cfg.current_season)" in me)
 

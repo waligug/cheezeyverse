@@ -35,6 +35,13 @@ WHAT IT WILL NOT TOUCH. Our characters, ever - by store identity and by manifest
 both. A reserve slot is how a new signup gets placed; losing one silently breaks the next person
 to join, which is a far worse bug than an old filler.
 
+NOT RELEASED IS NOT THE SAME AS NOT AGED, and for a long time this module confused the two. An
+unclaimed reserve seat must survive every rollover, but nothing ever reset its age, so the seats
+aged with the universe until nineteen of prep's forty-eight were 19 in a league that ends at 18 -
+on rosters, playing. A new character also inherits the BIRTHDAY of the seat he claims, so the next
+kid to sign up would have started already too old for his own league. `_rebase_reserves` now gives
+an unclaimed seat its youth back when it reaches the cap. It is still never released.
+
 THE ORDER MATTERS, and it is the one thing to be careful about when editing this. `rename`,
 `release` and `sign` each splice the file and RE-PARSE it, so every Player object held across one
 of them is stale - that is how an earlier tool renamed the wrong rows. `set` only pokes bytes and
@@ -52,6 +59,7 @@ from .universe import generate as gen
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKUPS = ROOT / "backups"
+MANIFEST = ROOT / "universe" / "manifest.json"
 DOCS = Path(r"C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3")
 
 # The first age at which a player has OUTGROWN the league, measured in the season about to be
@@ -121,7 +129,7 @@ def protected_names(key, store=None):
     goes, and recycling one would break his placement for a reason that has nothing to do with him.
     """
     names = set()
-    manifest = json.loads((ROOT / "universe" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     for row in manifest["players"]:
         if row["league"] == key and row["role"] == "reserve":
             names.add(row["name"])
@@ -198,9 +206,27 @@ def plan(key, season, store=None, save_path=None):
 
     pool = [p for p in L.players
             if p.values["Team"] < 1 and p.name not in keep]
+
+    # The unclaimed reserve seats this rollover would make young again, so the PREVIEW says so.
+    # The real run re-ages seats and rewrites the git-tracked universe/manifest.json, and a dry
+    # run that reported only "N would age out, M would arrive" left both of those unannounced.
+    from .characters import codec_dob
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    rebasing = []
+    for row in manifest["players"]:
+        if row["league"] != key or row["role"] != "reserve":
+            continue
+        try:
+            pl = L.find(row["name"], codec_dob(row["dob"]))
+        except Exception:      # noqa: BLE001 - a claimed seat is renamed, so it is not found
+            continue
+        if age_of(pl, season) >= cap:
+            rebasing.append({"name": pl.name, "team": row["team"], "age": age_of(pl, season)})
+
     return {"league": key, "capped": True, "cap": cap, "season": int(season),
             "retiring": retiring, "intake": sum(max(0, n) for n in short.values()),
-            "teams": short, "pool": len(pool), "rostered": sum(len(r) for r in on_team.values())}
+            "teams": short, "pool": len(pool), "rostered": sum(len(r) for r in on_team.values()),
+            "rebasing": rebasing}
 
 
 def audit(key, season, store=None, save_path=None):
@@ -216,6 +242,72 @@ def audit(key, season, store=None, save_path=None):
     return {"over_age": over, "sizes": sizes,
             "ok": not over and set(sizes.values()) == {spec.roster_size}}
 
+
+def _rebase_reserves(L, key, season, cap, intake_age):
+    """Give an UNCLAIMED reserve seat its youth back instead of letting it age out of the league.
+
+    A reserve row is the seat a new signup is stamped into, and `protected_names` keeps it off
+    every release list so that the next person to join still has one. Nothing ever reset its AGE,
+    though, and the seats quietly aged with the universe: measured against the live prep save for
+    season 2030, nineteen of prep's forty-eight were already 19 in a league that ends at 18. They
+    sit on rosters, so they were playing there - the exact thing this module exists to stop,
+    arriving through the one door it deliberately leaves open.
+
+    Worse than the standings: `characters.stamp_character` gives a new character the BIRTHDAY OF
+    THE SLOT HE CLAIMS. The next kid to sign up for prep would have started his career already
+    too old for the league he was joining, and no part of the signup flow would have said so.
+
+    ONLY UNCLAIMED ROWS ARE TOUCHED, and findability is the test: `stamp_character` renames the
+    row to the character's name, so a row still answering to the manifest's own generated name
+    and date is a seat nobody holds. That needs no store, works in a dry run, and cannot mistake
+    a real person for a seat - a claimed row simply is not found.
+
+    THE SEAT KEEPS ITS NAME, and that is deliberate. Changing the date alone does mean a seat
+    that has been rostered for years is archived under two `statsarchive._identity` values -
+    (name, dob) - so a long-lived one can show up twice on the all-time page under the one name.
+    Renaming it the way the intake path renames a recycled body would tidy that up, and it was
+    tried: it breaks the guarantee that matters more. `protected_names`, `characters.free_slots`
+    and `tests/test_age_out.py` all identify a seat BY NAME, so renaming reads as the seat having
+    been recycled away - and in the copy case, where the manifest is deliberately not rewritten,
+    the seat really would be lost. A duplicate row on a leaderboard is worth less than the
+    guarantee that the next person to sign up has somewhere to go.
+
+    Only the YEAR moves; the day and month are kept so the row stays recognisably itself. The
+    manifest is rewritten to match, because it is how the codec finds the slot again - a date
+    that moved in the save but not in the manifest could never be claimed or refilled.
+
+    Returns (rebased rows, the updated manifest). The caller writes the manifest, and only after
+    `L.save()` has succeeded, so the two never disagree.
+    """
+    from .characters import codec_dob
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    year = int(season) - intake_age
+    rebased = []
+    for row in manifest["players"]:
+        if row["league"] != key or row["role"] != "reserve":
+            continue
+        try:
+            pl = L.find(row["name"], codec_dob(row["dob"]))
+        except Exception:      # noqa: BLE001 - claimed, renamed, or absent; none of them ours
+            continue
+        was = age_of(pl, season)
+        if was < cap:
+            continue
+        fresh = f'{int(pl.values["BirthMonth"])}/{int(pl.values["BirthDay"])}/{year}'
+        # `set` only pokes bytes - no splice, so no handle goes stale here.
+        L.set(pl, "BirthYear", year)
+        # EXPERIENCE IS A FUNCTION OF AGE, and moving the birthday without it leaves the seat
+        # carrying the seasons it played at its old age: generate.py builds a body with
+        # `max(0, age - age_range[0])`, and the intake path already zeroes it for exactly this
+        # case - a recycled body made young again. `stamp_character` never writes Exp at all, so
+        # whatever is left here is what the NEXT SIGNUP INHERITS, and a fourteen-year-old with
+        # five seasons behind him is a different player to the engine: development, AI evaluation
+        # and contracts all read it.
+        L.set(pl, "Exp", 0)
+        rebased.append({"name": pl.name, "team": row["team"], "age_was": was,
+                        "was": row["dob"], "dob": fresh})
+        row["dob"] = fresh
+    return rebased, manifest
 
 def apply(key, season, store=None, save_path=None, dry_run=False, log=print, seed=None):
     """Retire the over-age, refill with a new intake, and write the save.
@@ -349,11 +441,35 @@ def apply(key, season, store=None, save_path=None, dry_run=False, log=print, see
                         "team": t, "recycled_from": old_name})
     L.sign_many(signings)
 
+    # ---- 3. the unclaimed reserve seats get their youth back --------------------------------
+    rebased, manifest = _rebase_reserves(L, key, season, cap, intake_age)
+
     log(f"   {key}: {len(retired)} aged out at {cap}+, {len(arrived)} joined at {intake_age}")
-    if not dry_run and (retired or arrived):
+    if rebased:
+        log(f"   {key}: {len(rebased)} unclaimed reserve seat(s) reset to {intake_age}")
+    if not dry_run and (retired or arrived or rebased):
         L.save(backup_dir=BACKUPS)
+        # AFTER the save, never before: a manifest pointing at a date the save does not have is a
+        # slot nobody can claim or refill.
+        #
+        # AND ONLY FOR THE REAL SAVE. `save_path` means somebody handed us a copy - a rehearsal,
+        # or tests/test_age_out.py, which runs the real thing against a duplicate on purpose.
+        # There is ONE manifest, and rewriting it from a copy would move the live universe's
+        # slot dates to match dates only the copy has, breaking every future claim and refill.
+        if rebased and save_path is None:
+            # TEMP FILE THEN REPLACE, like league_dat.save, statsarchive.save and
+            # gamesarchive.save. A truncating write is the wrong shape for this file:
+            # protected_names, characters.free_slots, offseason.refill and the signup placement
+            # all do a bare json.loads on it, so an interrupted write is not a stale manifest,
+            # it is no manifest - no signup can be placed and the next age-out cannot run.
+            tmp = MANIFEST.with_suffix(".tmp")
+            tmp.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+            tmp.replace(MANIFEST)
+        elif rebased:
+            log(f"   {key}: copy run - the manifest was left alone, so its reserve dates "
+                f"no longer match this file")
     elif dry_run:
         log(f"   {key}: DRY RUN - nothing was written")
     return {"league": key, "capped": True, "cap": cap, "intake_age": intake_age,
             "season": int(season), "retired": retired, "arrived": arrived,
-            "camp_cuts": camp_cuts, "dry_run": dry_run}
+            "camp_cuts": camp_cuts, "rebased_reserves": rebased, "dry_run": dry_run}

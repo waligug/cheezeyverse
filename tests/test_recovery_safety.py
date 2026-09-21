@@ -15,6 +15,31 @@ from commissioner.saveguard import SaveLock
 from tools import offsite_backup as backup
 
 
+# A season is passed EXPLICITLY because `_store()` has no `get_settings()`.
+#
+# It used to be load-bearing for a different reason: run_offseason resolved a missing season only
+# on the `rollover=True` path, so a None season reached takeaways.season_records() and raised
+# int(None) BEFORE the fault each test below injects - which is how four of these tests spent a
+# while erroring instead of testing anything. That gap is fixed (`cd679e008` resolves the season
+# at the top of the try) and `tests/test_offseason_hardening.py` pins it, so this is no longer
+# working around a bug - it is just giving the stub what the real store would have.
+SEASON = 2028
+
+
+def _store(**attrs):
+    """A stand-in store for run_offseason.
+
+    It grew a `characters()` requirement when `takeaways.season_records(season, store)` was added
+    to run_offseason, and a bare SimpleNamespace then raised AttributeError BEFORE the injected
+    fault each test below is actually asserting - so four recovery tests errored out and stopped
+    checking that a failed offseason restores the saves and releases the lock. The stub has to
+    carry every attribute the real path touches, or the tests pass the wrong reason or none.
+    """
+    attrs.setdefault("characters", lambda **_kw: [])
+    attrs.setdefault("pending_characters", lambda: [])
+    return SimpleNamespace(**attrs)
+
+
 class RecoveryTests(unittest.TestCase):
     def setUp(self):
         self.stack = ExitStack()
@@ -51,7 +76,7 @@ class RecoveryTests(unittest.TestCase):
             raise RuntimeError('growth')
         with patch.object(offseason, '_run_offseason', side_effect=fail):
             with self.assertRaisesRegex(RuntimeError, 'growth'):
-                offseason.run_offseason(SimpleNamespace(), log=lambda m: None)
+                offseason.run_offseason(_store(), season=SEASON, log=lambda m: None)
         self.assertEqual(self.paths['prep'].read_bytes(), b'before')
         self.assertIsNone(simweek.interrupted_run())
         self.assertFalse(simweek._SIM_LOCK.locked())
@@ -68,13 +93,13 @@ class RecoveryTests(unittest.TestCase):
             store.set_setting('current_season', 2028)
         with patch.object(offseason, '_run_offseason', side_effect=fail):
             with self.assertRaises(OSError):
-                offseason.run_offseason(SimpleNamespace(set_setting=put), log=lambda m: None)
+                offseason.run_offseason(_store(set_setting=put), season=SEASON, log=lambda m: None)
         self.assertEqual(settings['current_season'], 2028)
         self.assertEqual(self.paths['prep'].read_bytes(), b'grown')
         self.assertTrue(simweek.interrupted_run()['store_writes_started'])
         before = simweek.MARKER.read_bytes()
         with self.assertRaisesRegex(offseason.OffseasonError, 'blocked'):
-            offseason.run_offseason(SimpleNamespace(), force=True)
+            offseason.run_offseason(_store(), season=SEASON, force=True)
         self.assertEqual(before, simweek.MARKER.read_bytes())
 
     def test_swallowed_database_failure_still_blocks_retries(self):
@@ -88,7 +113,7 @@ class RecoveryTests(unittest.TestCase):
             return {}
         with patch.object(offseason, '_run_offseason', side_effect=caught):
             with self.assertRaisesRegex(offseason.OffseasonError, 'database write failed'):
-                offseason.run_offseason(SimpleNamespace(set_character_field=bad), log=lambda m: None)
+                offseason.run_offseason(_store(set_character_field=bad), season=SEASON, log=lambda m: None)
         self.assertIsNotNone(simweek.interrupted_run())
 
     def test_incomplete_manifest_is_never_healthy(self):
@@ -106,7 +131,7 @@ class RecoveryTests(unittest.TestCase):
             store.set_setting('current_season', 2028)
             return {}
         with patch.object(offseason, '_run_offseason', side_effect=finish), patch.object(offseason, '_offseason_report', side_effect=RuntimeError('notification')):
-            offseason.run_offseason(SimpleNamespace(set_setting=lambda *a: None))
+            offseason.run_offseason(_store(set_setting=lambda *a: None), season=SEASON)
         self.assertIsNone(simweek.interrupted_run())
         self.assertEqual(self.paths['prep'].read_bytes(), b'grown')
 
