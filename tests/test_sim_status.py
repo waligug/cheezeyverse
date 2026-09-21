@@ -233,7 +233,9 @@ class StatusTests(unittest.TestCase):
             2, "2029-03-18", on_day=lambda day, total: seen.append((day, total))))
         self.assertIn((793, 392), clicks)  # March 19: March 18-19 is two inclusive dates.
         self.assertIn((794, 651), clicks)
-        self.assertEqual(seen, [(1, 2), (2, 2)])
+        # The screen can provide lower-bound progress, but only the saved season day can claim
+        # exact completion; run_sim emits that after it validates league.dat.
+        self.assertEqual(seen, [(1, 2)])
 
     def test_calendar_sim_cancels_playoff_warning_without_claiming_progress(self):
         class Picture:

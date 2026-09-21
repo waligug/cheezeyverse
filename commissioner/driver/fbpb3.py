@@ -585,9 +585,11 @@ class FBPB3:
     def sim_to_date(self, n, start_date, on_day=None, timeout=None):
         """Use the Hot Seat calendar to advance exactly ``n`` days in one FBPB action.
 
-        FBPB's selected date is inclusive: SIM TO GAME plays that date's games and advances
-        to the following morning.  The Commissioner plan's ``n`` is inclusive too, so a run
-        beginning March 18 and playing through April 19 has 33 dates and must select April 19.
+        FBPB's SIM TO GAME stops at the selected Hot Seat team's game. The selected date is
+        therefore a fast approximation, not proof of the resulting save day: it may stop before
+        that day's game, or at the team's next game when the chosen date is idle. The caller
+        reads league.dat after SAVE and corrects a short landing with SIM DAY or replays an
+        overshoot from its checkpoint.
 
         Every action is bounded by visible UI state. Each month arrow must change the calendar
         heading, the computed target cell must acquire the blue selection, SIM TO GAME must
@@ -661,11 +663,6 @@ class FBPB3:
                 self._wait_until_still(settle=0.4, timeout=5, poll=0.1, cheap=True)
                 if (self._grab(self.HOTSEAT_BOTTOM_RIGHT_BOX).tobytes() == ready
                         and self._calendar_cell_selected(x, y)):
-                    if on_day is not None:
-                        try:
-                            on_day(n, n)
-                        except Exception:
-                            pass
                     return True
             time.sleep(0.05)
         raise DriverError(

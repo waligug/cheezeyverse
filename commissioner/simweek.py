@@ -1230,6 +1230,34 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 from .codec.league_dat import find_season_day
                 stored = find_season_day(ch.save_path(key).read_bytes())
                 wanted = (int(expected[0]) + day_counts[key], int(expected[1]))
+                if used_calendar and stored and stored[1] == wanted[1] and stored[0] < wanted[0]:
+                    # SIM TO GAME stops immediately before the selected Hot Seat team's game.
+                    # That is usually one morning short of "play through this date". Finish the
+                    # small remainder with the exact daily path, then trust only the saved day.
+                    missing = wanted[0] - stored[0]
+                    emit("sim", f"{spec.name}: fast jump stopped {missing} day(s) short; "
+                         "finishing with verified daily steps", key)
+
+                    def finish_short(day, total):
+                        day_finished(day_counts[key] - missing + day, day_counts[key])
+
+                    game.sim_days(missing, on_day=finish_short)
+                    game.save_game(path=ch.save_path(key))
+                    stored = find_season_day(ch.save_path(key).read_bytes())
+                if used_calendar and stored and stored[1] == wanted[1] and stored[0] > wanted[0]:
+                    # An idle target date makes SIM TO GAME seek the selected team's next game,
+                    # which can overshoot. Undo that saved result and replay only this league
+                    # from the post-prepare checkpoint with the slower exact path.
+                    emit("sim", f"{spec.name}: fast jump passed the target; restoring the "
+                         "checkpoint and replaying exact daily steps", key)
+                    active_game, game = game, None
+                    _restore_calendar_checkpoint(
+                        active_game, prepared_backups.get(key), ch.save_path(key))
+                    game = FBPB3().launch()
+                    game.load_save(spec.save_name, wait=30)
+                    game.sim_days(day_counts[key], on_day=day_finished)
+                    game.save_game(path=ch.save_path(key))
+                    stored = find_season_day(ch.save_path(key).read_bytes())
                 if stored != wanted:
                     # The wrong date is already on disk because league.dat exposes its day only
                     # after SAVE. Close FBPB before replacing a file it owns, then restore the
@@ -1247,6 +1275,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                         f"{spec.name}: save landed on season day {stored}, expected {wanted}; "
                         "the league was restored to its pre-sim checkpoint and export/publish "
                         "were stopped")
+                if used_calendar:
+                    day_finished(day_counts[key], day_counts[key])
             at("export", key)
             emit("export", f"writing {spec.name} pages", key)
             # old_boxes=True writes the BOX SCORES for the games in the export's window, so the

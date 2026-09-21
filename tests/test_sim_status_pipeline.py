@@ -59,7 +59,7 @@ class PipelineTests(unittest.TestCase):
         self.addCleanup(self.stack.close)
         self.temp = Path(self.stack.enter_context(tempfile.TemporaryDirectory()))
         self.store, self.day_failure = Store(), False
-        self.simulated = []
+        self.simulated, self.fast = [], []
         self.paths = {}
         for key in ("prep", "college", "pro"):
             folder = self.temp / key
@@ -85,6 +85,10 @@ class PipelineTests(unittest.TestCase):
                     on_day(day, days)
                     if owner.day_failure:
                         raise RuntimeError("the game stopped")
+
+            def sim_to_date(self, days, start_date, on_day=None):
+                owner.fast.append((days, start_date))
+                return True
 
             def save_game(self, **kw):
                 pass
@@ -148,6 +152,31 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(result["days_by_league"],{"prep":2,"college":3,"pro":5})
         self.assertEqual(len(Status.instances),1)
         self.assertEqual(self.store.records[0]["days_by_league"]["prep"],2)
+
+    def test_calendar_jump_that_stops_short_is_finished_with_exact_daily_steps(self):
+        # Initial stale-plan check says day 10, the fast save lands on 12, and one SIM DAY
+        # reaches the requested 13. The run must continue instead of rejecting correctable FBPB
+        # SIM TO GAME semantics as a corrupt save.
+        with patch("commissioner.codec.league_dat.find_season_day",
+                   side_effect=[(10, 2028), (12, 2028), (13, 2028)]):
+            result = simweek.run_sim(
+                leagues=["prep"], days=3, days_by_league={"prep": 3},
+                expected_states={"prep": (10, 2028)},
+                start_dates={"prep": "2029-04-17"})
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.fast, [(3, "2029-04-17")])
+        self.assertEqual(self.simulated, [1])
+
+    def test_calendar_jump_that_overshoots_restores_and_replays_exactly(self):
+        with patch("commissioner.codec.league_dat.find_season_day",
+                   side_effect=[(10, 2028), (14, 2028), (13, 2028)]):
+            result = simweek.run_sim(
+                leagues=["prep"], days=3, days_by_league={"prep": 3},
+                expected_states={"prep": (10, 2028)},
+                start_dates={"prep": "2029-04-17"})
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.fast, [(3, "2029-04-17")])
+        self.assertEqual(self.simulated, [3])
 
     def test_failed_publish_is_visible_in_final_result(self):
         self.push.side_effect = RuntimeError("offline")
