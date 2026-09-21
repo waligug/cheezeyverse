@@ -229,8 +229,18 @@ def capture(key, mdb, log=print, overwrite_current=None, force=False, kinds=("st
             seasons = sorted(read_mdb(mdb, kind).items())
         except Exception as exc:                                        # noqa: BLE001
             # THE POSTSEASON MUST NOT BE ABLE TO COST US THE REGULAR SEASON. An MDB without a
-            # PlayoffStats table - an older export, or a schema that moves - lands here and is
-            # skipped, rather than taking down a capture that runs inside every publish.
+            # PlayoffStats table - an older export, or a schema that moves - is skipped rather
+            # than taking down a capture that runs inside every publish.
+            #
+            # THE REGULAR SEASON IS NOT SWALLOWED, and the asymmetry is the whole point. publish
+            # calls this with `log=lambda m: None`, so a swallowed failure is silent everywhere:
+            # capture would return [], careers() would read the archive it already had, and
+            # careers.json would be rewritten with a fresh `generated` and stale contents. A
+            # broken Access driver or a moved schema would look like a clean publish forever.
+            # Raising hands it back to _write_careers' own handler, which prints the reason and
+            # leaves the published file alone - which is what happened before playoffs existed.
+            if kind == "stats":
+                raise
             log(f"  {key}: cannot read {KINDS.get(kind, kind)} ({exc}); skipped")
             continue
         for season, rows in seasons:

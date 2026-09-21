@@ -141,6 +141,51 @@ def test_a_missing_playoff_table_costs_nothing(root):
     check("playoff careers empty", out["playoffs"], [])
 
 
+def test_a_broken_regular_season_read_is_never_swallowed(root):
+    """The asymmetry in capture()'s guard, which is easy to widen by accident.
+
+    publish calls capture with `log=lambda m: None`. If a SeasonStats failure were skipped the
+    way a missing PlayoffStats is, capture would return [], careers() would read the archive it
+    already had, and careers.json would be rewritten with a fresh `generated` and stale
+    contents - a broken Access driver looking like a clean publish, forever. It must raise into
+    _write_careers' own handler instead, which prints and leaves the published file alone.
+    """
+    print("a broken regular-season read")
+    from commissioner.publish import publish as pub
+    Path(root).mkdir(parents=True, exist_ok=True)
+    history = Path(root) / "history"
+    mdb = Path(root) / "LeagueOutput.mdb"
+    mdb.write_bytes(b"not really a database")
+
+    def broken(_mdb, sql, script=None):
+        if "FROM Player" in sql:
+            return list(PLAYERS)
+        raise RuntimeError("the Access driver is not installed")
+
+    raised = None
+    with patch.object(statsarchive, "ARCHIVE", history),          patch("commissioner.headtohead.query", broken):
+        try:
+            statsarchive.capture("prep", mdb, log=lambda m: None)
+        except Exception as exc:                                    # noqa: BLE001
+            raised = exc
+    check("capture raises rather than returning quietly", raised is not None, True)
+
+    # And the published file is left as it was, rather than restamped over a stale archive.
+    dst = Path(root) / "out"
+    dst.mkdir(parents=True, exist_ok=True)
+    (dst / "careers.json").write_text('{"generated":"yesterday"}', encoding="utf-8")
+
+    class Store:
+        def get_settings(self):
+            return {"current_season": 2028}
+
+    with patch.object(statsarchive, "ARCHIVE", history),          patch("commissioner.headtohead.query", broken),          patch("commissioner.simweek.store", lambda: Store()):
+        out = pub._write_careers(mdb, dst, "prep")
+    check("_write_careers reports nothing written", out, None)
+    check("the published careers.json is untouched",
+          json.loads((dst / "careers.json").read_text(encoding="utf-8")), {"generated": "yesterday"})
+
+
 def test_a_finished_postseason_is_never_rewritten(root):
     """Same rule the regular season runs under, and it matters more here.
 
@@ -236,6 +281,7 @@ def main():
         test_the_two_archives_never_mix(Path(root) / "a")
         test_rates_are_computed_off_the_postseason_alone(Path(root) / "b")
         test_a_missing_playoff_table_costs_nothing(Path(root) / "c")
+        test_a_broken_regular_season_read_is_never_swallowed(Path(root) / "f")
         test_a_finished_postseason_is_never_rewritten(Path(root) / "d")
         test_the_published_payload_offers_the_choice(Path(root) / "e")
         test_the_page_cannot_strand_itself_on_an_empty_view()
