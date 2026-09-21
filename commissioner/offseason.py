@@ -48,7 +48,9 @@ from . import ageout
 from . import characters as ch
 from . import notify
 from . import seasonbonus
+from . import simstatus
 from . import takeaways
+from .simstatus import SimStatus
 from . import growth
 from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
 from .universe import config as cfg
@@ -718,12 +720,21 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
                 phase="offseason", backups={k: str(v) for k, v in taken.items()}))
         if rollover and not dry_run:
             seasonflow.archive_finished(store, season, taken, log)
+        # ONE LIVE CARD, not a one-line "started" and then twenty minutes of silence. The
+        # first real season transition ran for over twenty minutes with nothing said in
+        # between, and the question it produced - "what is happening in the offseason now?" -
+        # is exactly the one a progress card answers. Same card the sim uses; `kind` only
+        # changes the words. Never fatal: a Discord outage must not stop a season turning over.
+        status = None
         if not dry_run:
             try:
-                notify.post(f"**Offseason started** - {season or 'this season'}.", log=log)
-            except Exception:
-                pass
+                status = SimStatus(0, ["prep", "college", "pro"], log=log,
+                                   kind="offseason", label=f"Season {season} -> {season + 1}")
+                status.start()
+            except Exception:                                           # noqa: BLE001
+                status = None
         result = _run_offseason(store if dry_run else tracked, season=season, log=log,
+                                status=status,
                                 dry_run=dry_run, force=force, backups=taken,
                                 advance_settings=not rollover)
         if not dry_run:
@@ -741,6 +752,7 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
             completed = True
             journal._clear_marker()
         if rollover and not dry_run:
+            _say(status, 92, "publish", "Rebuilding the site for the new season")
             try:
                 from .publish.publish import publish, git_push
                 publish([s.key for s in cfg.LEAGUES])
@@ -753,9 +765,11 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
         # Notification failures must never roll back a completed offseason.
         try:
             if not dry_run:
+                _say(status, 98, "report", "Writing the season up")
                 notify.post(_offseason_report(result, store=store), log=log)
         except Exception:
             pass
+        _finish(status, True, _one_line(result))
         return result
     except Exception as exc:
         if marked and not completed:
@@ -769,6 +783,8 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
                             log=lambda m: None)
             except Exception:
                 pass
+        # Turn the card red rather than leaving it stuck at 99% looking like it is still going.
+        _finish(status, False, str(exc)[:300])
         raise
     finally:
         journal._SIM_LOCK.release()
@@ -813,6 +829,42 @@ def restore_saves(backups, log=print):
             ok = False
             log(f"   ! could not restore the {key} save from {backup}: {exc}")
     return ok
+
+
+def _say(status, percent, stage, detail, league=None):
+    """Move the card on. Silent and harmless when there is no card, or when Discord is down."""
+    if status is None:
+        return
+    try:
+        status.update(percent=percent, stage=stage, detail=detail, league=league)
+    except Exception:                                                   # noqa: BLE001
+        pass
+
+
+def _finish(status, ok, detail):
+    if status is None:
+        return
+    try:
+        status.finish(ok, detail)
+        status.wait(timeout=simstatus.FINAL_BUDGET)
+    except Exception:                                                   # noqa: BLE001
+        pass
+
+
+def _one_line(result):
+    """The offseason in one sentence, for the card's final state."""
+    aged = sum((v or {}).get("retired") or 0 for v in (result.get("aged_out") or {}).values())
+    came = sum((v or {}).get("arrived") or 0 for v in (result.get("aged_out") or {}).values())
+    bits = [f'{result.get("grown", 0)} grew']
+    for label, key in (("promoted", "promoted"), ("drafted", "drafted"), ("retired", "retired")):
+        n = len(result.get(key) or [])
+        if n:
+            bits.append(f"{n} {label}")
+    if aged or came:
+        bits.append(f"{aged} aged out, {came} arrived")
+    if result.get("publish_error"):
+        bits.append("the site needs a republish")
+    return ", ".join(bits)
 
 
 def _offseason_report(result, store=None):
@@ -995,6 +1047,7 @@ def season_movers(characters, store, season, log=print):
 
 
 def _run_offseason(store, season=None, log=print, dry_run=False, force=False, backups=None,
+                   status=None,
                    advance_settings=True):
     settings = store.get_settings()
     season = int(season or settings.get("current_season", cfg.START_YEAR))
@@ -1006,6 +1059,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
     result = {"season": season, "grown": 0, "grew": [], "movers": [],
               "promoted": [], "drafted": [], "retired": [], "failed": [], "dry_run": dry_run}
 
+    _say(status, 5, "prepare", "Checking every character is still in his save")
     log("who is still here")
     retired, failed = run_retirements(store.characters(), store, season, log=log, dry_run=dry_run)
     result["retired"] += retired
@@ -1025,6 +1079,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         if not dry_run and backups is not None and key not in backups:
             log(f"   ! no backup was taken for {key}; refusing to write to it")
             continue
+        _say(status, 15, "grow", f"{cfg.BY_KEY[key].name}: growing everybody a year", key)
         log(f"{key}: growth")
         grown, _ = apply_growth(key, characters, season, log=log, dry_run=dry_run)
         result["grown"] += len(grown)
@@ -1039,6 +1094,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         result["movers"] = season_movers(characters, store, season, log=log)
     except Exception as exc:
         log(f"could not work out who improved most ({exc}); the offseason is unaffected")
+    _say(status, 30, "bonus", "Reading the season's honours and leaderboards")
     season_bonus = _season_bonuses(characters, settings, log)
     for c in characters:
         rows = season_bonus.get(c["id"])
@@ -1046,6 +1102,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             log(f'{c["first_name"]} {c["last_name"]}: +{sum(p for _, p in rows)} season bonus ('
                 + ", ".join(f"{r.split(':', 1)[-1].strip()} {p:+d}" for r, p in rows) + ")")
 
+    _say(status, 40, "move", "Working out who moves up and who enters the draft")
     moving = movers(characters, season)
     log(f"moving up: {len(moving['college'])} to college, {len(moving['draft'])} into the draft")
     # One character the codec cannot find must not abort an offseason that has already moved
@@ -1086,13 +1143,28 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
     # about to be handed to a person.
     result["aged_out"] = {}
     for key in ("prep", "college"):
+        _say(status, 55 if key == "prep" else 75, "ageout",
+             f"{cfg.BY_KEY[key].name}: retiring the over-age and bringing a new class in", key)
         if not ch.save_path(key).exists():
             continue
         if not dry_run and backups is not None and key not in backups:
             log(f"   ! no backup was taken for {key}; not aging its AI population out")
             continue
         try:
-            out = ageout.apply(key, season, store=store, dry_run=dry_run, log=log)
+            if dry_run:
+                # PLAN, NOT APPLY. `apply(dry_run=True)` does every release, rename and sign and
+                # then throws the result away - and each of those splices the file and re-parses
+                # all 425 records, so it is about seven minutes a league. That turned the Dry run
+                # button, which is documented as answering in half a second and exists precisely
+                # so somebody can look before committing, into a fourteen-minute silent stall
+                # holding the save lock. `plan` answers the same question by reading.
+                p = ageout.plan(key, season, store=store)
+                log(f'   {key}: {len(p["retiring"])} would age out at {p["cap"]}+, '
+                    f'{p["intake"]} would arrive at {ageout.INTAKE_AGE[key]}')
+                result["aged_out"][key] = {"retired": len(p["retiring"]),
+                                           "arrived": p["intake"], "dry_run": True}
+                continue
+            out = ageout.apply(key, season, store=store, dry_run=False, log=log)
             result["aged_out"][key] = {"retired": len(out["retired"]),
                                        "arrived": len(out["arrived"])}
         except Exception as exc:                                        # noqa: BLE001

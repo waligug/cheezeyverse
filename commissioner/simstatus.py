@@ -27,6 +27,15 @@ STAGES = {
     "snapshot": "Recording player progress", "publish": "Preparing the website",
     "upload": "Publishing the website", "points": "Awarding weekly points",
     "finish": "Finishing the run",
+    # The offseason's own phases. It is the longest single thing this panel does - the first
+    # real one took over twenty minutes - and until now it posted "Offseason started", went
+    # silent for all of it, and then posted the report. A progress card is the difference
+    # between "it is working" and "is it stuck?", and that question has been asked out loud.
+    "archive": "Archiving the finished season", "grow": "Growing everybody a year",
+    "bonus": "Working out season bonuses", "move": "Promotions and the draft",
+    "ageout": "Moving the league's old players on",
+    "rollover": "Rolling the game's own season over",
+    "report": "Writing it up",
 }
 
 
@@ -61,8 +70,13 @@ class RunProgress:
         return self.percent
 
 
-def render(state, *, days, leagues, elapsed, preview=False):
-    """A Discord embed matching the sketch: title, segmented bar, current work underneath."""
+def render(state, *, days, leagues, elapsed, preview=False, kind="sim", label=None):
+    """A Discord embed matching the sketch: title, segmented bar, current work underneath.
+
+    `kind` only changes the words. An offseason is not a sim - it plays no games and its "Run"
+    is a pair of seasons rather than a number of days - but it is the same shape of thing to
+    watch, so it is the same card rather than a second one to keep in step.
+    """
     terminal = state.get("terminal", False)
     ok = state.get("ok", False)
     percent = max(0, min(100 if terminal and ok else 99, int(state.get("percent", 0))))
@@ -70,7 +84,9 @@ def render(state, *, days, leagues, elapsed, preview=False):
     bar = "🟨" * filled + "⬛" * (16 - filled)
     if terminal and ok:
         bar = "🟩" * 16
-    title = ("✅ Sim complete" if ok else "⚠️ Sim stopped") if terminal else "🏀 Sim in progress"
+    noun = "Offseason" if kind == "offseason" else "Sim"
+    title = ((f"✅ {noun} complete" if ok else f"⚠️ {noun} stopped") if terminal
+             else f"🏀 {noun} in progress")
     if preview:
         title = "Preview · " + title
     detail = str(state.get("detail") or "Preparing to start…")[:3000]
@@ -88,7 +104,9 @@ def render(state, *, days, leagues, elapsed, preview=False):
             "fields": [
                 {"name": "League", "value": str(league or "All selected leagues"), "inline": True},
                 {"name": "Elapsed", "value": duration, "inline": True},
-                {"name": "Run", "value": (" · ".join(f"{k}: {v}d" for k, v in days.items()) if isinstance(days, dict) else f"{days} days · {len(leagues)} league(s)"), "inline": True},
+                {"name": "Run", "value": (label if label else
+                    (" · ".join(f"{k}: {v}d" for k, v in days.items()) if isinstance(days, dict)
+                     else f"{days} days · {len(leagues)} league(s)")), "inline": True},
             ],
             "footer": {"text": ("Preview only — no games advanced" if preview else
                                   "Cheezeyverse · Finished" if terminal else
@@ -154,8 +172,10 @@ class WebhookMessage:
 
 
 class SimStatus:
-    def __init__(self, days, leagues, *, log=print, preview=False, transport=None, interval=INTERVAL):
+    def __init__(self, days, leagues, *, log=print, preview=False, transport=None,
+                 interval=INTERVAL, kind="sim", label=None):
         self.days, self.leagues = days, list(leagues)
+        self.kind, self.label = kind, label
         self.log, self.preview = log, preview
         self.interval = max(0.01, interval)
         self.transport = transport
@@ -230,7 +250,8 @@ class SimStatus:
                     self._wake.clear()
                     continue
                 payload = render(state, days=self.days, leagues=self.leagues,
-                                 elapsed=state.get("ended", now) - self.started, preview=self.preview)
+                                 elapsed=state.get("ended", now) - self.started,
+                                 preview=self.preview, kind=self.kind, label=self.label)
                 try:
                     self.transport.send(payload)
                 except RateLimited as exc:
