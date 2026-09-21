@@ -290,11 +290,23 @@ def publish(keys=None, fresh_mdb=None):
         ours = _our_players(k, shared_characters) if shared_characters is not None else None
         return publish_league(k, k in freshness, season=shared_season, ours=ours)
 
+    def _year(label):
+        found = re.search(r"\b(20\d\d)\b", str(label or ""))
+        return int(found.group()) if found else None
+
     # Each league writes its own destination and history files. Running their transforms
     # together overlaps thousands of small file reads/writes and store requests; ordering the
     # returned rows through executor.map keeps the public manifest deterministic.
     with ThreadPoolExecutor(max_workers=min(3, len(keys))) as pool:
         out = list(pool.map(build, keys))
+    # One universe-wide feed, rebuilt after every league has finished writing its facts. A
+    # partial publish can still use the last data for leagues it did not rebuild.
+    if shared_characters is not None:
+        try:
+            from ..stories import write_story_feed
+            write_story_feed(SITE, DOCS, shared_characters, _year(shared_season))
+        except Exception as exc:
+            print(f"  no stories.json ({exc}); the league pages themselves are fine")
     (SITE / "leagues" / "published.json").write_text(
         json.dumps({"published_at": datetime.now().isoformat(timespec="seconds"), "leagues": out}, indent=1),
         encoding="utf-8")

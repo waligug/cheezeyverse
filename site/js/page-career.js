@@ -48,8 +48,9 @@ import {
 import {
   $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
   statusPill, describeCharacter, heightNow, fmtDate, renderTraitBars,
-  classLine, goalLine, positionLine,
+  classLine, goalLine, positionLine, freshJSON,
 } from './ui.js';
+import { storyCard } from './story-ui.js';
 
 /* ------------------------------------------------------------------------------ chrome */
 
@@ -128,9 +129,10 @@ async function boot() {
      policies in schema.sql), so a visitor gets an empty list rather than an error. Ask for them
      only when the viewer actually is the owner, and say so on the page when he is not. */
   const mine = !!user && user.id === character.owner;
-  const [requests, ledger] = mine
-    ? await Promise.all([requestsFor([character.id]), ledgerFor([character.id])])
-    : [[], []];
+  const storiesPromise = freshJSON('data/stories.json');
+  const [requests, ledger, stories] = mine
+    ? await Promise.all([requestsFor([character.id]), ledgerFor([character.id]), storiesPromise])
+    : [[], [], await storiesPromise];
 
   render({
     character,
@@ -139,6 +141,7 @@ async function boot() {
     season: Number(cfg.current_season) || null,
     viewerOwns: mine,
     preview: false,
+    stories,
   });
 }
 
@@ -152,6 +155,7 @@ function previewMode() {
     season: example.season,
     viewerOwns: true,
     preview: true,
+    stories: null,
   });
 }
 
@@ -180,7 +184,7 @@ function notFound(why) {
  * THE PAGE
  * ==================================================================================== */
 
-function render({ character, requests, ledger, season, viewerOwns, preview }) {
+function render({ character, requests, ledger, season, viewerOwns, preview, stories }) {
   const root = $('#career');
   clear(root);
 
@@ -205,10 +209,33 @@ function render({ character, requests, ledger, season, viewerOwns, preview }) {
      more half-built than blank. */
   section(root, 'Who he is now', () => whoHeIsNow(character, season, age, preview));
   section(root, 'The arc', () => theArc(character, season, age));
+  if (!preview) section(root, 'The story so far', () => storySection(character, stories));
   section(root, 'Growth', () => growthSection(character, age));
   section(root, 'What he was, and what he is', () => thenAndNow(character, requests, viewerOwns));
   section(root, 'On the league sites', () => linksOut(character));
   section(root, 'Points', () => pointsSection(character, requests, ledger, viewerOwns));
+}
+
+function storySection(character, stories) {
+  const card = el('section', { class: 'cv-card' });
+  card.append(el('div', { class: 'cv-card-head' },
+    el('h2', {}, 'The story so far'),
+    el('a', { href: `stories.html?player=${encodeURIComponent(character.id)}` }, 'Open full feed →')));
+  if (!stories || !Array.isArray(stories.events)) {
+    card.append(el('p', { class: 'cv-muted' }, 'The published story record is not available yet.'));
+    return card;
+  }
+  const events = stories.events.filter((event) =>
+    (event.character_ids || []).includes(String(character.id))).slice(0, 6);
+  if (!events.length) {
+    card.append(el('p', {}, 'No story has entered the record yet. Games, streaks, awards, trades '
+      + 'and rivalries will appear here as the universe moves.'));
+    return card;
+  }
+  const list = el('div', { class: 'cv-story-list' });
+  events.forEach((event) => list.append(storyCard(event, stories.players || {}, { compact: true })));
+  card.append(list);
+  return card;
 }
 
 function section(root, title, build) {

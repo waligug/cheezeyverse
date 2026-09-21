@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stories &middot; The Cheezeyverse</title>
+<meta name="description" content="Career highs, streaks, awards, trades, playoff runs and rivalries from across the Cheezeyverse.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F2B705'/%3E%3Ccircle cx='10' cy='11' r='3' fill='%238A5A00'/%3E%3Ccircle cx='21' cy='17' r='4' fill='%238A5A00'/%3E%3Ccircle cx='12' cy='23' r='2.5' fill='%238A5A00'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+<main class="cv-page">
+  <section class="cv-hero cv-cheese">
+    <h1>Stories from the universe</h1>
+    <p>Career nights, heaters, slumps, ugly tape, trades, awards, playoff runs and rivalries.
+      Every entry comes from the game&rsquo;s published record.</p>
+  </section>
+  <div id="notices"></div>
+  <section class="cv-card cv-story-controls" aria-labelledby="filter-title">
+    <div class="cv-card-head"><h2 id="filter-title">Find a story</h2><span class="cv-muted" id="count"></span></div>
+    <div class="cv-fields">
+      <label><span>Player</span><select id="player" class="cv-select"><option value="">Everybody</option></select></label>
+      <label><span>Story</span><select id="type" class="cv-select"><option value="">Everything</option></select></label>
+      <label><span>Season</span><select id="season" class="cv-select"><option value="">Every season</option></select></label>
+    </div>
+  </section>
+  <p class="cv-spinner" id="loading">Reading the record...</p>
+  <div id="stories" class="cv-story-list"></div>
+</main>
+<script type="module" src="js/page-stories.js"></script>
+</body>
+</html>

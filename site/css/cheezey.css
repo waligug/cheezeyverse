@@ -148,6 +148,42 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
 .cv-card-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; margin-bottom: 10px; }
 .cv-card-head h2, .cv-card-head h3 { margin: 0; margin-right: auto; }
 
+/* ---------------------------------------------------------------------- story feed */
+.cv-story-list { display: grid; gap: 12px; }
+.cv-story {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--deep);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+.cv-story.is-good { border-left-color: var(--good); }
+.cv-story.is-bad { border-left-color: var(--bad); }
+.cv-story.is-funny { border-left-color: #7b3fa1; }
+.cv-story h3 { margin: 5px 0 4px; }
+.cv-story p { margin-bottom: 5px; }
+.cv-story-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cv-story-kind {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--cream2);
+  color: var(--crust);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .45px;
+  text-transform: uppercase;
+}
+.cv-story-kind.is-hot_streak, .cv-story-kind.is-career_high,
+.cv-story-kind.is-award, .cv-story-kind.is-playoff { background: #e8f2e6; color: var(--good); }
+.cv-story-kind.is-cold_streak { background: #e5f1f8; color: var(--human); }
+.cv-story-kind.is-disaster { background: #f2e6f8; color: #632681; }
+.cv-story-people { font-size: 12px; padding-top: 3px; }
+.cv-story-controls .cv-fields { align-items: end; }
+.cv-story-controls select { margin-top: 4px; }
+
 .cv-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 
 /* ------------------------------------------------------------------------------- hero */
