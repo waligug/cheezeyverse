@@ -1,154 +1,276 @@
-# Handoff — 2026-09-20, end of the 2027 season
+# Handoff to Codex — 2026-09-20 19:47
 
-Nate is out of limit and has asked Codex to take everything from here. I could not reach Codex
-by message (both relay addresses are stale and `ListAgents` shows no reachable peer), so this
-file is the handoff. Read **The bug I shipped today** first — it is the one thing that needs a
-decision before the next Sim Week.
+Nate is out of limit and has authorized a full takeover. I could not deliver this by message:
+every Codex relay address fails with `ENOINBOX` (its own relay sessions are short-lived and are
+gone by the time a reply is sent), and `ListAgents` shows no reachable peer. **This file is the
+handoff.** The worktree is clean and I stop editing after committing it.
+
+Sections are in the order Codex asked for. Where something does not apply it says **none**
+rather than being omitted.
 
 ---
 
-## State right now, all verified rather than assumed
+## (6) Live simulation, offseason, long test, or held lock — **NOTHING IS RUNNING**
+
+Verified at 19:47:
 
 | | |
 |---|---|
-| Offseason 2027→2028 | **complete, `status=ok`, 2095s** |
-| Recovery marker | clean |
-| Store | `current_season: 2028`, `current_week: 0` |
-| All three saves | season 2028, day 15, 2028-10-31, in lockstep |
-| Panel | idle |
-| Tests | 47 pass, 0 fail, 2 skip |
+| Panel | `busy=False`; last run `kind=offseason`, `running=False`, `status=ok` |
+| FBPB3.exe | not running |
+| `universe/run_in_progress.json` | absent (marker clean) |
+| SAVE_LOCK | free |
+| Panel PID | 22520, started 19:02:34 |
+| Background tests of mine | none |
 
-**2027 champions:** prep **Tulips**, college **Mandibles**, pro **Swiss** (the #2 seed, 4–2 over
-the top-seeded Leghorns). All three `champs.htm` roll-of-honour pages now carry their 2027 row —
-FBPB3 only appends that at END SEASON, which is why it was missing all day.
+**The panel at PID 22520 has the ageout dry-run fix but NOT the offseason status card** — that
+was committed after it started. A restart loads it.
 
----
-
-## The bug I shipped today — the age-out is being undone
-
-**`commissioner/ageout.py` runs in the wrong place, and FBPB3's own offseason reverses most of
-it.** The evidence, from the save as it stands now:
-
-* Prep rosters should read 14–18. They read **14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25**.
-* **78 players aged 19+ are back on prep rosters**, and **none of them is still defanged**.
-* Gregory Delima — released and crushed to rating 2 by the age-out — is back on team 18 at 19,
-  with his top rating grown back to 5.
-* Every roster is **20 players, not 15**.
-
-**Why.** In `run_offseason`, `_run_offseason(...)` (which contains the age-out) is called at
-~line 728, and `seasonflow.rollover_saves(...)` at ~line 734. So the age-out releases 51 players
-into free agency and defangs them, and *then* FBPB3's native rollover — free agency, HIRE STAFF,
-TRAINING CAMPS — signs them straight back and grows them past the floor. The run log shows it
-plainly: age-outs at 391.8s and 736.6s, `prep: advancing the game to season 2028` at 743.6s.
-
-**What survived:** the 51 newcomers at 14 are on rosters, and Caron Gilstrap and Erman Beehler
-are gone from the file entirely (FBPB3 retired them itself).
-
-**The obvious fix is to move the age-out after `rollover_saves`, but please do not just move it
-and call it done.** Two things make it harder than it looks:
-
-1. FBPB3 signs free agents during preseason too, so "after the rollover" may only narrow the
-   window rather than close it.
-2. `tools/protect_rosters.py` will not help. It releases anyone rostered who is **not in the
-   manifest**, and the aged-out players *are* manifest fillers, so it leaves them alone — and
-   `_looks_like_ours` deliberately spares anyone whose birth year is inside our band.
-
-Worth considering: deleting the record rather than releasing it (needs the player-file import
-path in `universe/generate.py`, which the codec cannot do), or re-running the age-out as the
-last step after the rollover and re-defanging, or giving `protect_rosters` an age rule.
-
-The 20-man rosters are probably just camp rosters — the 2026 notes say preseason left them at
-17–20 and the next sim trims them — but that should be confirmed, not assumed.
+The 2027→2028 offseason **completed at 19:39**, `status=ok`, 2095s. Store: `current_season=2028`,
+`current_week=0`. All three saves: season 2028, day 15, 2028-10-31, in lockstep. Champs pages
+carry 2027: prep **Tulips**, college **Mandibles**, pro **Swiss**.
 
 ---
 
-## Uncommitted work, now committed alongside this file
+## (5) Ownership release and permission
 
-`commissioner/simstatus.py` and `commissioner/offseason.py` carry a **finished but untested**
-feature: a live Discord progress card for the offseason. Nate asked for it explicitly ("we gotta
-have a discord status for the offseason too"). It reuses `SimStatus` with `kind="offseason"` and
-`label="Season N -> N+1"`; `render()` gained `kind`/`label`, `STAGES` gained the offseason
-phases, and `offseason.py` gained `_say`/`_finish`/`_one_line` plus 8 `_say` call sites.
+I release every file claim. All paths below are yours. Nate's words: *"give him access to
+everything he will do the rest."* You may **edit, commit, push, publish, restart the panel, and
+run `protect_rosters`**. I make no further edits after this commit.
 
-It imports clean and I checked both card states by hand, but **it has no test and has never run
-live** — the panel needs a restart to load it. Please test it before trusting it.
-
-Also committed: `universe/history/*-2027.json`, including two previously untracked files. These
-are the only copy of a finished season's lines once FBPB3 rebuilds `SeasonStats`.
+Two caveats, because they were never mine to hand over: I cannot change permission settings,
+`CLAUDE.md`, or config on your behalf; and Nate's standing rule stands — **do not start a Sim
+Week or an offseason without his explicit OK.**
 
 ---
 
-## The optimization work Nate wants next
+## (4) Uncommitted changes — **NONE**
 
-He deferred this until the offseason finished, and explicitly asked that the measured timings be
-written down. **These are real numbers from the 2027→2028 run**, not estimates:
+`git status --porcelain` is empty. HEAD is pushed to `origin/master`.
+
+**DISCARD: none.**
+
+**PRESERVE — committed, but flagged because it is UNTESTED and has never run live:**
+
+`commissioner/simstatus.py` + `commissioner/offseason.py` — the offseason Discord progress card
+Nate asked for. `SimStatus` gained `kind`/`label`; `render()` gained `kind`/`label`; `STAGES`
+gained `archive`/`grow`/`bonus`/`move`/`ageout`/`rollover`/`report`; `offseason.py` gained
+`_say`/`_finish`/`_one_line` plus 8 `_say` call sites. It imports clean and I rendered both card
+states by hand, but **there is no test and it has never executed in a real run.** Treat as
+unproven.
+
+---
+
+## (1) + (2) + (3) Every known unresolved bug, with paths and evidence
+
+### BUG 1 — SEVERE, I shipped it: the age-out is undone by FBPB3's own rollover
+
+**Files:** `commissioner/offseason.py` — the ordering of `_run_offseason(...)` (~line 728)
+against `seasonflow.rollover_saves(...)` (~line 734). The age-out block is inside
+`_run_offseason` at ~lines 1085–1110. Module: `commissioner/ageout.py`.
+
+**Trigger:** ran the real 2027→2028 offseason via the panel's "Start next season".
+
+**Expected:** prep rosters read ages 14–18, college 19–22, 15 players per team.
+
+**Actual**, read out of the live saves afterwards:
+
+```
+prep    ages {14:51, 16:82, 17:69, 18:40, 19:7, 20:9, 21:18, 22:23, 23:16, 24:4, 25:1}
+        roster sizes {20: 16}
+college ages {18:1, 19:55, 20:80, 21:94, 22:67, 23:22, 24:1}
+        roster sizes {20: 16}
+
+78 players aged 19+ are back on prep rosters; 0 of them still defanged.
+Gregory Delima: released and set to rating 2 by the age-out
+               -> rostered=True  team=18  age2028=19  topRating=5
+Caron Gilstrap, Erman Beehler: gone from the file entirely (FBPB3 retired them itself)
+```
+
+**Run log proving the order:**
+
+```
+ 391.8  prep: 51 aged out at 19+, 51 joined at 14
+ 736.6  college: 51 aged out at 23+, 51 joined at 19
+ 743.6  prep: advancing the game to season 2028      <- native rollover starts AFTER
+```
+
+**Cause:** the age-out releases 51 players into free agency and defangs them to rating 2 /
+potential 5. FBPB3's native rollover — free agency, HIRE STAFF, TRAINING CAMPS — then signs them
+straight back and grows them past the floor.
+
+**Why the obvious fix is not sufficient on its own:** moving the call after `rollover_saves`
+narrows the window but may not close it, because FBPB3 also signs free agents during preseason.
+And `tools/protect_rosters.py` will not clean it up: it only releases players **not in the
+manifest**, and these are manifest fillers; `_looks_like_ours()` additionally spares anyone whose
+birth year is inside our band.
+
+**Options I did not pursue:** run the age-out as the last step after the rollover and re-defang;
+give `protect_rosters` an age rule; or delete the record outright instead of releasing it — the
+codec cannot delete, so that needs the player-file import path in
+`commissioner/universe/generate.py` (how the original 425 got in).
+
+**Survived:** the 51 newcomers at 14 are on rosters.
+
+**Where I stopped / unknowns:** the 20-man rosters are probably camp rosters — the 2026 notes say
+preseason left them at 17–20 and a later sim trims them — but **I did not confirm that.** I also
+did not check whether pro is affected the same way (pro has no age cap, so it should not be).
+
+### BUG 2 — `output_mdb` budget is still below the real cost
+
+**File:** `commissioner/driver/fbpb3.py`, `output_mdb()`, signature at ~line 824:
+`def output_mdb(self, save_name, attempts=3, timeout=600):`
+
+**Evidence:** pro's export began at elapsed 312.1s (18:03:42); the file was written at 18:13:59 —
+**~617s against a 600s budget.** Attempt 1 timed out; the file appeared 17s later and attempt 2
+immediately saw the fresh mtime, so it recovered.
+
+**It recovered by luck, not design.** No message box happened to be open, so the
+`if self._message_boxes(): self.dismiss_all()` guard did not fire and did not cancel the
+in-flight export. With a dialog up it would have repeated this morning's failure.
+
+**Expected:** the export is waited out however long it takes, with no second
+Tools→Output MDB click landing on a running export.
+
+**Fix I would make:** an adaptive wait that watches the target file's size/mtime still moving and
+gives up only when it stops — the pattern `LOAD_LIMIT_FLOOR`/`SAVE_LIMIT_FLOOR` already use. Any
+fixed number will be wrong again next season; the database grows every year.
+
+**Correction to my own earlier claim:** the "211s" figure I reported for this export was
+**wrong** — inferred from file timestamps across two runs. The first clean measurement is ~620s.
+
+### BUG 3 — height drift between the save and the store
+
+**Files:** `commissioner/growth.py` writes inches into `league.dat` through the codec; whatever
+updates the store's `height_inches` is the other half. **I did not find the divergence point.**
+
+**Evidence**, read simultaneously from `CV_Prep/league.dat` and the store, before the offseason:
+
+```
+Chris Zimmer   save 6'2"   store 6'0"
+Liam Zimmel    save 6'0"   store 5'10"
+(the other five matched exactly)
+```
+
+**Expected:** the website and the game show the same height.
+
+**Where I stopped:** I noticed it, reported it, and did not investigate. Unknown whether FBPB3's
+training camp also changes heights, or whether a store write was missed.
+
+### BUG 4 — `verify_save.py` fails on pro (NOT corruption, but real)
+
+**Command:** `python tools/verify_save.py`
+
+```
+FAIL  pro: every roster is 15 {15: 16, 14: 4}
+FAIL  pro: our players imported 296 of 300 matched by name
+FAIL  pro: birthdays restored 296 of 300 matched by name+DOB
+FAILED: pro
+```
+
+**Missing:** Jess Amidon (CHE), Cole Tamayo (PAR), Cedric Brumback (ASI), Barrett Bradwell (LCH)
+— all `role=filler`.
+
+**Why it is not corruption:** all four are present in `CV_Pro/retiredplayers0.dat`. They retired
+at the 2026 rollover. `universe/manifest.json` is a creation-time snapshot and cannot know a
+player legitimately retired. Present in every backup back to 2026-09-20 08:35 and absent from
+2026-09-19 backups, so it long predates today's work.
+
+**Still a real effect:** 4 pro teams carry 14 players. The weekly tidy logged *"4 of the AI's
+signings out"*, which suggests the AI refills those slots and `protect_rosters` releases them
+again — a churn loop **I did not confirm.**
+
+### BUG 5 — `tests/test_season_boundary.py` fails whenever anything holds the save lock
+
+**File:** `tests/test_season_boundary.py` line 268 → `commissioner/simweek.py` line 938.
+
+```
+commissioner.simweek.SimBusy: a sim is already running
+AssertionError: "never finished" does not match "a sim is already running"
+```
+
+**Cause:** it calls `simweek.run_sim(leagues=["prep"], days=999)` for real. It passes when idle
+and fails whenever anything else is using the saves. I saw it fail only while a live sim was
+running, and pass on every idle run.
+
+**Possible real issue underneath:** a test that starts a real sim will keep doing this to whoever
+runs the suite at the wrong moment. Might want a guard.
+
+### BUG 6 — skipped tests
+
+* `tests/test_codec.py` — SKIPs here for lack of fixtures. **This matters beyond coverage:** it
+  guards a roughly one-third faster parser, and the parser is the dominant cost in BUG 1's
+  performance problem. Fixing the fixtures unblocks the biggest optimization available.
+* `tests/test_raise_stamina.py` — SKIPs; needs the game.
+
+### BUG 7 — mine, already fixed, recorded for shape
+
+`commissioner/offseason.py` called `ageout.apply(dry_run=True)` for the **Dry run** button.
+`apply()` performs every release/rename/sign and then throws the result away, and each splices
+and re-parses 425 records — ~7 minutes per league. It turned a button documented as answering in
+half a second into a **14-minute silent stall holding the save lock.** Nate hit it: *"idk what
+it's doing and idk when it ends"*. Now calls `ageout.plan()`. **14 min → 13s.** Fixed, committed,
+and live in the running panel.
+
+### Incomplete implementations
+
+* **No trades / transactions / news anywhere in the reports.** FBPB3 exports
+  `transactions.htm` and `waiverwire.htm` per league and nothing reads them. Nate asked for
+  "trades, any news" and I told him it was not built.
+* **The offseason status card is untested** (see section 4).
+* **`commissioner/takeaways.py` reads the PUBLISHED `site/leagues/<key>/*.json`.** If a report is
+  ever generated before a publish, it silently produces nothing. It has never been exercised
+  inside a real offseason — the run that would have used it predates the module.
+* **No 15-year-olds in prep for one season is EXPECTED, not a bug:** a 4-year band (14–17) became
+  a 5-year band (14–18), so one cohort is missing. Self-corrects by 2031.
+
+---
+
+## Measured timings — Nate explicitly asked these be written down
+
+From the real 2027→2028 offseason (2095s total):
 
 | step | per league | total |
 |---|---|---|
-| **age-out** | 346s | **691s** (prep + college) |
-| **new-season verify + export** | ~193s | ~580s |
-| **simming 52 idle days to the offseason panel** | ~122s | ~370s |
+| age-out | 346s | **691s** (prep + college) |
+| new-season verify + export | ~193s | ~580s |
+| simming 52 idle days to the offseason panel | ~122s | ~370s |
 | END SEASON / OFFSEASON / TRAINING CAMPS | 19s each | ~170s |
 | HIRE STAFF | 43s | ~130s |
 | growth, bonuses, promotions, points | — | ~46s |
 
-**Ranked by size:**
+From sim rounds: **pro's MDB export ~620s every round**, over 60% of a playoff round.
 
-1. **Age-out, 691s.** My code. Every `release`/`rename`/`sign` calls `LeagueDat._splice`, which
-   re-parses all 425 player records — 153 splices × ~2.2s. The fix is to apply edits from the
-   **end of the file backwards** so earlier offsets never shift, then re-parse once. That touches
-   the codec, which has no undo. Note `tests/test_codec.py` SKIPs here for lack of fixtures and
-   is guarding a ~⅓ faster parser that would help this directly — fix the fixtures first.
-2. **52 idle days to the offseason panel, 370s.** Empty days at ~2.4s each, *slower* than real
-   basketball at ~1.2s/day. That points at the settle wait dominating on a screen that barely
-   changes. Probably the quickest win available.
-3. **Pro's MDB export, ~620s every sim round** — over 60% of a playoff round. Needed for the
-   game-by-game table and for archiving careers before players retire, but almost certainly does
-   not need to run on every intermediate round.
+**Ranked:**
 
-Please write these into the repo as a dated baseline. Every optimization today started from a
-stale comment measured once and never revisited (`"about 7 s a league"`, `211s`), and a dated
-file is what stops that happening again.
+1. **Age-out, 691s.** 153 splices × ~2.2s, each re-parsing all 425 records. Fix by applying edits
+   from the **end of the file backwards** so earlier offsets never shift, then re-parse once.
+   Touches `commissioner/codec/league_dat.py` `_splice()`, which has no undo.
+2. **52 idle days at ~2.4s each** — *slower* than real basketball at ~1.2s/day, which points at
+   the settle wait dominating a screen that barely changes. Likely the quickest win.
+3. **Pro's MDB** — probably should not run on every intermediate playoff round.
+
+Nate asked that these go into the repo as a **dated** baseline. Every optimization today started
+from a stale comment measured once and never revisited (`"about 7 s a league"`, `211s`).
 
 ---
 
-## Other open items
+## Shipped today (all on master)
 
-* **Height drift.** The save and the store disagree: Chris Zimmer 6'2" in `league.dat` vs 6'0"
-  in the store, Liam Zimmel 6'0" vs 5'10". The site would show a different height than the game.
-* **MDB budget still too tight.** `driver/fbpb3.py` `output_mdb` has `timeout=600`; pro measured
-  ~620s. It recovered this morning by luck (no dialog was open, so the retry saw the finished
-  file), not by design. It wants an adaptive wait that watches the file grow — the pattern the
-  load and save waits already use — not a number somebody guessed.
-* **`verify_save.py` fails on pro** with 4 missing players and 4 teams at 14. **This is not a
-  corruption.** Jess Amidon, Cole Tamayo, Cedric Brumback and Barrett Bradwell all retired at the
-  2026 rollover and are in `CV_Pro/retiredplayers0.dat`. The manifest is a creation-time snapshot
-  and cannot know a player legitimately retired.
-* **No 15-year-olds in prep** for one season is expected, not a bug: the league was generated as
-  a 4-year band (14–17) and is now a 5-year band (14–18), so one cohort is missing. It fills
-  itself by 2031.
-* **Trades/news reporting is not built.** FBPB3 exports `transactions.htm` and `waiverwire.htm`
-  per league and nothing reads them. Nate asked for "trades, any news" and I told him it was not
-  built.
+`output_mdb` 180s→600s (`dismiss_all` was **cancelling the running export**, four times over);
+`git_push` rewritten with plumbing — no worktree, checkout or copy, local deploy ~40s→4.7s, with
+`tests/test_deploy_push.py` driving it against a real bare repo; day-watcher capture 62ms→0.73ms
+via BitBlt with **every accepted advance still PrintWindow-confirmed**, `tests/test_day_watch.py`;
+`commissioner/ageout.py` + `tools/age_out.py` + `tests/test_age_out.py` (ladder prep 14–18,
+college 19–22, `PREP_LAST_AGE` 17→18); `commissioner/takeaways.py` + `tests/test_takeaways.py`;
+playoff controls beside the calendar plus a "Play the whole playoffs" chain with three tested
+stop conditions; the dry-run fix.
 
----
+**Test state: 47 pass, 0 fail, 2 skip when idle.** Run with
+`DISCORD_WEBHOOK_URL=http://127.0.0.1:9/blocked`.
 
-## Shipped today, all pushed to master
-
-* `output_mdb` budget 180s → 600s. It was timing out and `dismiss_all()` was then **cancelling
-  the still-running export**, four times over.
-* `git_push` rewritten with plumbing — no worktree, no checkout, no copy. Local deploy ~40s →
-  4.7s. `tests/test_deploy_push.py` drives it against a real bare repo.
-* Day-watcher capture: full-window PrintWindow every 0.1s (62ms) → BitBlt of the date box
-  (0.73ms), 86× cheaper. Every accepted day advance is **still** confirmed by PrintWindow; the
-  cheap read never decides anything. `tests/test_day_watch.py` pins both failure directions.
-* `commissioner/ageout.py`, `tools/age_out.py`, `tests/test_age_out.py`. Ladder is prep 14–18,
-  college 19–22, move up at 19 — Nate's call. `PREP_LAST_AGE` 17 → 18 to match.
-* `commissioner/takeaways.py`, `tests/test_takeaways.py` — real season takeaways in the report.
-* Playoff controls beside the calendar, plus a "Play the whole playoffs" chain with three tested
-  stop conditions.
-* Dry-run fix: it was calling `ageout.apply(dry_run=True)`, which does every splice and throws
-  the result away — 14 minutes holding the save lock. Now calls `ageout.plan()`. **14 min → 13s.**
+**2027 champions:** prep **Tulips**, college **Mandibles**, pro **Swiss** (#2 seed, 4–2 over the
+top-seeded Leghorns).
 
 ---
 
@@ -157,6 +279,6 @@ file is what stops that happening again.
 * Never print or commit the Supabase `service_role` key or the Discord webhook URL.
 * Do not start a Sim Week or an offseason without Nate's explicit OK.
 * Never open FBPB3 by hand on a save.
-* Run tests with `DISCORD_WEBHOOK_URL=http://127.0.0.1:9/blocked`.
-* `tests/test_season_boundary.py` starts its own sim and **will** fail if anything is using the
-  saves. Run it when idle.
+* `tests/test_season_boundary.py` starts its own sim — run it only when idle.
+
+The worktree is clean and stable. It is yours.
