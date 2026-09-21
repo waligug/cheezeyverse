@@ -28,6 +28,7 @@ from pathlib import Path
 
 from . import announce
 from . import characters as ch
+from . import growth
 from . import notify
 from . import settings as cfgenv
 from . import localstore, recovery
@@ -371,6 +372,21 @@ class NameTaken(ValueError):
     pass
 
 
+def _arrival_dob(value, season):
+    """Use the chosen/slot month and day, but make every new character fourteen.
+
+    Reserve rows span Prep's whole age band. Inheriting the row's complete birthday made some
+    created characters arrive at fifteen or seventeen even though the builder, growth model and
+    career page all start at fourteen. The slot keeps its own DOB in claimed_slot for recycling;
+    this is the character's identity while he owns it.
+    """
+    dob = ch.codec_dob(value)
+    if not dob or season is None:
+        return dob
+    month, day, _year = (int(part) for part in dob.split("/"))
+    return f"{month}/{day}/{int(season) - growth.START_AGE}"
+
+
 def create_character(payload):
     """Record a character. It gets a reserve slot at the next sim, not immediately.
 
@@ -456,13 +472,11 @@ def _activate_pending(league_key, L, st, log, season=None):
         slots = [s for s in slots if s is not slot]
         landed = team_of(slot)
         busy[landed] = busy.get(landed, 0) + 1   # or everyone created this week stacks up again
-        # A character has no birthday of his own: the website never asks for one and the
-        # characters table has no column for it. He takes the birthday of the reserve slot he
-        # claims, which is the same birthday offseason.refill stamps back when he leaves and
-        # the one tools/stamp_dobs.py restores - so the save, the manifest and the store all
-        # name the same person. Without this the first sim after anybody created a character
-        # died on KeyError: 'dob'.
-        dob = ch.codec_dob(c.get("dob") or slot.dob)
+        # The website does not ask for a birthday, so retain the reserve row's month/day. Its
+        # YEAR cannot come from the slot: reserve rows span ages 14-17, while every character's
+        # progression begins at fourteen. claimed_slot still records the slot's original DOB so
+        # refill can restore its identity when the character leaves.
+        dob = _arrival_dob(c.get("dob") or slot.dob, season)
         before_stamp = copy.deepcopy(L.__dict__)
         try:
             ch.stamp_character(L, slot, {**c, "dob": dob})

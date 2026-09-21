@@ -70,7 +70,7 @@ def read_mdb(mdb):
             "name": (row.get("Name") or "").strip(),
             "dob": f'{_int(row.get("BirthMonth"))}/{_int(row.get("BirthDay"))}/'
                    f'{_int(row.get("BirthYear"))}',
-            "age": _int(row.get("Age")),
+            "birth_year": _int(row.get("BirthYear")),
             "position": _int(row.get("PositionNumber")),
         }
     seasons = {}
@@ -81,7 +81,12 @@ def read_mdb(mdb):
         who = people.get(str(row.get("ID")), {})
         entry = {"id": str(row.get("ID")), "team": (row.get("Team") or "").strip(),
                  "name": who.get("name", ""), "dob": who.get("dob", ""),
-                 "age": who.get("age", 0), "position": who.get("position", 0)}
+                 # Player.Age is the player's age on the CURRENT export date. Using it on every
+                 # SeasonStats row made a 2026 line get older every time it was recaptured in
+                 # 2027 or 2028. Seasons in this universe use season - birth year everywhere
+                 # else (growth, age-out, career headers), so derive the historical age here.
+                 "age": max(0, season - who.get("birth_year", season)),
+                 "position": who.get("position", 0)}
         for field in COUNTING:
             entry[field] = _int(row.get(field))
         seasons.setdefault(season, []).append(entry)
