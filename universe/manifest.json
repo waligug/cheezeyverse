@@ -37,114 +37,6 @@
   {
    "league": "prep",
    "team": "SAS",
-   "role": "filler",
-   "name": "Ivory Sanner",
-   "dob": "11/6/2011",
-   "position": "C",
-   "uniform": 45
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Fermin Waren",
-   "dob": "8/5/2011",
-   "position": "C",
-   "uniform": 31
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Didier Phillis",
-   "dob": "7/11/2012",
-   "position": "PF",
-   "uniform": 20
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Ayta\u00e7 Donis",
-   "dob": "1/24/2012",
-   "position": "PF",
-   "uniform": 10
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Garret Larkin",
-   "dob": "7/21/2010",
-   "position": "SF",
-   "uniform": 29
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Peter Piner",
-   "dob": "7/3/2009",
-   "position": "SF",
-   "uniform": 38
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Jonathon Primm",
-   "dob": "9/26/2009",
-   "position": "SF",
-   "uniform": 16
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Buddy Posada",
-   "dob": "6/28/2011",
-   "position": "SG",
-   "uniform": 6
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Cristobal Velez",
-   "dob": "11/16/2009",
-   "position": "SG",
-   "uniform": 49
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Scot Serafin",
-   "dob": "6/7/2009",
-   "position": "SG",
-   "uniform": 54
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Marcos Ortez",
-   "dob": "10/11/2010",
-   "position": "PG",
-   "uniform": 36
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
-   "role": "filler",
-   "name": "Everett Learn",
-   "dob": "1/11/2010",
-   "position": "PG",
-   "uniform": 40
-  },
-  {
-   "league": "prep",
-   "team": "SAS",
    "role": "reserve",
    "name": "Derek Uribe",
    "dob": "11/27/2011",
@@ -172,11 +64,1433 @@
   {
    "league": "prep",
    "team": "WET",
-   "role": "filler",
-   "name": "Omer Macedo",
-   "dob": "10/3/2009",
+   "role": "reserve",
+   "name": "Teisius Shurtleff",
+   "dob": "1/15/2011",
+   "position": "PG",
+   "uniform": 38
+  },
+  {
+   "league": "prep",
+   "team": "WET",
+   "role": "reserve",
+   "name": "Darell Odom",
+   "dob": "7/12/2012",
+   "position": "SF",
+   "uniform": 40
+  },
+  {
+   "league": "prep",
+   "team": "WET",
+   "role": "reserve",
+   "name": "Heino Konsavage",
+   "dob": "2/5/2012",
+   "position": "C",
+   "uniform": 19
+  },
+  {
+   "league": "prep",
+   "team": "PIE",
+   "role": "reserve",
+   "name": "Nurcan Kelleher",
+   "dob": "7/11/2011",
+   "position": "PG",
+   "uniform": 34
+  },
+  {
+   "league": "prep",
+   "team": "PIE",
+   "role": "reserve",
+   "name": "Gustavo Demarco",
+   "dob": "3/15/2012",
+   "position": "SF",
+   "uniform": 49
+  },
+  {
+   "league": "prep",
+   "team": "PIE",
+   "role": "reserve",
+   "name": "Cornell Chadwick",
+   "dob": "2/25/2012",
+   "position": "C",
+   "uniform": 28
+  },
+  {
+   "league": "prep",
+   "team": "LIN",
+   "role": "reserve",
+   "name": "Dominic Throckmorton",
+   "dob": "11/12/2012",
+   "position": "PG",
+   "uniform": 24
+  },
+  {
+   "league": "prep",
+   "team": "LIN",
+   "role": "reserve",
+   "name": "Columbano Esteves",
+   "dob": "8/7/2012",
+   "position": "SF",
+   "uniform": 17
+  },
+  {
+   "league": "prep",
+   "team": "LIN",
+   "role": "reserve",
+   "name": "Nathanial Gilliland",
+   "dob": "2/10/2011",
+   "position": "C",
+   "uniform": 43
+  },
+  {
+   "league": "prep",
+   "team": "MTL",
+   "role": "reserve",
+   "name": "Guy Langford",
+   "dob": "8/11/2012",
+   "position": "PG",
+   "uniform": 45
+  },
+  {
+   "league": "prep",
+   "team": "MTL",
+   "role": "reserve",
+   "name": "G\u00e9rald Rudloff",
+   "dob": "11/23/2012",
+   "position": "SF",
+   "uniform": 26
+  },
+  {
+   "league": "prep",
+   "team": "MTL",
+   "role": "reserve",
+   "name": "Rudolph Nieman",
+   "dob": "2/17/2011",
+   "position": "C",
+   "uniform": 17
+  },
+  {
+   "league": "prep",
+   "team": "ALB",
+   "role": "reserve",
+   "name": "Willy Booker",
+   "dob": "11/21/2012",
+   "position": "PG",
+   "uniform": 10
+  },
+  {
+   "league": "prep",
+   "team": "ALB",
+   "role": "reserve",
+   "name": "Willy Manry",
+   "dob": "2/1/2011",
+   "position": "SF",
+   "uniform": 5
+  },
+  {
+   "league": "prep",
+   "team": "ALB",
+   "role": "reserve",
+   "name": "Romolo Lamorte",
+   "dob": "12/20/2012",
+   "position": "C",
+   "uniform": 17
+  },
+  {
+   "league": "prep",
+   "team": "QUA",
+   "role": "reserve",
+   "name": "Lou Banegas",
+   "dob": "6/24/2012",
+   "position": "PG",
+   "uniform": 1
+  },
+  {
+   "league": "prep",
+   "team": "QUA",
+   "role": "reserve",
+   "name": "Dionizas Folks",
+   "dob": "8/20/2011",
+   "position": "SF",
+   "uniform": 41
+  },
+  {
+   "league": "prep",
+   "team": "QUA",
+   "role": "reserve",
+   "name": "Isaias Staab",
+   "dob": "3/23/2011",
+   "position": "C",
+   "uniform": 20
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "reserve",
+   "name": "Sylvester Quarles",
+   "dob": "7/4/2011",
+   "position": "PG",
+   "uniform": 38
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "reserve",
+   "name": "Manual \u00d6zmert",
+   "dob": "1/17/2011",
+   "position": "SF",
+   "uniform": 26
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "reserve",
+   "name": "Xander Reddout",
+   "dob": "8/3/2011",
+   "position": "C",
+   "uniform": 5
+  },
+  {
+   "league": "prep",
+   "team": "LOU",
+   "role": "reserve",
+   "name": "Gabriele Manger",
+   "dob": "9/19/2011",
+   "position": "PG",
+   "uniform": 45
+  },
+  {
+   "league": "prep",
+   "team": "LOU",
+   "role": "reserve",
+   "name": "Lesley Bracewell",
+   "dob": "7/18/2011",
+   "position": "SF",
+   "uniform": 17
+  },
+  {
+   "league": "prep",
+   "team": "LOU",
+   "role": "reserve",
+   "name": "Bert Gum",
+   "dob": "3/17/2011",
+   "position": "C",
+   "uniform": 8
+  },
+  {
+   "league": "prep",
+   "team": "MEM",
+   "role": "reserve",
+   "name": "Ed Scheidt",
+   "dob": "1/18/2012",
+   "position": "PG",
+   "uniform": 39
+  },
+  {
+   "league": "prep",
+   "team": "MEM",
+   "role": "reserve",
+   "name": "Demetrio Ruvalcaba",
+   "dob": "1/28/2011",
+   "position": "SF",
+   "uniform": 35
+  },
+  {
+   "league": "prep",
+   "team": "MEM",
+   "role": "reserve",
+   "name": "Nathaniel Heredia",
+   "dob": "5/12/2011",
+   "position": "C",
+   "uniform": 40
+  },
+  {
+   "league": "prep",
+   "team": "LIT",
+   "role": "reserve",
+   "name": "Emmett Bamberger",
+   "dob": "4/11/2012",
+   "position": "PG",
+   "uniform": 44
+  },
+  {
+   "league": "prep",
+   "team": "LIT",
+   "role": "reserve",
+   "name": "Timmy Wildman",
+   "dob": "6/17/2012",
+   "position": "SF",
+   "uniform": 24
+  },
+  {
+   "league": "prep",
+   "team": "LIT",
+   "role": "reserve",
+   "name": "Baltramiejus Rinaldi",
+   "dob": "9/21/2012",
+   "position": "C",
+   "uniform": 16
+  },
+  {
+   "league": "prep",
+   "team": "JAC",
+   "role": "reserve",
+   "name": "Daniel Minnich",
+   "dob": "11/10/2012",
+   "position": "PG",
+   "uniform": 27
+  },
+  {
+   "league": "prep",
+   "team": "JAC",
+   "role": "reserve",
+   "name": "Eckehard Solorio",
+   "dob": "5/11/2011",
+   "position": "SF",
+   "uniform": 21
+  },
+  {
+   "league": "prep",
+   "team": "JAC",
+   "role": "reserve",
+   "name": "Lee Lords",
+   "dob": "4/18/2012",
+   "position": "C",
+   "uniform": 16
+  },
+  {
+   "league": "prep",
+   "team": "DAL",
+   "role": "reserve",
+   "name": "Harland Saum",
+   "dob": "6/17/2012",
+   "position": "PG",
+   "uniform": 46
+  },
+  {
+   "league": "prep",
+   "team": "DAL",
+   "role": "reserve",
+   "name": "Courtney Rentas",
+   "dob": "6/24/2012",
+   "position": "SF",
+   "uniform": 32
+  },
+  {
+   "league": "prep",
+   "team": "DAL",
+   "role": "reserve",
+   "name": "Ayberk Castenada",
+   "dob": "1/11/2012",
+   "position": "C",
+   "uniform": 21
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "reserve",
+   "name": "Camille Cavender",
+   "dob": "4/9/2012",
+   "position": "PG",
+   "uniform": 27
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "reserve",
+   "name": "Yilmazok Olivera",
+   "dob": "10/1/2011",
+   "position": "SF",
+   "uniform": 4
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "reserve",
+   "name": "Firmino Enrique",
+   "dob": "2/15/2012",
+   "position": "C",
+   "uniform": 42
+  },
+  {
+   "league": "prep",
+   "team": "ARI",
+   "role": "reserve",
+   "name": "Jaime Fore",
+   "dob": "12/4/2011",
+   "position": "PG",
+   "uniform": 48
+  },
+  {
+   "league": "prep",
+   "team": "ARI",
+   "role": "reserve",
+   "name": "Tito Roman",
+   "dob": "8/9/2011",
+   "position": "SF",
+   "uniform": 36
+  },
+  {
+   "league": "prep",
+   "team": "ARI",
+   "role": "reserve",
+   "name": "Andy Johannes",
+   "dob": "6/21/2012",
+   "position": "C",
+   "uniform": 50
+  },
+  {
+   "league": "prep",
+   "team": "FLE",
+   "role": "reserve",
+   "name": "Domingo Len",
+   "dob": "7/4/2011",
+   "position": "PG",
+   "uniform": 10
+  },
+  {
+   "league": "prep",
+   "team": "FLE",
+   "role": "reserve",
+   "name": "Jules Mumaw",
+   "dob": "1/23/2012",
+   "position": "SF",
+   "uniform": 1
+  },
+  {
+   "league": "prep",
+   "team": "FLE",
+   "role": "reserve",
+   "name": "Keenan Wagar",
+   "dob": "3/9/2011",
+   "position": "C",
+   "uniform": 52
+  },
+  {
+   "league": "college",
+   "team": "MJW",
+   "role": "reserve",
+   "name": "Jamal Garvin",
+   "dob": "2/1/2007",
+   "position": "PG",
+   "uniform": 52
+  },
+  {
+   "league": "college",
+   "team": "MJW",
+   "role": "reserve",
+   "name": "Lenard Lickteig",
+   "dob": "4/2/2008",
+   "position": "SF",
+   "uniform": 24
+  },
+  {
+   "league": "college",
+   "team": "MJW",
+   "role": "reserve",
+   "name": "Fulgencio Terrell",
+   "dob": "7/28/2007",
+   "position": "C",
+   "uniform": 45
+  },
+  {
+   "league": "college",
+   "team": "FLN",
+   "role": "reserve",
+   "name": "Solomon Beatrice",
+   "dob": "6/21/2007",
+   "position": "PG",
+   "uniform": 44
+  },
+  {
+   "league": "college",
+   "team": "FLN",
+   "role": "reserve",
+   "name": "Heriberto Orosco",
+   "dob": "4/11/2007",
+   "position": "SF",
+   "uniform": 17
+  },
+  {
+   "league": "college",
+   "team": "FLN",
+   "role": "reserve",
+   "name": "Teddy Regner",
+   "dob": "8/14/2007",
+   "position": "C",
+   "uniform": 25
+  },
+  {
+   "league": "college",
+   "team": "OSH",
+   "role": "reserve",
+   "name": "Emery Kite",
+   "dob": "9/23/2008",
+   "position": "PG",
+   "uniform": 35
+  },
+  {
+   "league": "college",
+   "team": "OSH",
+   "role": "reserve",
+   "name": "Odell Amberger",
+   "dob": "9/10/2007",
+   "position": "SF",
+   "uniform": 30
+  },
+  {
+   "league": "college",
+   "team": "OSH",
+   "role": "reserve",
+   "name": "Severino Corrie",
+   "dob": "5/2/2008",
+   "position": "C",
+   "uniform": 2
+  },
+  {
+   "league": "college",
+   "team": "SHB",
+   "role": "reserve",
+   "name": "Roberto Flake",
+   "dob": "7/13/2007",
+   "position": "PG",
+   "uniform": 14
+  },
+  {
+   "league": "college",
+   "team": "SHB",
+   "role": "reserve",
+   "name": "Dion Sabatini",
+   "dob": "4/25/2008",
+   "position": "SF",
+   "uniform": 1
+  },
+  {
+   "league": "college",
+   "team": "SHB",
+   "role": "reserve",
+   "name": "Basri Selman",
+   "dob": "2/10/2008",
+   "position": "C",
+   "uniform": 55
+  },
+  {
+   "league": "college",
+   "team": "HEL",
+   "role": "reserve",
+   "name": "Spencer Marquis",
+   "dob": "4/11/2008",
+   "position": "PG",
+   "uniform": 18
+  },
+  {
+   "league": "college",
+   "team": "HEL",
+   "role": "reserve",
+   "name": "Javier Heims",
+   "dob": "9/4/2007",
+   "position": "SF",
+   "uniform": 21
+  },
+  {
+   "league": "college",
+   "team": "HEL",
+   "role": "reserve",
+   "name": "Bobbie Weatherman",
+   "dob": "11/3/2008",
+   "position": "C",
+   "uniform": 30
+  },
+  {
+   "league": "college",
+   "team": "YPS",
+   "role": "reserve",
+   "name": "Nicolas Levy",
+   "dob": "3/23/2007",
+   "position": "PG",
+   "uniform": 51
+  },
+  {
+   "league": "college",
+   "team": "YPS",
+   "role": "reserve",
+   "name": "Yinka Mickelson",
+   "dob": "11/2/2007",
+   "position": "SF",
+   "uniform": 25
+  },
+  {
+   "league": "college",
+   "team": "YPS",
+   "role": "reserve",
+   "name": "Alfred Gaumer",
+   "dob": "10/23/2007",
+   "position": "C",
+   "uniform": 47
+  },
+  {
+   "league": "college",
+   "team": "KZO",
+   "role": "reserve",
+   "name": "Von Addis",
+   "dob": "7/17/2007",
+   "position": "PG",
+   "uniform": 20
+  },
+  {
+   "league": "college",
+   "team": "KZO",
+   "role": "reserve",
+   "name": "Deangelo Plamondon",
+   "dob": "1/21/2007",
+   "position": "SF",
+   "uniform": 29
+  },
+  {
+   "league": "college",
+   "team": "KZO",
+   "role": "reserve",
+   "name": "Gaston Bayles",
+   "dob": "7/13/2008",
+   "position": "C",
+   "uniform": 49
+  },
+  {
+   "league": "college",
+   "team": "MUN",
+   "role": "reserve",
+   "name": "Michal Nuckolls",
+   "dob": "3/12/2007",
+   "position": "PG",
+   "uniform": 17
+  },
+  {
+   "league": "college",
+   "team": "MUN",
+   "role": "reserve",
+   "name": "Raymond Burgett",
+   "dob": "9/12/2007",
+   "position": "SF",
+   "uniform": 12
+  },
+  {
+   "league": "college",
+   "team": "MUN",
+   "role": "reserve",
+   "name": "Hershel Burkhard",
+   "dob": "1/24/2008",
    "position": "C",
    "uniform": 11
+  },
+  {
+   "league": "college",
+   "team": "YAZ",
+   "role": "reserve",
+   "name": "Raul Hayman",
+   "dob": "1/26/2008",
+   "position": "PG",
+   "uniform": 5
+  },
+  {
+   "league": "college",
+   "team": "YAZ",
+   "role": "reserve",
+   "name": "Solomon Arrowood",
+   "dob": "7/11/2008",
+   "position": "SF",
+   "uniform": 14
+  },
+  {
+   "league": "college",
+   "team": "YAZ",
+   "role": "reserve",
+   "name": "Graham Evan",
+   "dob": "8/22/2007",
+   "position": "C",
+   "uniform": 33
+  },
+  {
+   "league": "college",
+   "team": "OPK",
+   "role": "reserve",
+   "name": "Karolis Kurcher",
+   "dob": "4/4/2007",
+   "position": "PG",
+   "uniform": 26
+  },
+  {
+   "league": "college",
+   "team": "OPK",
+   "role": "reserve",
+   "name": "Dionisio Chevere",
+   "dob": "12/25/2007",
+   "position": "SF",
+   "uniform": 13
+  },
+  {
+   "league": "college",
+   "team": "OPK",
+   "role": "reserve",
+   "name": "Rupert Max",
+   "dob": "11/10/2008",
+   "position": "C",
+   "uniform": 10
+  },
+  {
+   "league": "college",
+   "team": "OKE",
+   "role": "reserve",
+   "name": "Mathew Berger",
+   "dob": "1/7/2008",
+   "position": "PG",
+   "uniform": 52
+  },
+  {
+   "league": "college",
+   "team": "OKE",
+   "role": "reserve",
+   "name": "Paris Crochet",
+   "dob": "11/14/2007",
+   "position": "SF",
+   "uniform": 46
+  },
+  {
+   "league": "college",
+   "team": "OKE",
+   "role": "reserve",
+   "name": "Mckinley Perreira",
+   "dob": "10/5/2007",
+   "position": "C",
+   "uniform": 27
+  },
+  {
+   "league": "college",
+   "team": "WKW",
+   "role": "reserve",
+   "name": "Emmitt Orlandi",
+   "dob": "5/25/2008",
+   "position": "PG",
+   "uniform": 54
+  },
+  {
+   "league": "college",
+   "team": "WKW",
+   "role": "reserve",
+   "name": "Scottie Espino",
+   "dob": "7/19/2008",
+   "position": "SF",
+   "uniform": 31
+  },
+  {
+   "league": "college",
+   "team": "WKW",
+   "role": "reserve",
+   "name": "Buddy Morrissette",
+   "dob": "1/4/2008",
+   "position": "C",
+   "uniform": 30
+  },
+  {
+   "league": "college",
+   "team": "WAH",
+   "role": "reserve",
+   "name": "Garland Gentry",
+   "dob": "8/11/2008",
+   "position": "PG",
+   "uniform": 50
+  },
+  {
+   "league": "college",
+   "team": "WAH",
+   "role": "reserve",
+   "name": "Leonel Wickert",
+   "dob": "6/23/2008",
+   "position": "SF",
+   "uniform": 9
+  },
+  {
+   "league": "college",
+   "team": "WAH",
+   "role": "reserve",
+   "name": "Gunther Otero",
+   "dob": "12/14/2008",
+   "position": "C",
+   "uniform": 38
+  },
+  {
+   "league": "college",
+   "team": "CAN",
+   "role": "reserve",
+   "name": "Raphael Durgin",
+   "dob": "5/14/2007",
+   "position": "PG",
+   "uniform": 1
+  },
+  {
+   "league": "college",
+   "team": "CAN",
+   "role": "reserve",
+   "name": "Forest Ruark",
+   "dob": "1/6/2008",
+   "position": "SF",
+   "uniform": 33
+  },
+  {
+   "league": "college",
+   "team": "CAN",
+   "role": "reserve",
+   "name": "Josiah Housman",
+   "dob": "7/14/2008",
+   "position": "C",
+   "uniform": 2
+  },
+  {
+   "league": "college",
+   "team": "POC",
+   "role": "reserve",
+   "name": "Barry Campregher",
+   "dob": "6/7/2007",
+   "position": "PG",
+   "uniform": 52
+  },
+  {
+   "league": "college",
+   "team": "POC",
+   "role": "reserve",
+   "name": "Dave Coty",
+   "dob": "5/28/2008",
+   "position": "SF",
+   "uniform": 16
+  },
+  {
+   "league": "college",
+   "team": "POC",
+   "role": "reserve",
+   "name": "Willis Karr",
+   "dob": "6/24/2007",
+   "position": "C",
+   "uniform": 1
+  },
+  {
+   "league": "college",
+   "team": "WWA",
+   "role": "reserve",
+   "name": "Melchioras Desmond",
+   "dob": "5/12/2007",
+   "position": "PG",
+   "uniform": 50
+  },
+  {
+   "league": "college",
+   "team": "WWA",
+   "role": "reserve",
+   "name": "Rudy Balogh",
+   "dob": "4/13/2008",
+   "position": "SF",
+   "uniform": 20
+  },
+  {
+   "league": "college",
+   "team": "WWA",
+   "role": "reserve",
+   "name": "Jordan Brito",
+   "dob": "2/22/2007",
+   "position": "C",
+   "uniform": 53
+  },
+  {
+   "league": "pro",
+   "team": "GOU",
+   "role": "reserve",
+   "name": "Dwight Hebron",
+   "dob": "9/5/2003",
+   "position": "PG",
+   "uniform": 12
+  },
+  {
+   "league": "pro",
+   "team": "GOU",
+   "role": "reserve",
+   "name": "Mauricio Babin",
+   "dob": "2/10/2004",
+   "position": "SF",
+   "uniform": 10
+  },
+  {
+   "league": "pro",
+   "team": "GOU",
+   "role": "reserve",
+   "name": "Oben Pages",
+   "dob": "9/17/2004",
+   "position": "C",
+   "uniform": 30
+  },
+  {
+   "league": "pro",
+   "team": "EDM",
+   "role": "reserve",
+   "name": "Lane Felts",
+   "dob": "10/14/2003",
+   "position": "PG",
+   "uniform": 14
+  },
+  {
+   "league": "pro",
+   "team": "EDM",
+   "role": "reserve",
+   "name": "Arnold Testa",
+   "dob": "4/8/2003",
+   "position": "SF",
+   "uniform": 9
+  },
+  {
+   "league": "pro",
+   "team": "EDM",
+   "role": "reserve",
+   "name": "Marcelo Roca",
+   "dob": "12/12/2003",
+   "position": "C",
+   "uniform": 12
+  },
+  {
+   "league": "pro",
+   "team": "CHD",
+   "role": "reserve",
+   "name": "Ambrose Ridinger",
+   "dob": "10/1/2004",
+   "position": "PG",
+   "uniform": 24
+  },
+  {
+   "league": "pro",
+   "team": "CHD",
+   "role": "reserve",
+   "name": "Nicholas Samulevicius",
+   "dob": "1/21/2003",
+   "position": "SF",
+   "uniform": 45
+  },
+  {
+   "league": "pro",
+   "team": "CHD",
+   "role": "reserve",
+   "name": "Vasco Demaree",
+   "dob": "9/5/2004",
+   "position": "C",
+   "uniform": 14
+  },
+  {
+   "league": "pro",
+   "team": "STL",
+   "role": "reserve",
+   "name": "Er\u00e7elik Blue",
+   "dob": "2/16/2004",
+   "position": "PG",
+   "uniform": 29
+  },
+  {
+   "league": "pro",
+   "team": "STL",
+   "role": "reserve",
+   "name": "Deangelo Webb",
+   "dob": "9/16/2003",
+   "position": "SF",
+   "uniform": 25
+  },
+  {
+   "league": "pro",
+   "team": "STL",
+   "role": "reserve",
+   "name": "Harold Hinchey",
+   "dob": "5/6/2004",
+   "position": "C",
+   "uniform": 17
+  },
+  {
+   "league": "pro",
+   "team": "CHE",
+   "role": "reserve",
+   "name": "Ken Nations",
+   "dob": "9/6/2004",
+   "position": "PG",
+   "uniform": 46
+  },
+  {
+   "league": "pro",
+   "team": "CHE",
+   "role": "reserve",
+   "name": "Ajibayo Dejohn",
+   "dob": "1/21/2004",
+   "position": "SF",
+   "uniform": 39
+  },
+  {
+   "league": "pro",
+   "team": "CHE",
+   "role": "reserve",
+   "name": "Thad Cousin",
+   "dob": "7/2/2004",
+   "position": "C",
+   "uniform": 17
+  },
+  {
+   "league": "pro",
+   "team": "PAR",
+   "role": "reserve",
+   "name": "Dino Quesinberry",
+   "dob": "6/15/2003",
+   "position": "PG",
+   "uniform": 45
+  },
+  {
+   "league": "pro",
+   "team": "PAR",
+   "role": "reserve",
+   "name": "Tod Schlager",
+   "dob": "6/4/2004",
+   "position": "SF",
+   "uniform": 54
+  },
+  {
+   "league": "pro",
+   "team": "PAR",
+   "role": "reserve",
+   "name": "Tracy Ramonas",
+   "dob": "6/24/2004",
+   "position": "C",
+   "uniform": 48
+  },
+  {
+   "league": "pro",
+   "team": "ASI",
+   "role": "reserve",
+   "name": "Deger Zeh",
+   "dob": "5/2/2004",
+   "position": "PG",
+   "uniform": 42
+  },
+  {
+   "league": "pro",
+   "team": "ASI",
+   "role": "reserve",
+   "name": "Napoleon Roller",
+   "dob": "9/21/2003",
+   "position": "SF",
+   "uniform": 8
+  },
+  {
+   "league": "pro",
+   "team": "ASI",
+   "role": "reserve",
+   "name": "Keith Vogt",
+   "dob": "5/1/2004",
+   "position": "C",
+   "uniform": 22
+  },
+  {
+   "league": "pro",
+   "team": "GOR",
+   "role": "reserve",
+   "name": "Ali Yeh",
+   "dob": "3/22/2003",
+   "position": "PG",
+   "uniform": 1
+  },
+  {
+   "league": "pro",
+   "team": "GOR",
+   "role": "reserve",
+   "name": "Adomas Stecklein",
+   "dob": "12/25/2004",
+   "position": "SF",
+   "uniform": 43
+  },
+  {
+   "league": "pro",
+   "team": "GOR",
+   "role": "reserve",
+   "name": "Millard Minnich",
+   "dob": "10/13/2003",
+   "position": "C",
+   "uniform": 16
+  },
+  {
+   "league": "pro",
+   "team": "ROQ",
+   "role": "reserve",
+   "name": "Zackary Heatwole",
+   "dob": "12/15/2004",
+   "position": "PG",
+   "uniform": 33
+  },
+  {
+   "league": "pro",
+   "team": "ROQ",
+   "role": "reserve",
+   "name": "Nestor Janik",
+   "dob": "1/12/2004",
+   "position": "SF",
+   "uniform": 34
+  },
+  {
+   "league": "pro",
+   "team": "ROQ",
+   "role": "reserve",
+   "name": "Jimmie Huss",
+   "dob": "6/12/2004",
+   "position": "C",
+   "uniform": 11
+  },
+  {
+   "league": "pro",
+   "team": "MNS",
+   "role": "reserve",
+   "name": "Emmitt Steinman",
+   "dob": "11/2/2004",
+   "position": "PG",
+   "uniform": 11
+  },
+  {
+   "league": "pro",
+   "team": "MNS",
+   "role": "reserve",
+   "name": "Alonso Eckler",
+   "dob": "2/1/2004",
+   "position": "SF",
+   "uniform": 41
+  },
+  {
+   "league": "pro",
+   "team": "MNS",
+   "role": "reserve",
+   "name": "Gerald Disanto",
+   "dob": "6/12/2004",
+   "position": "C",
+   "uniform": 4
+  },
+  {
+   "league": "pro",
+   "team": "COL",
+   "role": "reserve",
+   "name": "Tomislav Klenke",
+   "dob": "9/14/2004",
+   "position": "PG",
+   "uniform": 7
+  },
+  {
+   "league": "pro",
+   "team": "COL",
+   "role": "reserve",
+   "name": "Andres Silverberg",
+   "dob": "11/14/2003",
+   "position": "SF",
+   "uniform": 8
+  },
+  {
+   "league": "pro",
+   "team": "COL",
+   "role": "reserve",
+   "name": "Derrick Wagar",
+   "dob": "8/20/2003",
+   "position": "C",
+   "uniform": 4
+  },
+  {
+   "league": "pro",
+   "team": "PLY",
+   "role": "reserve",
+   "name": "Zymantas Kintzel",
+   "dob": "3/10/2004",
+   "position": "PG",
+   "uniform": 24
+  },
+  {
+   "league": "pro",
+   "team": "PLY",
+   "role": "reserve",
+   "name": "Benito Lepper",
+   "dob": "1/12/2003",
+   "position": "SF",
+   "uniform": 11
+  },
+  {
+   "league": "pro",
+   "team": "PLY",
+   "role": "reserve",
+   "name": "Darrin Nyquist",
+   "dob": "7/14/2004",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "MNR",
+   "role": "reserve",
+   "name": "Jaime Heinrich",
+   "dob": "6/8/2003",
+   "position": "PG",
+   "uniform": 50
+  },
+  {
+   "league": "pro",
+   "team": "MNR",
+   "role": "reserve",
+   "name": "Carlton Golliday",
+   "dob": "11/13/2004",
+   "position": "SF",
+   "uniform": 52
+  },
+  {
+   "league": "pro",
+   "team": "MNR",
+   "role": "reserve",
+   "name": "Ike Dearing",
+   "dob": "11/8/2004",
+   "position": "C",
+   "uniform": 45
+  },
+  {
+   "league": "pro",
+   "team": "LCH",
+   "role": "reserve",
+   "name": "Edison Bogart",
+   "dob": "3/16/2004",
+   "position": "PG",
+   "uniform": 1
+  },
+  {
+   "league": "pro",
+   "team": "LCH",
+   "role": "reserve",
+   "name": "John Militello",
+   "dob": "11/27/2003",
+   "position": "SF",
+   "uniform": 45
+  },
+  {
+   "league": "pro",
+   "team": "LCH",
+   "role": "reserve",
+   "name": "Vicente Cowden",
+   "dob": "1/3/2004",
+   "position": "C",
+   "uniform": 6
+  },
+  {
+   "league": "pro",
+   "team": "THP",
+   "role": "reserve",
+   "name": "Parker Toombs",
+   "dob": "4/10/2004",
+   "position": "PG",
+   "uniform": 47
+  },
+  {
+   "league": "pro",
+   "team": "THP",
+   "role": "reserve",
+   "name": "Prospero Hernandez",
+   "dob": "1/24/2004",
+   "position": "SF",
+   "uniform": 27
+  },
+  {
+   "league": "pro",
+   "team": "THP",
+   "role": "reserve",
+   "name": "Riley Zollinger",
+   "dob": "12/5/2003",
+   "position": "C",
+   "uniform": 12
+  },
+  {
+   "league": "pro",
+   "team": "MTY",
+   "role": "reserve",
+   "name": "Harry Iser",
+   "dob": "9/9/2004",
+   "position": "PG",
+   "uniform": 22
+  },
+  {
+   "league": "pro",
+   "team": "MTY",
+   "role": "reserve",
+   "name": "Wilfred Redwood",
+   "dob": "12/12/2003",
+   "position": "SF",
+   "uniform": 16
+  },
+  {
+   "league": "pro",
+   "team": "MTY",
+   "role": "reserve",
+   "name": "Devin Bogucki",
+   "dob": "9/8/2003",
+   "position": "C",
+   "uniform": 50
+  },
+  {
+   "league": "pro",
+   "team": "TIL",
+   "role": "reserve",
+   "name": "Rueben Persons",
+   "dob": "9/22/2004",
+   "position": "PG",
+   "uniform": 24
+  },
+  {
+   "league": "pro",
+   "team": "TIL",
+   "role": "reserve",
+   "name": "Tracy McPeak",
+   "dob": "10/28/2004",
+   "position": "SF",
+   "uniform": 55
+  },
+  {
+   "league": "pro",
+   "team": "TIL",
+   "role": "reserve",
+   "name": "Yolbul Kolb",
+   "dob": "5/13/2003",
+   "position": "C",
+   "uniform": 10
+  },
+  {
+   "league": "pro",
+   "team": "PET",
+   "role": "reserve",
+   "name": "Bryon Bollin",
+   "dob": "3/10/2003",
+   "position": "PG",
+   "uniform": 7
+  },
+  {
+   "league": "pro",
+   "team": "PET",
+   "role": "reserve",
+   "name": "Anastas Brisker",
+   "dob": "1/9/2004",
+   "position": "SF",
+   "uniform": 35
+  },
+  {
+   "league": "pro",
+   "team": "PET",
+   "role": "reserve",
+   "name": "Kenton Hagemann",
+   "dob": "5/28/2003",
+   "position": "C",
+   "uniform": 8
+  },
+  {
+   "league": "pro",
+   "team": "FER",
+   "role": "reserve",
+   "name": "Michel Nealy",
+   "dob": "6/3/2004",
+   "position": "PG",
+   "uniform": 1
+  },
+  {
+   "league": "pro",
+   "team": "FER",
+   "role": "reserve",
+   "name": "Ryan McHaney",
+   "dob": "6/3/2003",
+   "position": "SF",
+   "uniform": 41
+  },
+  {
+   "league": "pro",
+   "team": "FER",
+   "role": "reserve",
+   "name": "Inocencio Arenas",
+   "dob": "10/2/2004",
+   "position": "C",
+   "uniform": 47
+  },
+  {
+   "league": "pro",
+   "team": "SON",
+   "role": "reserve",
+   "name": "Jude Brungardt",
+   "dob": "9/17/2004",
+   "position": "PG",
+   "uniform": 44
+  },
+  {
+   "league": "pro",
+   "team": "SON",
+   "role": "reserve",
+   "name": "Aroldo Kieffer",
+   "dob": "7/28/2003",
+   "position": "SF",
+   "uniform": 45
+  },
+  {
+   "league": "pro",
+   "team": "SON",
+   "role": "reserve",
+   "name": "Gary Kissell",
+   "dob": "4/18/2003",
+   "position": "C",
+   "uniform": 11
+  },
+  {
+   "league": "prep",
+   "team": "SAS",
+   "role": "filler",
+   "name": "Ivory Sanner",
+   "dob": "11/6/2011",
+   "position": "C",
+   "uniform": 45
+  },
+  {
+   "league": "prep",
+   "team": "QUA",
+   "role": "filler",
+   "name": "Fermin Waren",
+   "dob": "8/5/2011",
+   "position": "PF",
+   "uniform": 31
+  },
+  {
+   "league": "prep",
+   "team": "SAS",
+   "role": "filler",
+   "name": "Didier Phillis",
+   "dob": "7/11/2012",
+   "position": "PG",
+   "uniform": 20
+  },
+  {
+   "league": "prep",
+   "team": "SAS",
+   "role": "filler",
+   "name": "Ayta\u00e7 Donis",
+   "dob": "1/24/2012",
+   "position": "PF",
+   "uniform": 10
+  },
+  {
+   "league": "prep",
+   "team": "SAS",
+   "role": "filler",
+   "name": "Buddy Posada",
+   "dob": "6/28/2011",
+   "position": "PG",
+   "uniform": 6
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "filler",
+   "name": "Demarcus Estey",
+   "dob": "7/3/2015",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "prep",
@@ -189,25 +1503,16 @@
   },
   {
    "league": "prep",
-   "team": "WET",
-   "role": "filler",
-   "name": "Harrison Gandara",
-   "dob": "9/12/2009",
-   "position": "PF",
-   "uniform": 20
-  },
-  {
-   "league": "prep",
-   "team": "WET",
+   "team": "ALB",
    "role": "filler",
    "name": "Renato Thieme",
    "dob": "7/27/2012",
-   "position": "PF",
+   "position": "SF",
    "uniform": 24
   },
   {
    "league": "prep",
-   "team": "WET",
+   "team": "QUA",
    "role": "filler",
    "name": "Jesse Standish",
    "dob": "10/28/2011",
@@ -229,7 +1534,7 @@
    "role": "filler",
    "name": "Tommaso Guenther",
    "dob": "2/22/2010",
-   "position": "SF",
+   "position": "PF",
    "uniform": 31
   },
   {
@@ -279,33 +1584,6 @@
   },
   {
    "league": "prep",
-   "team": "WET",
-   "role": "reserve",
-   "name": "Teisius Shurtleff",
-   "dob": "1/15/2011",
-   "position": "PG",
-   "uniform": 38
-  },
-  {
-   "league": "prep",
-   "team": "WET",
-   "role": "reserve",
-   "name": "Darell Odom",
-   "dob": "7/12/2012",
-   "position": "SF",
-   "uniform": 40
-  },
-  {
-   "league": "prep",
-   "team": "WET",
-   "role": "reserve",
-   "name": "Heino Konsavage",
-   "dob": "2/5/2012",
-   "position": "C",
-   "uniform": 19
-  },
-  {
-   "league": "prep",
    "team": "PIE",
    "role": "filler",
    "name": "Augustus Marable",
@@ -324,30 +1602,12 @@
   },
   {
    "league": "prep",
-   "team": "PIE",
-   "role": "filler",
-   "name": "G\u00fcnaydin Wyss",
-   "dob": "11/21/2009",
-   "position": "PF",
-   "uniform": 47
-  },
-  {
-   "league": "prep",
-   "team": "PIE",
+   "team": "MTL",
    "role": "filler",
    "name": "Noble McNally",
    "dob": "11/11/2012",
-   "position": "PF",
+   "position": "SG",
    "uniform": 48
-  },
-  {
-   "league": "prep",
-   "team": "PIE",
-   "role": "filler",
-   "name": "Irwin Stalkus",
-   "dob": "6/15/2010",
-   "position": "SF",
-   "uniform": 36
   },
   {
    "league": "prep",
@@ -355,17 +1615,8 @@
    "role": "filler",
    "name": "Demetrijus Pendley",
    "dob": "8/27/2012",
-   "position": "SF",
+   "position": "SG",
    "uniform": 46
-  },
-  {
-   "league": "prep",
-   "team": "PIE",
-   "role": "filler",
-   "name": "Antony Fehler",
-   "dob": "6/10/2010",
-   "position": "SF",
-   "uniform": 54
   },
   {
    "league": "prep",
@@ -373,17 +1624,17 @@
    "role": "filler",
    "name": "Merle Valdez",
    "dob": "9/27/2012",
-   "position": "SG",
+   "position": "SF",
    "uniform": 1
   },
   {
    "league": "prep",
-   "team": "PIE",
+   "team": "JER",
    "role": "filler",
-   "name": "Kelley Febres",
-   "dob": "3/1/2009",
-   "position": "SG",
-   "uniform": 22
+   "name": "Edmund Whitehead",
+   "dob": "12/25/2008",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "prep",
@@ -391,7 +1642,7 @@
    "role": "filler",
    "name": "Lyle McLain",
    "dob": "10/13/2012",
-   "position": "SG",
+   "position": "PG",
    "uniform": 29
   },
   {
@@ -400,12 +1651,12 @@
    "role": "filler",
    "name": "Jerrod Nalley",
    "dob": "4/27/2011",
-   "position": "PG",
+   "position": "SF",
    "uniform": 38
   },
   {
    "league": "prep",
-   "team": "PIE",
+   "team": "LIN",
    "role": "filler",
    "name": "Shad Jungnickel",
    "dob": "1/23/2011",
@@ -414,84 +1665,21 @@
   },
   {
    "league": "prep",
-   "team": "PIE",
-   "role": "reserve",
-   "name": "Nurcan Kelleher",
-   "dob": "7/11/2011",
-   "position": "PG",
-   "uniform": 34
-  },
-  {
-   "league": "prep",
-   "team": "PIE",
-   "role": "reserve",
-   "name": "Gustavo Demarco",
-   "dob": "3/15/2012",
-   "position": "SF",
-   "uniform": 49
-  },
-  {
-   "league": "prep",
-   "team": "PIE",
-   "role": "reserve",
-   "name": "Cornell Chadwick",
-   "dob": "2/25/2012",
-   "position": "C",
-   "uniform": 28
-  },
-  {
-   "league": "prep",
-   "team": "LIN",
-   "role": "filler",
-   "name": "Xavier Medellin",
-   "dob": "11/13/2010",
-   "position": "C",
-   "uniform": 49
-  },
-  {
-   "league": "prep",
    "team": "LIN",
    "role": "filler",
    "name": "Necati McCallon",
    "dob": "2/26/2011",
-   "position": "C",
+   "position": "PF",
    "uniform": 47
   },
   {
    "league": "prep",
-   "team": "LIN",
-   "role": "filler",
-   "name": "Edgar Chiodo",
-   "dob": "6/25/2009",
-   "position": "PF",
-   "uniform": 30
-  },
-  {
-   "league": "prep",
-   "team": "LIN",
-   "role": "filler",
-   "name": "Marcus Mathewson",
-   "dob": "3/28/2009",
-   "position": "PF",
-   "uniform": 5
-  },
-  {
-   "league": "prep",
-   "team": "LIN",
+   "team": "REN",
    "role": "filler",
    "name": "Timothy Cleary",
    "dob": "9/22/2011",
-   "position": "SF",
+   "position": "PG",
    "uniform": 27
-  },
-  {
-   "league": "prep",
-   "team": "LIN",
-   "role": "filler",
-   "name": "Stephan Sheats",
-   "dob": "4/12/2009",
-   "position": "SF",
-   "uniform": 15
   },
   {
    "league": "prep",
@@ -515,15 +1703,6 @@
    "league": "prep",
    "team": "LIN",
    "role": "filler",
-   "name": "Loren Axelrod",
-   "dob": "11/15/2010",
-   "position": "SG",
-   "uniform": 20
-  },
-  {
-   "league": "prep",
-   "team": "LIN",
-   "role": "filler",
    "name": "Thierry Ewers",
    "dob": "3/20/2012",
    "position": "SG",
@@ -533,46 +1712,10 @@
    "league": "prep",
    "team": "LIN",
    "role": "filler",
-   "name": "Dion Bauer",
-   "dob": "11/20/2010",
-   "position": "PG",
-   "uniform": 22
-  },
-  {
-   "league": "prep",
-   "team": "LIN",
-   "role": "filler",
    "name": "Korey Martineau",
    "dob": "9/25/2012",
    "position": "PG",
    "uniform": 26
-  },
-  {
-   "league": "prep",
-   "team": "LIN",
-   "role": "reserve",
-   "name": "Dominic Throckmorton",
-   "dob": "11/12/2012",
-   "position": "PG",
-   "uniform": 24
-  },
-  {
-   "league": "prep",
-   "team": "LIN",
-   "role": "reserve",
-   "name": "Columbano Esteves",
-   "dob": "8/7/2012",
-   "position": "SF",
-   "uniform": 17
-  },
-  {
-   "league": "prep",
-   "team": "LIN",
-   "role": "reserve",
-   "name": "Nathanial Gilliland",
-   "dob": "2/10/2011",
-   "position": "C",
-   "uniform": 43
   },
   {
    "league": "prep",
@@ -607,26 +1750,26 @@
    "role": "filler",
    "name": "Kasey Alvarez",
    "dob": "6/16/2012",
-   "position": "PF",
+   "position": "SF",
    "uniform": 35
   },
   {
    "league": "prep",
-   "team": "MTL",
+   "team": "LIN",
    "role": "filler",
-   "name": "Shawn Niebauer",
-   "dob": "8/14/2009",
-   "position": "SF",
-   "uniform": 43
+   "name": "Arthur Sand",
+   "dob": "11/19/2009",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "prep",
-   "team": "MTL",
+   "team": "JAC",
    "role": "filler",
-   "name": "Tuan Pinard",
-   "dob": "11/14/2009",
-   "position": "SF",
-   "uniform": 20
+   "name": "Daniil Belotserkovsky",
+   "dob": "6/14/2011",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "prep",
@@ -634,7 +1777,7 @@
    "role": "filler",
    "name": "Lynn Vedder",
    "dob": "10/7/2009",
-   "position": "SF",
+   "position": "SG",
    "uniform": 39
   },
   {
@@ -643,17 +1786,8 @@
    "role": "filler",
    "name": "Ervin Bottom",
    "dob": "2/24/2009",
-   "position": "SG",
+   "position": "C",
    "uniform": 33
-  },
-  {
-   "league": "prep",
-   "team": "MTL",
-   "role": "filler",
-   "name": "Valent\u00edn Kerschner",
-   "dob": "1/28/2010",
-   "position": "SG",
-   "uniform": 34
   },
   {
    "league": "prep",
@@ -670,7 +1804,7 @@
    "role": "filler",
    "name": "Jordon Coman",
    "dob": "7/8/2012",
-   "position": "PG",
+   "position": "SG",
    "uniform": 42
   },
   {
@@ -684,38 +1818,11 @@
   },
   {
    "league": "prep",
-   "team": "MTL",
-   "role": "reserve",
-   "name": "Guy Langford",
-   "dob": "8/11/2012",
-   "position": "PG",
-   "uniform": 45
-  },
-  {
-   "league": "prep",
-   "team": "MTL",
-   "role": "reserve",
-   "name": "G\u00e9rald Rudloff",
-   "dob": "11/23/2012",
-   "position": "SF",
-   "uniform": 26
-  },
-  {
-   "league": "prep",
-   "team": "MTL",
-   "role": "reserve",
-   "name": "Rudolph Nieman",
-   "dob": "2/17/2011",
-   "position": "C",
-   "uniform": 17
-  },
-  {
-   "league": "prep",
    "team": "ALB",
    "role": "filler",
    "name": "Olivier Carretero",
    "dob": "11/28/2010",
-   "position": "C",
+   "position": "PF",
    "uniform": 24
   },
   {
@@ -731,15 +1838,6 @@
    "league": "prep",
    "team": "ALB",
    "role": "filler",
-   "name": "Von Mumper",
-   "dob": "8/21/2010",
-   "position": "PF",
-   "uniform": 25
-  },
-  {
-   "league": "prep",
-   "team": "ALB",
-   "role": "filler",
    "name": "Otis Record",
    "dob": "10/6/2012",
    "position": "PF",
@@ -747,16 +1845,7 @@
   },
   {
    "league": "prep",
-   "team": "ALB",
-   "role": "filler",
-   "name": "Caron Gilstrap",
-   "dob": "6/23/2009",
-   "position": "SF",
-   "uniform": 22
-  },
-  {
-   "league": "prep",
-   "team": "ALB",
+   "team": "LOU",
    "role": "filler",
    "name": "Wilford Cabana",
    "dob": "6/14/2010",
@@ -765,7 +1854,7 @@
   },
   {
    "league": "prep",
-   "team": "ALB",
+   "team": "LIT",
    "role": "filler",
    "name": "Carrol Whitten",
    "dob": "6/1/2012",
@@ -787,7 +1876,7 @@
    "role": "filler",
    "name": "Bilge Warnke",
    "dob": "6/26/2011",
-   "position": "SG",
+   "position": "PG",
    "uniform": 34
   },
   {
@@ -798,51 +1887,6 @@
    "dob": "3/7/2012",
    "position": "SG",
    "uniform": 52
-  },
-  {
-   "league": "prep",
-   "team": "ALB",
-   "role": "filler",
-   "name": "Umaru Hove",
-   "dob": "1/23/2009",
-   "position": "PG",
-   "uniform": 2
-  },
-  {
-   "league": "prep",
-   "team": "ALB",
-   "role": "filler",
-   "name": "Mitch Tassone",
-   "dob": "10/22/2010",
-   "position": "PG",
-   "uniform": 43
-  },
-  {
-   "league": "prep",
-   "team": "ALB",
-   "role": "reserve",
-   "name": "Willy Booker",
-   "dob": "11/21/2012",
-   "position": "PG",
-   "uniform": 10
-  },
-  {
-   "league": "prep",
-   "team": "ALB",
-   "role": "reserve",
-   "name": "Willy Manry",
-   "dob": "2/1/2011",
-   "position": "SF",
-   "uniform": 5
-  },
-  {
-   "league": "prep",
-   "team": "ALB",
-   "role": "reserve",
-   "name": "Romolo Lamorte",
-   "dob": "12/20/2012",
-   "position": "C",
-   "uniform": 17
   },
   {
    "league": "prep",
@@ -859,7 +1903,7 @@
    "role": "filler",
    "name": "Azi Goldman",
    "dob": "2/10/2012",
-   "position": "C",
+   "position": "PF",
    "uniform": 51
   },
   {
@@ -868,16 +1912,16 @@
    "role": "filler",
    "name": "Edmondo Conti",
    "dob": "7/11/2011",
-   "position": "PF",
+   "position": "SG",
    "uniform": 40
   },
   {
    "league": "prep",
-   "team": "QUA",
+   "team": "WET",
    "role": "filler",
    "name": "Barry Sisson",
    "dob": "8/5/2012",
-   "position": "PF",
+   "position": "SF",
    "uniform": 49
   },
   {
@@ -893,23 +1937,14 @@
    "league": "prep",
    "team": "QUA",
    "role": "filler",
-   "name": "Timoteo Crain",
-   "dob": "5/15/2009",
-   "position": "SF",
-   "uniform": 24
-  },
-  {
-   "league": "prep",
-   "team": "QUA",
-   "role": "filler",
    "name": "Don Moose",
    "dob": "1/10/2012",
-   "position": "SF",
+   "position": "PG",
    "uniform": 38
   },
   {
    "league": "prep",
-   "team": "QUA",
+   "team": "PIE",
    "role": "filler",
    "name": "Shannon Plaisted",
    "dob": "10/16/2011",
@@ -922,7 +1957,7 @@
    "role": "filler",
    "name": "Oliver Sisto",
    "dob": "8/26/2012",
-   "position": "SG",
+   "position": "SF",
    "uniform": 30
   },
   {
@@ -931,21 +1966,12 @@
    "role": "filler",
    "name": "Teofilis Lecroy",
    "dob": "6/2/2011",
-   "position": "SG",
+   "position": "PG",
    "uniform": 19
   },
   {
    "league": "prep",
-   "team": "QUA",
-   "role": "filler",
-   "name": "Erwin Scates",
-   "dob": "7/27/2009",
-   "position": "PG",
-   "uniform": 34
-  },
-  {
-   "league": "prep",
-   "team": "QUA",
+   "team": "WET",
    "role": "filler",
    "name": "Darrick Simmons",
    "dob": "1/28/2012",
@@ -954,48 +1980,12 @@
   },
   {
    "league": "prep",
-   "team": "QUA",
-   "role": "reserve",
-   "name": "Lou Banegas",
-   "dob": "6/24/2012",
-   "position": "PG",
-   "uniform": 1
-  },
-  {
-   "league": "prep",
-   "team": "QUA",
-   "role": "reserve",
-   "name": "Dionizas Folks",
-   "dob": "8/20/2011",
-   "position": "SF",
-   "uniform": 41
-  },
-  {
-   "league": "prep",
-   "team": "QUA",
-   "role": "reserve",
-   "name": "Isaias Staab",
-   "dob": "3/23/2011",
-   "position": "C",
-   "uniform": 20
-  },
-  {
-   "league": "prep",
-   "team": "REN",
+   "team": "JER",
    "role": "filler",
    "name": "Tadas Philen",
    "dob": "6/11/2011",
    "position": "C",
    "uniform": 43
-  },
-  {
-   "league": "prep",
-   "team": "REN",
-   "role": "filler",
-   "name": "Preston Landreneau",
-   "dob": "9/28/2009",
-   "position": "C",
-   "uniform": 20
   },
   {
    "league": "prep",
@@ -1012,16 +2002,16 @@
    "role": "filler",
    "name": "Donald Dewall",
    "dob": "3/8/2012",
-   "position": "PF",
+   "position": "C",
    "uniform": 45
   },
   {
    "league": "prep",
-   "team": "REN",
+   "team": "LIN",
    "role": "filler",
    "name": "Callisto Kouba",
    "dob": "11/12/2011",
-   "position": "SF",
+   "position": "SG",
    "uniform": 34
   },
   {
@@ -1030,17 +2020,17 @@
    "role": "filler",
    "name": "Vincent Bucher",
    "dob": "11/12/2012",
-   "position": "SF",
+   "position": "PF",
    "uniform": 30
   },
   {
    "league": "prep",
-   "team": "REN",
+   "team": "LOU",
    "role": "filler",
-   "name": "Ron Wambach",
-   "dob": "12/6/2009",
-   "position": "SF",
-   "uniform": 15
+   "name": "Charles Sanches",
+   "dob": "12/15/2009",
+   "position": "SG",
+   "uniform": 0
   },
   {
    "league": "prep",
@@ -1062,74 +2052,11 @@
   },
   {
    "league": "prep",
-   "team": "REN",
-   "role": "filler",
-   "name": "Deji Gochenour",
-   "dob": "1/18/2010",
-   "position": "SG",
-   "uniform": 21
-  },
-  {
-   "league": "prep",
-   "team": "REN",
-   "role": "filler",
-   "name": "Major Halliday",
-   "dob": "3/1/2009",
-   "position": "PG",
-   "uniform": 16
-  },
-  {
-   "league": "prep",
-   "team": "REN",
-   "role": "filler",
-   "name": "Xavier Macneil",
-   "dob": "7/8/2010",
-   "position": "PG",
-   "uniform": 52
-  },
-  {
-   "league": "prep",
-   "team": "REN",
-   "role": "reserve",
-   "name": "Sylvester Quarles",
-   "dob": "7/4/2011",
-   "position": "PG",
-   "uniform": 38
-  },
-  {
-   "league": "prep",
-   "team": "REN",
-   "role": "reserve",
-   "name": "Manual \u00d6zmert",
-   "dob": "1/17/2011",
-   "position": "SF",
-   "uniform": 26
-  },
-  {
-   "league": "prep",
-   "team": "REN",
-   "role": "reserve",
-   "name": "Xander Reddout",
-   "dob": "8/3/2011",
-   "position": "C",
-   "uniform": 5
-  },
-  {
-   "league": "prep",
-   "team": "LOU",
-   "role": "filler",
-   "name": "Felton Helmers",
-   "dob": "8/17/2009",
-   "position": "C",
-   "uniform": 41
-  },
-  {
-   "league": "prep",
    "team": "LOU",
    "role": "filler",
    "name": "Gavin Ober",
    "dob": "7/26/2011",
-   "position": "C",
+   "position": "SF",
    "uniform": 1
   },
   {
@@ -1147,35 +2074,26 @@
    "role": "filler",
    "name": "Abir Kubicek",
    "dob": "6/19/2010",
-   "position": "PF",
+   "position": "C",
    "uniform": 13
   },
   {
    "league": "prep",
-   "team": "LOU",
+   "team": "MEM",
    "role": "filler",
-   "name": "Arnaud Shelby",
-   "dob": "12/15/2009",
-   "position": "SF",
-   "uniform": 24
+   "name": "Cirino Panek",
+   "dob": "12/11/2015",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "prep",
-   "team": "LOU",
+   "team": "LIT",
    "role": "filler",
-   "name": "Antwan Milford",
-   "dob": "6/4/2009",
-   "position": "SF",
-   "uniform": 21
-  },
-  {
-   "league": "prep",
-   "team": "LOU",
-   "role": "filler",
-   "name": "Marc Kazlauskis",
-   "dob": "1/17/2010",
-   "position": "SF",
-   "uniform": 12
+   "name": "Dane Lindstrom",
+   "dob": "12/27/2010",
+   "position": "C",
+   "uniform": 0
   },
   {
    "league": "prep",
@@ -1183,7 +2101,7 @@
    "role": "filler",
    "name": "Bo Holguin",
    "dob": "9/26/2012",
-   "position": "SG",
+   "position": "PG",
    "uniform": 7
   },
   {
@@ -1201,7 +2119,7 @@
    "role": "filler",
    "name": "Erdin\u00e7 Griskabudis",
    "dob": "12/25/2011",
-   "position": "SG",
+   "position": "PG",
    "uniform": 6
   },
   {
@@ -1210,53 +2128,26 @@
    "role": "filler",
    "name": "Elden Arrutti",
    "dob": "9/21/2011",
-   "position": "PG",
+   "position": "SG",
    "uniform": 26
   },
   {
    "league": "prep",
-   "team": "LOU",
+   "team": "JAC",
    "role": "filler",
-   "name": "Lynwood Cavender",
-   "dob": "9/15/2009",
-   "position": "PG",
-   "uniform": 11
+   "name": "Darrin Williams",
+   "dob": "6/4/2008",
+   "position": "C",
+   "uniform": 0
   },
   {
    "league": "prep",
-   "team": "LOU",
-   "role": "reserve",
-   "name": "Gabriele Manger",
-   "dob": "9/19/2011",
-   "position": "PG",
-   "uniform": 45
-  },
-  {
-   "league": "prep",
-   "team": "LOU",
-   "role": "reserve",
-   "name": "Lesley Bracewell",
-   "dob": "7/18/2011",
+   "team": "PIE",
+   "role": "filler",
+   "name": "Andrew Peterson",
+   "dob": "2/3/2009",
    "position": "SF",
-   "uniform": 17
-  },
-  {
-   "league": "prep",
-   "team": "LOU",
-   "role": "reserve",
-   "name": "Bert Gum",
-   "dob": "3/17/2011",
-   "position": "C",
-   "uniform": 8
-  },
-  {
-   "league": "prep",
-   "team": "MEM",
-   "role": "filler",
-   "name": "Dominique Bye",
-   "dob": "6/24/2009",
-   "position": "C",
-   "uniform": 52
+   "uniform": 0
   },
   {
    "league": "prep",
@@ -1269,20 +2160,11 @@
   },
   {
    "league": "prep",
-   "team": "MEM",
-   "role": "filler",
-   "name": "Kennith Riehle",
-   "dob": "5/14/2009",
-   "position": "PF",
-   "uniform": 50
-  },
-  {
-   "league": "prep",
-   "team": "MEM",
+   "team": "JAC",
    "role": "filler",
    "name": "Waylon Winsor",
    "dob": "9/24/2012",
-   "position": "PF",
+   "position": "PG",
    "uniform": 3
   },
   {
@@ -1305,39 +2187,12 @@
   },
   {
    "league": "prep",
-   "team": "MEM",
+   "team": "LIT",
    "role": "filler",
-   "name": "Murtala Kasprzak",
-   "dob": "8/27/2010",
+   "name": "Clinton Teasdale",
+   "dob": "2/2/2015",
    "position": "SF",
-   "uniform": 34
-  },
-  {
-   "league": "prep",
-   "team": "MEM",
-   "role": "filler",
-   "name": "Craig Pauls",
-   "dob": "2/27/2010",
-   "position": "SG",
-   "uniform": 36
-  },
-  {
-   "league": "prep",
-   "team": "MEM",
-   "role": "filler",
-   "name": "Ned Ziegler",
-   "dob": "5/1/2009",
-   "position": "SG",
-   "uniform": 22
-  },
-  {
-   "league": "prep",
-   "team": "MEM",
-   "role": "filler",
-   "name": "Franklyn Sharrock",
-   "dob": "12/25/2010",
-   "position": "SG",
-   "uniform": 46
+   "uniform": 0
   },
   {
    "league": "prep",
@@ -1345,7 +2200,7 @@
    "role": "filler",
    "name": "Carlo Vore",
    "dob": "8/11/2011",
-   "position": "PG",
+   "position": "SG",
    "uniform": 1
   },
   {
@@ -1356,33 +2211,6 @@
    "dob": "6/4/2011",
    "position": "PG",
    "uniform": 31
-  },
-  {
-   "league": "prep",
-   "team": "MEM",
-   "role": "reserve",
-   "name": "Ed Scheidt",
-   "dob": "1/18/2012",
-   "position": "PG",
-   "uniform": 39
-  },
-  {
-   "league": "prep",
-   "team": "MEM",
-   "role": "reserve",
-   "name": "Demetrio Ruvalcaba",
-   "dob": "1/28/2011",
-   "position": "SF",
-   "uniform": 35
-  },
-  {
-   "league": "prep",
-   "team": "MEM",
-   "role": "reserve",
-   "name": "Nathaniel Heredia",
-   "dob": "5/12/2011",
-   "position": "C",
-   "uniform": 40
   },
   {
    "league": "prep",
@@ -1404,7 +2232,7 @@
   },
   {
    "league": "prep",
-   "team": "LIT",
+   "team": "DAL",
    "role": "filler",
    "name": "Dietfried Liriano",
    "dob": "4/19/2011",
@@ -1426,26 +2254,8 @@
    "role": "filler",
    "name": "Lemuel Autin",
    "dob": "2/26/2012",
-   "position": "SF",
+   "position": "PG",
    "uniform": 55
-  },
-  {
-   "league": "prep",
-   "team": "LIT",
-   "role": "filler",
-   "name": "Elvis Morino",
-   "dob": "10/1/2009",
-   "position": "SF",
-   "uniform": 53
-  },
-  {
-   "league": "prep",
-   "team": "LIT",
-   "role": "filler",
-   "name": "Bennie Duell",
-   "dob": "3/8/2010",
-   "position": "SF",
-   "uniform": 12
   },
   {
    "league": "prep",
@@ -1453,71 +2263,8 @@
    "role": "filler",
    "name": "Rafa Staudt",
    "dob": "4/9/2012",
-   "position": "SG",
+   "position": "PG",
    "uniform": 46
-  },
-  {
-   "league": "prep",
-   "team": "LIT",
-   "role": "filler",
-   "name": "Lorenzo Curl",
-   "dob": "12/1/2010",
-   "position": "SG",
-   "uniform": 45
-  },
-  {
-   "league": "prep",
-   "team": "LIT",
-   "role": "filler",
-   "name": "Trenton Lupi",
-   "dob": "10/25/2010",
-   "position": "SG",
-   "uniform": 13
-  },
-  {
-   "league": "prep",
-   "team": "LIT",
-   "role": "filler",
-   "name": "Jarrod Keels",
-   "dob": "10/28/2010",
-   "position": "PG",
-   "uniform": 10
-  },
-  {
-   "league": "prep",
-   "team": "LIT",
-   "role": "filler",
-   "name": "Rusty Wadleigh",
-   "dob": "5/20/2009",
-   "position": "PG",
-   "uniform": 21
-  },
-  {
-   "league": "prep",
-   "team": "LIT",
-   "role": "reserve",
-   "name": "Emmett Bamberger",
-   "dob": "4/11/2012",
-   "position": "PG",
-   "uniform": 44
-  },
-  {
-   "league": "prep",
-   "team": "LIT",
-   "role": "reserve",
-   "name": "Timmy Wildman",
-   "dob": "6/17/2012",
-   "position": "SF",
-   "uniform": 24
-  },
-  {
-   "league": "prep",
-   "team": "LIT",
-   "role": "reserve",
-   "name": "Baltramiejus Rinaldi",
-   "dob": "9/21/2012",
-   "position": "C",
-   "uniform": 16
   },
   {
    "league": "prep",
@@ -1525,7 +2272,7 @@
    "role": "filler",
    "name": "Curt Decremes",
    "dob": "9/16/2012",
-   "position": "C",
+   "position": "PF",
    "uniform": 33
   },
   {
@@ -1534,17 +2281,8 @@
    "role": "filler",
    "name": "Bryant Bernab\u00e9",
    "dob": "1/17/2011",
-   "position": "C",
-   "uniform": 51
-  },
-  {
-   "league": "prep",
-   "team": "JAC",
-   "role": "filler",
-   "name": "Gaylord Notaro",
-   "dob": "7/19/2009",
    "position": "PF",
-   "uniform": 53
+   "uniform": 51
   },
   {
    "league": "prep",
@@ -1557,20 +2295,20 @@
   },
   {
    "league": "prep",
-   "team": "JAC",
+   "team": "SAS",
    "role": "filler",
    "name": "Kenny Coghill",
    "dob": "4/10/2011",
-   "position": "SF",
+   "position": "SG",
    "uniform": 34
   },
   {
    "league": "prep",
-   "team": "JAC",
+   "team": "MEM",
    "role": "filler",
    "name": "Scotty Wieder",
    "dob": "6/25/2012",
-   "position": "SF",
+   "position": "PG",
    "uniform": 22
   },
   {
@@ -1588,7 +2326,7 @@
    "role": "filler",
    "name": "Jarrod Flannery",
    "dob": "3/2/2011",
-   "position": "SG",
+   "position": "SF",
    "uniform": 3
   },
   {
@@ -1597,17 +2335,8 @@
    "role": "filler",
    "name": "Martin Alba",
    "dob": "2/27/2012",
-   "position": "SG",
+   "position": "PG",
    "uniform": 29
-  },
-  {
-   "league": "prep",
-   "team": "JAC",
-   "role": "filler",
-   "name": "Trey Windham",
-   "dob": "1/26/2009",
-   "position": "SG",
-   "uniform": 5
   },
   {
    "league": "prep",
@@ -1615,44 +2344,8 @@
    "role": "filler",
    "name": "Donny Aldrich",
    "dob": "2/5/2011",
-   "position": "PG",
+   "position": "SG",
    "uniform": 15
-  },
-  {
-   "league": "prep",
-   "team": "JAC",
-   "role": "filler",
-   "name": "Sam Mincey",
-   "dob": "3/16/2009",
-   "position": "PG",
-   "uniform": 2
-  },
-  {
-   "league": "prep",
-   "team": "JAC",
-   "role": "reserve",
-   "name": "Daniel Minnich",
-   "dob": "11/10/2012",
-   "position": "PG",
-   "uniform": 27
-  },
-  {
-   "league": "prep",
-   "team": "JAC",
-   "role": "reserve",
-   "name": "Eckehard Solorio",
-   "dob": "5/11/2011",
-   "position": "SF",
-   "uniform": 21
-  },
-  {
-   "league": "prep",
-   "team": "JAC",
-   "role": "reserve",
-   "name": "Lee Lords",
-   "dob": "4/18/2012",
-   "position": "C",
-   "uniform": 16
   },
   {
    "league": "prep",
@@ -1660,21 +2353,12 @@
    "role": "filler",
    "name": "Wyatt Fein",
    "dob": "11/16/2011",
-   "position": "C",
+   "position": "SF",
    "uniform": 53
   },
   {
    "league": "prep",
-   "team": "DAL",
-   "role": "filler",
-   "name": "Hans Madere",
-   "dob": "7/16/2009",
-   "position": "C",
-   "uniform": 25
-  },
-  {
-   "league": "prep",
-   "team": "DAL",
+   "team": "FLE",
    "role": "filler",
    "name": "Heath Nieman",
    "dob": "8/10/2010",
@@ -1687,7 +2371,7 @@
    "role": "filler",
    "name": "Jamison Hoppe",
    "dob": "11/1/2010",
-   "position": "PF",
+   "position": "SG",
    "uniform": 28
   },
   {
@@ -1696,26 +2380,8 @@
    "role": "filler",
    "name": "Eronsele Sambrano",
    "dob": "7/10/2012",
-   "position": "SF",
+   "position": "PF",
    "uniform": 36
-  },
-  {
-   "league": "prep",
-   "team": "DAL",
-   "role": "filler",
-   "name": "Maximo Bytautas",
-   "dob": "3/13/2009",
-   "position": "SF",
-   "uniform": 4
-  },
-  {
-   "league": "prep",
-   "team": "DAL",
-   "role": "filler",
-   "name": "Carter Parsell",
-   "dob": "8/20/2009",
-   "position": "SF",
-   "uniform": 20
   },
   {
    "league": "prep",
@@ -1732,7 +2398,7 @@
    "role": "filler",
    "name": "Gayle Phelps",
    "dob": "12/10/2011",
-   "position": "SG",
+   "position": "PG",
    "uniform": 41
   },
   {
@@ -1746,16 +2412,7 @@
   },
   {
    "league": "prep",
-   "team": "DAL",
-   "role": "filler",
-   "name": "Felton MaZzoni",
-   "dob": "11/20/2010",
-   "position": "PG",
-   "uniform": 26
-  },
-  {
-   "league": "prep",
-   "team": "DAL",
+   "team": "PIE",
    "role": "filler",
    "name": "Christopher Gau",
    "dob": "8/15/2011",
@@ -1764,79 +2421,16 @@
   },
   {
    "league": "prep",
-   "team": "DAL",
-   "role": "reserve",
-   "name": "Harland Saum",
-   "dob": "6/17/2012",
-   "position": "PG",
-   "uniform": 46
-  },
-  {
-   "league": "prep",
-   "team": "DAL",
-   "role": "reserve",
-   "name": "Courtney Rentas",
-   "dob": "6/24/2012",
+   "team": "ARI",
+   "role": "filler",
+   "name": "Ernie Martin",
+   "dob": "1/6/2009",
    "position": "SF",
-   "uniform": 32
+   "uniform": 0
   },
   {
    "league": "prep",
-   "team": "DAL",
-   "role": "reserve",
-   "name": "Ayberk Castenada",
-   "dob": "1/11/2012",
-   "position": "C",
-   "uniform": 21
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "filler",
-   "name": "Leopoldas Lakes",
-   "dob": "6/17/2009",
-   "position": "C",
-   "uniform": 5
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "filler",
-   "name": "Alfredo Weigel",
-   "dob": "1/25/2010",
-   "position": "C",
-   "uniform": 36
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "filler",
-   "name": "Quintin Talarico",
-   "dob": "8/16/2009",
-   "position": "PF",
-   "uniform": 43
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "filler",
-   "name": "Sanford Gurr",
-   "dob": "5/16/2010",
-   "position": "PF",
-   "uniform": 29
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "filler",
-   "name": "Mac Ortega",
-   "dob": "11/2/2010",
-   "position": "SF",
-   "uniform": 26
-  },
-  {
-   "league": "prep",
-   "team": "JER",
+   "team": "WET",
    "role": "filler",
    "name": "Darell Breton",
    "dob": "2/1/2011",
@@ -1845,16 +2439,16 @@
   },
   {
    "league": "prep",
-   "team": "JER",
+   "team": "PIE",
    "role": "filler",
    "name": "Menderes Thierauf",
    "dob": "9/15/2011",
-   "position": "SF",
+   "position": "PF",
    "uniform": 37
   },
   {
    "league": "prep",
-   "team": "JER",
+   "team": "MEM",
    "role": "filler",
    "name": "Val Kung",
    "dob": "4/11/2011",
@@ -1865,64 +2459,10 @@
    "league": "prep",
    "team": "JER",
    "role": "filler",
-   "name": "Batihan Sheikh",
-   "dob": "4/8/2009",
-   "position": "SG",
-   "uniform": 13
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "filler",
-   "name": "Preston Nottage",
-   "dob": "12/19/2010",
-   "position": "SG",
-   "uniform": 15
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "filler",
    "name": "Derick Debonis",
    "dob": "4/16/2012",
-   "position": "PG",
+   "position": "SG",
    "uniform": 34
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "filler",
-   "name": "Erman Beehler",
-   "dob": "1/15/2009",
-   "position": "PG",
-   "uniform": 11
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "reserve",
-   "name": "Camille Cavender",
-   "dob": "4/9/2012",
-   "position": "PG",
-   "uniform": 27
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "reserve",
-   "name": "Yilmazok Olivera",
-   "dob": "10/1/2011",
-   "position": "SF",
-   "uniform": 4
-  },
-  {
-   "league": "prep",
-   "team": "JER",
-   "role": "reserve",
-   "name": "Firmino Enrique",
-   "dob": "2/15/2012",
-   "position": "C",
-   "uniform": 42
   },
   {
    "league": "prep",
@@ -1930,26 +2470,17 @@
    "role": "filler",
    "name": "Alvaro Synder",
    "dob": "11/1/2012",
-   "position": "C",
+   "position": "PF",
    "uniform": 28
   },
   {
    "league": "prep",
-   "team": "ARI",
+   "team": "SAS",
    "role": "filler",
-   "name": "Umaru Radziunas",
-   "dob": "5/2/2009",
-   "position": "C",
-   "uniform": 27
-  },
-  {
-   "league": "prep",
-   "team": "ARI",
-   "role": "filler",
-   "name": "Emmitt Banerjee",
-   "dob": "8/14/2009",
-   "position": "PF",
-   "uniform": 39
+   "name": "Agustin Lukas",
+   "dob": "12/20/2015",
+   "position": "SF",
+   "uniform": 0
   },
   {
    "league": "prep",
@@ -1962,29 +2493,20 @@
   },
   {
    "league": "prep",
-   "team": "ARI",
-   "role": "filler",
-   "name": "Randolph Lovely",
-   "dob": "3/13/2009",
-   "position": "SF",
-   "uniform": 17
-  },
-  {
-   "league": "prep",
-   "team": "ARI",
+   "team": "MTL",
    "role": "filler",
    "name": "Leland Bernotavicius",
    "dob": "7/20/2012",
-   "position": "SF",
+   "position": "PG",
    "uniform": 44
   },
   {
    "league": "prep",
-   "team": "ARI",
+   "team": "MTL",
    "role": "filler",
    "name": "Ariel Valdez",
    "dob": "3/10/2011",
-   "position": "SF",
+   "position": "PF",
    "uniform": 2
   },
   {
@@ -1998,11 +2520,11 @@
   },
   {
    "league": "prep",
-   "team": "ARI",
+   "team": "SAS",
    "role": "filler",
    "name": "Ned Coppage",
    "dob": "2/21/2011",
-   "position": "SG",
+   "position": "PG",
    "uniform": 5
   },
   {
@@ -2011,17 +2533,8 @@
    "role": "filler",
    "name": "Alfonso Witherington",
    "dob": "4/6/2011",
-   "position": "SG",
-   "uniform": 22
-  },
-  {
-   "league": "prep",
-   "team": "ARI",
-   "role": "filler",
-   "name": "Rey Binger",
-   "dob": "11/3/2009",
    "position": "PG",
-   "uniform": 54
+   "uniform": 22
   },
   {
    "league": "prep",
@@ -2029,62 +2542,17 @@
    "role": "filler",
    "name": "Ede Sutphin",
    "dob": "11/18/2012",
-   "position": "PG",
+   "position": "SG",
    "uniform": 31
   },
   {
    "league": "prep",
-   "team": "ARI",
-   "role": "reserve",
-   "name": "Jaime Fore",
-   "dob": "12/4/2011",
-   "position": "PG",
-   "uniform": 48
-  },
-  {
-   "league": "prep",
-   "team": "ARI",
-   "role": "reserve",
-   "name": "Tito Roman",
-   "dob": "8/9/2011",
-   "position": "SF",
-   "uniform": 36
-  },
-  {
-   "league": "prep",
-   "team": "ARI",
-   "role": "reserve",
-   "name": "Andy Johannes",
-   "dob": "6/21/2012",
-   "position": "C",
-   "uniform": 50
-  },
-  {
-   "league": "prep",
-   "team": "FLE",
-   "role": "filler",
-   "name": "Akbay Lastinger",
-   "dob": "12/12/2010",
-   "position": "C",
-   "uniform": 50
-  },
-  {
-   "league": "prep",
-   "team": "FLE",
+   "team": "MEM",
    "role": "filler",
    "name": "Martin Deavers",
    "dob": "11/14/2011",
-   "position": "C",
-   "uniform": 8
-  },
-  {
-   "league": "prep",
-   "team": "FLE",
-   "role": "filler",
-   "name": "Sam Newbury",
-   "dob": "5/14/2009",
    "position": "PF",
-   "uniform": 24
+   "uniform": 8
   },
   {
    "league": "prep",
@@ -2092,7 +2560,7 @@
    "role": "filler",
    "name": "Jesse Nembhard",
    "dob": "5/11/2011",
-   "position": "PF",
+   "position": "C",
    "uniform": 51
   },
   {
@@ -2115,7 +2583,7 @@
   },
   {
    "league": "prep",
-   "team": "FLE",
+   "team": "MEM",
    "role": "filler",
    "name": "Rex Spurlock",
    "dob": "3/27/2012",
@@ -2133,12 +2601,12 @@
   },
   {
    "league": "prep",
-   "team": "FLE",
+   "team": "LOU",
    "role": "filler",
-   "name": "Truman Smith",
-   "dob": "3/28/2009",
-   "position": "SG",
-   "uniform": 27
+   "name": "Chuckwuemeka Newhard",
+   "dob": "7/22/2015",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "prep",
@@ -2164,39 +2632,543 @@
    "role": "filler",
    "name": "Terry Parnell",
    "dob": "3/9/2012",
-   "position": "PG",
+   "position": "SG",
    "uniform": 11
   },
   {
    "league": "prep",
-   "team": "FLE",
-   "role": "reserve",
-   "name": "Domingo Len",
-   "dob": "7/4/2011",
+   "team": "SAS",
+   "role": "filler",
+   "name": "Aktug Dittmar",
+   "dob": "2/10/2015",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "ARI",
+   "role": "filler",
+   "name": "Erwin Gleason",
+   "dob": "11/14/2015",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "DAL",
+   "role": "filler",
+   "name": "David Becker",
+   "dob": "2/25/2008",
    "position": "PG",
-   "uniform": 10
+   "uniform": 0
   },
   {
    "league": "prep",
-   "team": "FLE",
-   "role": "reserve",
-   "name": "Jules Mumaw",
-   "dob": "1/23/2012",
-   "position": "SF",
-   "uniform": 1
-  },
-  {
-   "league": "prep",
-   "team": "FLE",
-   "role": "reserve",
-   "name": "Keenan Wagar",
-   "dob": "3/9/2011",
+   "team": "ARI",
+   "role": "filler",
+   "name": "Efren Harkless",
+   "dob": "5/25/2015",
    "position": "C",
-   "uniform": 52
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "QUA",
+   "role": "filler",
+   "name": "Bernie Welsh",
+   "dob": "7/6/2014",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "filler",
+   "name": "Bradly Ager",
+   "dob": "2/24/2015",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "DAL",
+   "role": "filler",
+   "name": "Deangelo Kennedy",
+   "dob": "5/6/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "FLE",
+   "role": "filler",
+   "name": "Evan Pereyra",
+   "dob": "5/2/2014",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LIT",
+   "role": "filler",
+   "name": "Cory Shorey",
+   "dob": "5/1/2015",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "filler",
+   "name": "Edwin Johnson",
+   "dob": "11/7/2008",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "SAS",
+   "role": "filler",
+   "name": "Ali Hust",
+   "dob": "10/2/2015",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "PIE",
+   "role": "filler",
+   "name": "Andrew Mangan",
+   "dob": "6/14/2007",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LIT",
+   "role": "filler",
+   "name": "Clemente Hammer",
+   "dob": "6/3/2014",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "filler",
+   "name": "Brice Freese",
+   "dob": "9/21/2014",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "QUA",
+   "role": "filler",
+   "name": "Boyce Arndt",
+   "dob": "10/30/2007",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LOU",
+   "role": "filler",
+   "name": "Chimela Hibler",
+   "dob": "3/25/2014",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LIN",
+   "role": "filler",
+   "name": "Antonello Dragon",
+   "dob": "5/14/2014",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "ARI",
+   "role": "filler",
+   "name": "Elliot Pauls",
+   "dob": "7/21/2014",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LIT",
+   "role": "filler",
+   "name": "Clayton Miller",
+   "dob": "11/12/2009",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "filler",
+   "name": "Carlton Thomas",
+   "dob": "5/26/2007",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "FLE",
+   "role": "filler",
+   "name": "Ferdinand Trautman",
+   "dob": "11/20/2014",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "ALB",
+   "role": "filler",
+   "name": "August Bevacqua",
+   "dob": "4/15/2015",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LIN",
+   "role": "filler",
+   "name": "Arnold Etienne",
+   "dob": "9/2/2014",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "ARI",
+   "role": "filler",
+   "name": "Elbert Young",
+   "dob": "1/12/2008",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "PIE",
+   "role": "filler",
+   "name": "Anthony Klotz",
+   "dob": "1/28/2015",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "filler",
+   "name": "Bryan Moll",
+   "dob": "12/31/2007",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LIN",
+   "role": "filler",
+   "name": "Aren Savoie",
+   "dob": "2/14/2015",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LIN",
+   "role": "filler",
+   "name": "Arlie Lesko",
+   "dob": "12/26/2014",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LOU",
+   "role": "filler",
+   "name": "Cary Tillison",
+   "dob": "3/16/2015",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "WET",
+   "role": "filler",
+   "name": "Alvin Houk",
+   "dob": "1/18/2015",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "JAC",
+   "role": "filler",
+   "name": "Dannie Nuckolls",
+   "dob": "9/9/2014",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "ARI",
+   "role": "filler",
+   "name": "Ekon Kalman",
+   "dob": "11/10/2015",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "filler",
+   "name": "Dennis Kanelos",
+   "dob": "6/12/2007",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "filler",
+   "name": "Dirk Hotchkiss",
+   "dob": "10/18/2009",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "DAL",
+   "role": "filler",
+   "name": "Davis Biros",
+   "dob": "4/28/2015",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "ALB",
+   "role": "filler",
+   "name": "Bayar Parkes",
+   "dob": "10/6/2015",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "DAL",
+   "role": "filler",
+   "name": "Del Mayer",
+   "dob": "12/31/2008",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "filler",
+   "name": "Dennis Meyer",
+   "dob": "5/2/2009",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "SAS",
+   "role": "filler",
+   "name": "Alfred Gonzalez",
+   "dob": "5/15/2007",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LOU",
+   "role": "filler",
+   "name": "Charles Lynch",
+   "dob": "10/3/2007",
+   "position": "PG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "FLE",
+   "role": "filler",
+   "name": "Gary Schroeder",
+   "dob": "1/10/2007",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "DAL",
+   "role": "filler",
+   "name": "David Shaffer",
+   "dob": "4/24/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "filler",
+   "name": "Dion Tay",
+   "dob": "4/25/2015",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "LIN",
+   "role": "filler",
+   "name": "Arturo Jorden",
+   "dob": "11/14/2015",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "MEM",
+   "role": "filler",
+   "name": "Ciro Zorita",
+   "dob": "9/2/2008",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "JAC",
+   "role": "filler",
+   "name": "Darryl Long",
+   "dob": "8/10/2009",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "ARI",
+   "role": "filler",
+   "name": "Ethan Roche",
+   "dob": "1/26/2008",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "filler",
+   "name": "Bradly Cendejas",
+   "dob": "9/1/2015",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "FLE",
+   "role": "filler",
+   "name": "Franklyn Shagari",
+   "dob": "3/9/2015",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "SAS",
+   "role": "filler",
+   "name": "Adolfas Segawa",
+   "dob": "5/14/2015",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "ALB",
+   "role": "filler",
+   "name": "Barnabas Hauser",
+   "dob": "2/23/2015",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "WET",
+   "role": "filler",
+   "name": "Alpaslan Hamada",
+   "dob": "11/20/2015",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "filler",
+   "name": "Dong Brockington",
+   "dob": "7/25/2015",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "MEM",
+   "role": "filler",
+   "name": "Cipriano McElhannon",
+   "dob": "3/7/2015",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "QUA",
+   "role": "filler",
+   "name": "Bernie Holz",
+   "dob": "11/3/2015",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "filler",
+   "name": "Brad Passmore",
+   "dob": "8/13/2008",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "JER",
+   "role": "filler",
+   "name": "Dino Chapman",
+   "dob": "9/3/2007",
+   "position": "PG",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "ALB",
+   "role": "filler",
+   "name": "Baldomero Oslund",
+   "dob": "1/13/2015",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "prep",
+   "team": "REN",
+   "role": "filler",
+   "name": "Brian Beck",
+   "dob": "12/3/2010",
+   "position": "C",
+   "uniform": 0
   },
   {
    "league": "college",
-   "team": "MJW",
+   "team": "YPS",
    "role": "filler",
    "name": "Ethan Arbeiter",
    "dob": "11/11/2007",
@@ -2205,7 +3177,7 @@
   },
   {
    "league": "college",
-   "team": "MJW",
+   "team": "OSH",
    "role": "filler",
    "name": "Joaquin Masgolute",
    "dob": "10/9/2007",
@@ -2214,12 +3186,12 @@
   },
   {
    "league": "college",
-   "team": "MJW",
+   "team": "OKE",
    "role": "filler",
-   "name": "Josue Michna",
-   "dob": "12/12/2006",
+   "name": "Donovan Leroy",
+   "dob": "11/11/2010",
    "position": "PF",
-   "uniform": 19
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2236,26 +3208,8 @@
    "role": "filler",
    "name": "Jamar Penrose",
    "dob": "6/17/2008",
-   "position": "SF",
+   "position": "SG",
    "uniform": 51
-  },
-  {
-   "league": "college",
-   "team": "MJW",
-   "role": "filler",
-   "name": "Merle Marotz",
-   "dob": "4/25/2005",
-   "position": "SF",
-   "uniform": 55
-  },
-  {
-   "league": "college",
-   "team": "MJW",
-   "role": "filler",
-   "name": "Sebastian Taboada",
-   "dob": "2/14/2005",
-   "position": "SF",
-   "uniform": 43
   },
   {
    "league": "college",
@@ -2263,30 +3217,12 @@
    "role": "filler",
    "name": "G\u00fc\u00e7 Dufault",
    "dob": "4/25/2008",
-   "position": "SG",
+   "position": "PG",
    "uniform": 36
   },
   {
    "league": "college",
-   "team": "MJW",
-   "role": "filler",
-   "name": "Korer Biffle",
-   "dob": "12/19/2005",
-   "position": "SG",
-   "uniform": 13
-  },
-  {
-   "league": "college",
-   "team": "MJW",
-   "role": "filler",
-   "name": "Danilo Myres",
-   "dob": "12/25/2005",
-   "position": "SG",
-   "uniform": 23
-  },
-  {
-   "league": "college",
-   "team": "MJW",
+   "team": "OSH",
    "role": "filler",
    "name": "Prudenzio Vannatter",
    "dob": "2/17/2008",
@@ -2295,52 +3231,7 @@
   },
   {
    "league": "college",
-   "team": "MJW",
-   "role": "filler",
-   "name": "Harlan Border",
-   "dob": "12/15/2006",
-   "position": "PG",
-   "uniform": 28
-  },
-  {
-   "league": "college",
-   "team": "MJW",
-   "role": "reserve",
-   "name": "Jamal Garvin",
-   "dob": "2/1/2007",
-   "position": "PG",
-   "uniform": 52
-  },
-  {
-   "league": "college",
-   "team": "MJW",
-   "role": "reserve",
-   "name": "Lenard Lickteig",
-   "dob": "4/2/2008",
-   "position": "SF",
-   "uniform": 24
-  },
-  {
-   "league": "college",
-   "team": "MJW",
-   "role": "reserve",
-   "name": "Fulgencio Terrell",
-   "dob": "7/28/2007",
-   "position": "C",
-   "uniform": 45
-  },
-  {
-   "league": "college",
-   "team": "FLN",
-   "role": "filler",
-   "name": "Hector Bloodsaw",
-   "dob": "9/26/2006",
-   "position": "C",
-   "uniform": 12
-  },
-  {
-   "league": "college",
-   "team": "FLN",
+   "team": "WWA",
    "role": "filler",
    "name": "Dirk Wickline",
    "dob": "2/20/2007",
@@ -2349,25 +3240,7 @@
   },
   {
    "league": "college",
-   "team": "FLN",
-   "role": "filler",
-   "name": "Benedict Conry",
-   "dob": "11/2/2005",
-   "position": "PF",
-   "uniform": 24
-  },
-  {
-   "league": "college",
-   "team": "FLN",
-   "role": "filler",
-   "name": "Cameron Rotz",
-   "dob": "5/24/2005",
-   "position": "PF",
-   "uniform": 49
-  },
-  {
-   "league": "college",
-   "team": "FLN",
+   "team": "YPS",
    "role": "filler",
    "name": "Luke McWilliam",
    "dob": "6/19/2007",
@@ -2380,7 +3253,7 @@
    "role": "filler",
    "name": "Marin Bohlen",
    "dob": "8/20/2008",
-   "position": "SF",
+   "position": "SG",
    "uniform": 21
   },
   {
@@ -2394,30 +3267,21 @@
   },
   {
    "league": "college",
-   "team": "FLN",
-   "role": "filler",
-   "name": "Quintin Gan",
-   "dob": "6/9/2005",
-   "position": "SG",
-   "uniform": 52
-  },
-  {
-   "league": "college",
-   "team": "FLN",
+   "team": "MUN",
    "role": "filler",
    "name": "Titus Brendle",
    "dob": "8/9/2008",
-   "position": "SG",
+   "position": "SF",
    "uniform": 53
   },
   {
    "league": "college",
-   "team": "FLN",
+   "team": "YAZ",
    "role": "filler",
-   "name": "Javier Pressler",
-   "dob": "2/16/2005",
-   "position": "SG",
-   "uniform": 27
+   "name": "Daniel Brown",
+   "dob": "5/11/2009",
+   "position": "SF",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2439,34 +3303,7 @@
   },
   {
    "league": "college",
-   "team": "FLN",
-   "role": "reserve",
-   "name": "Solomon Beatrice",
-   "dob": "6/21/2007",
-   "position": "PG",
-   "uniform": 44
-  },
-  {
-   "league": "college",
-   "team": "FLN",
-   "role": "reserve",
-   "name": "Heriberto Orosco",
-   "dob": "4/11/2007",
-   "position": "SF",
-   "uniform": 17
-  },
-  {
-   "league": "college",
-   "team": "FLN",
-   "role": "reserve",
-   "name": "Teddy Regner",
-   "dob": "8/14/2007",
-   "position": "C",
-   "uniform": 25
-  },
-  {
-   "league": "college",
-   "team": "OSH",
+   "team": "POC",
    "role": "filler",
    "name": "Normand Nath",
    "dob": "1/4/2008",
@@ -2475,12 +3312,12 @@
   },
   {
    "league": "college",
-   "team": "OSH",
+   "team": "CAN",
    "role": "filler",
-   "name": "Eustaquio Bevel",
-   "dob": "3/16/2005",
-   "position": "C",
-   "uniform": 22
+   "name": "Felix Herrera",
+   "dob": "2/6/2008",
+   "position": "SF",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2493,29 +3330,29 @@
   },
   {
    "league": "college",
-   "team": "OSH",
+   "team": "OPK",
    "role": "filler",
    "name": "Dursun Plaisance",
    "dob": "9/5/2007",
-   "position": "PF",
+   "position": "SF",
    "uniform": 18
   },
   {
    "league": "college",
-   "team": "OSH",
+   "team": "POC",
    "role": "filler",
    "name": "Boyce Plantz",
    "dob": "9/16/2008",
-   "position": "SF",
+   "position": "PF",
    "uniform": 9
   },
   {
    "league": "college",
-   "team": "OSH",
+   "team": "YPS",
    "role": "filler",
    "name": "Terenzio Myer",
    "dob": "6/13/2007",
-   "position": "SF",
+   "position": "PF",
    "uniform": 51
   },
   {
@@ -2531,73 +3368,19 @@
    "league": "college",
    "team": "OSH",
    "role": "filler",
-   "name": "Octavio Seyal",
-   "dob": "5/25/2005",
-   "position": "SG",
-   "uniform": 8
-  },
-  {
-   "league": "college",
-   "team": "OSH",
-   "role": "filler",
-   "name": "Norbert Tulloch",
-   "dob": "12/25/2005",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "college",
-   "team": "OSH",
-   "role": "filler",
    "name": "Tuan Near",
    "dob": "9/4/2008",
-   "position": "SG",
+   "position": "PG",
    "uniform": 21
   },
   {
    "league": "college",
-   "team": "OSH",
+   "team": "OPK",
    "role": "filler",
-   "name": "Gianfranco Eiland",
-   "dob": "6/26/2005",
-   "position": "PG",
-   "uniform": 45
-  },
-  {
-   "league": "college",
-   "team": "OSH",
-   "role": "filler",
-   "name": "Scott Puente",
-   "dob": "9/3/2005",
-   "position": "PG",
-   "uniform": 17
-  },
-  {
-   "league": "college",
-   "team": "OSH",
-   "role": "reserve",
-   "name": "Emery Kite",
-   "dob": "9/23/2008",
-   "position": "PG",
-   "uniform": 35
-  },
-  {
-   "league": "college",
-   "team": "OSH",
-   "role": "reserve",
-   "name": "Odell Amberger",
-   "dob": "9/10/2007",
-   "position": "SF",
-   "uniform": 30
-  },
-  {
-   "league": "college",
-   "team": "OSH",
-   "role": "reserve",
-   "name": "Severino Corrie",
-   "dob": "5/2/2008",
+   "name": "Darrell Orr",
+   "dob": "7/8/2008",
    "position": "C",
-   "uniform": 2
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2605,21 +3388,12 @@
    "role": "filler",
    "name": "Zachery Wolken",
    "dob": "7/19/2008",
-   "position": "C",
+   "position": "PF",
    "uniform": 24
   },
   {
    "league": "college",
-   "team": "SHB",
-   "role": "filler",
-   "name": "Heath Quimby",
-   "dob": "4/5/2006",
-   "position": "C",
-   "uniform": 19
-  },
-  {
-   "league": "college",
-   "team": "SHB",
+   "team": "WKW",
    "role": "filler",
    "name": "Dana Ince",
    "dob": "5/14/2007",
@@ -2630,19 +3404,10 @@
    "league": "college",
    "team": "SHB",
    "role": "filler",
-   "name": "Deji Scheu",
-   "dob": "5/26/2005",
+   "name": "Bartolomeu Galvina",
+   "dob": "10/31/2007",
    "position": "PF",
-   "uniform": 2
-  },
-  {
-   "league": "college",
-   "team": "SHB",
-   "role": "filler",
-   "name": "Maynard Petrauskas",
-   "dob": "1/19/2005",
-   "position": "SF",
-   "uniform": 8
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2650,53 +3415,17 @@
    "role": "filler",
    "name": "Leandro Tesar",
    "dob": "4/4/2008",
-   "position": "SF",
+   "position": "PF",
    "uniform": 26
   },
   {
    "league": "college",
-   "team": "SHB",
+   "team": "YAZ",
    "role": "filler",
-   "name": "Marc Uraga",
-   "dob": "5/6/2006",
-   "position": "SF",
-   "uniform": 32
-  },
-  {
-   "league": "college",
-   "team": "SHB",
-   "role": "filler",
-   "name": "Maximiano Bellah",
-   "dob": "7/25/2006",
+   "name": "Darell Balsis",
+   "dob": "6/11/2010",
    "position": "SG",
-   "uniform": 17
-  },
-  {
-   "league": "college",
-   "team": "SHB",
-   "role": "filler",
-   "name": "Jeromy Helsel",
-   "dob": "1/5/2005",
-   "position": "SG",
-   "uniform": 5
-  },
-  {
-   "league": "college",
-   "team": "SHB",
-   "role": "filler",
-   "name": "Kayin Benda",
-   "dob": "8/24/2005",
-   "position": "SG",
-   "uniform": 44
-  },
-  {
-   "league": "college",
-   "team": "SHB",
-   "role": "filler",
-   "name": "Darwin Nocera",
-   "dob": "6/7/2005",
-   "position": "PG",
-   "uniform": 39
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2709,39 +3438,12 @@
   },
   {
    "league": "college",
-   "team": "SHB",
-   "role": "reserve",
-   "name": "Roberto Flake",
-   "dob": "7/13/2007",
-   "position": "PG",
-   "uniform": 14
-  },
-  {
-   "league": "college",
-   "team": "SHB",
-   "role": "reserve",
-   "name": "Dion Sabatini",
-   "dob": "4/25/2008",
-   "position": "SF",
-   "uniform": 1
-  },
-  {
-   "league": "college",
-   "team": "SHB",
-   "role": "reserve",
-   "name": "Basri Selman",
-   "dob": "2/10/2008",
-   "position": "C",
-   "uniform": 55
-  },
-  {
-   "league": "college",
-   "team": "HEL",
+   "team": "OSH",
    "role": "filler",
-   "name": "Bruno Kirby",
-   "dob": "8/19/2006",
-   "position": "C",
-   "uniform": 11
+   "name": "Arnulfo Buggs",
+   "dob": "9/4/2010",
+   "position": "SG",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2756,18 +3458,9 @@
    "league": "college",
    "team": "HEL",
    "role": "filler",
-   "name": "Todd Loreto",
-   "dob": "6/17/2005",
-   "position": "PF",
-   "uniform": 38
-  },
-  {
-   "league": "college",
-   "team": "HEL",
-   "role": "filler",
    "name": "Noble Madero",
    "dob": "7/20/2007",
-   "position": "PF",
+   "position": "C",
    "uniform": 37
   },
   {
@@ -2776,7 +3469,7 @@
    "role": "filler",
    "name": "Dino Wyman",
    "dob": "12/18/2007",
-   "position": "SF",
+   "position": "SG",
    "uniform": 3
   },
   {
@@ -2790,7 +3483,7 @@
   },
   {
    "league": "college",
-   "team": "HEL",
+   "team": "MJW",
    "role": "filler",
    "name": "Brad Dames",
    "dob": "1/2/2008",
@@ -2799,12 +3492,12 @@
   },
   {
    "league": "college",
-   "team": "HEL",
+   "team": "WKW",
    "role": "filler",
-   "name": "Celino McClurkin",
-   "dob": "11/7/2006",
-   "position": "SG",
-   "uniform": 54
+   "name": "Edmund Dolly",
+   "dob": "3/12/2010",
+   "position": "C",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2812,7 +3505,7 @@
    "role": "filler",
    "name": "Ottah Ahlgren",
    "dob": "7/12/2007",
-   "position": "SG",
+   "position": "PG",
    "uniform": 19
   },
   {
@@ -2821,7 +3514,7 @@
    "role": "filler",
    "name": "Brendon Westley",
    "dob": "1/11/2008",
-   "position": "SG",
+   "position": "SF",
    "uniform": 35
   },
   {
@@ -2830,7 +3523,7 @@
    "role": "filler",
    "name": "Eberhard Conrad",
    "dob": "1/6/2007",
-   "position": "PG",
+   "position": "SF",
    "uniform": 8
   },
   {
@@ -2844,43 +3537,7 @@
   },
   {
    "league": "college",
-   "team": "HEL",
-   "role": "reserve",
-   "name": "Spencer Marquis",
-   "dob": "4/11/2008",
-   "position": "PG",
-   "uniform": 18
-  },
-  {
-   "league": "college",
-   "team": "HEL",
-   "role": "reserve",
-   "name": "Javier Heims",
-   "dob": "9/4/2007",
-   "position": "SF",
-   "uniform": 21
-  },
-  {
-   "league": "college",
-   "team": "HEL",
-   "role": "reserve",
-   "name": "Bobbie Weatherman",
-   "dob": "11/3/2008",
-   "position": "C",
-   "uniform": 30
-  },
-  {
-   "league": "college",
-   "team": "YPS",
-   "role": "filler",
-   "name": "Prospero Templet",
-   "dob": "1/9/2005",
-   "position": "C",
-   "uniform": 44
-  },
-  {
-   "league": "college",
-   "team": "YPS",
+   "team": "FLN",
    "role": "filler",
    "name": "Fredric Pressley",
    "dob": "4/4/2007",
@@ -2891,18 +3548,9 @@
    "league": "college",
    "team": "YPS",
    "role": "filler",
-   "name": "Cornell Beuscher",
-   "dob": "12/22/2005",
-   "position": "PF",
-   "uniform": 1
-  },
-  {
-   "league": "college",
-   "team": "YPS",
-   "role": "filler",
    "name": "Trinidad Guertin",
    "dob": "9/25/2008",
-   "position": "PF",
+   "position": "C",
    "uniform": 54
   },
   {
@@ -2911,17 +3559,17 @@
    "role": "filler",
    "name": "Monte Eisenstein",
    "dob": "10/15/2008",
-   "position": "SF",
+   "position": "SG",
    "uniform": 22
   },
   {
    "league": "college",
-   "team": "YPS",
+   "team": "MUN",
    "role": "filler",
-   "name": "Cyril Cizikas",
-   "dob": "5/6/2006",
-   "position": "SF",
-   "uniform": 15
+   "name": "Clarence Fowle",
+   "dob": "11/6/2010",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2938,12 +3586,12 @@
    "role": "filler",
    "name": "Seun Westby",
    "dob": "8/26/2007",
-   "position": "SG",
+   "position": "PG",
    "uniform": 10
   },
   {
    "league": "college",
-   "team": "YPS",
+   "team": "OSH",
    "role": "filler",
    "name": "Jake Buckland",
    "dob": "2/14/2008",
@@ -2952,21 +3600,12 @@
   },
   {
    "league": "college",
-   "team": "YPS",
+   "team": "MUN",
    "role": "filler",
-   "name": "Orville Say",
-   "dob": "1/27/2006",
+   "name": "Cristopher Pardo",
+   "dob": "11/26/2010",
    "position": "SG",
-   "uniform": 46
-  },
-  {
-   "league": "college",
-   "team": "YPS",
-   "role": "filler",
-   "name": "Colin Scoby",
-   "dob": "9/18/2005",
-   "position": "PG",
-   "uniform": 53
+   "uniform": 0
   },
   {
    "league": "college",
@@ -2974,35 +3613,8 @@
    "role": "filler",
    "name": "Dudley Lima",
    "dob": "2/28/2007",
-   "position": "PG",
-   "uniform": 2
-  },
-  {
-   "league": "college",
-   "team": "YPS",
-   "role": "reserve",
-   "name": "Nicolas Levy",
-   "dob": "3/23/2007",
-   "position": "PG",
-   "uniform": 51
-  },
-  {
-   "league": "college",
-   "team": "YPS",
-   "role": "reserve",
-   "name": "Yinka Mickelson",
-   "dob": "11/2/2007",
    "position": "SF",
-   "uniform": 25
-  },
-  {
-   "league": "college",
-   "team": "YPS",
-   "role": "reserve",
-   "name": "Alfred Gaumer",
-   "dob": "10/23/2007",
-   "position": "C",
-   "uniform": 47
+   "uniform": 2
   },
   {
    "league": "college",
@@ -3010,7 +3622,7 @@
    "role": "filler",
    "name": "Gus Jefferys",
    "dob": "5/26/2008",
-   "position": "C",
+   "position": "PF",
    "uniform": 28
   },
   {
@@ -3024,7 +3636,7 @@
   },
   {
    "league": "college",
-   "team": "KZO",
+   "team": "OKE",
    "role": "filler",
    "name": "Willian Wint",
    "dob": "4/25/2008",
@@ -3051,12 +3663,12 @@
   },
   {
    "league": "college",
-   "team": "KZO",
+   "team": "CAN",
    "role": "filler",
-   "name": "Damon McChristian",
-   "dob": "8/25/2005",
-   "position": "SF",
-   "uniform": 46
+   "name": "Franklyn Anderson",
+   "dob": "12/10/2007",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3069,12 +3681,12 @@
   },
   {
    "league": "college",
-   "team": "KZO",
+   "team": "MJW",
    "role": "filler",
-   "name": "Jeffrey Bennette",
-   "dob": "10/11/2006",
-   "position": "SG",
-   "uniform": 14
+   "name": "Acunalan Lagarde",
+   "dob": "1/10/2010",
+   "position": "PG",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3082,7 +3694,7 @@
    "role": "filler",
    "name": "Rickey Barkman",
    "dob": "7/8/2007",
-   "position": "SG",
+   "position": "SF",
    "uniform": 23
   },
   {
@@ -3091,7 +3703,7 @@
    "role": "filler",
    "name": "Yogunay Tolentino",
    "dob": "1/9/2007",
-   "position": "SG",
+   "position": "PG",
    "uniform": 34
   },
   {
@@ -3114,33 +3726,6 @@
   },
   {
    "league": "college",
-   "team": "KZO",
-   "role": "reserve",
-   "name": "Von Addis",
-   "dob": "7/17/2007",
-   "position": "PG",
-   "uniform": 20
-  },
-  {
-   "league": "college",
-   "team": "KZO",
-   "role": "reserve",
-   "name": "Deangelo Plamondon",
-   "dob": "1/21/2007",
-   "position": "SF",
-   "uniform": 29
-  },
-  {
-   "league": "college",
-   "team": "KZO",
-   "role": "reserve",
-   "name": "Gaston Bayles",
-   "dob": "7/13/2008",
-   "position": "C",
-   "uniform": 49
-  },
-  {
-   "league": "college",
    "team": "MUN",
    "role": "filler",
    "name": "Natanaele Osburn",
@@ -3150,11 +3735,11 @@
   },
   {
    "league": "college",
-   "team": "MUN",
+   "team": "POC",
    "role": "filler",
    "name": "Azi Gatson",
    "dob": "11/3/2007",
-   "position": "C",
+   "position": "PF",
    "uniform": 35
   },
   {
@@ -3163,17 +3748,8 @@
    "role": "filler",
    "name": "M\u00fcfit Arbatavicius",
    "dob": "6/19/2007",
-   "position": "PF",
+   "position": "SF",
    "uniform": 39
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "filler",
-   "name": "Hobert Sandoval",
-   "dob": "7/14/2006",
-   "position": "PF",
-   "uniform": 52
   },
   {
    "league": "college",
@@ -3186,102 +3762,30 @@
   },
   {
    "league": "college",
-   "team": "MUN",
+   "team": "YAZ",
    "role": "filler",
    "name": "Antonio Bottomley",
    "dob": "3/3/2007",
-   "position": "SF",
+   "position": "SG",
    "uniform": 4
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "filler",
-   "name": "Hasret Brashear",
-   "dob": "7/19/2006",
-   "position": "SF",
-   "uniform": 48
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "filler",
-   "name": "Kobe Sellars",
-   "dob": "3/8/2005",
-   "position": "SG",
-   "uniform": 40
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "filler",
-   "name": "Marcel Goings",
-   "dob": "1/5/2005",
-   "position": "SG",
-   "uniform": 34
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "filler",
-   "name": "Jason Prater",
-   "dob": "9/10/2006",
-   "position": "SG",
-   "uniform": 33
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "filler",
-   "name": "Celino Mazon",
-   "dob": "5/15/2005",
-   "position": "PG",
-   "uniform": 46
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "filler",
-   "name": "Rudolf Corbo",
-   "dob": "6/14/2006",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "reserve",
-   "name": "Michal Nuckolls",
-   "dob": "3/12/2007",
-   "position": "PG",
-   "uniform": 17
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "reserve",
-   "name": "Raymond Burgett",
-   "dob": "9/12/2007",
-   "position": "SF",
-   "uniform": 12
-  },
-  {
-   "league": "college",
-   "team": "MUN",
-   "role": "reserve",
-   "name": "Hershel Burkhard",
-   "dob": "1/24/2008",
-   "position": "C",
-   "uniform": 11
   },
   {
    "league": "college",
    "team": "YAZ",
    "role": "filler",
-   "name": "Nicodemo Tobler",
-   "dob": "11/22/2005",
-   "position": "C",
-   "uniform": 29
+   "name": "Daniel Jimenez",
+   "dob": "4/7/2009",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "SHB",
+   "role": "filler",
+   "name": "Baltasar Trower",
+   "dob": "9/22/2010",
+   "position": "SG",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3294,48 +3798,12 @@
   },
   {
    "league": "college",
-   "team": "YAZ",
+   "team": "KZO",
    "role": "filler",
-   "name": "Yakubu Devall",
-   "dob": "2/21/2006",
-   "position": "PF",
-   "uniform": 20
-  },
-  {
-   "league": "college",
-   "team": "YAZ",
-   "role": "filler",
-   "name": "Aladogan Lamothe",
-   "dob": "9/7/2005",
-   "position": "PF",
-   "uniform": 17
-  },
-  {
-   "league": "college",
-   "team": "YAZ",
-   "role": "filler",
-   "name": "Zackary Kaur",
-   "dob": "1/7/2005",
-   "position": "SF",
-   "uniform": 11
-  },
-  {
-   "league": "college",
-   "team": "YAZ",
-   "role": "filler",
-   "name": "Jacopo Laraway",
-   "dob": "5/22/2005",
-   "position": "SF",
-   "uniform": 24
-  },
-  {
-   "league": "college",
-   "team": "YAZ",
-   "role": "filler",
-   "name": "Matthew Crank",
-   "dob": "1/28/2005",
-   "position": "SF",
-   "uniform": 18
+   "name": "Charles Lusk",
+   "dob": "5/18/2007",
+   "position": "SG",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3343,17 +3811,8 @@
    "role": "filler",
    "name": "No\u00e9 Judge",
    "dob": "8/22/2007",
-   "position": "SG",
+   "position": "PG",
    "uniform": 9
-  },
-  {
-   "league": "college",
-   "team": "YAZ",
-   "role": "filler",
-   "name": "Ramon Chiarini",
-   "dob": "8/17/2005",
-   "position": "SG",
-   "uniform": 46
   },
   {
    "league": "college",
@@ -3361,12 +3820,12 @@
    "role": "filler",
    "name": "Robin Duet",
    "dob": "8/16/2008",
-   "position": "SG",
+   "position": "PG",
    "uniform": 45
   },
   {
    "league": "college",
-   "team": "YAZ",
+   "team": "WWA",
    "role": "filler",
    "name": "Scotty Liddell",
    "dob": "8/14/2008",
@@ -3375,84 +3834,21 @@
   },
   {
    "league": "college",
+   "team": "WKW",
+   "role": "filler",
+   "name": "Edvinas Hanes",
+   "dob": "7/26/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
    "team": "YAZ",
    "role": "filler",
-   "name": "Onochie Luoma",
-   "dob": "7/23/2005",
-   "position": "PG",
-   "uniform": 32
-  },
-  {
-   "league": "college",
-   "team": "YAZ",
-   "role": "reserve",
-   "name": "Raul Hayman",
-   "dob": "1/26/2008",
-   "position": "PG",
-   "uniform": 5
-  },
-  {
-   "league": "college",
-   "team": "YAZ",
-   "role": "reserve",
-   "name": "Solomon Arrowood",
-   "dob": "7/11/2008",
-   "position": "SF",
-   "uniform": 14
-  },
-  {
-   "league": "college",
-   "team": "YAZ",
-   "role": "reserve",
-   "name": "Graham Evan",
-   "dob": "8/22/2007",
+   "name": "Damijonas Lawalin",
+   "dob": "8/16/2010",
    "position": "C",
-   "uniform": 33
-  },
-  {
-   "league": "college",
-   "team": "OPK",
-   "role": "filler",
-   "name": "Akiner McNellis",
-   "dob": "10/14/2006",
-   "position": "C",
-   "uniform": 34
-  },
-  {
-   "league": "college",
-   "team": "OPK",
-   "role": "filler",
-   "name": "Lionel Montoro",
-   "dob": "12/23/2006",
-   "position": "C",
-   "uniform": 37
-  },
-  {
-   "league": "college",
-   "team": "OPK",
-   "role": "filler",
-   "name": "Dwayne Nesswald",
-   "dob": "6/4/2006",
-   "position": "PF",
-   "uniform": 39
-  },
-  {
-   "league": "college",
-   "team": "OPK",
-   "role": "filler",
-   "name": "Cl\u00e9ment Etsitty",
-   "dob": "6/23/2005",
-   "position": "PF",
-   "uniform": 36
-  },
-  {
-   "league": "college",
-   "team": "OPK",
-   "role": "filler",
-   "name": "Javier Middendorf",
-   "dob": "8/21/2006",
-   "position": "SF",
-   "uniform": 41
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3460,12 +3856,12 @@
    "role": "filler",
    "name": "Raymon Bussell",
    "dob": "1/20/2007",
-   "position": "SF",
+   "position": "PG",
    "uniform": 45
   },
   {
    "league": "college",
-   "team": "OPK",
+   "team": "YAZ",
    "role": "filler",
    "name": "Luigi Shoffner",
    "dob": "1/2/2007",
@@ -3476,28 +3872,19 @@
    "league": "college",
    "team": "OPK",
    "role": "filler",
-   "name": "Denny Blunk",
-   "dob": "2/18/2006",
+   "name": "Denker Stampley",
+   "dob": "7/18/2010",
    "position": "SG",
-   "uniform": 44
+   "uniform": 0
   },
   {
    "league": "college",
-   "team": "OPK",
+   "team": "WAH",
    "role": "filler",
-   "name": "Jewel Bridgman",
-   "dob": "12/8/2006",
-   "position": "SG",
-   "uniform": 22
-  },
-  {
-   "league": "college",
-   "team": "OPK",
-   "role": "filler",
-   "name": "Lanzo Barnwell",
-   "dob": "3/16/2005",
-   "position": "SG",
-   "uniform": 49
+   "name": "Elliott Greene",
+   "dob": "9/20/2007",
+   "position": "SF",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3512,37 +3899,10 @@
    "league": "college",
    "team": "OPK",
    "role": "filler",
-   "name": "Dwayne Shum",
-   "dob": "12/15/2005",
-   "position": "PG",
-   "uniform": 50
-  },
-  {
-   "league": "college",
-   "team": "OPK",
-   "role": "reserve",
-   "name": "Karolis Kurcher",
-   "dob": "4/4/2007",
-   "position": "PG",
-   "uniform": 26
-  },
-  {
-   "league": "college",
-   "team": "OPK",
-   "role": "reserve",
-   "name": "Dionisio Chevere",
-   "dob": "12/25/2007",
-   "position": "SF",
-   "uniform": 13
-  },
-  {
-   "league": "college",
-   "team": "OPK",
-   "role": "reserve",
-   "name": "Rupert Max",
-   "dob": "11/10/2008",
+   "name": "Dennis Hill",
+   "dob": "10/30/2009",
    "position": "C",
-   "uniform": 10
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3555,21 +3915,12 @@
   },
   {
    "league": "college",
-   "team": "OKE",
+   "team": "FLN",
    "role": "filler",
-   "name": "Isreal Basilio",
-   "dob": "4/23/2006",
+   "name": "Alonzo Fusco",
+   "dob": "3/23/2010",
    "position": "C",
-   "uniform": 29
-  },
-  {
-   "league": "college",
-   "team": "OKE",
-   "role": "filler",
-   "name": "Roger Rhymer",
-   "dob": "3/4/2006",
-   "position": "PF",
-   "uniform": 1
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3582,48 +3933,21 @@
   },
   {
    "league": "college",
-   "team": "OKE",
+   "team": "MJW",
    "role": "filler",
-   "name": "Mevlit Dull",
-   "dob": "12/28/2005",
-   "position": "SF",
-   "uniform": 43
-  },
-  {
-   "league": "college",
-   "team": "OKE",
-   "role": "filler",
-   "name": "Jules Gasca",
-   "dob": "6/19/2005",
-   "position": "SF",
-   "uniform": 11
-  },
-  {
-   "league": "college",
-   "team": "OKE",
-   "role": "filler",
-   "name": "Kris Bausch",
-   "dob": "7/22/2006",
-   "position": "SF",
-   "uniform": 34
-  },
-  {
-   "league": "college",
-   "team": "OKE",
-   "role": "filler",
-   "name": "Whitney Blumenthal",
-   "dob": "7/21/2006",
+   "name": "Alfredo Rothman",
+   "dob": "1/12/2010",
    "position": "SG",
-   "uniform": 32
+   "uniform": 0
   },
   {
    "league": "college",
-   "team": "OKE",
+   "team": "MJW",
    "role": "filler",
-   "name": "Robbie Loeb",
-   "dob": "10/10/2006",
-   "position": "SG",
-   "uniform": 15
+   "name": "Ajibayo Vo",
+   "dob": "6/24/2010",
+   "position": "C",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3631,7 +3955,7 @@
    "role": "filler",
    "name": "Solomon Tibbets",
    "dob": "8/2/2008",
-   "position": "SG",
+   "position": "PG",
    "uniform": 10
   },
   {
@@ -3645,39 +3969,12 @@
   },
   {
    "league": "college",
-   "team": "OKE",
+   "team": "OPK",
    "role": "filler",
-   "name": "Reno Verrett",
-   "dob": "4/8/2005",
-   "position": "PG",
-   "uniform": 22
-  },
-  {
-   "league": "college",
-   "team": "OKE",
-   "role": "reserve",
-   "name": "Mathew Berger",
-   "dob": "1/7/2008",
-   "position": "PG",
-   "uniform": 52
-  },
-  {
-   "league": "college",
-   "team": "OKE",
-   "role": "reserve",
-   "name": "Paris Crochet",
-   "dob": "11/14/2007",
-   "position": "SF",
-   "uniform": 46
-  },
-  {
-   "league": "college",
-   "team": "OKE",
-   "role": "reserve",
-   "name": "Mckinley Perreira",
-   "dob": "10/5/2007",
+   "name": "David Thomas",
+   "dob": "7/12/2009",
    "position": "C",
-   "uniform": 27
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3692,15 +3989,6 @@
    "league": "college",
    "team": "WKW",
    "role": "filler",
-   "name": "Jordon Loreto",
-   "dob": "2/21/2005",
-   "position": "C",
-   "uniform": 12
-  },
-  {
-   "league": "college",
-   "team": "WKW",
-   "role": "filler",
    "name": "Donny Dudas",
    "dob": "4/3/2008",
    "position": "PF",
@@ -3708,12 +3996,12 @@
   },
   {
    "league": "college",
-   "team": "WKW",
+   "team": "SHB",
    "role": "filler",
-   "name": "Derin Hargett",
-   "dob": "12/18/2006",
+   "name": "Augustine Kuncaitis",
+   "dob": "5/8/2010",
    "position": "PF",
-   "uniform": 28
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3730,16 +4018,16 @@
    "role": "filler",
    "name": "Delmar Kullman",
    "dob": "9/12/2007",
-   "position": "SF",
+   "position": "PF",
    "uniform": 15
   },
   {
    "league": "college",
-   "team": "WKW",
+   "team": "SHB",
    "role": "filler",
    "name": "Clarence Emecheta",
    "dob": "9/18/2008",
-   "position": "SF",
+   "position": "SG",
    "uniform": 25
   },
   {
@@ -3753,21 +4041,12 @@
   },
   {
    "league": "college",
-   "team": "WKW",
+   "team": "HEL",
    "role": "filler",
-   "name": "Manolo Durst",
-   "dob": "4/27/2006",
+   "name": "Camilo Troutman",
+   "dob": "8/20/2010",
    "position": "SG",
-   "uniform": 46
-  },
-  {
-   "league": "college",
-   "team": "WKW",
-   "role": "filler",
-   "name": "Emmanuel Hirano",
-   "dob": "10/20/2006",
-   "position": "SG",
-   "uniform": 6
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3775,7 +4054,7 @@
    "role": "filler",
    "name": "Hami Poydras",
    "dob": "7/18/2008",
-   "position": "PG",
+   "position": "SF",
    "uniform": 17
   },
   {
@@ -3786,42 +4065,6 @@
    "dob": "4/14/2008",
    "position": "PG",
    "uniform": 4
-  },
-  {
-   "league": "college",
-   "team": "WKW",
-   "role": "reserve",
-   "name": "Emmitt Orlandi",
-   "dob": "5/25/2008",
-   "position": "PG",
-   "uniform": 54
-  },
-  {
-   "league": "college",
-   "team": "WKW",
-   "role": "reserve",
-   "name": "Scottie Espino",
-   "dob": "7/19/2008",
-   "position": "SF",
-   "uniform": 31
-  },
-  {
-   "league": "college",
-   "team": "WKW",
-   "role": "reserve",
-   "name": "Buddy Morrissette",
-   "dob": "1/4/2008",
-   "position": "C",
-   "uniform": 30
-  },
-  {
-   "league": "college",
-   "team": "WAH",
-   "role": "filler",
-   "name": "Jody Finkelstein",
-   "dob": "9/18/2005",
-   "position": "C",
-   "uniform": 10
   },
   {
    "league": "college",
@@ -3845,28 +4088,10 @@
    "league": "college",
    "team": "WAH",
    "role": "filler",
-   "name": "Patrice Parsell",
-   "dob": "7/26/2006",
-   "position": "PF",
-   "uniform": 1
-  },
-  {
-   "league": "college",
-   "team": "WAH",
-   "role": "filler",
    "name": "Jamaal Cheever",
    "dob": "1/9/2007",
-   "position": "SF",
+   "position": "SG",
    "uniform": 7
-  },
-  {
-   "league": "college",
-   "team": "WAH",
-   "role": "filler",
-   "name": "Warner Carriere",
-   "dob": "6/20/2005",
-   "position": "SF",
-   "uniform": 13
   },
   {
    "league": "college",
@@ -3874,7 +4099,7 @@
    "role": "filler",
    "name": "Marcel Pahl",
    "dob": "5/8/2007",
-   "position": "SF",
+   "position": "C",
    "uniform": 17
   },
   {
@@ -3883,7 +4108,7 @@
    "role": "filler",
    "name": "Royal Horgan",
    "dob": "10/1/2007",
-   "position": "SG",
+   "position": "PG",
    "uniform": 21
   },
   {
@@ -3892,26 +4117,17 @@
    "role": "filler",
    "name": "Gavin Castaneda",
    "dob": "9/1/2008",
-   "position": "SG",
+   "position": "PG",
    "uniform": 20
   },
   {
    "league": "college",
-   "team": "WAH",
+   "team": "YPS",
    "role": "filler",
-   "name": "Reno Depaz",
-   "dob": "7/12/2006",
+   "name": "Chad Meadows",
+   "dob": "10/17/2010",
    "position": "SG",
-   "uniform": 42
-  },
-  {
-   "league": "college",
-   "team": "WAH",
-   "role": "filler",
-   "name": "Erdmann Narvaez",
-   "dob": "1/23/2006",
-   "position": "PG",
-   "uniform": 31
+   "uniform": 0
   },
   {
    "league": "college",
@@ -3924,93 +4140,48 @@
   },
   {
    "league": "college",
-   "team": "WAH",
-   "role": "reserve",
-   "name": "Garland Gentry",
-   "dob": "8/11/2008",
-   "position": "PG",
-   "uniform": 50
-  },
-  {
-   "league": "college",
-   "team": "WAH",
-   "role": "reserve",
-   "name": "Leonel Wickert",
-   "dob": "6/23/2008",
-   "position": "SF",
-   "uniform": 9
-  },
-  {
-   "league": "college",
-   "team": "WAH",
-   "role": "reserve",
-   "name": "Gunther Otero",
-   "dob": "12/14/2008",
-   "position": "C",
-   "uniform": 38
-  },
-  {
-   "league": "college",
-   "team": "CAN",
-   "role": "filler",
-   "name": "Edward Wise",
-   "dob": "1/8/2006",
-   "position": "C",
-   "uniform": 49
-  },
-  {
-   "league": "college",
-   "team": "CAN",
+   "team": "OPK",
    "role": "filler",
    "name": "Lyle Lindo",
    "dob": "11/24/2008",
-   "position": "C",
+   "position": "PF",
    "uniform": 12
   },
   {
    "league": "college",
-   "team": "CAN",
+   "team": "POC",
    "role": "filler",
-   "name": "Lucio Bultman",
-   "dob": "5/22/2006",
+   "name": "Gavin Munford",
+   "dob": "2/27/2007",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OKE",
+   "role": "filler",
+   "name": "Douglas Muirhead",
+   "dob": "10/23/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "YPS",
+   "role": "filler",
+   "name": "Chadwick Harris",
+   "dob": "8/29/2008",
    "position": "PF",
-   "uniform": 13
+   "uniform": 0
   },
   {
    "league": "college",
-   "team": "CAN",
+   "team": "OSH",
    "role": "filler",
-   "name": "Rolland Fincher",
-   "dob": "7/12/2005",
-   "position": "PF",
-   "uniform": 27
-  },
-  {
-   "league": "college",
-   "team": "CAN",
-   "role": "filler",
-   "name": "Vance Guidi",
-   "dob": "12/8/2006",
-   "position": "SF",
-   "uniform": 31
-  },
-  {
-   "league": "college",
-   "team": "CAN",
-   "role": "filler",
-   "name": "Alfredo Croley",
-   "dob": "2/16/2005",
-   "position": "SF",
-   "uniform": 51
-  },
-  {
-   "league": "college",
-   "team": "CAN",
-   "role": "filler",
-   "name": "Lenny Aguillard",
-   "dob": "1/17/2006",
-   "position": "SF",
-   "uniform": 38
+   "name": "Arndt Horsley",
+   "dob": "11/15/2010",
+   "position": "SG",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -4027,7 +4198,7 @@
    "role": "filler",
    "name": "Rayford Delcambre",
    "dob": "11/17/2007",
-   "position": "SG",
+   "position": "PG",
    "uniform": 17
   },
   {
@@ -4043,59 +4214,14 @@
    "league": "college",
    "team": "CAN",
    "role": "filler",
-   "name": "Oguz Gwinn",
-   "dob": "4/28/2005",
-   "position": "PG",
-   "uniform": 47
-  },
-  {
-   "league": "college",
-   "team": "CAN",
-   "role": "filler",
    "name": "Earle McFerron",
    "dob": "2/9/2008",
-   "position": "PG",
+   "position": "SF",
    "uniform": 0
   },
   {
    "league": "college",
-   "team": "CAN",
-   "role": "reserve",
-   "name": "Raphael Durgin",
-   "dob": "5/14/2007",
-   "position": "PG",
-   "uniform": 1
-  },
-  {
-   "league": "college",
-   "team": "CAN",
-   "role": "reserve",
-   "name": "Forest Ruark",
-   "dob": "1/6/2008",
-   "position": "SF",
-   "uniform": 33
-  },
-  {
-   "league": "college",
-   "team": "CAN",
-   "role": "reserve",
-   "name": "Josiah Housman",
-   "dob": "7/14/2008",
-   "position": "C",
-   "uniform": 2
-  },
-  {
-   "league": "college",
-   "team": "POC",
-   "role": "filler",
-   "name": "Morris Bessette",
-   "dob": "11/7/2005",
-   "position": "C",
-   "uniform": 15
-  },
-  {
-   "league": "college",
-   "team": "POC",
+   "team": "MJW",
    "role": "filler",
    "name": "Vicente Monzon",
    "dob": "7/3/2007",
@@ -4106,32 +4232,23 @@
    "league": "college",
    "team": "POC",
    "role": "filler",
-   "name": "Quincy Finn",
-   "dob": "4/14/2005",
-   "position": "PF",
-   "uniform": 43
-  },
-  {
-   "league": "college",
-   "team": "POC",
-   "role": "filler",
    "name": "Landon Hassler",
    "dob": "12/27/2008",
-   "position": "PF",
+   "position": "SF",
    "uniform": 2
   },
   {
    "league": "college",
-   "team": "POC",
+   "team": "MUN",
    "role": "filler",
    "name": "Evrim Hubley",
    "dob": "1/21/2008",
-   "position": "SF",
+   "position": "SG",
    "uniform": 28
   },
   {
    "league": "college",
-   "team": "POC",
+   "team": "WAH",
    "role": "filler",
    "name": "Adsiz Moritz",
    "dob": "4/12/2007",
@@ -4140,34 +4257,16 @@
   },
   {
    "league": "college",
-   "team": "POC",
+   "team": "WAH",
    "role": "filler",
-   "name": "Wesley Antonucci",
-   "dob": "8/23/2006",
+   "name": "Erdemli Deborde",
+   "dob": "10/22/2010",
    "position": "SF",
-   "uniform": 40
+   "uniform": 0
   },
   {
    "league": "college",
-   "team": "POC",
-   "role": "filler",
-   "name": "Heath Manson",
-   "dob": "3/25/2005",
-   "position": "SG",
-   "uniform": 49
-  },
-  {
-   "league": "college",
-   "team": "POC",
-   "role": "filler",
-   "name": "Claud Soucie",
-   "dob": "6/8/2006",
-   "position": "SG",
-   "uniform": 12
-  },
-  {
-   "league": "college",
-   "team": "POC",
+   "team": "WWA",
    "role": "filler",
    "name": "Augustine Hopps",
    "dob": "2/8/2007",
@@ -4194,47 +4293,11 @@
   },
   {
    "league": "college",
-   "team": "POC",
-   "role": "reserve",
-   "name": "Barry Campregher",
-   "dob": "6/7/2007",
-   "position": "PG",
-   "uniform": 52
-  },
-  {
-   "league": "college",
-   "team": "POC",
-   "role": "reserve",
-   "name": "Dave Coty",
-   "dob": "5/28/2008",
-   "position": "SF",
-   "uniform": 16
-  },
-  {
-   "league": "college",
-   "team": "POC",
-   "role": "reserve",
-   "name": "Willis Karr",
-   "dob": "6/24/2007",
-   "position": "C",
-   "uniform": 1
-  },
-  {
-   "league": "college",
-   "team": "WWA",
-   "role": "filler",
-   "name": "Marlin Horton",
-   "dob": "4/16/2005",
-   "position": "C",
-   "uniform": 29
-  },
-  {
-   "league": "college",
-   "team": "WWA",
+   "team": "CAN",
    "role": "filler",
    "name": "Kenton Fechter",
    "dob": "3/9/2007",
-   "position": "C",
+   "position": "PF",
    "uniform": 40
   },
   {
@@ -4250,15 +4313,6 @@
    "league": "college",
    "team": "WWA",
    "role": "filler",
-   "name": "Fernando Mortimer",
-   "dob": "1/6/2005",
-   "position": "PF",
-   "uniform": 33
-  },
-  {
-   "league": "college",
-   "team": "WWA",
-   "role": "filler",
    "name": "Johnie Bridgewater",
    "dob": "2/5/2007",
    "position": "SF",
@@ -4266,30 +4320,21 @@
   },
   {
    "league": "college",
-   "team": "WWA",
+   "team": "OSH",
    "role": "filler",
    "name": "Hollis Auxier",
    "dob": "12/21/2007",
-   "position": "SF",
+   "position": "SG",
    "uniform": 11
   },
   {
    "league": "college",
-   "team": "WWA",
+   "team": "FLN",
    "role": "filler",
-   "name": "Elwood Rickard",
-   "dob": "7/14/2005",
-   "position": "SF",
-   "uniform": 1
-  },
-  {
-   "league": "college",
-   "team": "WWA",
-   "role": "filler",
-   "name": "Dede Mardis",
-   "dob": "12/25/2006",
+   "name": "Alphonso Goltz",
+   "dob": "12/12/2010",
    "position": "SG",
-   "uniform": 55
+   "uniform": 0
   },
   {
    "league": "college",
@@ -4297,26 +4342,26 @@
    "role": "filler",
    "name": "Saulenis Sorg",
    "dob": "12/20/2007",
-   "position": "SG",
+   "position": "PG",
    "uniform": 6
   },
   {
    "league": "college",
-   "team": "WWA",
+   "team": "YAZ",
    "role": "filler",
-   "name": "Evaristo Lasker",
-   "dob": "5/12/2006",
-   "position": "SG",
-   "uniform": 17
+   "name": "Cyrus Sakaulauskas",
+   "dob": "5/2/2010",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "college",
-   "team": "WWA",
+   "team": "POC",
    "role": "filler",
-   "name": "Al McAteer",
-   "dob": "12/3/2006",
-   "position": "PG",
-   "uniform": 27
+   "name": "Galen Cain",
+   "dob": "8/15/2010",
+   "position": "SF",
+   "uniform": 0
   },
   {
    "league": "college",
@@ -4324,35 +4369,530 @@
    "role": "filler",
    "name": "Eric Crigler",
    "dob": "8/12/2007",
-   "position": "PG",
+   "position": "SG",
    "uniform": 52
   },
   {
    "league": "college",
-   "team": "WWA",
-   "role": "reserve",
-   "name": "Melchioras Desmond",
-   "dob": "5/12/2007",
-   "position": "PG",
-   "uniform": 50
-  },
-  {
-   "league": "college",
-   "team": "WWA",
-   "role": "reserve",
-   "name": "Rudy Balogh",
-   "dob": "4/13/2008",
-   "position": "SF",
-   "uniform": 20
-  },
-  {
-   "league": "college",
-   "team": "WWA",
-   "role": "reserve",
-   "name": "Jordan Brito",
-   "dob": "2/22/2007",
+   "team": "POC",
+   "role": "filler",
+   "name": "Geert Myricks",
+   "dob": "3/2/2009",
    "position": "C",
-   "uniform": 53
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OSH",
+   "role": "filler",
+   "name": "Arnold Gerber",
+   "dob": "10/26/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "CAN",
+   "role": "filler",
+   "name": "Fabian Kirkman",
+   "dob": "4/28/2009",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OPK",
+   "role": "filler",
+   "name": "Denker Sandridge",
+   "dob": "6/19/2009",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OPK",
+   "role": "filler",
+   "name": "Dario Bishop",
+   "dob": "10/17/2010",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "SHB",
+   "role": "filler",
+   "name": "Barton Jepsen",
+   "dob": "5/7/2010",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OPK",
+   "role": "filler",
+   "name": "Darrin Combs",
+   "dob": "3/12/2007",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "HEL",
+   "role": "filler",
+   "name": "Bruno Elzey",
+   "dob": "9/18/2010",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "YPS",
+   "role": "filler",
+   "name": "Cedrick Simonds",
+   "dob": "8/6/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "POC",
+   "role": "filler",
+   "name": "Gary Larimer",
+   "dob": "3/10/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "KZO",
+   "role": "filler",
+   "name": "Chris Jones",
+   "dob": "11/22/2008",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OSH",
+   "role": "filler",
+   "name": "Ariel Kiarostani",
+   "dob": "1/25/2010",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "WWA",
+   "role": "filler",
+   "name": "Gilles Deletombes",
+   "dob": "10/25/2008",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "POC",
+   "role": "filler",
+   "name": "Frederick Nelson",
+   "dob": "12/23/2007",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "MJW",
+   "role": "filler",
+   "name": "Al Woodward",
+   "dob": "4/16/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "KZO",
+   "role": "filler",
+   "name": "Charles Lewis",
+   "dob": "9/19/2009",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "HEL",
+   "role": "filler",
+   "name": "Bojan Bozicevich",
+   "dob": "8/3/2008",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OKE",
+   "role": "filler",
+   "name": "Dong Curry",
+   "dob": "9/2/2010",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "CAN",
+   "role": "filler",
+   "name": "Felice Townsel",
+   "dob": "9/14/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "SHB",
+   "role": "filler",
+   "name": "Bircan McLeroy",
+   "dob": "4/7/2010",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "FLN",
+   "role": "filler",
+   "name": "Amos Francis",
+   "dob": "6/13/2009",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OKE",
+   "role": "filler",
+   "name": "Dudley Frank",
+   "dob": "5/26/2008",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "WAH",
+   "role": "filler",
+   "name": "Erick Mustard",
+   "dob": "1/6/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "SHB",
+   "role": "filler",
+   "name": "Bernard McClinton",
+   "dob": "4/26/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "SHB",
+   "role": "filler",
+   "name": "Benjamin McGlothlin",
+   "dob": "11/22/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "FLN",
+   "role": "filler",
+   "name": "Antonio Coceres",
+   "dob": "2/14/2008",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OKE",
+   "role": "filler",
+   "name": "Derrick Deangelo",
+   "dob": "7/19/2010",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "CAN",
+   "role": "filler",
+   "name": "Frank Elliott",
+   "dob": "4/14/2007",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "MJW",
+   "role": "filler",
+   "name": "Acunal Krein",
+   "dob": "4/17/2009",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "WWA",
+   "role": "filler",
+   "name": "Glen Krupinsky",
+   "dob": "2/7/2010",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "WKW",
+   "role": "filler",
+   "name": "Ekkehardt Gebhardt",
+   "dob": "11/7/2006",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "YAZ",
+   "role": "filler",
+   "name": "Damien Kesinger",
+   "dob": "11/5/2009",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "WWA",
+   "role": "filler",
+   "name": "Gerald Cook",
+   "dob": "4/10/2006",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OKE",
+   "role": "filler",
+   "name": "Don Jackson",
+   "dob": "3/16/2006",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "WKW",
+   "role": "filler",
+   "name": "Edmundo Nicolai",
+   "dob": "2/20/2009",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "SHB",
+   "role": "filler",
+   "name": "Bohdan Jirak",
+   "dob": "3/31/2007",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "MJW",
+   "role": "filler",
+   "name": "Alican Frisina",
+   "dob": "2/1/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "HEL",
+   "role": "filler",
+   "name": "Bruno Agassiz",
+   "dob": "10/10/2006",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "YPS",
+   "role": "filler",
+   "name": "Cedric Rasheed",
+   "dob": "7/12/2010",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OSH",
+   "role": "filler",
+   "name": "Arlie Vasquez",
+   "dob": "12/30/2007",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "WAH",
+   "role": "filler",
+   "name": "Elden Granado",
+   "dob": "2/20/2010",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OPK",
+   "role": "filler",
+   "name": "David Adam",
+   "dob": "9/29/2006",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "MUN",
+   "role": "filler",
+   "name": "Cordell Heavener",
+   "dob": "12/22/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "MJW",
+   "role": "filler",
+   "name": "Abe Cabrera",
+   "dob": "3/14/2010",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "FLN",
+   "role": "filler",
+   "name": "Amos Gunning",
+   "dob": "6/19/2010",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "POC",
+   "role": "filler",
+   "name": "George Gallagher",
+   "dob": "10/6/2007",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "CAN",
+   "role": "filler",
+   "name": "Federigo Holts",
+   "dob": "9/17/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "OKE",
+   "role": "filler",
+   "name": "Don Davis",
+   "dob": "12/16/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "MUN",
+   "role": "filler",
+   "name": "Claude Lara",
+   "dob": "5/5/2008",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "YAZ",
+   "role": "filler",
+   "name": "Daniel McAuley",
+   "dob": "1/31/2006",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "FLN",
+   "role": "filler",
+   "name": "Alton Pettigrew",
+   "dob": "8/16/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "FLN",
+   "role": "filler",
+   "name": "Allen Soto",
+   "dob": "5/6/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "WWA",
+   "role": "filler",
+   "name": "Gilbert Garrido",
+   "dob": "4/5/2010",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "WWA",
+   "role": "filler",
+   "name": "Gerry Lutz",
+   "dob": "5/20/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "MUN",
+   "role": "filler",
+   "name": "Conrado Aristzabal",
+   "dob": "9/12/2008",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "CAN",
+   "role": "filler",
+   "name": "Forrest Kemper",
+   "dob": "1/16/2007",
+   "position": "PG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "MUN",
+   "role": "filler",
+   "name": "Chris Patel",
+   "dob": "3/27/2010",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "college",
+   "team": "MUN",
+   "role": "filler",
+   "name": "Cortez Schneider",
+   "dob": "6/13/2007",
+   "position": "PG",
+   "uniform": 0
   },
   {
    "league": "pro",
@@ -4369,7 +4909,7 @@
    "role": "filler",
    "name": "Royal Katzman",
    "dob": "11/16/2000",
-   "position": "C",
+   "position": "PF",
    "uniform": 5
   },
   {
@@ -4378,12 +4918,12 @@
    "role": "filler",
    "name": "Spencer Galante",
    "dob": "4/1/2003",
-   "position": "PF",
+   "position": "C",
    "uniform": 31
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "THP",
    "role": "filler",
    "name": "Nemunas Debow",
    "dob": "8/17/2001",
@@ -4405,7 +4945,7 @@
    "role": "filler",
    "name": "Vincent Brasel",
    "dob": "1/4/2003",
-   "position": "SF",
+   "position": "PG",
    "uniform": 2
   },
   {
@@ -4414,7 +4954,7 @@
    "role": "filler",
    "name": "Aksin Town",
    "dob": "6/7/1999",
-   "position": "SF",
+   "position": "PF",
    "uniform": 25
   },
   {
@@ -4428,11 +4968,11 @@
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "GOR",
    "role": "filler",
    "name": "Marion Marburger",
    "dob": "6/1/2001",
-   "position": "SG",
+   "position": "PG",
    "uniform": 16
   },
   {
@@ -4446,7 +4986,7 @@
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "CHE",
    "role": "filler",
    "name": "Donato Honea",
    "dob": "3/10/1996",
@@ -4464,38 +5004,11 @@
   },
   {
    "league": "pro",
-   "team": "GOU",
-   "role": "reserve",
-   "name": "Dwight Hebron",
-   "dob": "9/5/2003",
-   "position": "PG",
-   "uniform": 12
-  },
-  {
-   "league": "pro",
-   "team": "GOU",
-   "role": "reserve",
-   "name": "Mauricio Babin",
-   "dob": "2/10/2004",
-   "position": "SF",
-   "uniform": 10
-  },
-  {
-   "league": "pro",
-   "team": "GOU",
-   "role": "reserve",
-   "name": "Oben Pages",
-   "dob": "9/17/2004",
-   "position": "C",
-   "uniform": 30
-  },
-  {
-   "league": "pro",
    "team": "EDM",
    "role": "filler",
    "name": "Wilford Everhart",
    "dob": "10/26/2002",
-   "position": "C",
+   "position": "PF",
    "uniform": 18
   },
   {
@@ -4518,11 +5031,11 @@
   },
   {
    "league": "pro",
-   "team": "EDM",
+   "team": "CHE",
    "role": "filler",
    "name": "Rade Wade",
    "dob": "7/9/2002",
-   "position": "PF",
+   "position": "C",
    "uniform": 34
   },
   {
@@ -4531,7 +5044,7 @@
    "role": "filler",
    "name": "Fidel Guess",
    "dob": "2/3/2002",
-   "position": "SF",
+   "position": "SG",
    "uniform": 1
   },
   {
@@ -4545,7 +5058,7 @@
   },
   {
    "league": "pro",
-   "team": "EDM",
+   "team": "STL",
    "role": "filler",
    "name": "Utz Verduzco",
    "dob": "5/24/1995",
@@ -4560,15 +5073,6 @@
    "dob": "12/19/1998",
    "position": "SG",
    "uniform": 53
-  },
-  {
-   "league": "pro",
-   "team": "EDM",
-   "role": "filler",
-   "name": "Garret Ervin",
-   "dob": "1/3/1994",
-   "position": "SG",
-   "uniform": 10
   },
   {
    "league": "pro",
@@ -4599,34 +5103,7 @@
   },
   {
    "league": "pro",
-   "team": "EDM",
-   "role": "reserve",
-   "name": "Lane Felts",
-   "dob": "10/14/2003",
-   "position": "PG",
-   "uniform": 14
-  },
-  {
-   "league": "pro",
-   "team": "EDM",
-   "role": "reserve",
-   "name": "Arnold Testa",
-   "dob": "4/8/2003",
-   "position": "SF",
-   "uniform": 9
-  },
-  {
-   "league": "pro",
-   "team": "EDM",
-   "role": "reserve",
-   "name": "Marcelo Roca",
-   "dob": "12/12/2003",
-   "position": "C",
-   "uniform": 12
-  },
-  {
-   "league": "pro",
-   "team": "CHD",
+   "team": "ROQ",
    "role": "filler",
    "name": "Jackson Gularte",
    "dob": "11/19/2001",
@@ -4646,18 +5123,9 @@
    "league": "pro",
    "team": "CHD",
    "role": "filler",
-   "name": "Gregory Shankle",
-   "dob": "4/24/1992",
-   "position": "PF",
-   "uniform": 41
-  },
-  {
-   "league": "pro",
-   "team": "CHD",
-   "role": "filler",
    "name": "Alban Pumphrey",
    "dob": "7/27/2004",
-   "position": "PF",
+   "position": "C",
    "uniform": 19
   },
   {
@@ -4666,7 +5134,7 @@
    "role": "filler",
    "name": "Akkurt Casali",
    "dob": "10/22/2004",
-   "position": "SF",
+   "position": "PF",
    "uniform": 39
   },
   {
@@ -4675,7 +5143,7 @@
    "role": "filler",
    "name": "Austin Burlew",
    "dob": "8/20/1999",
-   "position": "SF",
+   "position": "PF",
    "uniform": 48
   },
   {
@@ -4684,7 +5152,7 @@
    "role": "filler",
    "name": "Nestor Orange",
    "dob": "1/21/2004",
-   "position": "SF",
+   "position": "PG",
    "uniform": 17
   },
   {
@@ -4702,7 +5170,7 @@
    "role": "filler",
    "name": "Bo Privette",
    "dob": "10/8/2004",
-   "position": "SG",
+   "position": "SF",
    "uniform": 49
   },
   {
@@ -4711,17 +5179,8 @@
    "role": "filler",
    "name": "Craig Monk",
    "dob": "8/10/2002",
-   "position": "SG",
-   "uniform": 54
-  },
-  {
-   "league": "pro",
-   "team": "CHD",
-   "role": "filler",
-   "name": "Lazaro Snelgrove",
-   "dob": "11/19/1993",
    "position": "PG",
-   "uniform": 53
+   "uniform": 54
   },
   {
    "league": "pro",
@@ -4731,33 +5190,6 @@
    "dob": "8/4/1999",
    "position": "PG",
    "uniform": 12
-  },
-  {
-   "league": "pro",
-   "team": "CHD",
-   "role": "reserve",
-   "name": "Ambrose Ridinger",
-   "dob": "10/1/2004",
-   "position": "PG",
-   "uniform": 24
-  },
-  {
-   "league": "pro",
-   "team": "CHD",
-   "role": "reserve",
-   "name": "Nicholas Samulevicius",
-   "dob": "1/21/2003",
-   "position": "SF",
-   "uniform": 45
-  },
-  {
-   "league": "pro",
-   "team": "CHD",
-   "role": "reserve",
-   "name": "Vasco Demaree",
-   "dob": "9/5/2004",
-   "position": "C",
-   "uniform": 14
   },
   {
    "league": "pro",
@@ -4788,7 +5220,7 @@
   },
   {
    "league": "pro",
-   "team": "STL",
+   "team": "PET",
    "role": "filler",
    "name": "Isaias Stejskal",
    "dob": "9/23/1995",
@@ -4801,7 +5233,7 @@
    "role": "filler",
    "name": "Omar Brindley",
    "dob": "9/20/2001",
-   "position": "SF",
+   "position": "SG",
    "uniform": 2
   },
   {
@@ -4810,12 +5242,12 @@
    "role": "filler",
    "name": "Bennett Voorhees",
    "dob": "6/18/2004",
-   "position": "SF",
+   "position": "SG",
    "uniform": 24
   },
   {
    "league": "pro",
-   "team": "STL",
+   "team": "CHE",
    "role": "filler",
    "name": "Severino Mullinix",
    "dob": "9/24/2004",
@@ -4837,7 +5269,7 @@
    "role": "filler",
    "name": "Weston Dye",
    "dob": "4/4/1997",
-   "position": "SG",
+   "position": "C",
    "uniform": 49
   },
   {
@@ -4846,7 +5278,7 @@
    "role": "filler",
    "name": "V\u00edctor Bryon",
    "dob": "10/1/2000",
-   "position": "SG",
+   "position": "PG",
    "uniform": 16
   },
   {
@@ -4869,34 +5301,7 @@
   },
   {
    "league": "pro",
-   "team": "STL",
-   "role": "reserve",
-   "name": "Er\u00e7elik Blue",
-   "dob": "2/16/2004",
-   "position": "PG",
-   "uniform": 29
-  },
-  {
-   "league": "pro",
-   "team": "STL",
-   "role": "reserve",
-   "name": "Deangelo Webb",
-   "dob": "9/16/2003",
-   "position": "SF",
-   "uniform": 25
-  },
-  {
-   "league": "pro",
-   "team": "STL",
-   "role": "reserve",
-   "name": "Harold Hinchey",
-   "dob": "5/6/2004",
-   "position": "C",
-   "uniform": 17
-  },
-  {
-   "league": "pro",
-   "team": "CHE",
+   "team": "GOU",
    "role": "filler",
    "name": "Jimmie Ackermann",
    "dob": "5/25/1993",
@@ -4905,11 +5310,11 @@
   },
   {
    "league": "pro",
-   "team": "CHE",
+   "team": "GOR",
    "role": "filler",
    "name": "Candelario Pride",
    "dob": "6/28/2004",
-   "position": "C",
+   "position": "PF",
    "uniform": 7
   },
   {
@@ -4925,18 +5330,9 @@
    "league": "pro",
    "team": "CHE",
    "role": "filler",
-   "name": "Jess Amidon",
-   "dob": "3/27/1993",
-   "position": "PF",
-   "uniform": 4
-  },
-  {
-   "league": "pro",
-   "team": "CHE",
-   "role": "filler",
    "name": "Maximo Kubala",
    "dob": "4/10/2004",
-   "position": "SF",
+   "position": "C",
    "uniform": 25
   },
   {
@@ -4945,7 +5341,7 @@
    "role": "filler",
    "name": "Noble Belfiore",
    "dob": "2/5/2004",
-   "position": "SF",
+   "position": "SG",
    "uniform": 40
   },
   {
@@ -4972,16 +5368,16 @@
    "role": "filler",
    "name": "Dimitri Chiasson",
    "dob": "12/9/1995",
-   "position": "SG",
+   "position": "C",
    "uniform": 37
   },
   {
    "league": "pro",
-   "team": "CHE",
+   "team": "SON",
    "role": "filler",
    "name": "Xander Satcher",
    "dob": "4/19/1997",
-   "position": "SG",
+   "position": "SF",
    "uniform": 30
   },
   {
@@ -4990,44 +5386,17 @@
    "role": "filler",
    "name": "Josh Esses",
    "dob": "8/26/1993",
-   "position": "PG",
+   "position": "SG",
    "uniform": 23
   },
   {
    "league": "pro",
-   "team": "CHE",
+   "team": "STL",
    "role": "filler",
    "name": "Jonathan Tillett",
    "dob": "6/15/2004",
    "position": "PG",
    "uniform": 27
-  },
-  {
-   "league": "pro",
-   "team": "CHE",
-   "role": "reserve",
-   "name": "Ken Nations",
-   "dob": "9/6/2004",
-   "position": "PG",
-   "uniform": 46
-  },
-  {
-   "league": "pro",
-   "team": "CHE",
-   "role": "reserve",
-   "name": "Ajibayo Dejohn",
-   "dob": "1/21/2004",
-   "position": "SF",
-   "uniform": 39
-  },
-  {
-   "league": "pro",
-   "team": "CHE",
-   "role": "reserve",
-   "name": "Thad Cousin",
-   "dob": "7/2/2004",
-   "position": "C",
-   "uniform": 17
   },
   {
    "league": "pro",
@@ -5040,7 +5409,7 @@
   },
   {
    "league": "pro",
-   "team": "PAR",
+   "team": "MNS",
    "role": "filler",
    "name": "Ferruccio Loveday",
    "dob": "7/20/1998",
@@ -5049,11 +5418,11 @@
   },
   {
    "league": "pro",
-   "team": "PAR",
+   "team": "MNR",
    "role": "filler",
    "name": "Narciso Wahlen",
    "dob": "5/28/1996",
-   "position": "PF",
+   "position": "C",
    "uniform": 13
   },
   {
@@ -5069,28 +5438,10 @@
    "league": "pro",
    "team": "PAR",
    "role": "filler",
-   "name": "Cole Tamayo",
-   "dob": "2/11/1992",
-   "position": "SF",
-   "uniform": 50
-  },
-  {
-   "league": "pro",
-   "team": "PAR",
-   "role": "filler",
    "name": "Tuan McCraney",
    "dob": "11/23/1999",
    "position": "SF",
    "uniform": 37
-  },
-  {
-   "league": "pro",
-   "team": "PAR",
-   "role": "filler",
-   "name": "Umberto Klump",
-   "dob": "5/26/1992",
-   "position": "SF",
-   "uniform": 19
   },
   {
    "league": "pro",
@@ -5107,17 +5458,8 @@
    "role": "filler",
    "name": "Malik Gatts",
    "dob": "5/24/1995",
-   "position": "SG",
+   "position": "SF",
    "uniform": 35
-  },
-  {
-   "league": "pro",
-   "team": "PAR",
-   "role": "filler",
-   "name": "Blake Hervey",
-   "dob": "2/11/1994",
-   "position": "SG",
-   "uniform": 8
   },
   {
    "league": "pro",
@@ -5139,33 +5481,6 @@
   },
   {
    "league": "pro",
-   "team": "PAR",
-   "role": "reserve",
-   "name": "Dino Quesinberry",
-   "dob": "6/15/2003",
-   "position": "PG",
-   "uniform": 45
-  },
-  {
-   "league": "pro",
-   "team": "PAR",
-   "role": "reserve",
-   "name": "Tod Schlager",
-   "dob": "6/4/2004",
-   "position": "SF",
-   "uniform": 54
-  },
-  {
-   "league": "pro",
-   "team": "PAR",
-   "role": "reserve",
-   "name": "Tracy Ramonas",
-   "dob": "6/24/2004",
-   "position": "C",
-   "uniform": 48
-  },
-  {
-   "league": "pro",
    "team": "ASI",
    "role": "filler",
    "name": "Virgis Clonts",
@@ -5175,21 +5490,12 @@
   },
   {
    "league": "pro",
-   "team": "ASI",
+   "team": "MNS",
    "role": "filler",
    "name": "Luis Lopes",
    "dob": "12/3/2003",
-   "position": "C",
-   "uniform": 27
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "filler",
-   "name": "Chung Douthitt",
-   "dob": "6/10/1994",
    "position": "PF",
-   "uniform": 45
+   "uniform": 27
   },
   {
    "league": "pro",
@@ -5197,7 +5503,7 @@
    "role": "filler",
    "name": "Jurgis Familia",
    "dob": "1/9/1997",
-   "position": "PF",
+   "position": "C",
    "uniform": 43
   },
   {
@@ -5206,7 +5512,7 @@
    "role": "filler",
    "name": "Loyd Groner",
    "dob": "7/18/1995",
-   "position": "SF",
+   "position": "PG",
    "uniform": 51
   },
   {
@@ -5215,7 +5521,7 @@
    "role": "filler",
    "name": "Manual Feiler",
    "dob": "5/4/1997",
-   "position": "SF",
+   "position": "SG",
    "uniform": 0
   },
   {
@@ -5238,20 +5544,20 @@
   },
   {
    "league": "pro",
-   "team": "ASI",
+   "team": "MNR",
    "role": "filler",
    "name": "Arron Edds",
    "dob": "12/21/2000",
-   "position": "SG",
+   "position": "SF",
    "uniform": 38
   },
   {
    "league": "pro",
-   "team": "ASI",
+   "team": "PLY",
    "role": "filler",
    "name": "Bradly Ehrenberg",
    "dob": "12/27/1997",
-   "position": "SG",
+   "position": "PG",
    "uniform": 19
   },
   {
@@ -5262,42 +5568,6 @@
    "dob": "6/5/1999",
    "position": "PG",
    "uniform": 37
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "filler",
-   "name": "Cedric Brumback",
-   "dob": "7/25/1992",
-   "position": "PG",
-   "uniform": 55
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "reserve",
-   "name": "Deger Zeh",
-   "dob": "5/2/2004",
-   "position": "PG",
-   "uniform": 42
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "reserve",
-   "name": "Napoleon Roller",
-   "dob": "9/21/2003",
-   "position": "SF",
-   "uniform": 8
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "reserve",
-   "name": "Keith Vogt",
-   "dob": "5/1/2004",
-   "position": "C",
-   "uniform": 22
   },
   {
    "league": "pro",
@@ -5319,7 +5589,7 @@
   },
   {
    "league": "pro",
-   "team": "GOR",
+   "team": "GOU",
    "role": "filler",
    "name": "Milo Dahmer",
    "dob": "10/20/1998",
@@ -5328,7 +5598,7 @@
   },
   {
    "league": "pro",
-   "team": "GOR",
+   "team": "MNR",
    "role": "filler",
    "name": "Rocco Sanjuan",
    "dob": "4/28/2003",
@@ -5341,7 +5611,7 @@
    "role": "filler",
    "name": "Ermis Newhard",
    "dob": "3/20/1997",
-   "position": "SF",
+   "position": "PF",
    "uniform": 2
   },
   {
@@ -5350,7 +5620,7 @@
    "role": "filler",
    "name": "Durmus Monnier",
    "dob": "1/23/1994",
-   "position": "SF",
+   "position": "PF",
    "uniform": 53
   },
   {
@@ -5377,7 +5647,7 @@
    "role": "filler",
    "name": "Dominick Buban",
    "dob": "11/19/2001",
-   "position": "SG",
+   "position": "SF",
    "uniform": 45
   },
   {
@@ -5406,33 +5676,6 @@
    "dob": "12/23/2001",
    "position": "PG",
    "uniform": 11
-  },
-  {
-   "league": "pro",
-   "team": "GOR",
-   "role": "reserve",
-   "name": "Ali Yeh",
-   "dob": "3/22/2003",
-   "position": "PG",
-   "uniform": 1
-  },
-  {
-   "league": "pro",
-   "team": "GOR",
-   "role": "reserve",
-   "name": "Adomas Stecklein",
-   "dob": "12/25/2004",
-   "position": "SF",
-   "uniform": 43
-  },
-  {
-   "league": "pro",
-   "team": "GOR",
-   "role": "reserve",
-   "name": "Millard Minnich",
-   "dob": "10/13/2003",
-   "position": "C",
-   "uniform": 16
   },
   {
    "league": "pro",
@@ -5476,12 +5719,12 @@
    "role": "filler",
    "name": "Scot Urick",
    "dob": "2/9/1992",
-   "position": "SF",
+   "position": "SG",
    "uniform": 8
   },
   {
    "league": "pro",
-   "team": "ROQ",
+   "team": "COL",
    "role": "filler",
    "name": "Arif Spradley",
    "dob": "7/11/2003",
@@ -5503,7 +5746,7 @@
    "role": "filler",
    "name": "Herbertas Demaria",
    "dob": "3/14/2002",
-   "position": "SG",
+   "position": "PG",
    "uniform": 35
   },
   {
@@ -5521,53 +5764,8 @@
    "role": "filler",
    "name": "Issac Licon",
    "dob": "7/11/1993",
-   "position": "SG",
-   "uniform": 3
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "filler",
-   "name": "Mark Burkes",
-   "dob": "8/4/1993",
-   "position": "PG",
-   "uniform": 5
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "filler",
-   "name": "Rimas McKie",
-   "dob": "3/27/1993",
-   "position": "PG",
-   "uniform": 53
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "reserve",
-   "name": "Zackary Heatwole",
-   "dob": "12/15/2004",
-   "position": "PG",
-   "uniform": 33
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "reserve",
-   "name": "Nestor Janik",
-   "dob": "1/12/2004",
    "position": "SF",
-   "uniform": 34
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "reserve",
-   "name": "Jimmie Huss",
-   "dob": "6/12/2004",
-   "position": "C",
-   "uniform": 11
+   "uniform": 3
   },
   {
    "league": "pro",
@@ -5575,7 +5773,7 @@
    "role": "filler",
    "name": "Jesus Alberson",
    "dob": "4/27/2002",
-   "position": "C",
+   "position": "PF",
    "uniform": 13
   },
   {
@@ -5593,7 +5791,7 @@
    "role": "filler",
    "name": "Cenk Hollmaier",
    "dob": "2/19/1998",
-   "position": "PF",
+   "position": "C",
    "uniform": 47
   },
   {
@@ -5607,7 +5805,7 @@
   },
   {
    "league": "pro",
-   "team": "MNS",
+   "team": "ASI",
    "role": "filler",
    "name": "Dele Kvratijus",
    "dob": "3/23/2002",
@@ -5620,7 +5818,7 @@
    "role": "filler",
    "name": "Broderick Babin",
    "dob": "5/4/1995",
-   "position": "SF",
+   "position": "SG",
    "uniform": 42
   },
   {
@@ -5629,7 +5827,7 @@
    "role": "filler",
    "name": "Milo Giunta",
    "dob": "6/5/2000",
-   "position": "SF",
+   "position": "PG",
    "uniform": 1
   },
   {
@@ -5638,7 +5836,7 @@
    "role": "filler",
    "name": "Colby Crisp",
    "dob": "4/24/1996",
-   "position": "SG",
+   "position": "SF",
    "uniform": 40
   },
   {
@@ -5652,7 +5850,7 @@
   },
   {
    "league": "pro",
-   "team": "MNS",
+   "team": "PAR",
    "role": "filler",
    "name": "Luciano Puig",
    "dob": "12/9/1995",
@@ -5661,7 +5859,7 @@
   },
   {
    "league": "pro",
-   "team": "MNS",
+   "team": "TIL",
    "role": "filler",
    "name": "Allan Deloney",
    "dob": "9/20/1999",
@@ -5676,33 +5874,6 @@
    "dob": "3/27/1996",
    "position": "PG",
    "uniform": 53
-  },
-  {
-   "league": "pro",
-   "team": "MNS",
-   "role": "reserve",
-   "name": "Emmitt Steinman",
-   "dob": "11/2/2004",
-   "position": "PG",
-   "uniform": 11
-  },
-  {
-   "league": "pro",
-   "team": "MNS",
-   "role": "reserve",
-   "name": "Alonso Eckler",
-   "dob": "2/1/2004",
-   "position": "SF",
-   "uniform": 41
-  },
-  {
-   "league": "pro",
-   "team": "MNS",
-   "role": "reserve",
-   "name": "Gerald Disanto",
-   "dob": "6/12/2004",
-   "position": "C",
-   "uniform": 4
   },
   {
    "league": "pro",
@@ -5746,7 +5917,7 @@
    "role": "filler",
    "name": "Graham Bartolotta",
    "dob": "4/23/2004",
-   "position": "SF",
+   "position": "PF",
    "uniform": 52
   },
   {
@@ -5757,15 +5928,6 @@
    "dob": "11/8/1998",
    "position": "SF",
    "uniform": 46
-  },
-  {
-   "league": "pro",
-   "team": "COL",
-   "role": "filler",
-   "name": "Dominic Djapic",
-   "dob": "7/22/1993",
-   "position": "SF",
-   "uniform": 22
   },
   {
    "league": "pro",
@@ -5782,21 +5944,21 @@
    "role": "filler",
    "name": "Weldon Thiessen",
    "dob": "9/12/1996",
-   "position": "SG",
+   "position": "PG",
    "uniform": 1
   },
   {
    "league": "pro",
-   "team": "COL",
+   "team": "FER",
    "role": "filler",
    "name": "Olivier Croskey",
    "dob": "2/2/2004",
-   "position": "SG",
+   "position": "PG",
    "uniform": 3
   },
   {
    "league": "pro",
-   "team": "COL",
+   "team": "EDM",
    "role": "filler",
    "name": "Bill Lafave",
    "dob": "2/2/2000",
@@ -5814,38 +5976,11 @@
   },
   {
    "league": "pro",
-   "team": "COL",
-   "role": "reserve",
-   "name": "Tomislav Klenke",
-   "dob": "9/14/2004",
-   "position": "PG",
-   "uniform": 7
-  },
-  {
-   "league": "pro",
-   "team": "COL",
-   "role": "reserve",
-   "name": "Andres Silverberg",
-   "dob": "11/14/2003",
-   "position": "SF",
-   "uniform": 8
-  },
-  {
-   "league": "pro",
-   "team": "COL",
-   "role": "reserve",
-   "name": "Derrick Wagar",
-   "dob": "8/20/2003",
-   "position": "C",
-   "uniform": 4
-  },
-  {
-   "league": "pro",
    "team": "PLY",
    "role": "filler",
    "name": "Timoteo Salomone",
    "dob": "2/7/2001",
-   "position": "C",
+   "position": "PF",
    "uniform": 53
   },
   {
@@ -5854,7 +5989,7 @@
    "role": "filler",
    "name": "Zackary Giordano",
    "dob": "11/8/2000",
-   "position": "C",
+   "position": "PF",
    "uniform": 6
   },
   {
@@ -5863,7 +5998,7 @@
    "role": "filler",
    "name": "Domenic Ellender",
    "dob": "3/10/1998",
-   "position": "PF",
+   "position": "C",
    "uniform": 4
   },
   {
@@ -5872,34 +6007,16 @@
    "role": "filler",
    "name": "Eduardas Lillis",
    "dob": "12/22/2000",
-   "position": "PF",
+   "position": "C",
    "uniform": 46
   },
   {
    "league": "pro",
-   "team": "PLY",
-   "role": "filler",
-   "name": "Ramat MacMillan",
-   "dob": "4/2/1996",
-   "position": "SF",
-   "uniform": 39
-  },
-  {
-   "league": "pro",
-   "team": "PLY",
-   "role": "filler",
-   "name": "Terrell Barrio",
-   "dob": "4/4/1992",
-   "position": "SF",
-   "uniform": 10
-  },
-  {
-   "league": "pro",
-   "team": "PLY",
+   "team": "ASI",
    "role": "filler",
    "name": "Arlie Lippincott",
    "dob": "12/7/2001",
-   "position": "SF",
+   "position": "PF",
    "uniform": 9
   },
   {
@@ -5926,7 +6043,7 @@
    "role": "filler",
    "name": "Carlo Ralls",
    "dob": "5/9/2004",
-   "position": "SG",
+   "position": "SF",
    "uniform": 20
   },
   {
@@ -5935,7 +6052,7 @@
    "role": "filler",
    "name": "Percy Stokley",
    "dob": "10/22/1993",
-   "position": "PG",
+   "position": "SG",
    "uniform": 26
   },
   {
@@ -5949,34 +6066,7 @@
   },
   {
    "league": "pro",
-   "team": "PLY",
-   "role": "reserve",
-   "name": "Zymantas Kintzel",
-   "dob": "3/10/2004",
-   "position": "PG",
-   "uniform": 24
-  },
-  {
-   "league": "pro",
-   "team": "PLY",
-   "role": "reserve",
-   "name": "Benito Lepper",
-   "dob": "1/12/2003",
-   "position": "SF",
-   "uniform": 11
-  },
-  {
-   "league": "pro",
-   "team": "PLY",
-   "role": "reserve",
-   "name": "Darrin Nyquist",
-   "dob": "7/14/2004",
-   "position": "C",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
+   "team": "SON",
    "role": "filler",
    "name": "Remigio Steib",
    "dob": "12/3/1997",
@@ -5989,12 +6079,12 @@
    "role": "filler",
    "name": "Broderick Alfieri",
    "dob": "10/22/2000",
-   "position": "C",
+   "position": "PF",
    "uniform": 46
   },
   {
    "league": "pro",
-   "team": "MNR",
+   "team": "SON",
    "role": "filler",
    "name": "Jan Cicero",
    "dob": "12/15/1992",
@@ -6012,7 +6102,7 @@
   },
   {
    "league": "pro",
-   "team": "MNR",
+   "team": "TIL",
    "role": "filler",
    "name": "Acunal Patillo",
    "dob": "10/7/1995",
@@ -6025,7 +6115,7 @@
    "role": "filler",
    "name": "Flavijus Tallman",
    "dob": "3/28/1997",
-   "position": "SF",
+   "position": "SG",
    "uniform": 38
   },
   {
@@ -6039,7 +6129,7 @@
   },
   {
    "league": "pro",
-   "team": "MNR",
+   "team": "CHD",
    "role": "filler",
    "name": "Jospeh Kelson",
    "dob": "12/28/2001",
@@ -6048,11 +6138,11 @@
   },
   {
    "league": "pro",
-   "team": "MNR",
+   "team": "MTY",
    "role": "filler",
    "name": "Kristopher Whitner",
    "dob": "10/18/1997",
-   "position": "SG",
+   "position": "C",
    "uniform": 12
   },
   {
@@ -6081,42 +6171,6 @@
    "dob": "3/16/2003",
    "position": "PG",
    "uniform": 8
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
-   "role": "reserve",
-   "name": "Jaime Heinrich",
-   "dob": "6/8/2003",
-   "position": "PG",
-   "uniform": 50
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
-   "role": "reserve",
-   "name": "Carlton Golliday",
-   "dob": "11/13/2004",
-   "position": "SF",
-   "uniform": 52
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
-   "role": "reserve",
-   "name": "Ike Dearing",
-   "dob": "11/8/2004",
-   "position": "C",
-   "uniform": 45
-  },
-  {
-   "league": "pro",
-   "team": "LCH",
-   "role": "filler",
-   "name": "Lamprecht Mellon",
-   "dob": "11/13/1992",
-   "position": "C",
-   "uniform": 14
   },
   {
    "league": "pro",
@@ -6151,7 +6205,7 @@
    "role": "filler",
    "name": "Waldo Tozier",
    "dob": "11/13/1997",
-   "position": "SF",
+   "position": "PG",
    "uniform": 47
   },
   {
@@ -6160,17 +6214,8 @@
    "role": "filler",
    "name": "Valentinas Hulme",
    "dob": "5/8/1998",
-   "position": "SF",
+   "position": "PF",
    "uniform": 36
-  },
-  {
-   "league": "pro",
-   "team": "LCH",
-   "role": "filler",
-   "name": "Barrett Bradwell",
-   "dob": "11/25/1993",
-   "position": "SF",
-   "uniform": 17
   },
   {
    "league": "pro",
@@ -6178,7 +6223,7 @@
    "role": "filler",
    "name": "Ferdinand Dorey",
    "dob": "11/24/1997",
-   "position": "SG",
+   "position": "SF",
    "uniform": 11
   },
   {
@@ -6187,7 +6232,7 @@
    "role": "filler",
    "name": "Trinidad Willcox",
    "dob": "9/3/1998",
-   "position": "SG",
+   "position": "PG",
    "uniform": 7
   },
   {
@@ -6207,42 +6252,6 @@
    "dob": "11/2/1996",
    "position": "PG",
    "uniform": 53
-  },
-  {
-   "league": "pro",
-   "team": "LCH",
-   "role": "filler",
-   "name": "Dustin Sadler",
-   "dob": "8/22/1992",
-   "position": "PG",
-   "uniform": 27
-  },
-  {
-   "league": "pro",
-   "team": "LCH",
-   "role": "reserve",
-   "name": "Edison Bogart",
-   "dob": "3/16/2004",
-   "position": "PG",
-   "uniform": 1
-  },
-  {
-   "league": "pro",
-   "team": "LCH",
-   "role": "reserve",
-   "name": "John Militello",
-   "dob": "11/27/2003",
-   "position": "SF",
-   "uniform": 45
-  },
-  {
-   "league": "pro",
-   "team": "LCH",
-   "role": "reserve",
-   "name": "Vicente Cowden",
-   "dob": "1/3/2004",
-   "position": "C",
-   "uniform": 6
   },
   {
    "league": "pro",
@@ -6277,7 +6286,7 @@
    "role": "filler",
    "name": "Darrell Gluck",
    "dob": "8/17/2003",
-   "position": "PF",
+   "position": "C",
    "uniform": 39
   },
   {
@@ -6286,16 +6295,16 @@
    "role": "filler",
    "name": "Damian Cassidy",
    "dob": "4/20/2000",
-   "position": "SF",
+   "position": "SG",
    "uniform": 36
   },
   {
    "league": "pro",
-   "team": "THP",
+   "team": "GOU",
    "role": "filler",
    "name": "Wilfried Torrence",
    "dob": "10/11/2002",
-   "position": "SF",
+   "position": "SG",
    "uniform": 50
   },
   {
@@ -6304,7 +6313,7 @@
    "role": "filler",
    "name": "Yalim Hudspeth",
    "dob": "3/23/1997",
-   "position": "SF",
+   "position": "SG",
    "uniform": 5
   },
   {
@@ -6313,7 +6322,7 @@
    "role": "filler",
    "name": "Kazimieras Pleasant",
    "dob": "10/26/2001",
-   "position": "SG",
+   "position": "PG",
    "uniform": 26
   },
   {
@@ -6322,7 +6331,7 @@
    "role": "filler",
    "name": "Billy Bertolini",
    "dob": "4/22/1999",
-   "position": "SG",
+   "position": "SF",
    "uniform": 31
   },
   {
@@ -6331,7 +6340,7 @@
    "role": "filler",
    "name": "Weldon Ritzer",
    "dob": "7/6/2000",
-   "position": "SG",
+   "position": "SF",
    "uniform": 7
   },
   {
@@ -6351,33 +6360,6 @@
    "dob": "5/22/2003",
    "position": "PG",
    "uniform": 32
-  },
-  {
-   "league": "pro",
-   "team": "THP",
-   "role": "reserve",
-   "name": "Parker Toombs",
-   "dob": "4/10/2004",
-   "position": "PG",
-   "uniform": 47
-  },
-  {
-   "league": "pro",
-   "team": "THP",
-   "role": "reserve",
-   "name": "Prospero Hernandez",
-   "dob": "1/24/2004",
-   "position": "SF",
-   "uniform": 27
-  },
-  {
-   "league": "pro",
-   "team": "THP",
-   "role": "reserve",
-   "name": "Riley Zollinger",
-   "dob": "12/5/2003",
-   "position": "C",
-   "uniform": 12
   },
   {
    "league": "pro",
@@ -6412,16 +6394,16 @@
    "role": "filler",
    "name": "Walton Ricklefs",
    "dob": "7/9/2004",
-   "position": "PF",
+   "position": "SF",
    "uniform": 12
   },
   {
    "league": "pro",
-   "team": "MTY",
+   "team": "PAR",
    "role": "filler",
    "name": "Jarred Pelchat",
    "dob": "7/28/1997",
-   "position": "SF",
+   "position": "C",
    "uniform": 15
   },
   {
@@ -6430,25 +6412,16 @@
    "role": "filler",
    "name": "Bruno Protsman",
    "dob": "9/25/1996",
-   "position": "SF",
+   "position": "SG",
    "uniform": 3
   },
   {
    "league": "pro",
-   "team": "MTY",
-   "role": "filler",
-   "name": "Cyrus Sechrist",
-   "dob": "6/1/1992",
-   "position": "SF",
-   "uniform": 36
-  },
-  {
-   "league": "pro",
-   "team": "MTY",
+   "team": "MNS",
    "role": "filler",
    "name": "Clarence Um",
    "dob": "2/14/2000",
-   "position": "SG",
+   "position": "SF",
    "uniform": 11
   },
   {
@@ -6457,7 +6430,7 @@
    "role": "filler",
    "name": "Dino Amador",
    "dob": "4/18/1999",
-   "position": "SG",
+   "position": "SF",
    "uniform": 17
   },
   {
@@ -6466,7 +6439,7 @@
    "role": "filler",
    "name": "Achilas Dilullo",
    "dob": "6/17/1999",
-   "position": "SG",
+   "position": "PG",
    "uniform": 52
   },
   {
@@ -6475,7 +6448,7 @@
    "role": "filler",
    "name": "Mazhar Oatis",
    "dob": "12/9/1993",
-   "position": "PG",
+   "position": "SG",
    "uniform": 9
   },
   {
@@ -6489,33 +6462,6 @@
   },
   {
    "league": "pro",
-   "team": "MTY",
-   "role": "reserve",
-   "name": "Harry Iser",
-   "dob": "9/9/2004",
-   "position": "PG",
-   "uniform": 22
-  },
-  {
-   "league": "pro",
-   "team": "MTY",
-   "role": "reserve",
-   "name": "Wilfred Redwood",
-   "dob": "12/12/2003",
-   "position": "SF",
-   "uniform": 16
-  },
-  {
-   "league": "pro",
-   "team": "MTY",
-   "role": "reserve",
-   "name": "Devin Bogucki",
-   "dob": "9/8/2003",
-   "position": "C",
-   "uniform": 50
-  },
-  {
-   "league": "pro",
    "team": "TIL",
    "role": "filler",
    "name": "Anderson Wurm",
@@ -6525,7 +6471,7 @@
   },
   {
    "league": "pro",
-   "team": "TIL",
+   "team": "MNR",
    "role": "filler",
    "name": "Burton Darland",
    "dob": "10/10/1998",
@@ -6543,7 +6489,7 @@
   },
   {
    "league": "pro",
-   "team": "TIL",
+   "team": "MTY",
    "role": "filler",
    "name": "Matuk Bruton",
    "dob": "8/11/2000",
@@ -6556,7 +6502,7 @@
    "role": "filler",
    "name": "Stanley Edwards",
    "dob": "5/6/2002",
-   "position": "SF",
+   "position": "SG",
    "uniform": 20
   },
   {
@@ -6565,7 +6511,7 @@
    "role": "filler",
    "name": "Paris Linkuite",
    "dob": "11/8/1994",
-   "position": "SF",
+   "position": "PF",
    "uniform": 21
   },
   {
@@ -6574,17 +6520,8 @@
    "role": "filler",
    "name": "Agustin Peranio",
    "dob": "6/7/1994",
-   "position": "SF",
+   "position": "PF",
    "uniform": 4
-  },
-  {
-   "league": "pro",
-   "team": "TIL",
-   "role": "filler",
-   "name": "Rolland Pearson",
-   "dob": "10/28/1992",
-   "position": "SG",
-   "uniform": 52
   },
   {
    "league": "pro",
@@ -6592,17 +6529,8 @@
    "role": "filler",
    "name": "Lance Moitoso",
    "dob": "4/18/1996",
-   "position": "SG",
+   "position": "C",
    "uniform": 6
-  },
-  {
-   "league": "pro",
-   "team": "TIL",
-   "role": "filler",
-   "name": "Tijjani Vashon",
-   "dob": "5/5/1994",
-   "position": "SG",
-   "uniform": 36
   },
   {
    "league": "pro",
@@ -6619,35 +6547,8 @@
    "role": "filler",
    "name": "Pat Akbulut",
    "dob": "4/21/1998",
-   "position": "PG",
+   "position": "SG",
    "uniform": 19
-  },
-  {
-   "league": "pro",
-   "team": "TIL",
-   "role": "reserve",
-   "name": "Rueben Persons",
-   "dob": "9/22/2004",
-   "position": "PG",
-   "uniform": 24
-  },
-  {
-   "league": "pro",
-   "team": "TIL",
-   "role": "reserve",
-   "name": "Tracy McPeak",
-   "dob": "10/28/2004",
-   "position": "SF",
-   "uniform": 55
-  },
-  {
-   "league": "pro",
-   "team": "TIL",
-   "role": "reserve",
-   "name": "Yolbul Kolb",
-   "dob": "5/13/2003",
-   "position": "C",
-   "uniform": 10
   },
   {
    "league": "pro",
@@ -6664,25 +6565,25 @@
    "role": "filler",
    "name": "Ricardo Obermiller",
    "dob": "1/14/1998",
-   "position": "C",
+   "position": "PF",
    "uniform": 30
   },
   {
    "league": "pro",
-   "team": "PET",
+   "team": "FER",
    "role": "filler",
    "name": "Deji Gandhi",
    "dob": "4/26/2002",
-   "position": "PF",
+   "position": "C",
    "uniform": 53
   },
   {
    "league": "pro",
-   "team": "PET",
+   "team": "EDM",
    "role": "filler",
    "name": "Mckinley Barrier",
    "dob": "11/7/1993",
-   "position": "PF",
+   "position": "C",
    "uniform": 54
   },
   {
@@ -6691,7 +6592,7 @@
    "role": "filler",
    "name": "Dane Wormley",
    "dob": "10/24/1996",
-   "position": "SF",
+   "position": "SG",
    "uniform": 19
   },
   {
@@ -6700,7 +6601,7 @@
    "role": "filler",
    "name": "Celestinas Clauss",
    "dob": "7/28/2004",
-   "position": "SF",
+   "position": "C",
    "uniform": 13
   },
   {
@@ -6709,17 +6610,8 @@
    "role": "filler",
    "name": "Cody Haverland",
    "dob": "6/20/2002",
-   "position": "SF",
-   "uniform": 23
-  },
-  {
-   "league": "pro",
-   "team": "PET",
-   "role": "filler",
-   "name": "Celio Core",
-   "dob": "1/21/1992",
    "position": "SG",
-   "uniform": 32
+   "uniform": 23
   },
   {
    "league": "pro",
@@ -6727,7 +6619,7 @@
    "role": "filler",
    "name": "Isaias Labuda",
    "dob": "7/9/2002",
-   "position": "SG",
+   "position": "SF",
    "uniform": 46
   },
   {
@@ -6736,7 +6628,7 @@
    "role": "filler",
    "name": "Irmantas Metzer",
    "dob": "11/25/2002",
-   "position": "SG",
+   "position": "PG",
    "uniform": 5
   },
   {
@@ -6745,7 +6637,7 @@
    "role": "filler",
    "name": "Lewis Sheely",
    "dob": "9/17/2004",
-   "position": "PG",
+   "position": "SG",
    "uniform": 33
   },
   {
@@ -6756,33 +6648,6 @@
    "dob": "4/23/2002",
    "position": "PG",
    "uniform": 10
-  },
-  {
-   "league": "pro",
-   "team": "PET",
-   "role": "reserve",
-   "name": "Bryon Bollin",
-   "dob": "3/10/2003",
-   "position": "PG",
-   "uniform": 7
-  },
-  {
-   "league": "pro",
-   "team": "PET",
-   "role": "reserve",
-   "name": "Anastas Brisker",
-   "dob": "1/9/2004",
-   "position": "SF",
-   "uniform": 35
-  },
-  {
-   "league": "pro",
-   "team": "PET",
-   "role": "reserve",
-   "name": "Kenton Hagemann",
-   "dob": "5/28/2003",
-   "position": "C",
-   "uniform": 8
   },
   {
    "league": "pro",
@@ -6799,7 +6664,7 @@
    "role": "filler",
    "name": "Harold Murphey",
    "dob": "7/11/2001",
-   "position": "C",
+   "position": "PF",
    "uniform": 8
   },
   {
@@ -6808,7 +6673,7 @@
    "role": "filler",
    "name": "Rayford Ashmore",
    "dob": "4/24/1995",
-   "position": "PF",
+   "position": "SF",
    "uniform": 40
   },
   {
@@ -6817,12 +6682,12 @@
    "role": "filler",
    "name": "Umaru Cheatam",
    "dob": "8/5/1992",
-   "position": "PF",
+   "position": "C",
    "uniform": 52
   },
   {
    "league": "pro",
-   "team": "FER",
+   "team": "PET",
    "role": "filler",
    "name": "Ronny Paddock",
    "dob": "3/24/1999",
@@ -6835,7 +6700,7 @@
    "role": "filler",
    "name": "Alfred Nock",
    "dob": "9/3/1996",
-   "position": "SF",
+   "position": "SG",
    "uniform": 53
   },
   {
@@ -6844,7 +6709,7 @@
    "role": "filler",
    "name": "Ergi Halvorsen",
    "dob": "10/21/2001",
-   "position": "SF",
+   "position": "SG",
    "uniform": 19
   },
   {
@@ -6853,25 +6718,16 @@
    "role": "filler",
    "name": "Clyde Corea",
    "dob": "5/26/2000",
-   "position": "SG",
+   "position": "PG",
    "uniform": 28
   },
   {
    "league": "pro",
-   "team": "FER",
-   "role": "filler",
-   "name": "Heino Ruben",
-   "dob": "2/16/1993",
-   "position": "SG",
-   "uniform": 4
-  },
-  {
-   "league": "pro",
-   "team": "FER",
+   "team": "COL",
    "role": "filler",
    "name": "Dong Champagne",
    "dob": "12/14/2004",
-   "position": "SG",
+   "position": "SF",
    "uniform": 25
   },
   {
@@ -6889,39 +6745,12 @@
    "role": "filler",
    "name": "Gerhold Oyler",
    "dob": "7/21/2001",
-   "position": "PG",
+   "position": "SG",
    "uniform": 38
   },
   {
    "league": "pro",
-   "team": "FER",
-   "role": "reserve",
-   "name": "Michel Nealy",
-   "dob": "6/3/2004",
-   "position": "PG",
-   "uniform": 1
-  },
-  {
-   "league": "pro",
-   "team": "FER",
-   "role": "reserve",
-   "name": "Ryan McHaney",
-   "dob": "6/3/2003",
-   "position": "SF",
-   "uniform": 41
-  },
-  {
-   "league": "pro",
-   "team": "FER",
-   "role": "reserve",
-   "name": "Inocencio Arenas",
-   "dob": "10/2/2004",
-   "position": "C",
-   "uniform": 47
-  },
-  {
-   "league": "pro",
-   "team": "SON",
+   "team": "MNR",
    "role": "filler",
    "name": "Miquel Stephenson",
    "dob": "2/2/1996",
@@ -6939,21 +6768,12 @@
   },
   {
    "league": "pro",
-   "team": "SON",
+   "team": "ASI",
    "role": "filler",
    "name": "Monte Wasielewski",
    "dob": "5/6/2003",
-   "position": "PF",
+   "position": "C",
    "uniform": 29
-  },
-  {
-   "league": "pro",
-   "team": "SON",
-   "role": "filler",
-   "name": "Teodoro Niemann",
-   "dob": "4/2/1993",
-   "position": "PF",
-   "uniform": 10
   },
   {
    "league": "pro",
@@ -6970,16 +6790,16 @@
    "role": "filler",
    "name": "Edwin Llewellyn",
    "dob": "2/25/1999",
-   "position": "SF",
+   "position": "PF",
    "uniform": 24
   },
   {
    "league": "pro",
-   "team": "SON",
+   "team": "CHE",
    "role": "filler",
    "name": "Helmfrid Strong",
    "dob": "4/12/1999",
-   "position": "SF",
+   "position": "PF",
    "uniform": 37
   },
   {
@@ -6988,7 +6808,7 @@
    "role": "filler",
    "name": "Jamie Reighard",
    "dob": "8/22/1996",
-   "position": "SG",
+   "position": "PG",
    "uniform": 33
   },
   {
@@ -6997,7 +6817,7 @@
    "role": "filler",
    "name": "V\u00edctor Bogart",
    "dob": "6/18/2002",
-   "position": "SG",
+   "position": "PF",
    "uniform": 2
   },
   {
@@ -7015,7 +6835,7 @@
    "role": "filler",
    "name": "Roosevelt Marsico",
    "dob": "4/13/1997",
-   "position": "PG",
+   "position": "SG",
    "uniform": 47
   },
   {
@@ -7024,35 +6844,215 @@
    "role": "filler",
    "name": "Carl Calahan",
    "dob": "5/16/2000",
-   "position": "PG",
+   "position": "SG",
    "uniform": 1
   },
   {
    "league": "pro",
-   "team": "SON",
-   "role": "reserve",
-   "name": "Jude Brungardt",
-   "dob": "9/17/2004",
-   "position": "PG",
-   "uniform": 44
-  },
-  {
-   "league": "pro",
-   "team": "SON",
-   "role": "reserve",
-   "name": "Aroldo Kieffer",
-   "dob": "7/28/2003",
+   "team": "PLY",
+   "role": "filler",
+   "name": "Brenton Royal",
+   "dob": "8/12/2008",
    "position": "SF",
-   "uniform": 45
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "PAR",
+   "role": "filler",
+   "name": "Andrew Davis",
+   "dob": "9/12/2006",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "TIL",
+   "role": "filler",
+   "name": "Calvin Rodriguez",
+   "dob": "8/3/2010",
+   "position": "PG",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "FER",
+   "role": "filler",
+   "name": "Carl Sandy",
+   "dob": "8/15/2008",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "LCH",
+   "role": "filler",
+   "name": "Brian Wong",
+   "dob": "8/19/2007",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "COL",
+   "role": "filler",
+   "name": "Biaggio Vargos",
+   "dob": "12/1/2009",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "ASI",
+   "role": "filler",
+   "name": "Arron Kidd",
+   "dob": "11/29/2006",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "LCH",
+   "role": "filler",
+   "name": "Brian Allen",
+   "dob": "7/30/2008",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "LCH",
+   "role": "filler",
+   "name": "Bret Yang",
+   "dob": "11/9/2009",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "CHD",
+   "role": "filler",
+   "name": "Adli Aydogan",
+   "dob": "9/7/2007",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "TIL",
+   "role": "filler",
+   "name": "Burl Miller",
+   "dob": "1/15/2006",
+   "position": "PF",
+   "uniform": 0
   },
   {
    "league": "pro",
    "team": "SON",
-   "role": "reserve",
-   "name": "Gary Kissell",
-   "dob": "4/18/2003",
+   "role": "filler",
+   "name": "Carlos Garza",
+   "dob": "12/7/2005",
    "position": "C",
-   "uniform": 11
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "ROQ",
+   "role": "filler",
+   "name": "Ben Allen",
+   "dob": "3/3/2007",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "PAR",
+   "role": "filler",
+   "name": "Antoine Thomas",
+   "dob": "11/27/2005",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "PLY",
+   "role": "filler",
+   "name": "Brendan Brown",
+   "dob": "5/29/2007",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "EDM",
+   "role": "filler",
+   "name": "Acunal Kaptan",
+   "dob": "2/26/2006",
+   "position": "PF",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "ASI",
+   "role": "filler",
+   "name": "Antony Fletcher",
+   "dob": "6/16/2006",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "PAR",
+   "role": "filler",
+   "name": "Anderson Cartwright",
+   "dob": "8/1/2006",
+   "position": "SF",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "CHE",
+   "role": "filler",
+   "name": "Alfredo Johnson",
+   "dob": "10/31/2006",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "ROQ",
+   "role": "filler",
+   "name": "Benito Brugera",
+   "dob": "3/21/2005",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "PET",
+   "role": "filler",
+   "name": "Carl McNeil",
+   "dob": "6/23/2006",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "CHD",
+   "role": "filler",
+   "name": "Al Rodriguez",
+   "dob": "4/26/2005",
+   "position": "SG",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "MTY",
+   "role": "filler",
+   "name": "Burl Case",
+   "dob": "2/15/2005",
+   "position": "PG",
+   "uniform": 0
   }
  ]
 }

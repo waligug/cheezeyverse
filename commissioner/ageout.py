@@ -92,6 +92,9 @@ POSITION_CODE = {v: k for k, v in POSITION_NAME.items()}
 # broken when a player is a literal zero.
 FLOOR_RATING = 2
 FLOOR_POTENTIAL = 5
+# Mirrors tools/protect_rosters.LEAVE_ALONE: these three are never floored, so they
+# cannot be used to tell a defanged body from a real one.
+_LEAVE_ALONE = {"3pUsage", "Fouling", "Stamina"}
 
 
 class AgeOutError(Exception):
@@ -309,6 +312,132 @@ def _rebase_reserves(L, key, season, cap, intake_age):
         row["dob"] = fresh
     return rebased, manifest
 
+def _write_manifest(manifest):
+    """Temp file then replace. See the note at the manifest write in apply()."""
+    tmp = MANIFEST.with_suffix(".tmp")
+    tmp.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    tmp.replace(MANIFEST)
+
+
+def sync_manifest(L, key, keep, manifest):
+    """Make this league's FILLER rows say who is actually on its rosters.
+
+    WHY THIS EXISTS. The manifest is the list of bodies the universe considers its own, and
+    `tools/protect_rosters.py` defangs and evicts everybody it does not name. Nothing ever added
+    the intake to it: `apply()` recycles a free-agent body, renames it and signs it to a team,
+    and the manifest never hears about it - so the very next roster guard saw a stranger on a
+    roster and threw it off again. That is the loop that emptied the rosters, and it is why the
+    guard still finds 72 strangers in prep and 93 in college on EVERY sim week, releasing and
+    re-signing the same people and rewriting a 5-10 MB save each time for no change at all.
+
+    Registering them closes it: the guard finds nothing to do and short-circuits.
+
+    RESERVE ROWS ARE NEVER TOUCHED HERE. They are signup seats, not bodies - `free_slots` and
+    `stamp_character` find them by the name and date recorded here, so rewriting one loses a
+    seat. Neither are characters: they live on a reserve row under their own name, and `keep`
+    holds both them and the seats.
+
+    Rebuilt rather than patched, so it is self-healing. Three seasons of drift left 79 rows in
+    prep and 93 in college pointing at players who no longer exist, and a rule that only appends
+    would carry those forever.
+
+    Returns (manifest, registered, dropped). The caller writes it, and only for the real save.
+    """
+    spec = cfg.BY_KEY[key]
+    ids = sorted({p.values["Team"] for p in L.players if p.values["Team"] >= 1})
+    abbrev_of = {tid: spec.teams[i].abbrev for i, tid in enumerate(ids) if i < len(spec.teams)}
+    was = {(r["name"], r["dob"]): r for r in manifest["players"]
+           if r["league"] == key and r["role"] == "filler"}
+
+    rows = []
+    for pl in L.players:
+        if pl.values["Team"] < 1 or pl.name in keep:
+            continue                       # in the pool, or a seat/character - not a filler row
+        old = was.get((pl.name, pl.dob))
+        rows.append({"league": key, "team": abbrev_of.get(pl.values["Team"], ""),
+                     "role": "filler", "name": pl.name, "dob": pl.dob,
+                     "position": POSITION_NAME.get(pl.values["Position"], ""),
+                     "uniform": (old or {}).get("uniform", 0)})
+
+    now = {(r["name"], r["dob"]) for r in rows}
+    registered = [r["name"] for r in rows if (r["name"], r["dob"]) not in was]
+    dropped = [r["name"] for k, r in was.items() if k not in now]
+    manifest["players"] = ([r for r in manifest["players"]
+                            if not (r["league"] == key and r["role"] == "filler")] + rows)
+    return manifest, registered, dropped
+
+
+def reconcile(key, save_path=None, store=None, log=print, restore_ratings=True, seed=None):
+    """Register today's rosters, and give back the ratings the guard took off them.
+
+    The repair for drift that has already happened. Two halves, and the second is why it writes
+    the save as well as the manifest.
+
+    A body the manifest does not name is DEFANGED to floor ratings every sim week, and the intake
+    was never registered - so a third of prep and college ended up rated 2 across the board. 81
+    and 93 players respectively, on rosters, playing games. A league of floor-rated bodies is not
+    a league: the point of the AI population is that a character has somebody to face, and
+    minutes are supposed to be earned against real opposition rather than handed over by default.
+
+    So every newly-registered body that is sitting at the floor is regenerated into its league's
+    own filler band - `spec.ratings` and `spec.potentials`, the same generator that made the
+    original population - at its CURRENT age, not reset to an intake age. Bodies that already
+    have real ratings are left exactly as they are.
+
+    Never touches a character or a reserve seat: both are in `keep`, and `sync_manifest` excludes
+    them from the filler rows this works from.
+    """
+    spec = cfg.BY_KEY[key]
+    path = Path(save_path) if save_path else DOCS / "leaguedata" / spec.save_name / "league.dat"
+    L = LeagueDat(path)
+    keep = protected_names(key, store)
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    manifest, registered, dropped = sync_manifest(L, key, keep, manifest)
+
+    restored = []
+    if restore_ratings:
+        rng = random.Random(seed if seed is not None else (hash((key, "reconcile")) & 0xFFFFFFFF))
+        first_pool, last_pool = gen.name_pools()
+        towns = gen.hometowns()
+        skill = [f for f in RATINGS if f not in _LEAVE_ALONE]
+        # Season only decides the age we regenerate him AT; read it off the save so a repair run
+        # outside an offseason still gets it right.
+        season = L.season_day()[1]
+        for pl in L.players:
+            # ANY rostered filler at the floor, not only the ones registered just now. Nine
+            # prep bodies were already in the manifest and still rated 2 - defanged by some
+            # earlier pass and never given back - and skipping them would leave rating-2 players
+            # in the rotation for exactly the reason this function exists to fix.
+            if pl.values["Team"] < 1 or pl.name in keep:
+                continue
+            if max(pl.values[f] for f in skill) > FLOOR_RATING:
+                continue                   # he kept his ratings; leave him alone
+            row = gen.make_player(rng, spec, spec.teams[0],
+                                  POSITION_NAME.get(pl.values["Position"], "C"),
+                                  max(spec.age_range[0], min(spec.age_range[1],
+                                                             age_of(pl, season))),
+                                  first_pool, last_pool, towns)
+            for field in RATINGS:
+                if field in row:
+                    L.set(pl, field, int(row[field]))
+            for field in POTENTIALS:
+                if field in row:
+                    L.set(pl, field, int(row[field]))
+            restored.append(pl.name)
+
+    log(f"   {key}: {len(registered)} registered, {len(dropped)} stale row(s) dropped, "
+        f"{len(restored)} defanged body/bodies given real ratings")
+    if save_path is None:
+        if restored:
+            L.save(backup_dir=BACKUPS)
+        if registered or dropped:
+            _write_manifest(manifest)
+    elif registered or dropped or restored:
+        if restored:
+            L.save(backup_dir=BACKUPS)     # the copy may be written; the one manifest may not
+        log(f"   {key}: copy run - the manifest was left alone")
+    return {"league": key, "registered": registered, "dropped": dropped, "restored": restored}
+
 def apply(key, season, store=None, save_path=None, dry_run=False, log=print, seed=None):
     """Retire the over-age, refill with a new intake, and write the save.
 
@@ -444,9 +573,17 @@ def apply(key, season, store=None, save_path=None, dry_run=False, log=print, see
     # ---- 3. the unclaimed reserve seats get their youth back --------------------------------
     rebased, manifest = _rebase_reserves(L, key, season, cap, intake_age)
 
+    # ---- 4. tell the manifest who is on the rosters now -------------------------------------
+    # Without this the intake signed above is a stranger to tools/protect_rosters.py, which
+    # evicts it on the next sim week - the loop that emptied the rosters.
+    manifest, registered, dropped = sync_manifest(L, key, keep, manifest)
+
     log(f"   {key}: {len(retired)} aged out at {cap}+, {len(arrived)} joined at {intake_age}")
     if rebased:
         log(f"   {key}: {len(rebased)} unclaimed reserve seat(s) reset to {intake_age}")
+    if registered or dropped:
+        log(f"   {key}: manifest now names {len(registered)} new filler(s), "
+            f"{len(dropped)} stale row(s) dropped")
     if not dry_run and (retired or arrived or rebased):
         L.save(backup_dir=BACKUPS)
         # AFTER the save, never before: a manifest pointing at a date the save does not have is a
@@ -456,20 +593,19 @@ def apply(key, season, store=None, save_path=None, dry_run=False, log=print, see
         # or tests/test_age_out.py, which runs the real thing against a duplicate on purpose.
         # There is ONE manifest, and rewriting it from a copy would move the live universe's
         # slot dates to match dates only the copy has, breaking every future claim and refill.
-        if rebased and save_path is None:
+        if (rebased or registered or dropped) and save_path is None:
             # TEMP FILE THEN REPLACE, like league_dat.save, statsarchive.save and
             # gamesarchive.save. A truncating write is the wrong shape for this file:
             # protected_names, characters.free_slots, offseason.refill and the signup placement
             # all do a bare json.loads on it, so an interrupted write is not a stale manifest,
             # it is no manifest - no signup can be placed and the next age-out cannot run.
-            tmp = MANIFEST.with_suffix(".tmp")
-            tmp.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
-            tmp.replace(MANIFEST)
-        elif rebased:
+            _write_manifest(manifest)
+        elif rebased or registered or dropped:
             log(f"   {key}: copy run - the manifest was left alone, so its reserve dates "
                 f"no longer match this file")
     elif dry_run:
         log(f"   {key}: DRY RUN - nothing was written")
     return {"league": key, "capped": True, "cap": cap, "intake_age": intake_age,
             "season": int(season), "retired": retired, "arrived": arrived,
-            "camp_cuts": camp_cuts, "rebased_reserves": rebased, "dry_run": dry_run}
+            "camp_cuts": camp_cuts, "rebased_reserves": rebased,
+            "registered": registered, "dropped": dropped, "dry_run": dry_run}
