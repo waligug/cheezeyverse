@@ -2,6 +2,7 @@ fixtures/saves/
 __pycache__/
 *.pyc
 backups/
+logs/
 tmp/
 .env
 # generated league sites are rebuilt from the saves on every publish
