@@ -563,7 +563,9 @@ class FBPB3:
             for _attempt in range(2):
                 if self._button_text(HOTSEAT_END_SEASON) == "ENDSEASON":
                     raise OffseasonReached("END SEASON is visible; SIM DAY has ended")
-                self._expect_button(HOTSEAT_SIM_DAY, "SIM DAY", timeout=3)
+                # require_idle=False: a sim day's own progress form is not a reason to hold
+                # the click, and the date check below is what proves the day actually advanced.
+                self._expect_button(HOTSEAT_SIM_DAY, "SIM DAY", timeout=3, require_idle=False)
                 self.click(HOTSEAT_SIM_DAY, 0)
                 if self._wait_for_new_day(before, timeout, settle):
                     break
@@ -902,18 +904,40 @@ class FBPB3:
                     return True
         return False
 
-    def _expect_button(self, xy, label, timeout=15):
+    def _expect_button(self, xy, label, timeout=15, require_idle=True):
+        """Wait until the button at `xy` really says `label`.
+
+        `require_idle` ALSO waits for the progress popup to go, which is what an offseason phase
+        needs: END SEASON changes the stage before its scouting popup closes, and the underlying
+        label is readable the whole time, so the label alone is not proof the work finished.
+
+        IT IS WRONG FOR A SIM DAY, and turning it on for every button is what stopped a sim on
+        2026-09-21 with "Expected SIM DAY at (794, 585); read 'SIMDAY'". Those two strings are
+        equal - `screen_text.read` already normalises, and normalize("SIM DAY") is "SIMDAY" - so
+        the label matched on the first read every time. The popup half never cleared: a normal
+        sim day paints its own progress form, which `_progress_popup_visible` cannot tell from
+        the end-season one, so the 3 s wait always expired and the day's click was never sent.
+        The daily loop already proves its work a better way, by waiting for the DATE to move.
+        """
         from .screen_text import normalize
         end = time.monotonic() + timeout
-        last = ""
+        last, busy = "", False
         while time.monotonic() < end:
             boxes = self._message_boxes()
             if boxes:
                 raise DriverError(f"Waiting for {label}, but a message box is open: {boxes}")
             last = self._button_text(xy)
-            if not self._progress_popup_visible() and last == normalize(label):
+            matched = last == normalize(label)
+            busy = require_idle and self._progress_popup_visible()
+            if matched and not busy:
                 return
             time.sleep(0.2)
+        # SAY WHICH HALF FAILED. The old message printed only the text, so a wait that timed out
+        # on the popup read as a label mismatch and sent everybody after the wrong thing.
+        if last == normalize(label):
+            raise DriverError(
+                f"{label} at {xy} was readable the whole time, but a progress popup never "
+                f"cleared within {timeout}s. No further click was sent.")
         raise DriverError(f"Expected {label} at {xy}; read {last!r}. No further click was sent.")
 
     def _wait_stage_change(self, before, timeout=120):
