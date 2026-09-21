@@ -625,6 +625,8 @@ class FBPB3:
             raise DriverError(f"calendar did not visibly select {target.isoformat()}")
 
         ready = self._grab(self.HOTSEAT_BOTTOM_RIGHT_BOX).tobytes()
+        progress_signature = self._date_signature()
+        confirmed_steps = 0
         self.click(HOTSEAT_SIM_TO_GAME, 0)
         deadline = time.time() + (timeout or max(60, n * 5))
         seen_busy = False
@@ -638,6 +640,20 @@ class FBPB3:
             button = self._grab(self.HOTSEAT_BOTTOM_RIGHT_BOX).tobytes()
             if button != ready:
                 seen_busy = True
+                # FBPB repaints the visible date as it advances. We may miss dates when it runs
+                # faster than the screen poll, so this is deliberately a lower bound: every new
+                # signature proves at least one more day completed, and the final callback below
+                # supplies the exact total. This keeps the panel and Discord alive without any
+                # extra clicks while the game owns the simulation loop.
+                signature = self._date_signature()
+                if signature != progress_signature and confirmed_steps < n - 1:
+                    progress_signature = signature
+                    confirmed_steps += 1
+                    if on_day is not None:
+                        try:
+                            on_day(confirmed_steps, n)
+                        except Exception:
+                            pass
             elif seen_busy:
                 self._wait_until_still(settle=0.4, timeout=5, poll=0.1, cheap=True)
                 if (self._grab(self.HOTSEAT_BOTTOM_RIGHT_BOX).tobytes() == ready

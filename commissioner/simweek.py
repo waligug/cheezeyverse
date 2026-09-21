@@ -953,6 +953,18 @@ def _refuse_to_cross_the_season(keys, days, emit, allow_season_end=False, season
         f"nothing here is built to drive.")
 
 
+def _restore_calendar_checkpoint(game, checkpoint, live_path):
+    """Close FBPB and replace a wrong-date save with its post-prepare checkpoint."""
+    try:
+        game.exit_game(save=False)
+    except Exception:
+        FBPB3.kill()
+    checkpoint = Path(checkpoint) if checkpoint else None
+    if checkpoint is None or not checkpoint.is_file():
+        raise RuntimeError("the post-prepare recovery checkpoint is missing")
+    shutil.copy2(checkpoint, live_path)
+
+
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             allow_season_end=False, expected_state=None, days_by_league=None, expected_states=None,
             start_dates=None):
@@ -994,6 +1006,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     result = {"ok": False, "leagues": keys, "days": days, "dry_run": dry_run, "applied": 0,
               "activated": 0, "snapshots": 0, "news": {}, "errors": []}
     game = None
+    prepared_backups = {}
     fresh_mdb = set()
     # Defined before the try because the finally logs it, and a refusal raises above the read.
     season_now, settings = None, {}
@@ -1154,6 +1167,12 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             else:
                 emit("apply", "nothing pending", key)
             at("prepare", key, 1)
+            # The ordinary backup predates activation and point purchases. A calendar miss must
+            # preserve those store-synchronised writes while undoing only the basketball, so
+            # retain the exact post-prepare file as a second recovery point.
+            prepared = dest / "prepared-league.dat"
+            shutil.copy2(path, prepared)
+            prepared_backups[key] = prepared
 
         if dry_run:
             emit("done", "dry run complete - nothing was written or simmed", pct=100)
@@ -1212,9 +1231,22 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 stored = find_season_day(ch.save_path(key).read_bytes())
                 wanted = (int(expected[0]) + day_counts[key], int(expected[1]))
                 if stored != wanted:
+                    # The wrong date is already on disk because league.dat exposes its day only
+                    # after SAVE. Close FBPB before replacing a file it owns, then restore the
+                    # post-prepare checkpoint so applied requests and activations stay aligned
+                    # with the store while none of this league's accidental basketball survives.
+                    active_game, game = game, None
+                    try:
+                        _restore_calendar_checkpoint(
+                            active_game, prepared_backups.get(key), ch.save_path(key))
+                    except Exception as restore_exc:
+                        raise RuntimeError(
+                            f"{spec.name}: save landed on season day {stored}, expected {wanted}; "
+                            f"recovery failed ({restore_exc})") from restore_exc
                     raise RuntimeError(
                         f"{spec.name}: save landed on season day {stored}, expected {wanted}; "
-                        "export and publish were stopped")
+                        "the league was restored to its pre-sim checkpoint and export/publish "
+                        "were stopped")
             at("export", key)
             emit("export", f"writing {spec.name} pages", key)
             # old_boxes=True writes the BOX SCORES for the games in the export's window, so the
@@ -1225,9 +1257,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # covers its own games comfortably and a season left unexported cannot be recovered.
             out = game.html_output(spec.save_name, old_boxes=True)
             emit("export", f"{len(list(out.rglob('*.htm')))} pages", key)
+            league_news_characters = [c for c in news_characters if c.get("league") == key]
             new_business = leaguenews.real_player_trades(
                 leaguenews.new_rows(news_before[key], leaguenews.snapshot(out)),
-                news_characters)
+                league_news_characters)
             if new_business:
                 result["news"][key] = new_business
                 emit("export", f"{len(new_business)} real-player trade(s) recorded", key)

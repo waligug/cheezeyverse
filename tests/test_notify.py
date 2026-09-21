@@ -34,6 +34,11 @@ RESULT = {"leagues": ["prep", "college", "pro"], "days": 7, "dry_run": False}
 
 
 def main():
+    # Test processes must be unable to reach the production webhook from .env.  This protects
+    # both notify.post and the background SimStatus worker even when a new test forgets a mock.
+    assert notify._running_under_tests()
+    assert notify.url() == "", "a test process can see the live Discord webhook"
+
     # ---- the report says the things worth saying ------------------------------------------
     text = simweek._discord_report(STEPS, RESULT, 659.3)
     for wanted in ("Sim done", "1 week(s)", "11 min", "Liam Zimmel claimed ARI",

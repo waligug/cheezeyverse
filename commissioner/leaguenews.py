@@ -63,11 +63,15 @@ def new_rows(before, after):
 
 def real_player_trades(rows, characters):
     """Return only trades that name one of the community's tracked characters."""
-    names = []
+    counts = Counter()
     for character in characters or []:
         name = f'{character.get("first_name", "")} {character.get("last_name", "")}'.strip()
         if name:
-            names.append(re.compile(rf'(?<!\w){re.escape(name)}(?!\w)', re.IGNORECASE))
+            counts[name.casefold()] += 1
+    # A name-only transaction ledger cannot tell two same-named characters apart. Omit that
+    # ambiguous row instead of crediting both or whichever character happened to be first.
+    names = [re.compile(rf'(?<!\w){re.escape(name)}(?!\w)', re.IGNORECASE)
+             for name, count in counts.items() if count == 1]
     out = []
     for row in rows:
         action = row.get("action", "")

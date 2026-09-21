@@ -33,6 +33,10 @@ with tempfile.TemporaryDirectory() as tmp:
     filtered = leaguenews.real_player_trades(
         rows, [{"first_name": "Same", "last_name": "Guy"}])
     assert filtered == [rows[0]], filtered
+    ambiguous = leaguenews.real_player_trades(
+        rows, [{"first_name": "Same", "last_name": "Guy"},
+               {"first_name": "Same", "last_name": "Guy"}])
+    assert ambiguous == [], ambiguous
     lines = leaguenews.report_lines({"prep": filtered}, limit=1)
     assert "Same Guy" in lines[0] and len(lines) == 1, lines
 

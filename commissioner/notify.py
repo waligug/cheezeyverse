@@ -20,8 +20,11 @@ one, so nothing here complains about its absence.
 from __future__ import annotations
 
 import json
+import os
+import sys
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 from . import settings as cfg
 
@@ -29,7 +32,25 @@ TIMEOUT = 8          # a slow webhook must not hold up the pipeline behind it
 MAX_LENGTH = 1900    # Discord rejects a message over 2000 characters outright
 
 
+def _running_under_tests():
+    """Keep every test runner away from the configured live Discord webhook.
+
+    Most tests replace ``post`` or ``SimStatus`` with a fake, but that is too fragile for a
+    machine whose normal .env contains the production webhook.  Put the safety boundary here,
+    where both the one-line notifier and the live status card obtain their target.
+    """
+    if os.environ.get("PYTEST_CURRENT_TEST") or "pytest" in sys.modules:
+        return True
+    script = Path(sys.argv[0] or "").resolve()
+    if script.name.startswith("test_") and "tests" in {part.casefold() for part in script.parts}:
+        return True
+    return any(name.startswith("tests.") or name.startswith("test_") for name in sys.modules)
+
+
 def url():
+    if (_running_under_tests()
+            and os.environ.get("CHEEZEYVERSE_ALLOW_TEST_DISCORD") != "1"):
+        return ""
     return (cfg.get("DISCORD_WEBHOOK_URL", "") or "").strip()
 
 
