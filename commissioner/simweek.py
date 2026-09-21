@@ -1140,6 +1140,11 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             result["ok"] = True
             return result
 
+        # Point purchases and any store-only corrections are now in the save. Capture them with
+        # the complete snapshot history before FBPB3 gets a chance to run development logic.
+        from . import seasonflow
+        progress_floors = {key: seasonflow.capture_character_progress(st, key) for key in keys}
+
         # ---- 2. drive the game ---------------------------------------------------------------
         from . import leaguenews
         news_before = {key: leaguenews.snapshot(ch.save_path(key).parent / "html") for key in keys}
@@ -1238,7 +1243,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 after = _protect(key, store_characters=st.characters())
             except Exception as exc:
                 emit("apply", f"post-sim tidy failed for {key} ({exc}); the week itself is fine", key)
-                continue
+                after = {}
             if after.get("released") or after.get("signed"):
                 emit("apply", f'tidied up after the week: {after["released"]} of the AI\'s '
                               f'signings out, {after["signed"]} of ours back on a roster', key)
@@ -1274,6 +1279,14 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                                   f'the coach benched them: {", ".join(redressed[:4])}', key)
             except Exception as exc:
                 emit("apply", f"could not re-dress in {key} ({exc}); the week itself is fine", key)
+
+            # Native development has reduced real ratings (especially Jumping) and potential
+            # ceilings at season boundaries. Apply the lifetime floor before snapshots or the
+            # site can record and publish the damaged sheet as if it were legitimate progress.
+            repaired = seasonflow.protect_character_progress(st, key, progress_floors.get(key))
+            changed = [row for row in repaired if row["changed"]]
+            if changed:
+                emit("apply", f"restored protected progress for {len(changed)} character(s)", key)
 
         # ---- 2c. where each league now stands ---------------------------------------------------
         # Said out loud every run, because the interesting transitions are invisible otherwise:

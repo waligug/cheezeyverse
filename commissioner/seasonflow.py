@@ -7,6 +7,101 @@ from .driver.fbpb3 import FBPB3
 from .universe import config as cfg
 
 
+def _character_floor(store, character, *sheets):
+    """Highest value ever recorded for every protected field.
+
+    Snapshots are the durable career record.  A rollover backup can already contain damage from
+    an earlier season, so protecting only the immediately preceding save is not enough.
+    """
+    values = {}
+    for sheet in sheets:
+        for field in RATINGS + POTENTIALS:
+            if sheet and field in sheet:
+                values[field] = max(values.get(field, 0), int(sheet[field]))
+    stored_ratings = character.get("ratings") or {}
+    stored_potentials = character.get("potentials") or {}
+    for field in RATINGS:
+        if field in stored_ratings:
+            values[field] = max(values.get(field, 0), int(stored_ratings[field]))
+    for rating, potential in ch.POT_BY_RATING.items():
+        if rating in stored_potentials:
+            values[potential] = max(values.get(potential, 0), int(stored_potentials[rating]))
+    snapshot_reader = getattr(store, "snapshots", lambda _character_id: [])
+    for row in snapshot_reader(character["id"]):
+        for field, value in (row.get("ratings") or {}).items():
+            if field in RATINGS and value is not None:
+                values[field] = max(values.get(field, 0), int(value))
+        for rating, value in (row.get("potentials") or {}).items():
+            potential = ch.POT_BY_RATING.get(rating, rating if rating in POTENTIALS else None)
+            if potential and value is not None:
+                values[potential] = max(values.get(potential, 0), int(value))
+    # A ceiling below the ability it governs is internally inconsistent and lets the native
+    # game pull that ability down on its next development pass.
+    for rating, potential in ch.POT_BY_RATING.items():
+        if rating in values:
+            values[potential] = max(values.get(potential, 0), values[rating])
+    return values
+
+
+def _league_characters(store, key):
+    try:
+        rows = store.characters(league=key)
+    except TypeError:  # small test/dry-run stores may only expose characters()
+        rows = store.characters()
+    return [c for c in rows if c.get("league") == key and
+            c.get("status") in ("active", "declared")]
+
+
+def capture_character_progress(store, key, live_path=None):
+    """Capture historical and current floors immediately before the native game runs."""
+    characters = _league_characters(store, key)
+    if not characters:
+        return {}
+    live = LeagueDat(Path(live_path) if live_path else ch.save_path(key))
+    floors = {}
+    for character in characters:
+        name = f'{character["first_name"]} {character["last_name"]}'
+        dob = ch.codec_dob(character.get("game_dob") or
+                           (character.get("claimed_slot") or {}).get("dob"))
+        player = live.find(name, dob)
+        floors[character["id"]] = _character_floor(store, character, player.values)
+    return floors
+
+
+def protect_character_progress(store, key, floors=None, live_path=None, dry_run=False):
+    """Restore any rating or potential the native game lowered, retaining every increase."""
+    characters = _league_characters(store, key)
+    if not characters:
+        return []
+    live = LeagueDat(Path(live_path) if live_path else ch.save_path(key))
+    planned, expected = [], []
+    for character in characters:
+        name = f'{character["first_name"]} {character["last_name"]}'
+        dob = ch.codec_dob(character.get("game_dob") or
+                           (character.get("claimed_slot") or {}).get("dob"))
+        player = live.find(name, dob)
+        floor = _character_floor(store, character, (floors or {}).get(character["id"]), player.values)
+        wanted = {field: max(player.values[field], floor.get(field, player.values[field]))
+                  for field in RATINGS + POTENTIALS}
+        changed = {field: (player.values[field], value) for field, value in wanted.items()
+                   if player.values[field] != value}
+        planned.append({"id": character["id"], "name": name, "dob": dob,
+                        "changed": changed, "values": wanted})
+        if changed:
+            for field, value in wanted.items():
+                live.set(player, field, value)
+            expected.append((name, dob, wanted))
+    if dry_run:
+        return planned
+    if expected:
+        live = ch.commit(live, expected)
+    for row in planned:
+        player = live.find(row["name"], row["dob"])
+        store.set_character_field(row["id"], "ratings", {f: player.values[f] for f in RATINGS})
+        store.set_character_field(row["id"], "potentials", ch.store_potentials(player.values))
+    return planned
+
+
 def readiness(season, already_locked=False):
     from .saveguard import SAVE_LOCK
     if not already_locked and not SAVE_LOCK.acquire(blocking=False):
@@ -90,8 +185,8 @@ def restore_character_sheets(store, key, source_path, live_path=None, dry_run=Tr
         before = source.find(name, dob)
         now = live.find(name, dob)
         after = post.find(name, dob)
-        values = {field: max(before.values[field], after.values[field])
-                  for field in RATINGS + POTENTIALS}
+        values = _character_floor(store, character, before.values, after.values, now.values)
+        values = {field: values[field] for field in RATINGS + POTENTIALS}
         changed = {field: (now.values[field], wanted) for field, wanted in values.items()
                    if now.values[field] != wanted}
         planned.append({"id": character["id"], "name": name, "dob": dob,
@@ -168,8 +263,8 @@ def rollover_saves(store, season, journal, log):
             # Keep passive Training Camps growth, but never let camps erase midseason development
             # or point purchases.  Johnny's first rollover cut Jumping 25 -> 12; taking the larger
             # pre/post value retains every gain while making that kind of regression impossible.
-            sheet = {field: max(sheet[field], pl.values[field])
-                     for field in RATINGS + POTENTIALS}
+            sheet = _character_floor(store, character, sheet, pl.values)
+            sheet = {field: sheet[field] for field in RATINGS + POTENTIALS}
             values = dict(BirthMonth=month, BirthDay=day, BirthYear=year,
                           Height=height, Weight=weight, **sheet)
             for field, value in values.items():

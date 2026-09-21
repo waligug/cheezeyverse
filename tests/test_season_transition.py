@@ -108,6 +108,24 @@ class TransitionTests(unittest.TestCase):
         self.assertFalse(self.events)
         self.assertIsNone(simweek.interrupted_run())
 
+    def test_lifetime_floor_restores_old_losses_and_keeps_new_growth(self):
+        character = {
+            'id':'kid', 'ratings':{'Jumping':11, 'Quickness':40},
+            'potentials':{'3pShot':63, 'JumpShot':64},
+        }
+        history = [{
+            'ratings':{'Jumping':25, 'Quickness':38},
+            'potentials':{'3pShot':73, 'JumpShot':78},
+        }]
+        store = SimpleNamespace(snapshots=lambda cid: history)
+        live = {'Jumping':12, 'Quickness':44, '3pShot':63,
+                'Pot3pShot':63, 'PotJumpShot':64}
+        floor = seasonflow._character_floor(store, character, live)
+        self.assertEqual(floor['Jumping'], 25)
+        self.assertEqual(floor['Quickness'], 44)
+        self.assertEqual(floor['Pot3pShot'], 73)
+        self.assertEqual(floor['PotJumpShot'], 78)
+
     def test_rollover_preserves_character_body_and_records_new_engine_ratings(self):
         character = dict(id='kid', first_name='Young', last_name='Player', status='active',
                          game_dob='2011-06-15', league_player_ids={'prep':7})
