@@ -442,10 +442,7 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
 }
 
 /**
- * How old he is in game years. `height_inches` on the row is his height AT FOURTEEN and
- * never moves; the commissioner writes the grown inches into the save file, and this page
- * recomputes them from the same model. So the age is what decides how much of the curve
- * has actually happened.
+ * How old he is in game years. `height_inches` on the row holds his current recorded height.
  *
  * A pending character has no game_dob yet, so he is fourteen.
  */
@@ -472,30 +469,9 @@ function currentAge(character, currentSeason) {
  * height at fourteen and his genes and was never a secret.
  */
 function heightBlock(character, age) {
-  const genes = Number((character.traits || {}).height_genes);
-  if (!Number.isFinite(genes)) {
-    return el('p', { class: 'cv-muted' }, formatHeight(character.height_inches));
-  }
-  const start = Number(character.height_inches);
-  const expected = Number(character.expected_adult_height) || expectedAdultHeight(start, genes);
-  const sofar = growthCurve(character.id, start, genes).filter((p) => p.age <= age);
-  const now = sofar[sofar.length - 1];
-
-  const line = el('p', {},
-    el('b', {}, age <= START_AGE
-      ? `${formatHeight(start)}, and he is ${START_AGE}.`
-      : `${formatHeight(now.inches)} at ${age}, up from ${formatHeight(start)} at ${START_AGE}.`),
-    ` He is expected to finish somewhere around ${formatHeight(expected)}`
-    + `, but that is an expectation and not a ceiling - he keeps growing a little every `
-    + `offseason until he is ${GROWTH_END_AGE}, less each year, and there is nothing in the `
-    + 'model that says stop. You find out how tall he is when he gets there.');
-
-  const strip = el('div', { class: 'cv-growth' },
-    sofar.map((p) => el('span', { class: 'cv-growth-step', title: `age ${p.age}` },
-      el('b', {}, formatHeight(p.inches)),
-      el('em', {}, String(p.age)))));
-
-  return el('div', {}, line, strip);
+  return el('div', {}, el('p', {}, el('b', {}, `${formatHeight(character.height_inches)} now.`)),
+    el('p', { class: 'cv-muted' },
+      'Recorded height, updated after offseason growth. Future growth is not added to this number.'));
 }
 
 function requestTable(requests) {

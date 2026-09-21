@@ -55,6 +55,7 @@ let LEAGUE = 'pro';          // the deepest history, so the page opens on someth
 let SORT = 'Points';
 let DIR = -1;                // -1 biggest first, 1 smallest first
 let ONLY_OURS = false;
+let PER_GAME = false;
 let OURS = new Set();        // lower-cased names of the characters, for the marker
 
 function isOurs(row) {
@@ -66,16 +67,27 @@ function isOurs(row) {
    ten in a league of four hundred - and worse, re-ranking the survivors 1..7 would invent a
    standing that does not exist. The whole question is "where does he actually come", so the
    rank is taken from the full career list before anyone is filtered out. */
-function oursRanked(careers, stat, limit) {
-  const ordered = careers.slice().sort((a, b) => num(b[stat]) - num(a[stat]));
-  const out = [];
-  for (let i = 0; i < ordered.length && out.length < limit; i += 1) {
-    if (!isOurs(ordered[i])) continue;
-    const c = ordered[i];
-    out.push({ name: c.name, value: c[stat], games: c.Games, rank: i + 1,
-               from: c.first_season, to: c.last_season });
-  }
-  return out;
+function ranked(careers, stat, limit) {
+  const value = c => PER_GAME ? num(c[stat]) / Math.max(1, num(c.Games)) : num(c[stat]);
+  const ordered = careers.filter(c => num(c.Games) > 0).slice().sort((a, b) =>
+    value(b) - value(a) || String(a.name).localeCompare(String(b.name)));
+  return ordered.map((c, i) => ({ name: c.name, value: value(c), games: c.Games,
+    rank: i + 1, from: c.first_season, to: c.last_season }))
+    .filter(c => !ONLY_OURS || isOurs(c)).slice(0, limit);
+}
+
+function renderControls(data) {
+  const host = $('#all-time-controls');
+  clear(host);
+  host.append(el('label', {}, el('input', { type: 'checkbox', checked: ONLY_OURS || null,
+    onchange: e => { ONLY_OURS = e.target.checked; renderLeaders(data); renderTable(data); }
+  }), 'Real players only'));
+  host.append(el('label', {}, 'Leaders: ', el('select', {
+    onchange: e => { PER_GAME = e.target.value === 'per-game'; renderLeaders(data); }
+  }, el('option', { value: 'totals', selected: !PER_GAME || null }, 'Totals'),
+     el('option', { value: 'per-game', selected: PER_GAME || null }, 'Per game'))));
+  host.append(el('span', { class: 'cv-muted cv-small' },
+    'Per-game leaders include careers with at least one game. Ranks are across the whole league.'));
 }
 
 const CACHE = new Map();
@@ -94,7 +106,7 @@ function leaderRow(entry, rank, label) {
   return el('tr', { class: ours ? 'cv-ours' : null },
     el('td', { class: 'cv-rank' }, `${rank}`),
     el('td', {}, entry.name || '', ours ? el('span', { class: 'cv-pill is-active' }, 'ours') : null),
-    el('td', { class: 'cv-num cv-strong' }, `${num(entry.value).toLocaleString()}`),
+    el('td', { class: 'cv-num cv-strong' }, PER_GAME ? num(entry.value).toFixed(1) : num(entry.value).toLocaleString()),
     el('td', { class: 'cv-num cv-muted' }, `${num(entry.games)} g`),
     el('td', { class: 'cv-muted' }, entry.from === entry.to ? `${entry.from}` : `${entry.from}-${entry.to}`));
 }
@@ -109,12 +121,10 @@ function renderLeaders(data) {
   }
   const grid = el('div', { class: 'cv-grid' });
   for (const [key, label] of BOARDS) {
-    const rows = ONLY_OURS
-      ? oursRanked(data.careers || [], key, 10)
-      : (data.leaders[key] || []).slice(0, 10).map((r, i) => ({ ...r, rank: i + 1 }));
+    const rows = ranked(data.careers || [], key, 10);
     if (!rows.length) continue;
     grid.append(el('div', { class: 'cv-card cv-sub' },
-      el('h3', {}, `Most ${label.toLowerCase()}`),
+      el('h3', {}, PER_GAME ? `${label} per game` : `Most ${label.toLowerCase()}`),
       el('table', { class: 'cv-table cv-tight' },
         el('tbody', {}, rows.map((r) => leaderRow(r, r.rank, label))))));
   }
@@ -173,21 +183,7 @@ function renderTable(data) {
       return el('td', { class: 'cv-num' }, rate ? num(v).toFixed(1) : num(v).toLocaleString());
     }));
   });
-  const mine = data.careers.filter(isOurs).length;
-  const filter = el('div', { class: 'cv-filter' },
-    el('label', {},
-      el('input', {
-        type: 'checkbox',
-        checked: ONLY_OURS || null,
-        disabled: mine ? null : true,
-        onchange: (e) => { ONLY_OURS = e.target.checked; renderLeaders(data); renderTable(data); },
-      }),
-      el('span', {}, 'Only our players')),
-    el('span', { class: 'cv-muted cv-small' }, mine
-      ? `${mine} of ${data.careers.length} careers in this league are ours`
-      : 'nobody of ours has played in this league yet'));
   host.append(
-    filter,
     el('p', { class: 'cv-muted cv-small' },
       `Click a column to sort, again to reverse. Showing ${Math.min(rows.length, 250)} of ${rows.length}.`),
     el('div', { class: 'cv-scroll' },
@@ -207,7 +203,10 @@ function renderTabs() {
 async function load() {
   $('#leaders').replaceChildren(el('p', { class: 'cv-spinner' }, 'Loading every career...'));
   clear($('#table'));
-  const data = await careersOf(LEAGUE);
+  clear($('#all-time-controls'));
+  const requestedLeague = LEAGUE;
+  const data = await careersOf(requestedLeague);
+  if (requestedLeague !== LEAGUE) return;
   const seasons = data && data.seasons ? data.seasons : [];
   $('#coverage').textContent = seasons.length
     ? `${LEAGUE} · ${data.careers.length} careers · ${seasons.join(', ')}`
@@ -215,6 +214,7 @@ async function load() {
   $('#career-note').textContent = seasons.length
     ? 'Totals across every season, including players the game invented.'
     : '';
+  renderControls(data);
   renderLeaders(data);
   renderTable(data);
   // the tab buttons rebuild with the new "current" styling

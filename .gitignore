@@ -21,3 +21,7 @@ universe/run_in_progress.json
 
 # Permanent OS lock shared by save operations. Never delete while services run.
 universe/.save-operation.lock
+
+# Discord statistical-feats delivery ledger
+universe/feats_sent.json
+universe/feats_sent.tmp

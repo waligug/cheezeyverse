@@ -292,7 +292,7 @@ function whoHeIsNow(character, season, age, preview) {
   // frame at this year's height and age, plus the number he chose at fourteen as an offset.
   // Characters made before the weight column existed have no choice recorded, so their build
   // stands in for one - weightAt() handles that, and it is why this is never blank.
-  const weighsNow = weightAt(character, inches || character.height_inches, age);
+  const weighsNow = Number(character.weight_lbs) || weightAt(character, inches || character.height_inches, age);
   fact('Weight', `${weighsNow} lbs`
     + (character.weight_lbs && weighsNow !== character.weight_lbs
       ? ` · ${character.weight_lbs} at ${START_AGE}` : ''));
@@ -482,38 +482,18 @@ function growthSection(character, age) {
   const card = el('section', { class: 'cv-card' });
   card.append(el('div', { class: 'cv-card-head' }, el('h2', {}, 'Growth')));
 
-  card.append(el('h3', {}, 'Height by age'));
-  const genes = Number((character.traits || {}).height_genes);
-  const start = Number(character.height_inches);
-
-  if (!Number.isFinite(genes) || !Number.isFinite(start) || !character.id) {
-    card.append(note(null,
-      'No height curve for him. The model needs his id, his height at fourteen and his '
-      + '`height_genes` trait, and one of those is missing from his row.'));
-  } else {
-    const curve = growthCurve(character.id, start, genes);
-    const plotTo = Math.max(START_AGE, Math.min(GROWTH_END_AGE, age));
-    const sofar = curve.filter((p) => p.age <= plotTo);
-    const expected = Number(character.expected_adult_height) || expectedAdultHeight(start, genes);
-
-    card.append(heightChart(sofar, expected, plotTo));
-
-    const strip = el('div', { class: 'cv-growth' },
-      sofar.map((p) => el('span', { class: 'cv-growth-step', title: `age ${p.age}` },
-        el('b', {}, formatHeight(p.inches)),
-        el('em', {}, String(p.age)))));
-    card.append(strip);
-
-    const grown = sofar[sofar.length - 1].inches - start;
-    card.append(el('p', {},
-      grown > 0
-        ? `${formatHeight(start)} at ${START_AGE}, ${formatHeight(sofar[sofar.length - 1].inches)} `
-          + `at ${plotTo}. That is ${grown} inch${grown === 1 ? '' : 'es'} so far.`
-        : `${formatHeight(start)}, and he is ${START_AGE}. No offseason has happened to him yet.`,
-      ` He is expected to finish around ${formatHeight(expected)} - an expectation, not a `
-      + `ceiling. The rest of the curve is already decided and is deliberately not drawn: you `
-      + `find out how tall he is when he gets there.`));
+  card.append(el('h3', {}, 'Recorded height'));
+  card.append(el('p', {}, `${formatHeight(character.height_inches)} now. Updated after offseason growth.`));
+  const heights = (character.rating_snapshots || []).filter(s => Number(s.height_inches) > 0)
+    .slice().sort((a, b) => Number(a.season) - Number(b.season) || Number(a.week) - Number(b.week));
+  const changes = heights.filter((s, i) => !i || s.height_inches !== heights[i - 1].height_inches);
+  if (changes.length) {
+    card.append(el('div', { class: 'cv-growth' }, changes.map(s =>
+      el('span', { class: 'cv-growth-step' }, el('b', {}, formatHeight(s.height_inches)),
+        el('em', {}, `${s.season}, week ${s.week}`)))));
   }
+  card.append(el('p', { class: 'cv-muted' },
+    'Only recorded measurements are shown. Future growth is not added to the current height.'));
 
   card.append(el('h3', {}, 'Ratings over time'));
   card.append(ratingHistory(character));

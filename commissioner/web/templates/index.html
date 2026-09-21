@@ -371,6 +371,18 @@
     </div>
   </div>
 
+  <section class="card" id="statistical-feats">
+    <h2>Statistical feats</h2>
+    <p class="muted">Real players only. Scan existing box scores after a sim; this does not launch the game or add work to simulations.</p>
+    <label for="feats-scope">Look through</label>
+    <select id="feats-scope"><option value="last">Last successful sim</option><option value="season">Whole season</option></select>
+    <button type="button" id="feats-scan">Look for statistical feats</button>
+    <button type="button" id="feats-send" disabled>Post new feats to #statistical-feats</button>
+    <p class="muted">Includes career highs, double-doubles, triple-doubles, 25+ points, 15+ rebounds, 10+ assists, 5+ steals or blocks, 6+ threes, and 0-for-10 or worse shooting.</p>
+    <p id="feats-note" role="status">Nothing scanned yet.</p>
+    <div id="feats-results"></div>
+  </section>
+
   <p class="muted" style="font-size:11px">
     Local tool, bound to 127.0.0.1, no authentication. Page rendered {{ now }}.
   </p>
@@ -381,5 +393,6 @@
 <script type="application/json" id="boot">{{ boot|tojson }}</script>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 <script src="{{ url_for('static', filename='calendar.js') }}"></script>
+<script src="{{ url_for('static', filename='feats.js') }}"></script>
 </body>
 </html>

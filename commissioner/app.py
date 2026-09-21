@@ -1308,6 +1308,43 @@ def _season_arg(raw):
         return False
 
 
+# Feats read existing exports only. Hold the sim lock briefly to avoid reading a half-publish.
+_FEATS_PREVIEWS = {}
+
+
+@app.post("/api/feats/scan")
+@api
+def api_feats_scan():
+    from . import feats, settings
+    if not _SIM_LOCK.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "Wait for the simulation to finish before scanning feats."}), 409
+    try:
+        settings.reload()
+        result = feats.scan(_body().get("scope", "last"))
+        token = uuid.uuid4().hex
+        _FEATS_PREVIEWS.clear()
+        _FEATS_PREVIEWS[token] = result["events"]
+        return jsonify({"ok": True, "token": token, **result})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    finally:
+        _SIM_LOCK.release()
+
+
+@app.post("/api/feats/send")
+@api
+def api_feats_send():
+    from . import feats
+    events = _FEATS_PREVIEWS.get(_body().get("token"))
+    if events is None:
+        return jsonify({"ok": False, "error": "Scan again before posting; this preview has expired."}), 400
+    try:
+        count = feats.send(events)
+        return jsonify({"ok": True, "sent": count})
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
 @app.get("/api/history")
 @api
 def api_history():

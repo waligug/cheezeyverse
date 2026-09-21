@@ -473,25 +473,10 @@ export function classLine(klass) {
  * The class is recomputed from the sheet every time rather than read off the row, because
  * the row's `archetype` column is only the label he had on the day he was created.
  */
-/**
- * How tall he is TODAY.
- *
- * `character.height_inches` is his height at fourteen and never moves; the inches he has put on
- * since are recomputed from his id, so every surface has to ask for them rather than print the
- * stored column. Falls back to the stored height when there is not enough to compute a curve.
- */
+/** Current height is synchronized from the save after offseason growth. */
 export function heightNow(character, currentSeason) {
-  const start = Number(character.height_inches);
-  if (!Number.isFinite(start)) return null;
-  const genes = Number((character.traits || {}).height_genes);
-  if (!character.id || !Number.isFinite(genes)) return start;
-  let age = START_AGE;
-  if (character.game_dob && currentSeason) {
-    const born = new Date(character.game_dob).getUTCFullYear();
-    const guess = Number(currentSeason) - born;
-    if (Number.isFinite(guess)) age = Math.max(START_AGE, Math.min(GROWTH_END_AGE, guess));
-  }
-  return heightAtAge(character.id, start, genes, age);
+  const inches = Number(character.height_inches);
+  return Number.isFinite(inches) && inches > 0 ? inches : null;
 }
 
 export function describeCharacter(character, currentSeason) {

@@ -47,11 +47,11 @@ def _running_under_tests():
     return any(name.startswith("tests.") or name.startswith("test_") for name in sys.modules)
 
 
-def url():
+def url(setting="DISCORD_WEBHOOK_URL"):
     if (_running_under_tests()
             and os.environ.get("CHEEZEYVERSE_ALLOW_TEST_DISCORD") != "1"):
         return ""
-    return (cfg.get("DISCORD_WEBHOOK_URL", "") or "").strip()
+    return (cfg.get(setting, "") or "").strip()
 
 
 def post(text, log=print):
@@ -83,8 +83,8 @@ def post_embed(embed, text=None, log=print):
     return _send(payload, log)
 
 
-def _send(payload, log=print):
-    target = url()
+def _send(payload, log=print, setting="DISCORD_WEBHOOK_URL"):
+    target = url() if setting == "DISCORD_WEBHOOK_URL" else url(setting)
     if not target:
         return False
     request = urllib.request.Request(

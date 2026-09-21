@@ -56,6 +56,10 @@ async function boot() {
     return;
   }
   data = loaded;
+  if (data.generated) {
+    $('#notices').append(el('p', { class: 'cv-muted cv-small' },
+      `Rebuilt with each published sim. Last rebuilt: ${String(data.generated).replace('T', ' ')}. New stories appear when their criteria are met.`));
+  }
   fillFilters();
   const wanted = new URLSearchParams(window.location.search).get('player');
   if (wanted && data.players && data.players[wanted]) $('#player').value = wanted;

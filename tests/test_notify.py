@@ -42,7 +42,7 @@ def main():
     # ---- the report says the things worth saying ------------------------------------------
     text = simweek._discord_report(STEPS, RESULT, 659.3)
     for wanted in ("Sim done", "1 week(s)", "11 min", "Liam Zimmel claimed ARI",
-                   "1 point(s) to 7 character(s)", "the site is live"):
+                   "1 point(s) to 7 character(s)", "GitHub Pages deployment pending"):
         assert wanted in text, f"missing {wanted!r} from:\n{text}"
     # a rating change is not news; the placement and the payout are
     assert "Blocking" not in text, text
