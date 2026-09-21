@@ -48,6 +48,7 @@ from . import ageout
 from . import characters as ch
 from . import notify
 from . import seasonbonus
+from . import takeaways
 from . import growth
 from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
 from .universe import config as cfg
@@ -752,7 +753,7 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
         # Notification failures must never roll back a completed offseason.
         try:
             if not dry_run:
-                notify.post(_offseason_report(result), log=log)
+                notify.post(_offseason_report(result, store=store), log=log)
         except Exception:
             pass
         return result
@@ -814,7 +815,7 @@ def restore_saves(backups, log=print):
     return ok
 
 
-def _offseason_report(result):
+def _offseason_report(result, store=None):
     """The offseason, as the Discord server should hear it.
 
     Ordered by what people actually care about, which is not the order the code does it in: who
@@ -861,6 +862,38 @@ def _offseason_report(result):
             lines.append("")
             lines.append(f"**{label}**")
             lines.append("- " + ", ".join(str(r) for r in rows)[:400])
+
+    # WHAT ACTUALLY HAPPENED ON A COURT. Growth and most-improved are about sheets; this is
+    # about basketball, and it is the part a group chat argues over. Built from the stats.json
+    # and games.json every publish already writes, so it costs no parsing. See takeaways.py.
+    try:
+        colour = takeaways.for_season(result.get("season"), store=store)
+    except Exception as exc:                                            # noqa: BLE001
+        colour = []
+        print(f"  no takeaways in the report ({exc}); the rest of it stands")
+    if colour:
+        lines.append("")
+        lines.append("**The season itself**")
+        lines.extend(colour)
+
+    # THE REST OF THE LEAGUE, which is the biggest single change an offseason makes and used to
+    # go out with nobody told. 51 prep players leaving and 51 fourteen-year-olds arriving is
+    # league news by any measure - and if it silently stops working, a silent report is exactly
+    # how nobody would notice for a season.
+    aged = result.get("aged_out") or {}
+    moved = {k: v for k, v in aged.items() if v.get("retired") or v.get("arrived")}
+    if moved:
+        lines.append("")
+        lines.append("**The rest of the league moved on too**")
+        for key in sorted(moved):
+            row, arrive = moved[key], ageout.INTAKE_AGE.get(key)
+            name = cfg.BY_KEY[key].name if key in cfg.BY_KEY else key
+            lines.append(f'- {name}: {row["retired"]} aged out, {row["arrived"]} new '
+                         + (f"{arrive}-year-olds arrived" if arrive else "arrived"))
+    broken = sorted(k for k, v in aged.items() if v.get("error"))
+    if broken:
+        lines.append("")
+        lines.append(f'- the age-out did not run for {", ".join(broken)}; check the log')
 
     paid = []
     if result.get("paid"):
