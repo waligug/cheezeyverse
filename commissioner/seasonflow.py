@@ -2,7 +2,7 @@
 from pathlib import Path
 import shutil
 from . import characters as ch, recovery
-from .codec.league_dat import LeagueDat, RATINGS, find_season_day
+from .codec.league_dat import LeagueDat, POTENTIALS, RATINGS, find_season_day
 from .driver.fbpb3 import FBPB3
 from .universe import config as cfg
 
@@ -68,6 +68,54 @@ def archive_finished(store, season, backups, log):
         log(f'{key}: archived season {season} statistics and original exports')
 
 
+def restore_character_sheets(store, key, source_path, live_path=None, dry_run=True,
+                             post_camp_path=None):
+    """Remove Training Camps regression while retaining its passive growth.
+
+    ``source_path`` is the pre-camp authority for the floor.  When ``post_camp_path`` is supplied,
+    each field becomes the larger of its pre/post value; otherwise the live save is the post-camp
+    source.  Midseason development and point purchases are already in the pre-camp sheet and can
+    therefore never be lost here.
+    """
+    source = LeagueDat(Path(source_path))
+    live = LeagueDat(Path(live_path) if live_path else ch.save_path(key))
+    post = LeagueDat(Path(post_camp_path)) if post_camp_path else live
+    planned, expected = [], []
+    for character in store.characters(league=key):
+        if character.get("status") not in ("active", "declared"):
+            continue
+        name = f'{character["first_name"]} {character["last_name"]}'
+        dob = ch.codec_dob(character.get("game_dob") or
+                           (character.get("claimed_slot") or {}).get("dob"))
+        before = source.find(name, dob)
+        now = live.find(name, dob)
+        after = post.find(name, dob)
+        values = {field: max(before.values[field], after.values[field])
+                  for field in RATINGS + POTENTIALS}
+        changed = {field: (now.values[field], wanted) for field, wanted in values.items()
+                   if now.values[field] != wanted}
+        planned.append({"id": character["id"], "name": name, "dob": dob,
+                        "changed": changed, "values": values,
+                        "height": now.values["Height"], "weight": now.values["Weight"]})
+        if changed:
+            for field, wanted in values.items():
+                live.set(now, field, wanted)
+            expected.append((name, dob, values))
+    if dry_run:
+        return planned
+    if expected:
+        live = ch.commit(live, expected)
+    for row in planned:
+        player = live.find(row["name"], row["dob"])
+        store.set_character_field(row["id"], "ratings",
+                                  {field: player.values[field] for field in RATINGS})
+        store.set_character_field(row["id"], "potentials", ch.store_potentials(player.values))
+        # The save is the physical truth after growth; keep the profile/store in lockstep too.
+        store.set_character_field(row["id"], "height_inches", player.values["Height"])
+        store.set_character_field(row["id"], "weight_lbs", player.values["Weight"])
+    return planned
+
+
 def rollover_saves(store, season, journal, log):
     """Only mark the season complete after every saved league reports the next year."""
     out = []
@@ -80,7 +128,8 @@ def rollover_saves(store, season, journal, log):
                 continue
             name = f"{c['first_name']} {c['last_name']}"
             pl = before.find(name, ch.codec_dob(c.get('game_dob')))
-            expected.append((c, name, pl.dob, pl.values['Height'], pl.values['Weight']))
+            expected.append((c, name, pl.dob, pl.values['Height'], pl.values['Weight'],
+                             {field: pl.values[field] for field in RATINGS + POTENTIALS}))
         journal._update_marker(lambda state: state.update(phase='rollover', league=key))
         log(f'{key}: advancing the game to season {season + 1}')
         game = FBPB3()
@@ -103,7 +152,7 @@ def rollover_saves(store, season, journal, log):
         if not stamp or stamp[1] != season + 1 or not 1 <= stamp[0] <= 40:
             raise RuntimeError(f'{key}: rollover did not produce the next season opening ({stamp})')
         checks, retained, retired = [], [], []
-        for character, name, dob, height, weight in expected:
+        for character, name, dob, height, weight, sheet in expected:
             matches = [p for p in league.players if p.name == name]
             if not matches and key == "pro":
                 from .offseason import age_of, PRO_DECLINE_AGE, retire
@@ -113,22 +162,40 @@ def rollover_saves(store, season, journal, log):
                     continue
             if len(matches) != 1:
                 raise RuntimeError(f'{key}: {name} cannot be verified after rollover')
-            retained.append((character, name, dob, height, weight))
+            retained.append((character, name, dob, height, weight, sheet))
             pl = matches[0]
             month, day, year = map(int, dob.split('/'))
-            values = dict(BirthMonth=month, BirthDay=day, BirthYear=year, Height=height, Weight=weight)
+            # Keep passive Training Camps growth, but never let camps erase midseason development
+            # or point purchases.  Johnny's first rollover cut Jumping 25 -> 12; taking the larger
+            # pre/post value retains every gain while making that kind of regression impossible.
+            sheet = {field: max(sheet[field], pl.values[field])
+                     for field in RATINGS + POTENTIALS}
+            values = dict(BirthMonth=month, BirthDay=day, BirthYear=year,
+                          Height=height, Weight=weight, **sheet)
             for field, value in values.items():
                 league.set(pl, field, value)
             checks.append((name, dob, values))
         if checks:
             league = ch.commit(league, checks)
-        for character, name, dob, height, weight in retained:
+        for character, name, dob, height, weight, sheet in retained:
             pl = league.find(name, dob)
             store.set_character_field(character["id"], "ratings", {f: pl.values[f] for f in RATINGS})
             store.set_character_field(character["id"], "potentials", ch.store_potentials(pl.values))
             ids = dict(character.get("league_player_ids") or {})
             ids[key] = pl.id
             store.set_character_field(character["id"], "league_player_ids", ids)
+        # LAST SAVE MUTATION, after FBPB3 has completed free agency, staff and preseason. Running
+        # this before the native rollover let the game sign every defanged graduate straight
+        # back, leaving 78 over-age prep players and 20-man rosters in the 2028 opening.
+        cleanup = None
+        if key in ("prep", "college"):
+            from . import ageout
+            cleanup = ageout.apply(key, season, store=store, log=log)
+            checked = ageout.audit(key, season + 1, store=store)
+            if not checked["ok"]:
+                raise RuntimeError(f"{key}: post-rollover age-out did not hold "
+                                   f"({len(checked['over_age'])} over-age, "
+                                   f"roster sizes {checked['sizes']})")
         # Export the verified next-season save; pages and MDB must describe the same year.
         game = FBPB3()
         try:
@@ -147,5 +214,6 @@ def rollover_saves(store, season, journal, log):
         if calendar['season'] != season + 1 or calendar['played'] or calendar['current_date'] < calendar['first']:
             raise RuntimeError(f'{key}: the new regular season opening could not be verified')
         log(f'{key}: season {season + 1} opening verified and exported')
-        out.append({'key': key, 'season': stamp[1], 'day': stamp[0], 'retired': retired})
+        out.append({'key': key, 'season': stamp[1], 'day': stamp[0], 'retired': retired,
+                    'ageout': cleanup})
     return out

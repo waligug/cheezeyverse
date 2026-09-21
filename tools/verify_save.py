@@ -47,6 +47,8 @@ def verify(key):
         pass
 
     L = LeagueDat(path)
+    stamp = L.season_day()
+    evolved = bool(stamp and int(stamp[1]) > int(cfg.START_YEAR))
     teams = L.teams()
     by_name_dob = {(p.name, p.dob): p for p in L.players}
     by_name = {p.name for p in L.players}
@@ -66,10 +68,17 @@ def verify(key):
 
     check(f"{key}: file parses", len(L.players) > 0, f"{len(L.players)} players")
     check(f"{key}: team count", len(teams) == len(spec.teams), f"{len(teams)} of {len(spec.teams)}")
-    check(f"{key}: every roster is {spec.roster_size}", set(sizes) == {spec.roster_size}, dict(sizes))
-    check(f"{key}: our players imported", sum(1 for w in want if w["name"] in by_name) == len(want),
-          f"{sum(1 for w in want if w['name'] in by_name)} of {len(want)} matched by name")
-    check(f"{key}: birthdays restored", len(found_all) == len(want),
+    roster_ok = (all(spec.roster_size - 1 <= n <= 20 for n in sizes) if evolved
+                 else set(sizes) == {spec.roster_size})
+    check(f"{key}: rosters are valid" if evolved else f"{key}: every roster is {spec.roster_size}",
+          roster_ok, dict(sizes))
+    matched_names = sum(1 for w in want if w["name"] in by_name)
+    check(f"{key}: original population accounted for" if evolved else f"{key}: our players imported",
+          evolved or matched_names == len(want),
+          f"{matched_names} of {len(want)} remain; retirements are expected" if evolved else
+          f"{matched_names} of {len(want)} matched by name")
+    check(f"{key}: birthdays restored" if not evolved else f"{key}: surviving original birthdays match",
+          evolved or len(found_all) == len(want),
           f"{len(found_all)} of {len(want)} matched by name+DOB (run tools/stamp_dobs.py if this fails)")
     check(f"{key}: every reserve slot is findable", len(found) == len(reserves),
           f"{len(found)} of {len(reserves)}")

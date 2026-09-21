@@ -909,7 +909,7 @@ class FBPB3:
         says what it is, rather than in the middle of the next league.
         """
         target = DOCS / "leaguedata" / save_name / "LeagueOutput.mdb"
-        before = target.stat().st_mtime if target.exists() else 0
+        before = self._file_mark(target)
         for _ in range(attempts):
             self.click(TOP_TOOLS, 2)
             self.click(TOOLS_OUTPUT_MDB, 2)
@@ -921,21 +921,32 @@ class FBPB3:
             # cancels the export still running underneath. Four attempts, four cancellations,
             # twelve minutes, and a "did not refresh" at the end of it. Caught live, mid-run,
             # with pro's MDB still carrying the previous week's timestamp.
-            end = time.time() + timeout
-            while time.time() < end:
+            # `timeout` is a NO-PROGRESS budget, not an absolute wall clock. Pro's real export
+            # took ~620s; the old 600s absolute limit cancelled healthy work seconds before it
+            # finished. Jet grows/truncates the MDB while working, so every observed size/mtime
+            # change renews the budget. A genuinely stuck export still fails after `timeout`
+            # seconds with no file activity.
+            progress_deadline, last = time.time() + timeout, before
+            while time.time() < progress_deadline:
+                created = False
                 try:
                     self.dismiss_message("File Created", timeout=2)
+                    created = True
                 except DriverError:
                     pass
-                if target.exists() and target.stat().st_mtime > before:
+                mark = self._file_mark(target)
+                if mark is not None and mark != last:
+                    last = mark
+                    progress_deadline = time.time() + timeout
+                if mark is not None and mark != before and created:
                     self._settle_dialogs()
                     return target
             # Only tidy up if something is actually open. An unconditional dismiss_all is how
             # a slow export got killed by the thing meant to rescue it.
             if self._message_boxes():
                 self.dismiss_all()
-        raise DriverError(f"Output MDB did not refresh {target} after {attempts} attempts of "
-                          f"{timeout}s")
+        raise DriverError(f"Output MDB made no progress on {target} for {timeout}s across "
+                          f"{attempts} attempts")
 
     def _settle_dialogs(self, grace=10, timeout=30):
         """Clear every message box, INCLUDING one that has not appeared yet.

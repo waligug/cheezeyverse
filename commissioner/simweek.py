@@ -698,6 +698,14 @@ def _discord_report(steps, result, seconds):
         lines.append(f"- {line}")
     for line in points:
         lines.append(f"- {line}")
+    try:
+        from .leaguenews import report_lines
+        news = report_lines(result.get("news"))
+    except Exception:
+        news = []
+    if news:
+        lines.append("**League news**")
+        lines.extend(news)
     if published:
         site = (cfgenv.get("SITE_URL", "") or "").strip()
         lines.append(f"- the site is live{': ' + site if site else ''}")
@@ -969,7 +977,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     _RUNNING.update(active=True, started=datetime.now().isoformat(timespec="seconds"), steps=[])
     st = store()
     result = {"ok": False, "leagues": keys, "days": days, "dry_run": dry_run, "applied": 0,
-              "activated": 0, "snapshots": 0, "errors": []}
+              "activated": 0, "snapshots": 0, "news": {}, "errors": []}
     game = None
     # Defined before the try because the finally logs it, and a refusal raises above the read.
     season_now, settings = None, {}
@@ -1133,6 +1141,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             return result
 
         # ---- 2. drive the game ---------------------------------------------------------------
+        from . import leaguenews
+        news_before = {key: leaguenews.snapshot(ch.save_path(key).parent / "html") for key in keys}
         at("load", keys[0])
         emit("sim", "starting the basketball game", keys[0])
         game = FBPB3().launch()
@@ -1165,6 +1175,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # covers its own games comfortably and a season left unexported cannot be recovered.
             out = game.html_output(spec.save_name, old_boxes=True)
             emit("export", f"{len(list(out.rglob('*.htm')))} pages", key)
+            new_business = leaguenews.new_rows(news_before[key], leaguenews.snapshot(out))
+            if new_business:
+                result["news"][key] = new_business
+                emit("export", f"{len(new_business)} new transaction(s) recorded", key)
             # The MDB is where the per-game and season-total tables come from, and it is also
             # the only chance to write a career down before the save retires the man: SeasonStats
             # is rebuilt from scratch every export, so whatever is not captured here is gone.

@@ -302,7 +302,7 @@ class LeagueDat:
     # Membership lives in three places per team (see CONVENTIONS.md): the roster dynamic array in the team
     # record, a 14-slot lineup array right after it, and 5 depth-chart blocks (81 int16) near the end of file.
     # E+40 on each player is a save-time copy; it is only used to identify which array belongs to which team.
-    LINEUP_GAP, LINEUP_SLOTS = 22, 14
+    LINEUP_GAP, LINEUP_SLOTS = 20, 14
     DEPTH_BLOCK, DEPTH_PER_TEAM = 162, 5
 
     def season_day(self):
@@ -349,10 +349,19 @@ class LeagueDat:
             if len(hits) != 1:
                 raise CodecError(f"team {t}: {len(hits)} roster arrays match its {len(ids)} players")
             q, n = hits[0]
-            lineup_at = q + 10 + 2 * n + self.LINEUP_GAP
-            lineup = struct.unpack_from(f"<{self.LINEUP_SLOTS}h", d, lineup_at)
-            if not {v for v in lineup if v} <= ids:
+            # Codec-edited files serialize the roster vector at its actual length. Native
+            # offseason saves can retain a 20-slot camp area even when the count is 14/15. Try
+            # the real vector boundary first, then the native fixed boundary; accept only a
+            # lineup made entirely of this team's ids.
+            candidates = [q + 10 + 2 * n + self.LINEUP_GAP, q + 72]
+            valid = []
+            for lineup_at in dict.fromkeys(candidates):
+                lineup = struct.unpack_from(f"<{self.LINEUP_SLOTS}h", d, lineup_at)
+                if {v for v in lineup if v} <= ids:
+                    valid.append((lineup_at, lineup))
+            if not valid:
                 raise CodecError(f"team {t}: lineup at {lineup_at} holds non-roster ids {lineup}")
+            lineup_at, lineup = valid[0]
             teams[t] = {"roster_at": q + 12, "size": n - 1, "lineup_at": lineup_at, "ids": set(ids), "depth_at": []}
         owner = {pid: t for t, ids in members.items() for pid in ids}
         order = sorted(teams)
@@ -421,17 +430,20 @@ class LeagueDat:
             self.set(a, field_name, tb)
             self.set(b, field_name, ta)
 
-    # ---- roster length changes (splice: bytes shift, everything is re-parsed) --------------------------
-    def _splice(self, at, remove, insert=b""):
-        """Apply a byte-level edit and re-parse. Record order and count never change, so ids carry over
-        positionally - a released player keeps his id even though he is no longer in any roster array."""
+    # ---- structural edits -------------------------------------------------------------------
+    def _reparse(self):
         ids = [p.id for p in self.players]
-        self.data[at:at + remove] = insert
         self._id_override = ids
         try:
             self.players = self._parse()
         finally:
             self._id_override = None
+
+    def _splice(self, at, remove, insert=b""):
+        """Apply a byte-level edit and re-parse. Record order and count never change, so ids carry over
+        positionally - a released player keeps his id even though he is no longer in any roster array."""
+        self.data[at:at + remove] = insert
+        self._reparse()
 
     def _roster_count_add(self, info, delta):
         header = info["roster_at"] - 12
@@ -448,6 +460,29 @@ class LeagueDat:
             end += 2 + self._u16(end)
         new = b"".join(struct.pack("<H", len(s)) + s.encode("latin-1") for s in (f"{first} {last}", first, last))
         self._splice(pl.S, end - pl.S, new)
+
+    def rename_many(self, changes):
+        """Rename many players with one re-parse.
+
+        Applying edits from the end of the file backwards keeps every earlier player offset
+        valid even when names change length.  The intake used to re-parse the entire save after
+        each of roughly fifty names.
+        """
+        edits = []
+        for pl, first, last in changes:
+            for part in (first, last):
+                if not part or len(part) > 40 or not all(32 <= ord(c) < 127 for c in part):
+                    raise CodecError(f"unusable name part {part!r}")
+            end = pl.S
+            for _ in range(3):
+                end += 2 + self._u16(end)
+            value = b"".join(struct.pack("<H", len(s)) + s.encode("latin-1")
+                             for s in (f"{first} {last}", first, last))
+            edits.append((pl.S, end - pl.S, value))
+        for at, remove, value in sorted(edits, reverse=True):
+            self.data[at:at + remove] = value
+        if edits:
+            self._reparse()
 
     def release(self, pl):
         """Remove a rostered player from his team (he becomes a free agent). Roster array shrinks by one."""
@@ -471,6 +506,59 @@ class LeagueDat:
         k = elems.index(pl.id)
         self._roster_count_add(info, -1)
         self._splice(info["roster_at"] + 2 * k, 2)
+
+    def release_many(self, players):
+        """Release several players from one team with one roster splice and one re-parse.
+
+        Age-out used to call :meth:`release` once per player. Each call re-parses every player
+        record, so releasing a graduating class cost minutes. Team structures can be updated in
+        one pass: remove every id from the lineup/depth chart, replace the roster array once,
+        and then re-parse once. The individual fields are fixed before the splice while all
+        player offsets are still valid.
+        """
+        players = list(players)
+        if not players:
+            return
+        teams = {p.values["Team"] for p in players}
+        if len(teams) != 1 or next(iter(teams)) < 1:
+            raise CodecError("release_many needs rostered players from one team")
+        self.release_groups({next(iter(teams)): players})
+
+    def release_groups(self, groups):
+        """Release batches from several teams and re-parse once."""
+        groups = {int(t): list(players) for t, players in groups.items() if players}
+        if not groups:
+            return
+        infos = self.teams()
+        edits = []
+        for t, players in groups.items():
+            if t < 1 or any(p.values["Team"] != t for p in players):
+                raise CodecError("release_groups contains a player on the wrong team")
+            info = infos[t]
+            remove = {p.id for p in players}
+            current = struct.unpack_from(f"<{info['size']}h", self.data, info["roster_at"])
+            others = [i for i in current if i not in remove]
+            if not others:
+                raise CodecError(f"team {t} would be empty")
+            for blk in info["depth_at"]:
+                vals = list(struct.unpack_from("<80h", self.data, blk + 2))
+                used = [v for v in vals if v and v not in remove]
+                sub = max(set(used), key=used.count) if used else others[0]
+                vals = [sub if v in remove else v for v in vals]
+                struct.pack_into("<80h", self.data, blk + 2, *vals)
+            lineup = [v for v in struct.unpack_from(f"<{self.LINEUP_SLOTS}h", self.data,
+                                                    info["lineup_at"]) if v not in remove]
+            struct.pack_into(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"],
+                             *(lineup + [0] * (self.LINEUP_SLOTS - len(lineup))))
+            for pl in players:
+                self.set(pl, "Team", -1)
+                self.set(pl, "Team1", -1)
+            self._roster_count_add(info, -len(remove))
+            edits.append((info["roster_at"], 2 * info["size"],
+                          struct.pack(f"<{len(others)}h", *others)))
+        for at, remove, value in sorted(edits, reverse=True):
+            self.data[at:at + remove] = value
+        self._reparse()
 
     def sign(self, pl, t, minutes=True):
         """Add a free agent / draft-pool player to team t. Roster array grows by one.
@@ -497,6 +585,46 @@ class LeagueDat:
             self.set(pl, "Inactive", 0)
         self._roster_count_add(info, +1)
         self._splice(info["roster_at"] + 2 * info["size"], 0, struct.pack("<h", pl.id))
+
+    def sign_many(self, assignments, minutes=True):
+        """Sign ``(player, team)`` assignments and re-parse the save once."""
+        assignments = list(assignments)
+        if not assignments:
+            return
+        teams = self.teams()
+        sizes = {t: info["size"] for t, info in teams.items()}
+        by_team = {}
+        for pl, t in assignments:
+            if pl.values["Team"] >= 1:
+                raise CodecError(f"{pl.name} is already on team {pl.values['Team']}")
+            info = teams[t]
+            lineup = list(struct.unpack_from(f"<{self.LINEUP_SLOTS}h", self.data,
+                                             info["lineup_at"]))
+            blk = info["depth_at"][pl.values["Position"] - 1]
+            used = [v for v in struct.unpack_from("<80h", self.data, blk + 2) if v]
+            weakest = min(set(used), key=used.count) if used else None
+            if minutes and weakest is not None:
+                self._replace_ids(blk + 2, 80, weakest, pl.id)
+            if 0 in lineup:
+                lineup[lineup.index(0)] = pl.id
+            elif minutes and weakest in lineup:
+                lineup[lineup.index(weakest)] = pl.id
+            struct.pack_into(f"<{self.LINEUP_SLOTS}h", self.data, info["lineup_at"], *lineup)
+            for field_name in ("Team", "Team1", "Team2"):
+                self.set(pl, field_name, t)
+            if minutes:
+                self.set(pl, "Inactive", 0)
+            by_team.setdefault(t, []).append(pl.id)
+            sizes[t] += 1
+        edits = []
+        for t, ids in by_team.items():
+            info = teams[t]
+            self._roster_count_add(info, len(ids))
+            edits.append((info["roster_at"] + 2 * info["size"], 0,
+                          struct.pack(f"<{len(ids)}h", *ids)))
+        for at, remove, value in sorted(edits, reverse=True):
+            self.data[at:at + remove] = value
+        self._reparse()
 
     def dress(self, pl, take_minutes_from_weakest=True):
         """Put an already-rostered player in the lineup and on the depth chart.

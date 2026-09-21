@@ -203,6 +203,20 @@ def plan(key, season, store=None, save_path=None):
             "teams": short, "pool": len(pool), "rostered": sum(len(r) for r in on_team.values())}
 
 
+def audit(key, season, store=None, save_path=None):
+    """Prove the post-rollover roster has the intended size and no ordinary over-age player."""
+    spec = cfg.BY_KEY[key]
+    path = Path(save_path) if save_path else DOCS / "leaguedata" / spec.save_name / "league.dat"
+    league = LeagueDat(path)
+    keep = protected_names(key, store)
+    over = [p.name for p in league.players
+            if p.values["Team"] >= 1 and age_of(p, int(season)) >= AGE_CAPS[key]
+            and p.name not in keep]
+    sizes = {team: len(info["ids"]) for team, info in league.teams().items()}
+    return {"over_age": over, "sizes": sizes,
+            "ok": not over and set(sizes.values()) == {spec.roster_size}}
+
+
 def apply(key, season, store=None, save_path=None, dry_run=False, log=print, seed=None):
     """Retire the over-age, refill with a new intake, and write the save.
 
@@ -242,74 +256,98 @@ def apply(key, season, store=None, save_path=None, dry_run=False, log=print, see
         doomed.extend((p.name, p.dob, age_of(p, season), t) for p in going)
 
     retired = []
-    for name, dob, age, team in doomed:
-        try:
-            pl = L.find(name, dob)
-        except CodecError as exc:
-            log(f"   ! {name} ({dob}) could not be re-found: {exc}")
+    # One splice per TEAM, not one per PLAYER. A splice re-parses all 425 player records, so the
+    # old loop spent 346 seconds per league doing the same parse dozens of times.
+    release_groups = {}
+    for team in sorted({row[3] for row in doomed}):
+        rows = [row for row in doomed if row[3] == team]
+        players, accepted = [], []
+        for name, dob, age, _team in rows:
+            try:
+                pl = L.find(name, dob)
+            except CodecError as exc:
+                log(f"   ! {name} ({dob}) could not be re-found: {exc}")
+                continue
+            for field_name in RATINGS:
+                L.set(pl, field_name, FLOOR_RATING)
+            for field_name in POTENTIALS:
+                L.set(pl, field_name, FLOOR_POTENTIAL)
+            players.append(pl)
+            accepted.append({"name": name, "dob": dob, "age": age, "team": team})
+        if players:
+            release_groups[team] = players
+            retired.extend(accepted)
+    try:
+        L.release_groups(release_groups)
+    except CodecError as exc:
+        raise AgeOutError(f"over-age players could not be released: {exc}") from exc
+
+    # FBPB3 expands teams to a 17-20 man camp roster during its native offseason. The next sim
+    # eventually cuts them, but the commissioner must publish and verify a real roster now.
+    # Release the weakest ordinary fillers in one batch per team; protected character/reserve
+    # rows are never candidates, and camp cuts keep their ratings because they have not aged out.
+    camp_cuts, cut_groups = [], {}
+    teams = L.teams()
+    for team in sorted(teams):
+        info = teams[team]
+        excess = len(info["ids"]) - spec.roster_size
+        if excess <= 0:
             continue
-        # set() does not splice, so these are safe to batch and `pl` stays valid through them.
-        for field_name in RATINGS:
-            L.set(pl, field_name, FLOOR_RATING)
-        for field_name in POTENTIALS:
-            L.set(pl, field_name, FLOOR_POTENTIAL)
-        try:
-            L.release(pl)                       # splices; pl is stale from here
-        except CodecError as exc:
-            log(f"   ! {name} stayed on team {team}: {exc}")
-            continue
-        retired.append({"name": name, "dob": dob, "age": age, "team": team})
+        roster = [p for p in L.players if p.id in info["ids"]]
+        candidates = [p for p in roster if p.name not in keep]
+        candidates.sort(key=lambda p: (sum(p.values.get(f, 0) for f in RATINGS), p.name))
+        cut = candidates[:excess]
+        if len(cut) != excess:
+            raise AgeOutError(f"team {team} has {excess} camp extras but only {len(cut)} safe cuts")
+        cut_groups[team] = cut
+        camp_cuts.extend({"name": p.name, "dob": p.dob, "team": team} for p in cut)
+    L.release_groups(cut_groups)
 
     # ---- 2. refill with a new intake --------------------------------------------------------
-    arrived = []
-    for t in sorted(L.teams()):
-        while True:
-            info = L.teams()[t]
-            if len(info["ids"]) >= spec.roster_size:
-                break
-            roster = [p for p in L.players if p.id in set(info["ids"])]
-            position = _needed_position([p.values["Position"] for p in roster], spec)
-            taken = {p.name for p in L.players}
-            # The deadest wood first: the oldest unrostered player nobody will ever sign. That is
-            # also the pile this is meant to drain.
-            pool = sorted((p for p in L.players
-                           if p.values["Team"] < 1 and p.name not in keep),
-                          key=lambda p: -age_of(p, season))
+    arrived, pending = [], []
+    teams = L.teams()
+    pool = sorted((p for p in L.players if p.values["Team"] < 1 and p.name not in keep),
+                  key=lambda p: -age_of(p, season))
+    taken = {p.name for p in L.players}
+    for t in sorted(teams):
+        roster = [p for p in L.players if p.id in teams[t]["ids"]]
+        for _ in range(max(0, spec.roster_size - len(roster))):
             if not pool:
-                log(f"   ! {key} team {t} is short and the free-agent pool is empty")
-                break
-            source = pool[0]
-            old_name, old_dob = source.name, source.dob
+                raise AgeOutError(f"{key} team {t} is short and the free-agent pool is empty")
+            source = pool.pop(0)
+            old_name = source.name
+            position = _needed_position([p.values["Position"] for p in roster], spec)
             first, last = _fresh_name(rng, first_pool, last_pool, taken)
+            taken.add(f"{first} {last}")
             row = gen.make_player(rng, spec, spec.teams[0], position, intake_age,
                                   first_pool, last_pool, towns)
-
-            pl = L.find(old_name, old_dob)
-            # Numbers first, all of them, while `pl` is still valid: none of these splice.
-            L.set(pl, "BirthYear", int(season) - intake_age)
-            L.set(pl, "BirthMonth", rng.randint(1, 12))
-            L.set(pl, "BirthDay", rng.randint(1, 28))
-            L.set(pl, "Position", POSITION_CODE[position])
-            L.set(pl, "Height", int(row["Height"]))
-            L.set(pl, "Weight", int(row["Weight"]))
-            L.set(pl, "Exp", 0)
-            L.set(pl, "Inactive", 0)
+            L.set(source, "BirthYear", int(season) - intake_age)
+            L.set(source, "BirthMonth", rng.randint(1, 12))
+            L.set(source, "BirthDay", rng.randint(1, 28))
+            L.set(source, "Position", POSITION_CODE[position])
+            L.set(source, "Height", int(row["Height"]))
+            L.set(source, "Weight", int(row["Weight"]))
+            L.set(source, "Exp", 0)
+            L.set(source, "Inactive", 0)
             for field_name in RATINGS:
                 if field_name in row:
-                    L.set(pl, field_name, int(row[field_name]))
+                    L.set(source, field_name, int(row[field_name]))
             for field_name in POTENTIALS:
                 if field_name in row:
-                    L.set(pl, field_name, int(row[field_name]))
-            new_dob = pl.dob
-            L.rename(pl, first, last)           # splices
-            pl = L.find(f"{first} {last}", new_dob)
-            try:
-                L.sign(pl, t)                   # splices
-            except CodecError as exc:
-                log(f"   ! {first} {last} could not join team {t}: {exc}")
-                break
-            arrived.append({"name": f"{first} {last}", "dob": new_dob, "position": position,
-                            "team": t, "recycled_from": old_name})
+                    L.set(source, field_name, int(row[field_name]))
+            pending.append((source, first, last, source.dob, position, t, old_name))
+            roster.append(source)  # position balance for the next arrival on this team
+
+    # Names have variable byte lengths; descending edits make every rename one parse. Roster
+    # storage is fixed-width, so all signings likewise need only one final parse.
+    L.rename_many((pl, first, last) for pl, first, last, *_ in pending)
+    signings = []
+    for _source, first, last, dob, position, t, old_name in pending:
+        pl = L.find(f"{first} {last}", dob)
+        signings.append((pl, t))
+        arrived.append({"name": pl.name, "dob": dob, "position": position,
+                        "team": t, "recycled_from": old_name})
+    L.sign_many(signings)
 
     log(f"   {key}: {len(retired)} aged out at {cap}+, {len(arrived)} joined at {intake_age}")
     if not dry_run and (retired or arrived):
@@ -317,4 +355,5 @@ def apply(key, season, store=None, save_path=None, dry_run=False, log=print, see
     elif dry_run:
         log(f"   {key}: DRY RUN - nothing was written")
     return {"league": key, "capped": True, "cap": cap, "intake_age": intake_age,
-            "season": int(season), "retired": retired, "arrived": arrived, "dry_run": dry_run}
+            "season": int(season), "retired": retired, "arrived": arrived,
+            "camp_cuts": camp_cuts, "dry_run": dry_run}

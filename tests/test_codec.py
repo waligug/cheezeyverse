@@ -18,6 +18,7 @@ from commissioner.codec.league_dat import LeagueDat, POSITIONS, RATINGS, POTENTI
 
 BASELINE = ROOT / "fixtures/saves/chung-baseline/league.dat"
 AGED = ROOT / "fixtures/saves/chung-aged/league.dat"
+LIVE = Path(r"C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3\leaguedata\CV_Prep\league.dat")
 failures = []
 
 
@@ -97,7 +98,10 @@ def test_aged_save_matches_game_exports():
 
 
 def test_edits_round_trip():
-    for src in (BASELINE, AGED):
+    # The two historical fixtures are optional and intentionally gitignored. SERVERPC always has
+    # the live save, so exercise structural edits against a disposable copy instead of reporting
+    # a green suite in which the codec never opened a file.
+    for src in (BASELINE, AGED, LIVE):
         if not src.exists():
             continue
         with tempfile.TemporaryDirectory() as tmp:
@@ -105,6 +109,7 @@ def test_edits_round_trip():
             shutil.copy(src, path)
             L = LeagueDat(path)
             before = len(L.data)
+            team_count = len(L.teams())
             a = next(p for p in L.players if p.values["Team"] >= 1)
             b = next(p for p in L.players if p.values["Team"] >= 1 and p.values["Team"] != a.values["Team"])
             ta, tb = a.values["Team"], b.values["Team"]
@@ -113,8 +118,10 @@ def test_edits_round_trip():
             L.save()
             M = LeagueDat(path)
             ok = (M.by_id[a.id].values["InsideScoring"] == 77 and M.by_id[a.id].values["Team"] == tb
-                  and M.by_id[b.id].values["Team"] == ta and len(M.data) == before and len(M.teams()) == 18)
-            check(f"{src.parent.name}: rating edit + team swap round-trips", ok)
+                  and M.by_id[b.id].values["Team"] == ta and len(M.data) == before
+                  and len(M.teams()) == team_count)
+            label = src.parent.name if src != LIVE else "live-save-copy"
+            check(f"{label}: rating edit + team swap round-trips", ok)
             # release then sign the same player back: net file size unchanged
             L2 = LeagueDat(path)
             p = next(q for q in L2.players if q.values["Team"] >= 1)
@@ -123,20 +130,22 @@ def test_edits_round_trip():
             L2.sign(L2.by_id[p.id], t)
             L2.save()
             N = LeagueDat(path)
-            check(f"{src.parent.name}: release + sign round-trips",
-                  N.by_id[p.id].values["Team"] == t and len(N.data) == before and len(N.teams()) == 18)
+            check(f"{label}: release + sign round-trips",
+                  N.by_id[p.id].values["Team"] == t and len(N.data) == before
+                  and len(N.teams()) == team_count)
             # renaming re-encodes three strings, so the record changes length
             L3 = LeagueDat(path)
             target = L3.players[5]
             L3.rename(target, "Bartholomew", "Vandersteenhoven")
             L3.save()
             R1 = LeagueDat(path)
-            long_ok = R1.by_id[target.id].name == "Bartholomew Vandersteenhoven" and len(R1.teams()) == 18
+            long_ok = (R1.by_id[target.id].name == "Bartholomew Vandersteenhoven"
+                       and len(R1.teams()) == team_count)
             R1.rename(R1.by_id[target.id], "Al", "Ng")
             R1.save()
             R2 = LeagueDat(path)
-            check(f"{src.parent.name}: rename (longer then shorter) round-trips",
-                  long_ok and R2.by_id[target.id].name == "Al Ng" and len(R2.teams()) == 18
+            check(f"{label}: rename (longer then shorter) round-trips",
+                  long_ok and R2.by_id[target.id].name == "Al Ng" and len(R2.teams()) == team_count
                   and len(R2.players) == len(L3.players))
 
 
@@ -149,9 +158,11 @@ test_edits_round_trip()
 # when it had not been opened. Whoever reads this output usually reads only this line.
 if failures:
     print("FAILED: " + ", ".join(failures))
+elif not BASELINE.exists() and not AGED.exists() and not LIVE.exists():
+    print("\nSKIPPED: no historical fixtures or live save present; codec edits were not exercised")
 elif not BASELINE.exists() and not AGED.exists():
-    print("\nSKIPPED: no save fixtures present, so the codec was not exercised at all "
-          "(fixtures/saves/ is gitignored; a clone does not carry it)")
+    print("\ncodec structural edits passed against a disposable live-save copy; "
+          "historical export-comparison fixtures are unavailable")
 elif not (BASELINE.exists() and AGED.exists()):
     print("\ncodec tests passed, but one fixture is missing - see SKIP above")
 else:

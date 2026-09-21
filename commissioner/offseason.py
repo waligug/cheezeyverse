@@ -694,7 +694,7 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
     from . import simweek as journal
     if not journal._SIM_LOCK.acquire(blocking=False):
         raise journal.SimBusy("a sim, offseason or backup is already using the saves")
-    taken, marked, completed = {}, False, False
+    taken, marked, completed, status = {}, False, False, None
     tracked = _JournaledStore(store, journal)
     try:
         if not dry_run:
@@ -725,7 +725,6 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
         # between, and the question it produced - "what is happening in the offseason now?" -
         # is exactly the one a progress card answers. Same card the sim uses; `kind` only
         # changes the words. Never fatal: a Discord outage must not stop a season turning over.
-        status = None
         if not dry_run:
             try:
                 status = SimStatus(0, ["prep", "college", "pro"], log=log,
@@ -1081,7 +1080,17 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             continue
         _say(status, 15, "grow", f"{cfg.BY_KEY[key].name}: growing everybody a year", key)
         log(f"{key}: growth")
-        grown, _ = apply_growth(key, characters, season, log=log, dry_run=dry_run)
+        grown, changed = apply_growth(key, characters, season, log=log, dry_run=dry_run)
+        if not dry_run:
+            by_name = {f'{c["first_name"]} {c["last_name"]}': c for c in characters}
+            for name, _dob, values in changed:
+                c = by_name.get(name)
+                if not c:
+                    continue
+                if "Height" in values:
+                    store.set_character_field(c["id"], "height_inches", values["Height"])
+                if "Weight" in values:
+                    store.set_character_field(c["id"], "weight_lbs", values["Weight"])
         result["grown"] += len(grown)
         # The COUNT is all the panel ever wanted; the report wants to name people. An inch over
         # a summer is the most "kid growing up" thing that happens in this universe and it has

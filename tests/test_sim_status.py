@@ -115,6 +115,20 @@ class StatusTests(unittest.TestCase):
                          days=35, leagues=["prep"], elapsed=65)
         self.assertIn("🟩" * 16, card["embeds"][0]["description"])
 
+    def test_offseason_card_names_the_transition_and_never_claims_games_are_playing(self):
+        card = ss.render({"percent": 55, "stage": "ageout", "detail": "Prep: new class"},
+                         days=0, leagues=["prep", "college", "pro"], elapsed=754,
+                         kind="offseason", label="Season 2027 -> 2028")
+        embed = card["embeds"][0]
+        self.assertEqual(embed["title"], "🏀 Offseason in progress")
+        self.assertEqual(embed["fields"][2]["value"], "Season 2027 -> 2028")
+        self.assertIn("Moving the league's old players on", embed["description"])
+        self.assertNotIn("Playing the games", embed["description"])
+        done = ss.render({"percent": 100, "terminal": True, "ok": True,
+                          "detail": "7 grew, 51 aged out"}, days=0, leagues=["prep"],
+                         elapsed=1200, kind="offseason", label="Season 2027 -> 2028")
+        self.assertEqual(done["embeds"][0]["title"], "✅ Offseason complete")
+
     def test_slow_discord_never_blocks_sim_updates(self):
         gate = threading.Event()
         transport = Transport(gate=gate)

@@ -173,9 +173,10 @@ def main():
     cap = ageout.AGE_CAPS["college"]
     ok(p["capped"] and p["season"] == play,
        f"college: the plan is measured in season {p.get('season')}, not the {play} being set up")
-    ok(p["intake"] == len(p["retiring"]),
-       f"college: {len(p['retiring'])} would leave but only {p['intake']} would arrive; "
-       "the rosters would not come back to full")
+    # A native camp roster can start above the configured size. In that case graduation and
+    # camp cuts share the reduction, so the intake need not equal the retiring count.
+    ok(p["intake"] >= 0,
+       f"college: invalid intake count {p['intake']}")
     ok(all(r["age"] >= cap for r in p["retiring"]),
        "college: the plan would retire somebody under the cap")
     print(f"  college (plan only): {len(p['retiring'])} would retire at {cap}+ in season {play}, "

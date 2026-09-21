@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from commissioner import offseason, seasonflow, simweek
+from commissioner import ageout
 from commissioner.saveguard import SaveLock
 from commissioner.publish import publish as publishing
 
@@ -34,6 +35,8 @@ class TransitionTests(unittest.TestCase):
                  patch.object(publishing,'publish'),patch.object(publishing,'git_push'),
                  patch.object(seasonflow,'readiness',return_value={'ready':True}),
                  patch.object(seasonflow,'archive_finished',side_effect=lambda *a:self.events.append(('archive',))),
+                 patch.object(ageout,'apply',return_value={'retired':[],'arrived':[],'camp_cuts':[]}),
+                 patch.object(ageout,'audit',return_value={'ok':True,'over_age':[],'sizes':{}}),
                  patch.object(simweek.FBPB3,'is_running',return_value=False)]
         for p in patches:self.stack.enter_context(p)
         def develop(store, **kw):
@@ -116,8 +119,11 @@ class TransitionTests(unittest.TestCase):
             def __init__(self, path):
                 self.key = Path(path).stem
                 fresh = owner.years[self.key] == 2028
-                values = {key:60 for key in seasonflow.RATINGS}
-                values.update({key:3 for key in offseason.POTENTIALS})
+                values = {key:(5 if fresh else 60) for key in seasonflow.RATINGS}
+                values.update({key:(2 if fresh else 80) for key in offseason.POTENTIALS})
+                if fresh:
+                    values[seasonflow.RATINGS[0]] = 65
+                    values[seasonflow.POTENTIALS[0]] = 85
                 values.update(Height=79 if fresh else 74, Weight=200 if fresh else 180)
                 self.players = [SimpleNamespace(name='Young Player', dob='6/15/1990' if fresh else '6/15/2011', values=values, id=91)]
             def find(self, name, dob):
@@ -131,12 +137,17 @@ class TransitionTests(unittest.TestCase):
             self.assertEqual(league.players[0].values['Height'],74)
             self.assertEqual(league.players[0].values['Weight'],180)
             self.assertEqual(league.players[0].values['BirthYear'],2011)
+            self.assertEqual(league.players[0].values[seasonflow.RATINGS[0]], 65)
+            self.assertTrue(all(league.players[0].values[key] == 60 for key in seasonflow.RATINGS[1:]))
+            self.assertEqual(league.players[0].values[seasonflow.POTENTIALS[0]], 85)
+            self.assertTrue(all(league.players[0].values[key] == 80 for key in seasonflow.POTENTIALS[1:]))
             return league
         with patch.object(seasonflow,'LeagueDat',League), patch.object(seasonflow.ch,'commit',side_effect=commit):
             seasonflow.rollover_saves(self.store,2027,SimpleNamespace(_update_marker=lambda fn:None),lambda m:None)
         self.assertEqual(len(checked),1)
         self.assertEqual(fields['league_player_ids'],{'prep':91})
-        self.assertTrue(all(value==60 for value in fields['ratings'].values()))
+        self.assertEqual(fields['ratings'][seasonflow.RATINGS[0]], 65)
+        self.assertTrue(all(fields['ratings'][key] == 60 for key in seasonflow.RATINGS[1:]))
 
 
 class PromotionCommitTests(unittest.TestCase):
