@@ -72,15 +72,25 @@ def _universe(tmp, played_to, last, iso=False, keys=("prep", "college", "pro"), 
         (d / "schedule.htm").write_text(_schedule(played_to, last, iso), encoding="latin-1")
         if champion:
             # the real page's shape, entities and all: each series prints BOTH teams with their
-            # series wins, and the champion is simply the one that won the most of them
+            # series wins, and the champion is simply the one that won the most of them.
+            #
+            # SEVEN SERIES, NOT SIX. This fixture used to print six, which is not a bracket any
+            # league plays - eight teams is seven series - and the rows were in no particular
+            # round order. That went unnoticed while a series counted as won by whoever had the
+            # bigger number, and broke the moment the reader started asking whether a series had
+            # actually been CLINCHED, because rounds could not be located in a shape that has
+            # none. The order below is the page's own rowspan order, [R1, CF, R1, FINAL, R1, CF,
+            # R1], so pair 3 is the final - and the final reads 2-1, a best-of-three properly
+            # won, rather than a lead that only looks like a win.
             (d / "playoffs.htm").write_text(
                 "<html><body>2026 Playoff Brackets 1st Round Conference Finals League Finals"
                 f" #1 &#160; {champion} 1 &#160; #4 &#160; Spirits 0"
                 f" #1 &#160; {champion} 1 &#160; #3 &#160; Clams 0"
-                f" #1 &#160; {champion} 2 &#160; #4 &#160; Kings 0"
-                " #2 &#160; Boulders 0 &#160; #3 &#160; Berries 1"
-                " #3 &#160; Berries 0 &#160; #4 &#160; Kings 1"
-                " #1 &#160; Generals 0 &#160; #4 &#160; Kings 1</body></html>",
+                " #3 &#160; Clams 1 &#160; #2 &#160; Boulders 0"
+                f" #1 &#160; {champion} 2 &#160; #2 &#160; Berries 1"
+                " #2 &#160; Berries 1 &#160; #3 &#160; Rails 0"
+                " #2 &#160; Berries 1 &#160; #4 &#160; Kings 0"
+                " #4 &#160; Kings 1 &#160; #1 &#160; Generals 0</body></html>",
                 encoding="latin-1")
     return Path(tmp)
 

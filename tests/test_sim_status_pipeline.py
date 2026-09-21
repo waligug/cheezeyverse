@@ -111,7 +111,7 @@ class PipelineTests(unittest.TestCase):
             "_activate_pending": lambda *a, **k: ([], [], []),
             "_apply_requests": lambda *a: ([], []),
             "_wait_for_game_to_exit": lambda: True, "_season_blocks": lambda *a: [],
-            "_stage": lambda *a: "Regular season", "_champion": lambda *a: None,
+            "_stage": lambda *a: "Regular season", "_champion": lambda *a, **k: None,  # **k: _champion takes rounds=
             "_snapshot_league": lambda *a: 0, "publish": lambda *a: [],
         }
         for name, value in stubs.items():

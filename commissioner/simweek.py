@@ -223,7 +223,8 @@ def _league_status(spec, st, settings=None, characters=None):
         #   champion          - set once the final is decided, after which nothing may sim here
         "regular_season_left": _regular_season_left(save_dir),
         "days_to_season_end": days_to_regular_end(spec.key),
-        "champion": _champion(save_dir, settings.get("current_season")),
+        "champion": _champion(save_dir, settings.get("current_season"),
+                              rounds=spec.playoff_rounds),
         #   round_one_days    - days to play the first playoff round, from the bracket
         "round_one_days": round_one_days(spec),
     }
@@ -794,7 +795,7 @@ def _regular_season_left(save_dir):
     return len(blocks) - 1 - last
 
 
-def _champion(save_dir, season=None):
+def _champion(save_dir, season=None, rounds=None):
     """The team that has won THIS season's final, or None while it is undecided.
 
     Read from playoffs.htm through seasonbonus, which is the page that is complete the moment
@@ -814,7 +815,7 @@ def _champion(save_dir, season=None):
             year = re.search(r"(\d{4})\s+Playoff Brackets", _text(html / "playoffs.htm"))
             if year and int(year.group(1)) != int(season):
                 return None
-        return playoff_bracket(html)[1]
+        return playoff_bracket(html, rounds=rounds)[1]
     except Exception:
         return None
 
@@ -911,7 +912,8 @@ def _refuse_to_cross_the_season(keys, days, emit, allow_season_end=False, season
     """
     # FIRST, and whatever the flags say: a league whose final is over has nothing left to sim.
     for key in keys:
-        champ = _champion(ch.save_path(key).parent, season)
+        champ = _champion(ch.save_path(key).parent, season,
+                          rounds=cfg.BY_KEY[key].playoff_rounds)
         if champ:
             raise SeasonEnd(
                 f"{key}'s season is over - {champ} won it. What comes next is FBPB3's own "
@@ -1494,7 +1496,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 stage = _stage(html / "schedule.htm", sum(1 for _d, was in blocks if was))
             except Exception:
                 stage = "unknown"
-            champ = _champion(ch.save_path(key).parent, season_now)
+            champ = _champion(ch.save_path(key).parent, season_now,
+                              rounds=cfg.BY_KEY[key].playoff_rounds)
             result["stages"][key] = {"stage": stage, "champion": champ}
             if champ:
                 emit("done", f"{key}: {champ} have won it. The season is over here - the "

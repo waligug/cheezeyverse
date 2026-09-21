@@ -1000,7 +1000,8 @@ def _season_bonuses(characters, settings, log):
         try:
             rows = seasonbonus.for_character(
                 f'{c["first_name"]} {c["last_name"]}', html, settings,
-                caches.setdefault(key, {}))
+                caches.setdefault(key, {}),
+                rounds=cfg.BY_KEY[key].playoff_rounds if key in cfg.BY_KEY else None)
         except Exception as exc:
             log(f'no season bonus for {c["first_name"]} {c["last_name"]}: {exc}')
             continue

@@ -433,7 +433,7 @@ def bracket_season(html_dir):
     return int(m.group(1)) if m else None
 
 
-def playoff_bracket(html_dir, season=None):
+def playoff_bracket(html_dir, season=None, rounds=None):
     """(qualifiers, champion) read from playoffs.htm, the only page that states either.
 
     `season` REFUSES A BRACKET FROM ANOTHER YEAR, and that is not hypothetical. The file is
@@ -494,11 +494,64 @@ def playoff_bracket(html_dir, season=None):
     if len(found) < 2:
         return None, None
 
+    series = [(found[i], found[i + 1]) for i in range(0, len(found) - 1, 2)]
+
+    # HOW LONG IS A SERIES? The bracket page NEVER SAYS, and it differs by round AND by league:
+    # prep plays best-of-one until a best-of-three final, college best-of-one throughout, pro
+    # best-of-five and then best-of-seven. So "one side is ahead" is not "one side has won".
+    # Pro's 2028 League Finals sat at "#1 Leghorns 1  #1 Swiss 0" while it was still being
+    # played; that is not a tie, so the guard below let it through, credited Leghorns with a
+    # third series against Swiss's two, and champion() named a team that had won one game of
+    # seven. The bonus pays a league title from that name.
+    #
+    # `rounds` is LeagueSpec.playoff_rounds - series LENGTHS, the final last, leading zeros for
+    # rounds a bracket does not have - and it is the ONLY exact answer. Wins needed is
+    # (length + 1) // 2, so prep is 1, 1, 2 and pro is 3, 4, 4. PASS IT WHEREVER THE LEAGUE IS
+    # KNOWN; config.py validates it and simweek.round_one_days() already reads the same field.
+    #
+    # WITHOUT IT we fall back to inferring each round's clinch from the highest total seen in
+    # that round, carried forward on the rule that a round is never shorter than the one before
+    # it. THE FALLBACK IS A FLOOR, NOT A GUARANTEE: it catches pro, whose earlier rounds clinch
+    # at 3 and 4 so a 1-0 final cannot reach them, but NOT prep, where every earlier round tops
+    # out at 1 and so does a final sitting at 1-0 - and prep is the league our characters are in.
+    # Inferring cannot tell "best-of-one, won" from "best-of-three, leading 1-0" from the page
+    # alone. That gap is why `rounds` exists; the fallback only keeps an unwired caller sane.
+    #
+    # ONE CLINCH FOR THE WHOLE BRACKET, taken as its maximum, is the tempting cheaper rule and it
+    # is WRONG either way: prep's final needs two, which would mark its best-of-one first round
+    # undecided and strip the champion of the series he really won. Per round, or not at all.
+    #
+    # In this rowspan layout the round of pair i is v2(i + 1) + 1: prep, college and pro all lay
+    # out as [R1, CF, R1, FINAL, R1, CF, R1].
+    def _round_of(index):
+        n, depth = index + 1, 1
+        while n % 2 == 0:
+            n //= 2
+            depth += 1
+        return depth
+
+    present = sorted({_round_of(i) for i in range(len(series))})
+    live = [int(n) for n in (rounds or ()) if int(n) > 0]
+    clinch = {}
+    if len(live) == len(present):
+        for round_no, length in zip(present, live):
+            clinch[round_no] = (int(length) + 1) // 2
+    else:
+        # No usable spec, or a bracket shape it does not describe - infer, and see the warning
+        # above about what inferring cannot see.
+        seen = {}
+        for i, ((_s1, _a, w1), (_s2, _b, w2)) in enumerate(series):
+            round_no = _round_of(i)
+            seen[round_no] = max(seen.get(round_no, 0), int(w1), int(w2))
+        longest = 0
+        for round_no in present:
+            longest = max(longest, seen.get(round_no, 0))
+            clinch[round_no] = longest
+
     qualifiers, wins, undecided = set(), {}, False
-    for i in range(0, len(found) - 1, 2):
-        (_s1, a, w1), (_s2, b, w2) = found[i], found[i + 1]
+    for i, ((_s1, a, w1), (_s2, b, w2)) in enumerate(series):
         qualifiers.update((a, b))
-        if int(w1) == int(w2):
+        if int(w1) == int(w2) or max(int(w1), int(w2)) < clinch[_round_of(i)]:
             # a series still being played, or one that has not started. The bracket still names
             # the qualifiers correctly; it just cannot yet say who won.
             undecided = True
@@ -512,18 +565,21 @@ def playoff_bracket(html_dir, season=None):
     return qualifiers, (leaders[0] if len(leaders) == 1 else None)
 
 
-def playoff_teams(html_dir, season=None):
+def playoff_teams(html_dir, season=None, rounds=None):
     """Every team that reached the playoffs, or None when there is no bracket to read."""
-    return playoff_bracket(html_dir, season)[0]
+    return playoff_bracket(html_dir, season, rounds)[0]
 
 
-def champion(html_dir, teams=None, season=None):
-    """Who won it, or None. `teams` is accepted and ignored; the bracket needs no help."""
-    return playoff_bracket(html_dir, season)[1]
+def champion(html_dir, teams=None, season=None, rounds=None):
+    """Who won it, or None. `teams` is accepted and ignored; the bracket needs no help.
+
+    Pass `rounds` (LeagueSpec.playoff_rounds) wherever the league is known - see playoff_bracket.
+    """
+    return playoff_bracket(html_dir, season, rounds)[1]
 
 
 # ---- the bonus ---------------------------------------------------------------------------
-def for_character(name, html_dir, settings=None, cache=None):
+def for_character(name, html_dir, settings=None, cache=None, rounds=None):
     """[(reason, points)] for one character, already capped. Empty list means nothing earned.
 
     `cache` is a dict the caller may reuse across characters in the same league: parsing 425
@@ -545,7 +601,11 @@ def for_character(name, html_dir, settings=None, cache=None):
         c["awards"] = award_counts(html_dir)
         c["season_awards"] = season_award_winners(html_dir)
         c["honours"] = player_honours(html_dir)
-        c["playoffs"], c["champion"] = playoff_bracket(html_dir, this_season)
+        # `rounds` matters MORE here than anywhere else: this is the path that PAYS. It feeds
+        # both the league-title bonus and "made the playoffs", so an unclinched final read as
+        # a win hands real points to the wrong roster. Without it prep falls back to the
+        # inferred clinch, which cannot see a best-of-three final sitting at 1-0.
+        c["playoffs"], c["champion"] = playoff_bracket(html_dir, this_season, rounds)
 
     line = c["totals"].get(name)
     if not line:

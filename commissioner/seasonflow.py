@@ -133,7 +133,7 @@ def _readiness(season):
         path = ch.save_path(spec.key)
         try:
             stamp = find_season_day(path.read_bytes())
-            champion = _champion(path.parent, season)
+            champion = _champion(path.parent, season, rounds=spec.playoff_rounds)
             if not stamp or stamp[1] != season:
                 reasons.append(f'{spec.name}: save season does not match {season}.')
             if not champion:
