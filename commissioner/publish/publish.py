@@ -211,9 +211,25 @@ def _write_careers(src, dst, key):
         seasons = sorted({s for s, _ in statsarchive.archived_seasons(key)})
         # The leaderboards the site shows, worked out here so the browser does not have to sort
         # a few hundred careers six ways on every page load.
+        board_stats = ("Points", "Rebounds", "Assists", "Steals", "Blocks",
+                       "efficiency", "Minutes", "3PM")
         boards = {stat: [_career_line(r, stat) for r in statsarchive.leaders(rows, stat, 10)]
-                  for stat in ("Points", "Rebounds", "Assists", "Steals", "Blocks",
-                               "efficiency", "Minutes", "3PM")}
+                  for stat in board_stats}
+        # THE POSTSEASON IS A SEPARATE ARCHIVE, not a slice of the one above: the game keeps it
+        # in its own table and `SeasonStats` is the regular season alone. Published as its own
+        # block so a page can offer it as a choice, and so a league that has never reached a
+        # playoff simply has no block rather than an empty board.
+        playoff_rows = statsarchive.careers(key, kind="playoffs")
+        playoffs = None
+        if playoff_rows:
+            playoffs = {
+                "seasons": sorted({s for s, _ in statsarchive.archived_seasons(key, "playoffs")}),
+                "leaders": {stat: [_career_line(r, stat)
+                                   for r in statsarchive.leaders(playoff_rows, stat, 10)]
+                            for stat in board_stats},
+                "careers": [{k: v for k, v in r.items() if k != "seasons"}
+                            for r in sorted(playoff_rows, key=lambda r: -(r.get("Points") or 0))],
+            }
         payload = {
             "league": key, "seasons": seasons,
             "generated": datetime.now().isoformat(timespec="seconds"),
@@ -227,9 +243,12 @@ def _write_careers(src, dst, key):
             "careers": [{k: v for k, v in r.items() if k != "seasons"}
                         for r in sorted(rows, key=lambda r: -(r.get("Points") or 0))],
         }
+        if playoffs:
+            payload["playoffs"] = playoffs
         (dst / "careers.json").write_text(json.dumps(payload, separators=(",", ":")),
                                           encoding="utf-8")
-        return {"careers": len(rows), "seasons": seasons}
+        return {"careers": len(rows), "seasons": seasons,
+                "playoff_careers": len(playoff_rows)}
     except Exception as exc:                                     # noqa: BLE001
         print(f"  no careers.json for {key} ({exc}); the pages themselves are fine")
         return None

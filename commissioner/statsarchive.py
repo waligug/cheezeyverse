@@ -43,9 +43,18 @@ COUNTING = ["Games", "GamesStarted", "Minutes", "Points", "Rebounds", "Offensive
 # page wants to show that rather than only his last known state.
 IDENTITY = ["name", "dob", "age", "team", "position"]
 
+# THE POSTSEASON IS ITS OWN TABLE, and `SeasonStats` is the REGULAR SEASON ONLY. Checked against
+# the live prep MDB: for 2028, id 41 reads 30 games in SeasonStats and 2 in PlayoffStats, and the
+# two never overlap. So a playoff career is a SEPARATE archive rather than a filter over this
+# one, and the season totals a career page already showed do not change by adding it.
+#
+# PlayoffStats carries every COUNTING field except GamesStarted, which it simply does not have;
+# `_int` returns 0 for a missing column, so a playoff line reports 0 starts rather than lying.
+KINDS = {"stats": "SeasonStats", "playoffs": "PlayoffStats"}
 
-def path_for(key, season):
-    return ARCHIVE / f"stats-{key}-{int(season)}.json"
+
+def path_for(key, season, kind="stats"):
+    return ARCHIVE / f"{kind}-{key}-{int(season)}.json"
 
 
 def _int(value):
@@ -55,8 +64,10 @@ def _int(value):
         return 0
 
 
-def read_mdb(mdb):
+def read_mdb(mdb, kind="stats"):
     """{season: [row]} straight out of one LeagueOutput.mdb, with names attached.
+
+    `kind` picks the table: "stats" is the regular season, "playoffs" the postseason. See KINDS.
 
     The join is done in Python rather than in Access SQL for the reason headtohead already
     gives about this database: its own SQL dialect refuses things that look ordinary, and a
@@ -74,7 +85,7 @@ def read_mdb(mdb):
             "position": _int(row.get("PositionNumber")),
         }
     seasons = {}
-    for row in query(mdb, "SELECT * FROM SeasonStats"):
+    for row in query(mdb, f"SELECT * FROM {KINDS[kind]}"):
         season = _int(row.get("Season"))
         if not season:
             continue
@@ -93,7 +104,7 @@ def read_mdb(mdb):
     return seasons
 
 
-def save(key, season, rows, source="", overwrite=False):
+def save(key, season, rows, source="", overwrite=False, kind="stats"):
     """Write ONE league's ONE season, atomically. A season already written is left alone.
 
     A finished season cannot change, so rewriting one can only ever damage it - the same rule
@@ -101,10 +112,10 @@ def save(key, season, rows, source="", overwrite=False):
     a year that is already history.
     """
     ARCHIVE.mkdir(parents=True, exist_ok=True)
-    target = path_for(key, season)
+    target = path_for(key, season, kind)
     if target.exists() and not overwrite:
         return None
-    body = {"league": key, "season": int(season), "source": source,
+    body = {"league": key, "season": int(season), "source": source, "kind": kind,
             "fields": COUNTING, "players": rows}
     tmp = target.with_suffix(".tmp")
     tmp.write_text(json.dumps(body, separators=(",", ":")), encoding="utf-8")
@@ -112,10 +123,10 @@ def save(key, season, rows, source="", overwrite=False):
     return target
 
 
-def archived_seasons(key):
-    """[(season, payload)] for a league, oldest first."""
+def archived_seasons(key, kind="stats"):
+    """[(season, payload)] for a league, oldest first. `kind` is "stats" or "playoffs"."""
     out = []
-    pattern = re.compile(rf"^stats-{re.escape(str(key))}-(\d+)\.json$")
+    pattern = re.compile(rf"^{re.escape(kind)}-{re.escape(str(key))}-(\d+)\.json$")
     if not ARCHIVE.exists():
         return out
     for path in sorted(ARCHIVE.iterdir()):
@@ -136,15 +147,19 @@ def _identity(row):
     return (row.get("name", "").strip().lower(), row.get("dob", "").strip())
 
 
-def careers(key, history=None):
+def careers(key, history=None, kind="stats"):
     """One row per player, totals summed across every archived season.
+
+    `kind` selects the archive: "stats" for the regular season, "playoffs" for the postseason.
+    A playoff career is built the same way from the same fields, so every rate and the
+    efficiency figure mean exactly what they mean on the regular-season board.
 
     Rows whose id matches but whose identity does NOT are kept apart, because that is a recycled
     id and not a career. Each career carries the seasons it is made of, so a page can show the
     year-by-year line as well as the total.
     """
     people = {}
-    for season, payload in (history if history is not None else archived_seasons(key)):
+    for season, payload in (history if history is not None else archived_seasons(key, kind)):
         for row in payload.get("players") or []:
             who = _identity(row)
             if not who[0]:
@@ -195,28 +210,42 @@ def leaders(rows, stat="Points", count=10, min_games=0):
     return live[:count]
 
 
-def capture(key, mdb, log=print, overwrite_current=None, force=False):
-    """Write down every season this MDB holds. Returns the seasons newly written.
+def capture(key, mdb, log=print, overwrite_current=None, force=False, kinds=("stats", "playoffs")):
+    """Write down every season this MDB holds, regular season and postseason. Returns the
+    seasons newly written, in either archive.
 
     `overwrite_current` is the season still being played: its file is rewritten each time so it
-    keeps up, while every finished season is written once and then left alone forever.
+    keeps up, while every finished season is written once and then left alone forever. That
+    matters more for the postseason than the regular season, because a playoff archive for the
+    current year goes from absent, to a first round, to a full bracket, and only the last of
+    those is the truth.
     """
     if not Path(mdb).exists():
         log(f"  no MDB for {key}; nothing captured")
         return []
     written = []
-    for season, rows in sorted(read_mdb(mdb).items()):
-        current = overwrite_current is not None and int(season) == int(overwrite_current)
-        # `force` is for repairing a season written wrong - the first capture archived 390
-        # player seasons with every name blank, because the query was silently returning
-        # nothing. Rewriting history is otherwise refused, so this is a flag and not a default.
-        target = save(key, season, rows, source=str(mdb), overwrite=current or force)
-        if target:
-            written.append(season)
-            log(f"  {key} {season}: {len(rows)} player seasons -> {target.name}")
-        else:
-            log(f"  {key} {season}: already archived, left alone")
-    return written
+    for kind in kinds:
+        try:
+            seasons = sorted(read_mdb(mdb, kind).items())
+        except Exception as exc:                                        # noqa: BLE001
+            # THE POSTSEASON MUST NOT BE ABLE TO COST US THE REGULAR SEASON. An MDB without a
+            # PlayoffStats table - an older export, or a schema that moves - lands here and is
+            # skipped, rather than taking down a capture that runs inside every publish.
+            log(f"  {key}: cannot read {KINDS.get(kind, kind)} ({exc}); skipped")
+            continue
+        for season, rows in seasons:
+            current = overwrite_current is not None and int(season) == int(overwrite_current)
+            # `force` is for repairing a season written wrong - the first capture archived 390
+            # player seasons with every name blank, because the query was silently returning
+            # nothing. Rewriting history is otherwise refused, so this is a flag and not a default.
+            target = save(key, season, rows, source=str(mdb), overwrite=current or force, kind=kind)
+            if target:
+                if season not in written:
+                    written.append(season)
+                log(f"  {key} {season} {kind}: {len(rows)} player seasons -> {target.name}")
+            else:
+                log(f"  {key} {season} {kind}: already archived, left alone")
+    return sorted(written)
 
 
 def main(argv=None):

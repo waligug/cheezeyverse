@@ -56,7 +56,36 @@ let SORT = 'Points';
 let DIR = -1;                // -1 biggest first, 1 smallest first
 let ONLY_OURS = false;
 let PER_GAME = false;
+let MODE = 'regular';        // 'regular' | 'playoffs'
 let OURS = new Set();        // lower-cased names of the characters, for the marker
+
+/* WHICH ARCHIVE IS ON SCREEN. The postseason is its OWN set of careers, published as its own
+   block, because FBPB3 keeps it in its own table and SeasonStats is the regular season alone -
+   a playoff line is not a filter over a regular-season one, and the two never overlap. A league
+   that has not reached a postseason has no block at all, which is why every reader comes
+   through here instead of touching data.playoffs directly. */
+function view(data) {
+  if (MODE === 'playoffs' && data && data.playoffs) {
+    return { careers: data.playoffs.careers || [], seasons: data.playoffs.seasons || [] };
+  }
+  return { careers: (data && data.careers) || [], seasons: (data && data.seasons) || [] };
+}
+
+/* The coverage line and the note under it both depend on the mode, so they are rendered here
+   rather than in load() - the selector has to be able to update them without a refetch. */
+function renderCoverage(data) {
+  const active = view(data);
+  const seasons = active.seasons || [];
+  const playoffs = MODE === 'playoffs';
+  $('#coverage').textContent = seasons.length
+    ? `${LEAGUE} · ${active.careers.length} ${playoffs ? 'playoff ' : ''}careers · ${seasons.join(', ')}`
+    : '';
+  $('#career-note').textContent = seasons.length
+    ? (playoffs
+      ? 'Postseason totals only, across every playoff run in the archive.'
+      : 'Regular-season totals across every season, including players the game invented.')
+    : '';
+}
 
 function isOurs(row) {
   return OURS.has(String(row && row.name || '').toLowerCase());
@@ -82,6 +111,15 @@ function renderControls(data) {
   host.append(el('label', {}, el('input', { type: 'checkbox', checked: ONLY_OURS || null,
     onchange: e => { ONLY_OURS = e.target.checked; renderLeaders(data); renderTable(data); }
   }), 'Real players only'));
+  if (data && data.playoffs) {
+    host.append(el('label', {}, 'Show: ', el('select', {
+      onchange: e => {
+        MODE = e.target.value;
+        renderCoverage(data); renderLeaders(data); renderTable(data);
+      }
+    }, el('option', { value: 'regular', selected: MODE === 'regular' || null }, 'Regular season'),
+       el('option', { value: 'playoffs', selected: MODE === 'playoffs' || null }, 'Playoffs'))));
+  }
   host.append(el('label', {}, 'Leaders: ', el('select', {
     onchange: e => { PER_GAME = e.target.value === 'per-game'; renderLeaders(data); }
   }, el('option', { value: 'totals', selected: !PER_GAME || null }, 'Totals'),
@@ -114,14 +152,16 @@ function leaderRow(entry, rank, label) {
 function renderLeaders(data) {
   const host = $('#leaders');
   clear(host);
-  if (!data || !data.leaders) {
-    host.append(el('p', { class: 'cv-muted' },
-      'Nothing published for this league yet. It appears after the next Sim Week.'));
+  const active = view(data);
+  if (!active.careers.length) {
+    host.append(el('p', { class: 'cv-muted' }, MODE === 'playoffs'
+      ? 'No playoff careers in this league yet. They appear once a postseason has been played.'
+      : 'Nothing published for this league yet. It appears after the next Sim Week.'));
     return;
   }
   const grid = el('div', { class: 'cv-grid' });
   for (const [key, label] of BOARDS) {
-    const rows = ranked(data.careers || [], key, 10);
+    const rows = ranked(active.careers, key, 10);
     if (!rows.length) continue;
     grid.append(el('div', { class: 'cv-card cv-sub' },
       el('h3', {}, PER_GAME ? `${label} per game` : `Most ${label.toLowerCase()}`),
@@ -146,8 +186,9 @@ function sortBy(key) {
 function renderTable(data) {
   const host = $('#table');
   clear(host);
-  if (!data || !data.careers || !data.careers.length) return;
-  let rows = data.careers.slice();
+  const active = view(data);
+  if (!active.careers.length) return;
+  let rows = active.careers.slice();
   if (ONLY_OURS) rows = rows.filter(isOurs);
   rows.sort((a, b) => {
     const x = num(a[SORT]);
@@ -207,13 +248,9 @@ async function load() {
   const requestedLeague = LEAGUE;
   const data = await careersOf(requestedLeague);
   if (requestedLeague !== LEAGUE) return;
-  const seasons = data && data.seasons ? data.seasons : [];
-  $('#coverage').textContent = seasons.length
-    ? `${LEAGUE} · ${data.careers.length} careers · ${seasons.join(', ')}`
-    : '';
-  $('#career-note').textContent = seasons.length
-    ? 'Totals across every season, including players the game invented.'
-    : '';
+  // A league with no postseason archive cannot stay on the playoff view when you tab to it.
+  if (MODE === 'playoffs' && !(data && data.playoffs)) MODE = 'regular';
+  renderCoverage(data);
   renderControls(data);
   renderLeaders(data);
   renderTable(data);
