@@ -697,6 +697,13 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
     taken, marked, completed, status = {}, False, False, None
     tracked = _JournaledStore(store, journal)
     try:
+        # RESOLVE THE SEASON BEFORE ANYTHING READS IT. This used to happen only inside the
+        # `if rollover:` branch below, while the takeaways and the season records further down
+        # are read on EVERY path. A preview posts no season on purpose - app.py's `_season_arg`
+        # documents None as "use the store's season" - so `season_records(None)` reached
+        # `int(None)` and turned a supported call into an error page. `for_season` hid it: it
+        # catches per league and logs, so only the records call actually died.
+        season = int(season or store.get_settings().get("current_season", cfg.START_YEAR))
         if not dry_run:
             stale = journal.interrupted_run()
             if stale:
@@ -705,7 +712,6 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
                 raise OffseasonError("close FBPB3 before running the offseason")
             if rollover:
                 from . import seasonflow
-                season = int(season or store.get_settings().get("current_season", cfg.START_YEAR))
                 ready = seasonflow.readiness(season, already_locked=True)
                 if not ready["ready"]:
                     raise OffseasonError(" ".join(ready["reasons"]))
