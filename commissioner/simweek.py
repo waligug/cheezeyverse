@@ -954,7 +954,8 @@ def _refuse_to_cross_the_season(keys, days, emit, allow_season_end=False, season
 
 
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
-            allow_season_end=False, expected_state=None, days_by_league=None, expected_states=None):
+            allow_season_end=False, expected_state=None, days_by_league=None, expected_states=None,
+            start_dates=None):
     """Apply everything owed, sim `days` in each league, export, publish, grant points."""
     if not _SIM_LOCK.acquire(blocking=False):
         raise SimBusy("a sim is already running")
@@ -1182,13 +1183,32 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 pct = at("sim", key, day / max(1, total))
                 emit("sim", f"{spec.name}: day {day} of {total} completed", key, pct=pct)
 
-            game.sim_days(day_counts[key], on_day=day_finished)
+            start_date = (start_dates or {}).get(key)
+            used_calendar = False
+            if start_date and day_counts[key] > 1:
+                emit("sim", f"{spec.name}: selecting the exact stop date on the game calendar", key)
+                used_calendar = game.sim_to_date(day_counts[key], start_date,
+                                                 on_day=day_finished)
+                if not used_calendar:
+                    emit("sim", f"{spec.name}: calendar jump reaches the playoffs; "
+                          "finishing with verified daily steps", key)
+            if not used_calendar:
+                game.sim_days(day_counts[key], on_day=day_finished)
             at("save", key)
             emit("sim", "saving", key)
             # The path lets the driver watch the file finish instead of sleeping a fixed 15 s,
             # and turns a save that silently did not happen into an error rather than an export
             # of yesterday's league.
             game.save_game(path=ch.save_path(key))
+            expected = (expected_states or {}).get(key, expected_state)
+            if expected is not None:
+                from .codec.league_dat import find_season_day
+                stored = find_season_day(ch.save_path(key).read_bytes())
+                wanted = (int(expected[0]) + day_counts[key], int(expected[1]))
+                if stored != wanted:
+                    raise RuntimeError(
+                        f"{spec.name}: save landed on season day {stored}, expected {wanted}; "
+                        "export and publish were stopped")
             at("export", key)
             emit("export", f"writing {spec.name} pages", key)
             # old_boxes=True writes the BOX SCORES for the games in the export's window, so the

@@ -11,6 +11,7 @@ import subprocess
 from contextlib import contextmanager
 import time
 import warnings
+from datetime import date, timedelta
 from pathlib import Path
 
 warnings.filterwarnings("ignore", message="32-bit application")
@@ -45,6 +46,7 @@ HOTSEAT_HIRE_STAFF = (910, 585)
 HOTSEAT_TRAINING_CAMPS = (910, 651)
 # On a phase screen (Hire Staff and friends): PROCESS ALL, which then becomes PROCEED.
 PHASE_PROCESS_ALL = (805, 662)
+HOTSEAT_SIM_TO_GAME = (794, 651)
 HOTSEAT_SIM_TO_PLAYOFFS = (910, 651)
 NAV_HOT_SEAT = (55, 95)
 
@@ -574,6 +576,88 @@ class FBPB3:
                     on_day(day, n)
                 except Exception:
                     pass
+
+    CALENDAR_NEXT_MONTH = (941, 257)
+    CALENDAR_FIRST_CELL = (764, 305)
+    CALENDAR_CELL_STEP = 29
+    HOTSEAT_BOTTOM_RIGHT_BOX = (850, 637, 970, 665)
+
+    def sim_to_date(self, n, start_date, on_day=None, timeout=None):
+        """Use the Hot Seat calendar to advance exactly ``n`` days in one FBPB action.
+
+        FBPB's selected date is a STOP date: selecting February 21 from January 8 writes
+        season day +44 and leaves the league on the morning of February 21. That matches
+        ``n`` SIM DAY clicks and the Commissioner calendar's existing "play through the
+        previous day" arithmetic.
+
+        Every action is bounded by visible UI state. Each month arrow must change the calendar
+        heading, the computed target cell must acquire the blue selection, SIM TO GAME must
+        replace the lower-right button with STOP SIMMING, and that button must return before
+        this reports success. A playoff warning is answered No and returns False so the caller
+        can use the proven daily path without having moved the calendar.
+        """
+        try:
+            current = start_date if isinstance(start_date, date) else date.fromisoformat(str(start_date))
+        except (TypeError, ValueError) as exc:
+            raise DriverError(f"cannot use calendar sim with start date {start_date!r}") from exc
+        if n < 1:
+            return True
+        target = current + timedelta(days=n)
+        months = (target.year - current.year) * 12 + target.month - current.month
+        if months < 0:
+            raise DriverError("calendar sim cannot move backwards")
+
+        self.click(NAV_HOT_SEAT, 0)
+        self._wait_until_still(settle=0.4, timeout=15, poll=0.1)
+        for _ in range(months):
+            before = self._date_signature()
+            self.click(self.CALENDAR_NEXT_MONTH, 0)
+            if not self._wait_for(lambda: self._date_signature() != before, 3):
+                raise DriverError("calendar next-month arrow did not change the displayed month")
+
+        first_col = (date(target.year, target.month, 1).weekday() + 1) % 7
+        col = (target.weekday() + 1) % 7
+        row = (first_col + target.day - 1) // 7
+        x = self.CALENDAR_FIRST_CELL[0] + col * self.CALENDAR_CELL_STEP
+        y = self.CALENDAR_FIRST_CELL[1] + row * self.CALENDAR_CELL_STEP
+        self.click((x, y), 0)
+        if not self._wait_for(lambda: self._calendar_cell_selected(x, y), 3):
+            raise DriverError(f"calendar did not visibly select {target.isoformat()}")
+
+        ready = self._grab(self.HOTSEAT_BOTTOM_RIGHT_BOX).tobytes()
+        self.click(HOTSEAT_SIM_TO_GAME, 0)
+        deadline = time.time() + (timeout or max(60, n * 5))
+        seen_busy = False
+        while time.time() < deadline:
+            boxes = self._message_boxes()
+            if boxes:
+                if "Schedule Warning" in boxes and not seen_busy:
+                    self.dismiss_message("Schedule Warning", button="No", timeout=3)
+                    return False
+                raise DriverError(f"calendar sim opened a message box: {boxes}")
+            button = self._grab(self.HOTSEAT_BOTTOM_RIGHT_BOX).tobytes()
+            if button != ready:
+                seen_busy = True
+            elif seen_busy:
+                self._wait_until_still(settle=0.4, timeout=5, poll=0.1, cheap=True)
+                if (self._grab(self.HOTSEAT_BOTTOM_RIGHT_BOX).tobytes() == ready
+                        and self._calendar_cell_selected(x, y)):
+                    if on_day is not None:
+                        try:
+                            on_day(n, n)
+                        except Exception:
+                            pass
+                    return True
+            time.sleep(0.05)
+        raise DriverError(
+            f"SIM TO GAME did not visibly finish after {timeout or max(60, n * 5)}s; "
+            "the save was not touched")
+
+    def _calendar_cell_selected(self, x, y):
+        """The selected calendar cell has FBPB's cyan fill; ordinary cells are gray."""
+        image = self._grab((x - 11, y - 11, x + 12, y + 12))
+        blue = sum(1 for r, g, b in image.getdata() if b - r > 55 and g - r > 30)
+        return blue >= 20
 
     # window-relative box around the Hot Seat calendar's date label ("MARCH 23, 2027")
     HOTSEAT_DATE_BOX = (775, 247, 935, 268)

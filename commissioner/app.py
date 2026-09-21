@@ -1067,6 +1067,7 @@ def _calendar_worker(run):
         result = run_sim(leagues=[r["key"] for r in rows], days=max(r["days"] for r in rows),
             days_by_league={r["key"]: r["days"] for r in rows}, allow_season_end=True,
             expected_states={r["key"]: (r["expected_day"], r["season"]) for r in rows},
+            start_dates={r["key"]: r["from"] for r in rows},
             on_step=run.on_step)
         run.result = {"ok": True, "calendar": run.calendar_plan, "run": result}
         run.status = "ok"

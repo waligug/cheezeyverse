@@ -211,6 +211,44 @@ class StatusTests(unittest.TestCase):
             game.sim_days(1, on_day=lambda *args: seen.append(args))
         self.assertEqual(seen, [])
 
+    def test_calendar_sim_selects_exact_stop_and_waits_for_busy_button(self):
+        class Picture:
+            def __init__(self, value): self.value = value
+            def tobytes(self): return self.value
+
+        game = FBPB3()
+        clicks, seen = [], []
+        states = iter((b"ready", b"busy", b"ready", b"ready"))
+        game.click = lambda xy, *args: clicks.append(xy)
+        game._wait_until_still = lambda **kw: True
+        game._wait_for = lambda fn, *_: fn()
+        game._calendar_cell_selected = lambda *_: True
+        game._message_boxes = lambda: []
+        game._grab = lambda *_args, **_kw: Picture(next(states))
+        self.assertTrue(game.sim_to_date(
+            2, "2029-03-18", on_day=lambda day, total: seen.append((day, total))))
+        self.assertIn((822, 392), clicks)  # March 20, the morning after two sim days.
+        self.assertIn((794, 651), clicks)
+        self.assertEqual(seen, [(2, 2)])
+
+    def test_calendar_sim_cancels_playoff_warning_without_claiming_progress(self):
+        class Picture:
+            def tobytes(self): return b"ready"
+
+        game = FBPB3()
+        dismissed, seen = [], []
+        game.click = lambda *args: None
+        game._wait_until_still = lambda **kw: True
+        game._wait_for = lambda fn, *_: fn()
+        game._calendar_cell_selected = lambda *_: True
+        game._grab = lambda *_args, **_kw: Picture()
+        game._message_boxes = lambda: ["Schedule Warning"]
+        game.dismiss_message = lambda *args, **kw: dismissed.append(kw.get("button"))
+        self.assertFalse(game.sim_to_date(
+            2, "2029-04-28", on_day=lambda *args: seen.append(args)))
+        self.assertEqual(dismissed, ["No"])
+        self.assertEqual(seen, [])
+
 
 if __name__ == "__main__":
     unittest.main()

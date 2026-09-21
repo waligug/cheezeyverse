@@ -55,13 +55,14 @@ class CalendarTests(unittest.TestCase):
 
     def test_worker_uses_each_leagues_exact_days_and_stops_on_failure(self):
         run=panel.SimRun(['prep','pro'],5,False,kind='calendar')
-        run.calendar_plan={'leagues':[dict(key='prep',days=2,through='2028-03-01',expected_day=10,season=2027),
-                                     dict(key='pro',days=5,through='2028-03-04',expected_day=20,season=2027)]}
+        run.calendar_plan={'leagues':[dict(key='prep',days=2,through='2028-03-01',expected_day=10,season=2027,**{'from':'2028-02-28'}),
+                                     dict(key='pro',days=5,through='2028-03-04',expected_day=20,season=2027,**{'from':'2028-02-28'})]}
         with patch.object(panel,'run_sim',return_value={'ok':True}) as sim, patch.object(panel,'_finish'):
             panel._calendar_worker(run)
         self.assertEqual(sim.call_count,1)
         self.assertEqual(sim.call_args.kwargs['days_by_league'],{'prep':2,'pro':5})
         self.assertEqual(sim.call_args.kwargs['expected_states']['pro'],(20,2027))
+        self.assertEqual(sim.call_args.kwargs['start_dates']['prep'],'2028-02-28')
         with patch.object(panel,'run_sim',side_effect=RuntimeError('stopped')) as sim, patch.object(panel,'_finish'):
             panel._calendar_worker(run)
         self.assertEqual(sim.call_count,1)
