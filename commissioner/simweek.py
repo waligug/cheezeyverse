@@ -146,6 +146,31 @@ def _clear_marker():
     MARKER.unlink(missing_ok=True)
 
 
+# HOW LONG THE OUTPUT MDB IS ALLOWED TO TAKE, per league, as (no-progress budget, absolute cap).
+#
+# Measured on 2026-09-20 and written into output_mdb's own docstring: prep 19.5s, COLLEGE 170s,
+# PRO 211s. Pro has twenty teams and a ~10 MB database.
+#
+# `d3d0a2eb2` then bounded every league at timeout=45, max_seconds=120 to shorten publishing -
+# BELOW PRO'S MEASURED TIME, so pro's export could not finish inside its own budget and failed on
+# every run from that commit onward. Caught 2026-09-21: "no MDB for pro (Output MDB made no file
+# progress for 45s)", with pro's LeagueOutput.mdb still carrying a 14:03 timestamp hours later.
+# head-to-head, and anything else read from that table, was quietly stale for pro the whole time.
+#
+# The two limits do different jobs, and only the first one should be tight: the no-progress budget
+# catches a DEAD export, while the absolute cap only stops an exporter churning forever. Raising
+# the cap costs nothing on a healthy run, because output_mdb returns as soon as the file lands and
+# its "File Created" box is dismissed - prep will still be done in twenty seconds.
+#
+# The numbers do not follow league size (prep and college both hold 240 players, and college takes
+# nearly nine times as long), so these are measurements with headroom, not a formula.
+MDB_BUDGET = {
+    "prep": (90, 240),
+    "college": (120, 480),
+    "pro": (120, 600),
+}
+
+
 def describe_interruption(state):
     when = state.get("started_at", "an unknown time")
     return (f"A {state.get('kind', 'sim')} started at {when} never finished. "
@@ -1377,7 +1402,9 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 try:
                     at("mdb", key)
                     emit("export", "writing the game-by-game table", key)
-                    game.output_mdb(spec.save_name, attempts=1, timeout=45, max_seconds=120)
+                    stall, cap = MDB_BUDGET.get(key, MDB_BUDGET["pro"])
+                    game.output_mdb(spec.save_name, attempts=1,
+                                    timeout=stall, max_seconds=cap)
                     fresh_mdb.add(key)
                 except Exception as exc:
                     emit("export", f"no MDB for {key} ({exc}); head-to-head will not update", key)
