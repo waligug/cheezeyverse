@@ -182,10 +182,16 @@ def protect(key, dry_run=False, store_characters=None):
 
     # A clean guard used to rewrite and reparse every 5-10 MB save anyway. This path runs before
     # every league and was charging a full save cycle for proving there was nothing to do.
-    if not defanged and not intruders and not exiled:
+    # A SHORT ROSTER IS NOT CLEAN. This shortcut used to ask only whether anything needed
+    # defanging, evicting or signing back - and once the rosters had already collapsed, the
+    # answer to all three was no. So the pass reported "already clean" on a prep league with a
+    # SIX MAN TEAM, every publish, while the games went on being played. Teams below the roster
+    # size are now a reason to do work, not a state to report as fine.
+    short_now = [t for t, v in L.teams().items() if len(v["ids"]) < spec.roster_size]
+    if not defanged and not intruders and not exiled and not short_now:
         sizes = Counter(len(v["ids"]) for v in L.teams().values())
         print(f"   already clean; roster sizes {dict(sizes)}")
-        return {"defanged": 0, "released": 0, "signed": 0, "unrostered": 0}
+        return {"defanged": 0, "released": 0, "signed": 0, "backfilled": 0, "unrostered": 0}
 
     # 2. release the intruders, then sign our exiles back onto their own teams. Do each side as
     # one structural edit. release()/sign() re-parse the entire 5-10 MB save after every player;
@@ -195,7 +201,8 @@ def protect(key, dry_run=False, store_characters=None):
     release_groups = {}
     for p in intruders:
         release_groups.setdefault(p.values["Team"], []).append(p)
-    L.release_groups(release_groups)
+    if release_groups:
+        L.release_groups(release_groups)
     exiled = [L.find(name, dob) for name, dob in exiled_keys]
 
     team_of = {}
@@ -233,18 +240,52 @@ def protect(key, dry_run=False, store_characters=None):
         assignments.append((p, team_id))
         team_sizes[team_id] = team_sizes.get(team_id, 0) + 1
 
-    L.sign_many(assignments)
+    if assignments:
+        L.sign_many(assignments)
     signed = len(assignments)
+
+    # ---- BACKFILL TO A LEGAL ROSTER --------------------------------------------------------
+    # Evicting every body the manifest does not know is what this pass is for. It cannot be the
+    # whole story, because OUR POPULATION IS SMALLER THAN THE LEAGUE'S ROSTER CAPACITY: prep has
+    # 168 manifest players against 16 x 15 = 240 places. Eviction alone therefore cannot leave
+    # sixteen legal teams, and signing our exiles back does not close the gap - the live run
+    # released 89 and signed 17.
+    #
+    # THAT IS HOW THE ROSTERS COLLAPSED. ageout's intake recycles free-agent bodies to fill every
+    # team back to fifteen, but a recycled body is not in the manifest, so the next run of this
+    # pass evicted it again as a stranger. Each pass ran on every publish, so prep went {15: 16}
+    # after the 2027 rollover to a team of SIX by 2029 day 32, and those were real games.
+    #
+    # Refilling from the pool is safe precisely because of step 1: everyone not ours has already
+    # been defanged to floor ratings and potentials, so a body signed here cannot take minutes
+    # from a character. Defanging is what protects the universe; eviction never was.
+    #
+    # Free agency only (-1), never the draft pool (-2) - the draft is how the next class arrives
+    # and emptying it here would take a season of prospects out of the game.
+    fills, pool_i = [], 0
+    sizes_now = {t: len(v["ids"]) for t, v in L.teams().items()}
+    pool = sorted((p for p in L.players if p.values["Team"] == -1), key=lambda p: p.name)
+    for team_id in sorted(sizes_now):
+        while sizes_now[team_id] < spec.roster_size and pool_i < len(pool):
+            fills.append((pool[pool_i], team_id))
+            sizes_now[team_id] += 1
+            pool_i += 1
+    if fills:
+        L.sign_many(fills)
+    short = [t for t, n in sizes_now.items() if n < spec.roster_size]
+    if short:
+        print(f"   ! {len(short)} team(s) still short; the free-agent pool is empty")
 
     L.save(backup_dir=BACKUPS)
     check = LeagueDat(path)
     sizes = Counter(len(v["ids"]) for v in check.teams().values())
     still_out = [p.name for p in check.players
                  if (p.name, p.dob) in keep and p.values["Team"] < 1]
-    print(f"   defanged {defanged}, released {len(intruders)}, signed {signed}; "
-          f"roster sizes {dict(sizes)}; {len(still_out)} of ours still unrostered")
+    print(f"   defanged {defanged}, released {len(intruders)}, signed {signed}, "
+          f"backfilled {len(fills)}; roster sizes {dict(sizes)}; "
+          f"{len(still_out)} of ours still unrostered")
     return {"defanged": defanged, "released": len(intruders), "signed": signed,
-            "unrostered": len(still_out)}
+            "backfilled": len(fills), "unrostered": len(still_out)}
 
 
 if __name__ == "__main__":
