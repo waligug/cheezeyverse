@@ -21,6 +21,7 @@ import json
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from datetime import datetime, timezone
@@ -965,6 +966,34 @@ def _restore_calendar_checkpoint(game, checkpoint, live_path):
     shutil.copy2(checkpoint, live_path)
 
 
+def _export_verified_boundary(game, key, stored, wanted, start_date, days):
+    """Probe the season-boundary export; preserve the previous export on any refusal."""
+    from .calendarplan import verified_playoff_boundary
+    if not stored or stored != (wanted[0] + 1, wanted[1]) or not start_date:
+        return None
+    html = ch.save_path(key).parent / 'html'
+    schedule = html / 'schedule.htm'
+    if not schedule.is_file():
+        return None
+    before = schedule.read_text(encoding='latin-1')
+    accepted = False
+    with tempfile.TemporaryDirectory(prefix='calendar-check-', dir=html.parent) as tmp:
+        previous = Path(tmp) / 'previous-html'
+        html.rename(previous)
+        try:
+            # Keep older box pages that FBPB's rolling export will not recreate.
+            shutil.copytree(previous, html)
+            out = game.html_output(cfg.BY_KEY[key].save_name, old_boxes=True)
+            after = (out / 'schedule.htm').read_text(encoding='latin-1')
+            accepted = verified_playoff_boundary(before, after, stored, wanted, start_date, days)
+            return out if accepted else None
+        finally:
+            if not accepted:
+                if html.exists():
+                    html.rename(Path(tmp) / 'rejected-html')
+                previous.rename(html)
+
+
 def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             allow_season_end=False, expected_state=None, days_by_league=None, expected_states=None,
             start_dates=None):
@@ -1226,6 +1255,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # of yesterday's league.
             game.save_game(path=ch.save_path(key))
             expected = (expected_states or {}).get(key, expected_state)
+            boundary_export = None
             if expected is not None:
                 from .codec.league_dat import find_season_day
                 stored = find_season_day(ch.save_path(key).read_bytes())
@@ -1244,7 +1274,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                     game.sim_days(missing, on_day=finish_short)
                     game.save_game(path=ch.save_path(key))
                     stored = find_season_day(ch.save_path(key).read_bytes())
-                if used_calendar and stored and stored[1] == wanted[1] and stored[0] > wanted[0]:
+                if stored != wanted:
+                    boundary_export = _export_verified_boundary(
+                        game, key, stored, wanted, start_date, day_counts[key])
+                if used_calendar and not boundary_export and stored and stored[1] == wanted[1] and stored[0] > wanted[0]:
                     # An idle target date makes SIM TO GAME seek the selected team's next game,
                     # which can overshoot. Undo that saved result and replay only this league
                     # from the post-prepare checkpoint with the slower exact path.
@@ -1258,7 +1291,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                     game.sim_days(day_counts[key], on_day=day_finished)
                     game.save_game(path=ch.save_path(key))
                     stored = find_season_day(ch.save_path(key).read_bytes())
-                if stored != wanted:
+                    if stored != wanted:
+                        boundary_export = _export_verified_boundary(
+                            game, key, stored, wanted, start_date, day_counts[key])
+                if stored != wanted and not boundary_export:
                     # The wrong date is already on disk because league.dat exposes its day only
                     # after SAVE. Close FBPB before replacing a file it owns, then restore the
                     # post-prepare checkpoint so applied requests and activations stay aligned
@@ -1275,6 +1311,12 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                         f"{spec.name}: save landed on season day {stored}, expected {wanted}; "
                         "the league was restored to its pre-sim checkpoint and export/publish "
                         "were stopped")
+                if boundary_export:
+                    emit("sim", f"{spec.name}: regular season complete; FBPB skipped the idle "
+                         "playoff setup day. Fresh schedule confirms no playoff games played.", key)
+                    result.setdefault("calendar_landings", {})[key] = {
+                        "expected_day": wanted[0], "actual_day": stored[0],
+                        "reason": "verified idle playoff setup day"}
                 if used_calendar:
                     day_finished(day_counts[key], day_counts[key])
             at("export", key)
@@ -1285,7 +1327,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # question set it to nothing and reported that FBPB3 cannot write box scores at all.
             # The window reaches about a month back from the save's own date, so a weekly run
             # covers its own games comfortably and a season left unexported cannot be recovered.
-            out = game.html_output(spec.save_name, old_boxes=True)
+            out = boundary_export or game.html_output(spec.save_name, old_boxes=True)
             emit("export", f"{len(list(out.rglob('*.htm')))} pages", key)
             league_news_characters = [c for c in news_characters if c.get("league") == key]
             new_business = leaguenews.real_player_trades(

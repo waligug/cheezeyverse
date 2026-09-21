@@ -178,6 +178,30 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(self.fast, [(3, "2029-04-17")])
         self.assertEqual(self.simulated, [3])
 
+    def test_verified_playoff_setup_skip_continues_without_replaying(self):
+        with patch('commissioner.codec.league_dat.find_season_day',
+                   side_effect=[(153, 2028), (185, 2028), (187, 2028)]), \
+                patch.object(simweek, '_export_verified_boundary',
+                             return_value=self.temp / 'prep' / 'html') as verify:
+            result = simweek.run_sim(
+                leagues=['prep'], days=33, days_by_league={'prep':33},
+                expected_states={'prep':(153,2028)}, start_dates={'prep':'2029-03-18'})
+        self.assertTrue(result['ok'])
+        self.assertEqual(self.simulated, [1])
+        verify.assert_called_once()
+        self.assertEqual(result['calendar_landings']['prep']['actual_day'],187)
+        self.assertFalse(simweek.MARKER.exists())
+
+    def test_unverified_boundary_still_restores_and_blocks(self):
+        with patch('commissioner.codec.league_dat.find_season_day',
+                   side_effect=[(153,2028),(185,2028),(187,2028),(187,2028)]), \
+                patch.object(simweek, '_export_verified_boundary', return_value=None):
+            with self.assertRaisesRegex(RuntimeError, 'restored to its pre-sim checkpoint'):
+                simweek.run_sim(leagues=['prep'], days=33, days_by_league={'prep':33},
+                    expected_states={'prep':(153,2028)}, start_dates={'prep':'2029-03-18'})
+        self.assertTrue(simweek.MARKER.exists())
+        self.push.assert_not_called()
+
     def test_failed_publish_is_visible_in_final_result(self):
         self.push.side_effect = RuntimeError("offline")
         self.assertTrue(simweek.run_sim(days=1)["ok"])

@@ -128,6 +128,40 @@ def snapshot():
         SAVE_LOCK.release()
 
 
+def verified_playoff_boundary(before_html, after_html, stored, wanted, start_date, days):
+    """Accept the observed one-day playoff setup skip, only with full schedule evidence.
+
+    FBPB advances April 19 -> April 21 after the final regular-season games. April 20
+    is never a playable stop. Do not turn that exception into a generic date tolerance.
+    """
+    if not stored or stored != (wanted[0] + 1, wanted[1]) or not start_date:
+        return False
+    before, after = ScheduleParser(), ScheduleParser()
+    before.feed(before_html)
+    after.feed(after_html)
+    target = date.fromisoformat(str(start_date)) + timedelta(days=days - 1)
+    regular = [g for g in before.games if g['phase'] == 'Regular Season']
+    final = [g for g in after.games if g['phase'] == 'Regular Season']
+    playoffs = [g for g in after.games if g['phase'] == 'Playoffs']
+    # Completed exports print the winner first; upcoming rows print away then home.
+    identity = lambda g: (g['date'], tuple(sorted(g['teams'])))
+    if not regular or max(g['date'] for g in regular) != target.isoformat():
+        return False
+    if Counter(map(identity, regular)) != Counter(map(identity, final)):
+        return False
+    if not all(g['played'] for g in final) or not playoffs or any(g['played'] for g in playoffs):
+        return False
+    anchors = set(after.anchors)
+    if len(anchors) != 1:
+        return False
+    opener = anchors.pop()
+    current = opener + timedelta(days=stored[0] - 1)
+    return (opener.year == stored[1]
+            and current == target + timedelta(days=2)
+            and min(g['date'] for g in playoffs) == current.isoformat()
+            and not any(g['played'] and g['date'] > target.isoformat() for g in after.games))
+
+
 def plan(data, reference, target):
     try:
         selected = date.fromisoformat(target)

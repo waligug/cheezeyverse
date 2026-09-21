@@ -78,6 +78,13 @@ Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by D
 Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool / reserve parking, offseason flow.
 
 ## FBPB3 automation facts
+- **2026-09-21, reproduced on isolated season-2028 copies:** the final regular-season SIM DAY
+  can skip an idle playoff setup date. Prep, College and Pro move April 19 (day 185) directly to
+  April 21 (day 187), with the April 19 games complete and the April 21 playoff games unplayed.
+  Do not assume each SIM DAY increments the stored calendar by exactly one. Calendar runs may
+  accept this boundary only after a fresh schedule proves the full original regular schedule
+  is complete, no later games were played, and the save sits on the first unplayed playoff date.
+  `fixtures/calendar-boundary/` contains actual before/after exports from the Prep rehearsal.
 - VB6 app, no native menus. Top bar and buttons are owner-drawn `ThunderRT6UserControlDC`, so clicks are
   window-relative coordinates. Combo boxes (`ThunderRT6ComboBox`), text boxes and message boxes (`#32770`) are real
   Win32 controls and can be driven by pywinauto `backend="win32"`.

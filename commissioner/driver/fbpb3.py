@@ -603,10 +603,10 @@ class FBPB3:
             raise DriverError(f"cannot use calendar sim with start date {start_date!r}") from exc
         if n < 1:
             return True
-        # ``current`` is the first date to be played, not day zero. Adding n selected the day
-        # after the requested endpoint; FBPB then advanced once more after that day's games.
-        # A request through April 19 therefore landed on April 21. Keep the inclusive count on
-        # the same basis as calendarplan.plan: first + (count - 1).
+        # Select the last requested playing date, leaving the caller to finish its games with
+        # SIM DAY and verify the saved result. At the regular-season boundary, the final daily
+        # click can skip an idle date while FBPB schedules the playoffs (April 19 -> April 21).
+        # Neither click count nor pixel changes alone proves the saved calendar day.
         target = current + timedelta(days=n - 1)
         months = (target.year - current.year) * 12 + target.month - current.month
         if months < 0:
