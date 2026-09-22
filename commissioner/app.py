@@ -644,6 +644,11 @@ def _offseason_view(result):
         "rollover": result.get("rollover", []),
         "publish_error": result.get("publish_error"),
         "developed": result.get("developed"),
+        # The promotion grant, keyed by character id. It is the largest payment an offseason
+        # makes and the view is a whitelist, so leaving it out meant a preview could report
+        # seven promotions and say nothing about the points they came with - which is the one
+        # number somebody checks before an irreversible rollover.
+        "promotion_grants": result.get("promotion_grants") or {},
         "retired": [],
         "promoted": [],
         "drafted": [],
