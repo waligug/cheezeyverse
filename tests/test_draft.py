@@ -129,7 +129,7 @@ def run():
     offseason._draft_needs = lambda log=print: {"LCH": "C"}
     # No save read in a unit test: the real one opens CV_Pro, which is 530 records and only
     # exists on the machine the universe lives on.
-    offseason._draft_field = lambda log=print, limit=None: []
+    offseason._draft_field = lambda log=print, limit=None, **kw: []
     try:
         lines = []
         picks = offseason.run_draft([ready, raw], store=None, log=lines.append,

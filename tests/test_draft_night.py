@@ -277,7 +277,7 @@ def test_a_character_is_never_left_undrafted():
     from commissioner import offseason
     asked = {}
 
-    def fake_field(log=print, limit=None):
+    def fake_field(log=print, limit=None, **kw):
         asked["limit"] = limit
         return field[:limit] if limit else field
 
@@ -318,7 +318,7 @@ def test_run_draft_promotes_ours_and_only_ours():
     field = draft.field_from_save(fake_save(78))
     real_needs, real_field = offseason._draft_needs, offseason._draft_field
     offseason._draft_needs = lambda log=print: {}
-    offseason._draft_field = lambda log=print, limit=None: field[:limit] if limit else field
+    offseason._draft_field = lambda log=print, limit=None, **kw: field[:limit] if limit else field
     try:
         lines = []
         picks = offseason.run_draft(ours, store=None, log=lines.append, dry_run=True,

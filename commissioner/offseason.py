@@ -762,7 +762,7 @@ def _draft_needs(log=print):
         return {}
 
 
-def _draft_field(log=print, limit=None):
+def _draft_field(log=print, limit=None, season=None, store=None):
     """FBPB3's own prospect class, so our people are drafted against a field rather than alone.
 
     Empty is the normal answer for most of the year - the pool records exist all season but the
@@ -773,11 +773,60 @@ def _draft_field(log=print, limit=None):
         field = draft.field_from_save(LeagueDat(ch.save_path("pro")), limit=limit)
         if field:
             log(f"   the field: {len(field)} prospects from the game's own pool")
-        else:
-            log("   the game's draft class is not generated yet; our people draft alone")
-        return field
+            return field
+        # A BLANK POOL IS THE NORMAL ANSWER AND ALWAYS WAS - the game only fills it during the
+        # rollover that runs after the draft. The college seniors are the field whether or not
+        # anybody has written them into the save yet, so computing them here is what lets a
+        # PREVIEW show the same draft the real run will hold. `_carry_draft_class` writes the
+        # identical men to disk just before this in a real offseason, so both paths agree.
+        if season is not None:
+            seniors = draft.outgoing_seniors(LeagueDat(ch.save_path("college")), season,
+                                             store=store, limit=limit or draft.CARRY_LIMIT)
+            if seniors:
+                log(f"   the field: {len(seniors)} college seniors ageing out of the league")
+                return seniors
+        log("   the game's draft class is not generated yet; our people draft alone")
+        return []
     except Exception as exc:                                            # noqa: BLE001
         log(f"   (could not read the draft pool: {exc}; our people draft alone)")
+        return []
+
+
+def _carry_draft_class(season, store=None, dry_run=False, log=print):
+    """Put the college league's outgoing seniors into the pro draft pool, before the draft reads it.
+
+    WHY THIS EXISTS. The three leagues are three separate FBPB3 saves and the AI population has
+    never moved between them: `ageout` retires a capped college player IN PLACE and refills from
+    that same league's own free-agent pool. So the men who dominated college for four years
+    simply stopped existing, and the pro draft was our characters against whatever the game had
+    put in its pool - which, because the game fills that pool during the rollover that runs
+    AFTER this, is nothing at all. Both halves of that are fixed here at once.
+
+    NEVER FATAL, exactly like `_draft_field`. A draft class that could not be written is a worse
+    draft night, not a broken offseason, and by this point characters have already moved leagues.
+    """
+    try:
+        college = LeagueDat(ch.save_path("college"))
+        seniors = draft.outgoing_seniors(college, season, store=store)
+        if not seniors:
+            log("   no college seniors are ageing out; the draft pool is left as the game made it")
+            return []
+        names = [f'{c["first_name"]} {c["last_name"]}' for c in seniors]
+        if dry_run:
+            log(f"   would carry {len(names)} college seniors into the draft class, "
+                f"best first: {', '.join(names[:3])}")
+            return names
+        pro = LeagueDat(ch.save_path("pro"))
+        carried = draft.carry_into_pool(pro, seniors)
+        # save() re-parses and compares every intended value, so a bad write fails HERE rather
+        # than surfacing as a draft board full of the wrong men.
+        pro.save()
+        log(f"   the field: {len(carried)} college seniors carried into the draft class, "
+            f"best first: {', '.join(carried[:3])}")
+        return carried
+    except Exception as exc:                                            # noqa: BLE001
+        log(f"   ! could not carry the college class into the draft pool ({exc}); "
+            "the draft falls back to whatever the game left in the pool")
         return []
 
 
@@ -802,7 +851,7 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
     # messages for one signing. Taking the best of the field keeps the night two rounds long and
     # still gives our people a real field to be measured against.
     room = max(0, draft.DRAFT_ROUNDS * len(order) - len(declared))
-    field = _draft_field(log, limit=room) if room else []
+    field = _draft_field(log, limit=room, season=season, store=store) if room else []
     # Each team evaluates the remaining board through its own profile and its own hole, so the
     # order is no longer one global ranking with team names stapled on. `_promise` survives as
     # the tiebreak inside `draft.sheet` for anybody with no ratings at all.
@@ -1548,6 +1597,13 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             name = f'{c.get("first_name")} {c.get("last_name")}'
             log(f"   ! {name} did not move: {exc}")
             result["failed"].append({"character": c, "stage": "promote", "error": str(exc)})
+    # THE FIELD HAS TO BE WRITTEN BEFORE THE DRAFT READS IT. See the comment above
+    # `draft.CARRY_LIMIT`: the game fills its own draft pool during ITS rollover, which runs
+    # after this, so the pool run_draft looks at is blank every single season. The college
+    # league's outgoing seniors are the honest field - they are the men who just played, and
+    # they are leaving anyway.
+    if moving["draft"]:
+        result["draft_class"] = _carry_draft_class(season, store=store, dry_run=dry_run, log=log)
     # DRAFT NIGHT GOES OUT LIVE, one pick at a time, and only when there is a draft to watch.
     # A dry run builds the same board and announces none of it - the preview must be able to show
     # the room exactly what will happen without telling the room it happened.

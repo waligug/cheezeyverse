@@ -460,3 +460,108 @@ def needs_from_save(key, league_dat):
         except Exception:      # noqa: BLE001 - a team we cannot read simply drafts on talent
             continue
     return out
+
+
+# ---- the class the college league feeds -------------------------------------------------------
+# FBPB3 generates its own draft class, but it does it DURING ITS OWN ROLLOVER - which runs AFTER
+# our draft, not before (`_run_offseason` calls run_draft; `run_offseason` calls rollover_saves
+# afterwards). So `field_from_save` has always asked a pool the game has not filled in yet and
+# always got nothing back, and every draft night since the first one has read "the game's draft
+# class is not generated yet; our people draft alone". That is not a timing accident that will
+# come good on its own - the order guarantees it, every season, for ever.
+#
+# Writing the college league's outgoing seniors into that pool just before the draft is what
+# makes the field real. It also makes it real with names the server has watched for four years
+# instead of strangers the game invented, which is the whole point of running a ladder.
+#
+# NOTHING HERE IS PROMOTED, PAID OR STAMPED. These are pool records at team -2 in the PRO save;
+# `build_board` marks every one of them `is_character: False` and the write path skips them.
+# They exist to be drafted around, slid behind, and left undrafted.
+#
+# The game overwrites these slots when it generates its own class during the rollover that
+# follows. That is fine and expected: they have done their job by then.
+
+# The board is DRAFT_ROUNDS x teams picks deep, so forty fills every slot our draft can announce
+# and leaves the game's untouched blanks below the cut, where a ~9-overall record belongs.
+CARRY_LIMIT = 40
+
+
+def _ascii_name(text):
+    """Fold a name to what the codec's `rename` accepts - it refuses anything outside 32..126.
+
+    Six of college's generated names carry accents (`Guc Dufault`, `Leopold Segard`,
+    `Vitor Romeiro`), and `rename` raises CodecError on every one of them. Folding keeps the man
+    recognisable where stripping would not: Sepulveda rather than Seplveda.
+    """
+    import unicodedata
+    folded = unicodedata.normalize("NFKD", str(text or ""))
+    kept = "".join(c for c in folded if not unicodedata.combining(c))
+    return " ".join("".join(c for c in kept if 32 <= ord(c) < 127).split())
+
+
+def outgoing_seniors(college, season, store=None, limit=CARRY_LIMIT):
+    """The best college players ageing out at this rollover, in character shape, best first.
+
+    EXACTLY THE SET `ageout.plan` RETIRES, and deliberately so: rostered, past the cap measured
+    in the season being SET UP rather than the one just played, and never one of ours nor a
+    manifest reserve row. Carrying a name the age-out is not taking would put a man in the draft
+    who is still playing college next season, which is worse than an invented name.
+
+    Sorted by the same key `field_from_save` uses, so "best" means one thing on draft night.
+    """
+    from .codec.league_dat import POSITIONS
+    keep = ageout.protected_names("college", store)
+    cap = ageout.AGE_CAPS["college"]
+    playing = ageout.playing_season(season)
+    out = []
+    for pl in college.players:
+        if pl.values.get("Team", 0) < 1 or pl.name in keep:
+            continue
+        try:
+            if ageout.age_of(pl, playing) < cap:
+                continue
+        except (KeyError, TypeError, ValueError):
+            continue
+        first, _, last = _ascii_name(pl.name).partition(" ")
+        if not first or not last:
+            continue
+        out.append({
+            "id": f"senior-{pl.id}", "role": "field",
+            "first_name": first, "last_name": last,
+            "position": POSITIONS.get(pl.values.get("Position"), ""),
+            "height_inches": pl.values.get("Height"),
+            # Field to field, in the codec's own keys, because these are copied straight back
+            # into another save rather than read through the store's rating-keyed shape.
+            "ratings": {f: pl.values.get(f, 0) for f in RATINGS},
+            "potentials": {f: pl.values.get(f, 0) for f in POTENTIALS},
+        })
+    out.sort(key=lambda c: (-sum(sheet(c)), describe(c)))
+    return out[:limit] if limit else out
+
+
+def carry_into_pool(pro, seniors):
+    """Write `seniors` over the pro draft pool. Returns the names that landed.
+
+    ORDER MATTERS AND IT IS THE ONE THING TO BE CAREFUL ABOUT HERE. Every numeric field is fixed
+    width and can be set in place, but `rename` re-encodes three strings and changes the record's
+    LENGTH - which splices the file and re-parses it, invalidating every player reference held
+    across the call. So all the numbers go in first, against references that are still good, and
+    every name goes last in ONE `rename_many`, which applies its edits back to front for exactly
+    this reason.
+    """
+    slots = [p for p in pro.players if p.values.get("Team") == POOL_TEAM]
+    pairs = list(zip(slots, seniors))
+    for pl, c in pairs:
+        for field, value in (c.get("ratings") or {}).items():
+            if field in RATINGS:
+                pro.set(pl, field, int(value))
+        for field, value in (c.get("potentials") or {}).items():
+            if field in POTENTIALS:
+                pro.set(pl, field, int(value))
+        if c.get("height_inches"):
+            pro.set(pl, "Height", int(c["height_inches"]))
+        code = ch.POSITION_CODES.get(c.get("position"))
+        if code:
+            pro.set(pl, "Position", code)
+    pro.rename_many([(pl, c["first_name"], c["last_name"]) for pl, c in pairs])
+    return [f'{c["first_name"]} {c["last_name"]}' for _pl, c in pairs]

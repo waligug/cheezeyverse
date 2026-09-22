@@ -76,7 +76,7 @@ def main(argv):
                           f'declared={c.get("declared")} years={c.get("college_years")}')
             return 0
         needs = offseason._draft_needs(log=lambda m: print("  " + m))
-        field = offseason._draft_field(log=lambda m: print("  " + m))
+        field = offseason._draft_field(log=lambda m: print("  " + m), season=season, store=st)
         print(f"Season {season}: {len(declared)} in the draft.\n")
 
     order = offseason.draft_order()
