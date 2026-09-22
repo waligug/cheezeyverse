@@ -161,6 +161,26 @@ def archive_finished(store, season, backups, log):
         rows = statsarchive.read_mdb(mdb)
         if not rows.get(season):
             raise RuntimeError(f'{key}: finished-season statistics are missing from the export')
+        # PRESENT IS NOT FINISHED. This checked only that the season KEY existed, and a stale MDB
+        # has the key - it just has a fraction of the games. On 2026-09-21 pro's export had failed
+        # hours earlier and its MDB held 8 games of a 58-game season; nothing here would have
+        # raised, archive_finished would have written an 8-game year as pro's permanent record,
+        # and once current_season advances save() refuses to rewrite a finished season, so only
+        # force repairs it. That is the same shape as the lost 2028 title: a guard that tested
+        # presence rather than completeness.
+        #
+        # HALF THE SCHEDULE, deliberately loose. The question is "is this export from this
+        # season's END", and a stale one is stale by a mile - pro's was 8 of 58, 14%. A tight
+        # bound would fire on a real season instead: injuries and trades mean nobody is
+        # guaranteed to have played every game, and a legitimate 30 of 32 must not be refused.
+        # The floor only has to separate a finished season from a fragment.
+        played = max((int(r.get("Games") or 0) for r in rows[season]), default=0)
+        if played * 2 < spec.schedule_games:
+            raise RuntimeError(
+                f'{key}: the export holds only {played} game(s) of a {spec.schedule_games}-game '
+                f'season, so it is stale or incomplete. Re-run the Output MDB export for '
+                f'{spec.save_name} before rolling over - this would be written as the permanent '
+                f'record and cannot be rewritten afterwards.')
         takeaways.archive_overview(key, season, dest / "html")
         statsarchive.save(key, season, rows[season], source=str(mdb), overwrite=True)
         # THE POSTSEASON NEEDS THE SAME FREEZE, and for a sharper reason than the regular season.
