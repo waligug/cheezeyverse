@@ -440,8 +440,14 @@ def convert(ratings, factor):
 
 
 def promote(character, to_league, store, log=print, dry_run=False, how="promoted", season=None,
-            team=None):
-    """Move one character up a level, carrying his ratings, and hand back his old slot."""
+            team=None, busy=None):
+    """Move one character up a level, carrying his ratings, and hand back his old slot.
+
+    `busy` is {team abbrev: characters already there}, and it is what stops a whole class landing
+    on one team - see the comment at the pick_slot call. A caller promoting several people should
+    keep one dict across them all and count each placement into it; passing None reads the store
+    instead, which is correct for a real run and blind on a dry one.
+    """
     from_league = character["league"]
     src_path, dst_path = ch.save_path(from_league), ch.save_path(to_league)
     name = f'{character["first_name"]} {character["last_name"]}'
@@ -483,7 +489,27 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
         slot.team = team_names[available[(slot.name, ch.codec_dob(slot.dob))].values["Team"]]
     # `team` is the drafting team when this is a draft pick: a player drafted by STL should
     # join STL if STL has a free reserve slot, not simply the first vacancy in the league.
-    slot = ch.pick_slot(slots, character.get("position"), team=team)
+    # SPREAD A COHORT. pick_slot has known how to do this since the first five friends landed on
+    # two teams - simweek's signup path passes `busy` - but promote never did, so it took the
+    # first free slot in league order. On 2026-09-21 all seven were promoted together and every
+    # one of them went to MJW; they had to be swapped apart by hand afterwards.
+    #
+    # `slot.team` above has already been rewritten to where the row REALLY is in the destination
+    # save, so the default team_of is right and no resolver is needed here.
+    #
+    # A caller that promotes several people should pass one `busy` and count each placement into
+    # it. Falling back to the store is correct for a real run, because activate_character has
+    # written the previous man's team before the next is promoted - but a DRY RUN writes nothing,
+    # so without a caller-held tally a preview reports everybody going to the same place.
+    spec_to = cfg.BY_KEY[to_league]
+    if busy is None:
+        busy = {t.abbrev: 0 for t in spec_to.teams}
+        for other in store.characters(league=to_league):
+            if other.get("status") in ("active", "declared") and other.get("team_abbrev"):
+                busy[other["team_abbrev"]] = busy.get(other["team_abbrev"], 0) + 1
+    divisions = {t.abbrev: t.division for t in spec_to.teams}
+    slot = ch.pick_slot(slots, character.get("position"), team=team,
+                        busy=busy, divisions=divisions)
     if slot is None:
         raise OffseasonError(f"no reserve slot left in {to_league} for {name}")
 
@@ -1212,11 +1238,23 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
     # One character the codec cannot find must not abort an offseason that has already moved
     # other people - a half-run offseason is far worse than a reported failure, because the
     # save and the store disagree from then on.
+    # ONE TALLY ACROSS THE WHOLE CLASS. promote falls back to reading the store, which is right
+    # for a real run but blind on a dry one - nothing is written, so every preview would report
+    # the entire cohort going to the same team. Counting each placement here keeps the preview
+    # honest and matches what the real run does.
+    spec_college = cfg.BY_KEY["college"]
+    college_busy = {t.abbrev: 0 for t in spec_college.teams}
+    for other in store.characters(league="college"):
+        if other.get("status") in ("active", "declared") and other.get("team_abbrev"):
+            college_busy[other["team_abbrev"]] = college_busy.get(other["team_abbrev"], 0) + 1
     for c in moving["college"]:
         try:
-            result["promoted"].append(promote(
-                c, "college", store, log=log, dry_run=dry_run,
-                how="aged out of prep", season=season))
+            moved = promote(c, "college", store, log=log, dry_run=dry_run,
+                            how="aged out of prep", season=season, busy=college_busy)
+            result["promoted"].append(moved)
+            landed = (moved.get("slot") or {}).get("team") or moved.get("team")
+            if landed:
+                college_busy[landed] = college_busy.get(landed, 0) + 1
         except Exception as exc:
             if isinstance(exc, OffseasonRecoveryError):
                 raise

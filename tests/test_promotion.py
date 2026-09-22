@@ -27,6 +27,7 @@ from __future__ import annotations
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -237,6 +238,59 @@ def test_the_browser_agrees_with_the_engine():
         check(f"rules.js {name}", float(m.group(1)) if m else None, float(value))
 
 
+def test_a_whole_class_does_not_land_on_one_team():
+    """pick_slot spreads when it is told who is already where. promote never told it.
+
+    The signup path has passed `busy` since the first five friends landed on two teams, but
+    promote took the first free slot in league order - so on 2026-09-21 all seven were promoted
+    together and every one of them went to MJW. They had to be swapped apart by hand.
+
+    This drives pick_slot exactly the way promote now does: one tally, counted up after each
+    placement. Without the counting the loop picks the same team every time, which is the bug.
+    """
+    print("a promoted class spreads across the league")
+    from commissioner import characters as chmod
+    teams = [f"T{i:02d}" for i in range(16)]
+    slots = []
+    for t in teams:                       # three reserve rows a team, as the universe is built
+        for n in range(3):
+            slots.append(SimpleNamespace(name=f"{t}-res{n}", dob="1/1/2012", team=t))
+    busy = {t: 0 for t in teams}
+    divisions = {t: i // 4 for i, t in enumerate(teams)}
+
+    landed = []
+    for _ in range(7):
+        slot = chmod.pick_slot(slots, None, busy=busy, divisions=divisions)
+        assert slot is not None, "ran out of slots"
+        slots = [s for s in slots if s is not slot]
+        busy[slot.team] = busy.get(slot.team, 0) + 1
+        landed.append(slot.team)
+    check("seven characters, seven teams", len(set(landed)), 7)
+
+    # and the control: without counting them, they stack - which is exactly what happened live
+    slots2 = []
+    for t in teams:
+        for n in range(3):
+            slots2.append(SimpleNamespace(name=f"{t}-res{n}", dob="1/1/2012", team=t))
+    flat = {t: 0 for t in teams}
+    stacked = []
+    for _ in range(7):
+        slot = chmod.pick_slot(slots2, None, busy=flat, divisions=divisions)
+        slots2 = [s for s in slots2 if s is not slot]
+        stacked.append(slot.team)
+    check("without the tally they stack", len(set(stacked)) < 7, True)
+
+
+def test_promote_accepts_and_uses_a_tally():
+    """The signature the caller relies on, so the tally cannot be quietly dropped again."""
+    print("promote takes a busy tally")
+    import inspect
+    sig = inspect.signature(offseason.promote)
+    check("promote has a busy parameter", "busy" in sig.parameters, True)
+    src = inspect.getsource(offseason.promote)
+    check("and passes it to pick_slot", "busy=busy" in src, True)
+
+
 def main():
     with tempfile.TemporaryDirectory() as root:
         test_prep_last_age_promotes_after_seventeen()
@@ -247,6 +301,8 @@ def main():
         test_the_bonus_cap_rises_with_the_level()
         test_a_college_season_seen_through_still_pays()
         test_the_browser_agrees_with_the_engine()
+        test_a_whole_class_does_not_land_on_one_team()
+        test_promote_accepts_and_uses_a_tally()
     print()
     for f in FAILS:
         print("  FAIL ", f)
