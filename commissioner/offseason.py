@@ -1354,6 +1354,23 @@ def _season_bonuses(characters, settings, log):
         if key not in caches:
             when = seasonbonus.export_date(html)
             log(f"{key}: season bonus read from the export of {when or 'an unknown date'}")
+            # SAY SO WHEN THE BRACKET IS NOT THIS SEASON'S. `playoff_bracket` deliberately
+            # refuses to hand last year's bracket to this year's settlement - the export keeps
+            # the old answer on disk until a new one replaces it - and the refusal is correct.
+            # What it is not is VISIBLE: the playoff and title rows simply never appear, and an
+            # offseason run before the postseason was simmed and exported pays nobody for either,
+            # for every character, with nothing saying a thing was missing.
+            try:
+                bracket, _champ = seasonbonus.playoff_bracket(
+                    html, int(settings.get("current_season")),
+                    cfg.BY_KEY[key].playoff_rounds if key in cfg.BY_KEY else None)
+                if bracket is None:
+                    log(f"   ! {key}: no {settings.get('current_season')} playoff bracket in "
+                        f"this export, so NOBODY here can be paid for making the playoffs or "
+                        f"winning the league. Sim the postseason and publish before running "
+                        f"this for real.")
+            except Exception:                                           # noqa: BLE001
+                pass
         try:
             rows = seasonbonus.for_character(
                 f'{c["first_name"]} {c["last_name"]}', html, settings,
