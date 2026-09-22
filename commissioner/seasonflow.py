@@ -259,6 +259,31 @@ def restore_character_sheets(store, key, source_path, live_path=None, dry_run=Tr
     return planned
 
 
+def _team_abbrev(key, dat, team_id):
+    """The abbreviation for a team id, read off an ALREADY-OPEN save.
+
+    Takes the open LeagueDat rather than a path on purpose: the caller has one, and re-parsing a
+    six-megabyte save once per character to answer a lookup is the kind of cost that turns a
+    tidy-up into a visible pause in the middle of a rollover.
+
+    Teams are numbered in the save and named in config; the mapping is by ascending id, the same
+    assumption `promote` and `draft.needs_from_save` already make.
+    """
+    # STRICTLY AN INTEGER. A Team value is an int16 straight out of the record, so anything
+    # else arriving here means something upstream read the wrong field - and int(1.5) would
+    # quietly hand back team 1, turning that mistake into a plausible team name on somebody's
+    # career page. Better to resolve nothing and let the caller say it could not tell.
+    if isinstance(team_id, bool) or not isinstance(team_id, int):
+        return None
+    if team_id < 1:
+        return None                      # a free agent has no abbreviation to record
+    spec = cfg.BY_KEY[key]
+    for i, tid in enumerate(sorted(dat.teams())):
+        if tid == team_id and i < len(spec.teams):
+            return spec.teams[i].abbrev
+    return None
+
+
 def rollover_saves(store, season, journal, log):
     """Only mark the season complete after every saved league reports the next year."""
     out = []
@@ -327,6 +352,33 @@ def rollover_saves(store, season, journal, log):
             ids = dict(character.get("league_player_ids") or {})
             ids[key] = pl.id
             store.set_character_field(character["id"], "league_player_ids", ids)
+            # AND WHICH TEAM HE IS ACTUALLY ON, which the rollover can change under us now that
+            # Finances is on. Free agency runs INSIDE this rollover: an expiring contract is
+            # thrown open and the AI re-signs the man wherever it likes, so the team the store
+            # recorded when he was stamped can be a season out of date before anybody looks.
+            #
+            # Everything else here is re-read from the save for exactly this reason - ratings,
+            # potentials, player id - and the team was the one field still trusted from the
+            # stamp. Left alone it is not a transient error: the site names the wrong team for a
+            # whole season and the career page keeps that season wrong for ever.
+            try:
+                abbrev = _team_abbrev(key, league, pl.values["Team"])
+                if abbrev and abbrev != character.get("team_abbrev"):
+                    log(f'   {name}: now on {abbrev} (was {character.get("team_abbrev")})')
+                    store.set_character_field(character["id"], "team_abbrev", abbrev)
+                elif not abbrev:
+                    # A REAL PERSON CAME OUT OF THE ROLLOVER WITH NO TEAM. With Finances on this
+                    # is what an expired contract looks like after free agency declined to
+                    # re-sign him, and it is the one outcome nobody would notice: he is still in
+                    # the save, still in the store, and simply never plays again. Said loudly
+                    # rather than raised, because the rollover has already happened and stopping
+                    # here would strand the universe rather than undo it.
+                    log(f"   !! {name} is NOT ON A ROSTER after the rollover - he went through "
+                        "free agency and no team signed him. He needs placing by hand.")
+            except Exception as exc:                                    # noqa: BLE001
+                # Never fatal. A wrong team name on the site is a bad day; a rollover that
+                # raises here is a universe stranded mid-offseason with the game holding it.
+                log(f"   (could not re-read {name}'s team: {exc})")
         # LAST SAVE MUTATION, after FBPB3 has completed free agency, staff and preseason. Running
         # this before the native rollover let the game sign every defanged graduate straight
         # back, leaving 78 over-age prep players and 20-man rosters in the 2028 opening.
