@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT))
 from commissioner.codec.league_dat import POTENTIALS, RATINGS, LeagueDat  # noqa: E402
 from commissioner.universe import config as cfg  # noqa: E402
 from commissioner import characters as ch  # noqa: E402
+from commissioner import ageout  # noqa: E402
 
 BACKUPS = ROOT / "backups"
 # Low enough that no GM prefers them, not zero: a rating of 0 reads as "unrated" in places and the
@@ -264,7 +265,25 @@ def protect(key, dry_run=False, store_characters=None):
     # and emptying it here would take a season of prospects out of the game.
     fills, pool_i = [], 0
     sizes_now = {t: len(v["ids"]) for t, v in L.teams().items()}
-    pool = sorted((p for p in L.players if p.values["Team"] == -1), key=lambda p: p.name)
+    # AGE FIRST, AND NOT BY NAME. Free agency is where a released body stays: ageout only ever
+    # walks the ROSTERS, so nobody in the pool is aged out again and the over-age pile grows every
+    # season. Prep's pool currently holds 72 men of 19, 20 and 21 in a league that ends at 18.
+    #
+    # Signing one of those to fill a short roster would put an over-age player back on a court -
+    # the exact thing the cap exists to prevent, undone by the repair for a different bug. So the
+    # cap is applied here too, and the youngest go first, which also keeps the intake young rather
+    # than filling a team with whoever is alphabetically first.
+    season = L.season_day()[1]
+    cap = ageout.AGE_CAPS.get(key)
+
+    def _age(pl):
+        return ageout.age_of(pl, season)
+
+    free = [p for p in L.players if p.values["Team"] == -1]
+    eligible = [p for p in free if cap is None or _age(p) < cap]
+    pool = sorted(eligible, key=lambda p: (_age(p), p.name))
+    if cap is not None and len(eligible) != len(free):
+        print(f"   {len(free) - len(eligible)} free agent(s) are {cap}+ and were not considered")
     for team_id in sorted(sizes_now):
         while sizes_now[team_id] < spec.roster_size and pool_i < len(pool):
             fills.append((pool[pool_i], team_id))
