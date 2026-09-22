@@ -141,7 +141,27 @@ def _write_games(src, dst, key):
         people = [c for c in st.characters(league=key)
                   if c.get("status") in ("active", "declared")]
         if not people:
-            return None
+            # A LEAGUE CAN EMPTY OUT, and prep just did: a whole cohort was promoted at once, so
+            # nobody is left there. Returning here wrote no games.json, and the deploy guard then
+            # read the absence as published work being removed and refused the push - correctly,
+            # because that file is the entire prep game history of the seven who moved up, and
+            # nothing else on the live site holds it.
+            #
+            # There is no export to read for a league with no characters in it, but the archive
+            # is the whole answer anyway: merge() is built to carry a man who is absent from the
+            # export, which is what everybody here now is, permanently.
+            from .. import gamesarchive
+            history = gamesarchive.archived_seasons(key)
+            if not history:
+                return None
+            merged = gamesarchive.merge(history, {"characters": []}, None)
+            merged["generated"] = datetime.now().isoformat(timespec="seconds")
+            (dst / "games.json").write_text(json.dumps(merged, separators=(",", ":")),
+                                            encoding="utf-8")
+            played = sum(len(c["games"]) for c in merged["characters"])
+            print(f"  {key}: nobody plays here now; games.json rebuilt from the archive alone "
+                  f"({len(merged['characters'])} character(s), {played} game line(s))")
+            return {"characters": len(merged["characters"]), "games": played, "from_mdb": 0}
         settings = st.get_settings()
         data = headtohead.from_mdb(
             mdb, people,
