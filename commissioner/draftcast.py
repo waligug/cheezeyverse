@@ -28,7 +28,9 @@ from .simstatus import RateLimited, Refused, WebhookMessage
 
 # Long enough to read one pick before the next arrives, short enough that twenty picks do not
 # outlast the offseason around them. Overridable per call; zero in tests and dry runs.
-DELAY = 8.0
+# Three, not eight. Eight was sized for a draft where every pick was announced; now that only
+# the ones worth watching get a card, the pause between them is the whole cost of the broadcast.
+DELAY = 3.0
 # Discord's own floor is 5/second per webhook. Two failed 429 waits in a row means something is
 # badly wrong and the draft should get on with it rather than stand on the clock.
 MAX_WAITS = 2

@@ -830,6 +830,30 @@ def _carry_draft_class(season, store=None, dry_run=False, log=print):
         return []
 
 
+# How much of a draft is worth broadcasting. The first round is always interesting, one of ours
+# always is, and after that only a prospect who would have gone in the first round on talent.
+ANNOUNCE_PICKS = 10
+
+
+def _worth_announcing(pick, board):
+    """True when this pick earns its own Discord card and its pause.
+
+    Ours always. The top of the board always - that is where the names people know go. And a man
+    whose SHEET put him in the first round, wherever he actually went, because "the fourth best
+    player in this draft and it is pick 31" is the most interesting thing a draft can produce and
+    it only reads as interesting if he was announced.
+    """
+    if pick.get("is_character", True):
+        return True
+    if pick.get("pick", 99) <= ANNOUNCE_PICKS:
+        return True
+    # `expected` is what the flat sheet said his slot should be - the same number
+    # tools/draft_preview.py prints as "sheet said #N". Guessing at a field name here would have
+    # made this silently never fire for a field prospect, which is the half it exists for.
+    expected = pick.get("expected")
+    return expected is not None and expected <= ANNOUNCE_PICKS
+
+
 def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None):
     """Assign declared players to pro teams, worst record first. Returns the picks.
 
@@ -900,7 +924,14 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
         log(f'        {p["reason"]}')
         if p.get("snub"):
             log(f'        {p["snub"]}')
-        if cast is not None:
+        # WORTH STOPPING THE ROOM FOR, OR NOT. A forty-one pick draft at eight seconds a pick is
+        # nearly six minutes of Discord, and most of it is the thirtieth-best senior in a college
+        # league going to a team nobody was watching. Announce a pick properly when it is one of
+        # OURS, or an early pick, or a man good enough to be worth the interruption; the rest are
+        # still drafted, still logged, and still land on the closing board - they just do not each
+        # get a card and a pause.
+        loud = _worth_announcing(p, picks)
+        if cast is not None and loud:
             cast.on_the_clock(p)
         # A FIELD PROSPECT IS ANNOUNCED AND NOTHING ELSE. He belongs to FBPB3, which runs its own
         # draft over the same pool; promoting him here would invent a transaction the game never
@@ -941,7 +972,7 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
                     raise
                 log(f'   ! pick #{p["pick"]} failed: {exc}')
                 p["error"] = str(exc)
-        if cast is not None and "error" not in p:
+        if cast is not None and loud and "error" not in p:
             cast.pick(p, contract=p.get("contract"))
     if cast is not None:
         cast.close([p for p in picks if "error" not in p], undrafted=undrafted)

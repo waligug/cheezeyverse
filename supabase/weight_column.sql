@@ -32,7 +32,7 @@ alter table public.characters
   add constraint characters_weight_lbs_sane check (
     weight_lbs is null
     or weight_lbs between round((height_inches - 60) * 4.6 + 96) - 50
-                      and round((height_inches - 60) * 4.6 + 96) + 50
+                      and round((height_inches - 60) * 4.6 + 96) + 95
   );
 
 -- Readable by everybody who can read the rest of him, and settable at creation only. Nothing

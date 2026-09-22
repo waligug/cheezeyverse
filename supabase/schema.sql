@@ -99,10 +99,15 @@ create table if not exists public.characters (
   -- choice lands inside +/- 50 of the solid-build weight for that height. SQL cannot re-derive
   -- it exactly - BUILDS lives in the JS - so this is the plausibility net and the form is the
   -- real guard, exactly as with growth_bias. See THE TRUST MODEL at the top of this file.
+  -- The headroom is asymmetric because growth only moves one way. The derived figure is the
+  -- weight the site gives a FOURTEEN-YEAR-OLD; growth.weight_step() then walks a man toward his
+  -- adult weight at his adult height every offseason, and a grown 6'8" four weighs far more than
+  -- a boy of the same height. At +50 the 2030 offseason died on Tim Turner being two pounds over.
+  -- See supabase/weight_range.sql.
   weight_lbs       int  check (
     weight_lbs is null
     or weight_lbs between round((height_inches - 60) * 4.6 + 96) - 50
-                      and round((height_inches - 60) * 4.6 + 96) + 50),
+                      and round((height_inches - 60) * 4.6 + 96) + 95),
   -- The class he looked like the day he was created. A record, not a rule - see the note
   -- at the top of this file.
   archetype        text not null,
