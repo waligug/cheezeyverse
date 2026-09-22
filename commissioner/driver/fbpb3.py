@@ -591,6 +591,42 @@ class FBPB3:
     CALENDAR_CELL_STEP = 29
     HOTSEAT_BOTTOM_RIGHT_BOX = (850, 637, 970, 665)
 
+
+    _MONTHS = ("JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+               "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER")
+
+    def _calendar_date(self):
+        """The date the Hot Seat calendar is showing, or None if it cannot be read.
+
+        The heading reads "MARCH 23, 2027". It is the only place the game states the day it is
+        actually on while a fast jump is running - `_date_signature` proves the label CHANGED
+        but cannot say to what, which is why the jump's progress could only ever be a lower
+        bound. OCR is far too slow to poll, so the caller reads it on a timer and uses the cheap
+        signature to decide it is worth reading at all.
+        """
+        from . import screen_text
+        try:
+            text = screen_text.read_raw(self._grab(self.HOTSEAT_DATE_BOX))
+        except Exception:      # noqa: BLE001 - an unreadable heading is not a sim failure
+            return None
+        up = "".join(c if c.isalnum() else " " for c in str(text).upper()).split()
+        month = day = year = None
+        for word in up:
+            if month is None and word in self._MONTHS:
+                month = self._MONTHS.index(word) + 1
+            elif word.isdigit():
+                n = int(word)
+                if len(word) == 4:
+                    year = n
+                elif day is None and 1 <= n <= 31:
+                    day = n
+        if month and day and year:
+            try:
+                return date(year, month, day)
+            except ValueError:
+                return None
+        return None
+
     def sim_to_date(self, n, start_date, on_day=None, timeout=None):
         """Use the Hot Seat calendar to advance exactly ``n`` days in one FBPB action.
 
@@ -641,6 +677,7 @@ class FBPB3:
         ready = self._grab(self.HOTSEAT_BOTTOM_RIGHT_BOX).tobytes()
         progress_signature = self._date_signature()
         confirmed_steps = 0
+        next_read = 0.0
         self.click(HOTSEAT_SIM_TO_GAME, 0)
         deadline = time.time() + (timeout or max(60, n * 5))
         seen_busy = False
@@ -662,12 +699,25 @@ class FBPB3:
                 signature = self._date_signature()
                 if signature != progress_signature and confirmed_steps < n - 1:
                     progress_signature = signature
-                    confirmed_steps += 1
-                    if on_day is not None:
-                        try:
-                            on_day(confirmed_steps, n)
-                        except Exception:
-                            pass
+                    # THE SIGNATURE SAYS "IT MOVED", THE HEADING SAYS HOW FAR. Counting
+                    # signature changes undercounts badly - FBPB advances faster than a 20 Hz
+                    # poll, so a 29-day jump reported about 18 and then leapt to 29, which is
+                    # what made this number untrustworthy. The heading is the truth, but OCR is
+                    # far too slow to run every pass, so it runs on a timer and only when the
+                    # cheap signature says something changed.
+                    now = time.time()
+                    if now >= next_read:
+                        next_read = now + 0.6
+                        shown = self._calendar_date()
+                        if shown is not None:
+                            elapsed = (shown - current).days
+                            if confirmed_steps < elapsed <= n - 1:
+                                confirmed_steps = elapsed
+                                if on_day is not None:
+                                    try:
+                                        on_day(confirmed_steps, n)
+                                    except Exception:
+                                        pass
             elif seen_busy:
                 self._wait_until_still(settle=0.4, timeout=5, poll=0.1, cheap=True)
                 if (self._grab(self.HOTSEAT_BOTTOM_RIGHT_BOX).tobytes() == ready

@@ -1272,9 +1272,16 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             at("sim", key)
             emit("sim", f"simming {day_counts[key]} days of {spec.name}", key)
 
+            # `pass_label` exists because the counter can legitimately run twice for one
+            # league: an overshoot restores the checkpoint and replays the whole thing with the
+            # exact daily path. Unlabelled, that reads as "day 29 of 29" arriving twice with no
+            # explanation, which is what made the number look broken.
+            pass_label = {"text": ""}
+
             def day_finished(day, total):
                 pct = at("sim", key, day / max(1, total))
-                emit("sim", f"{spec.name}: day {day} of {total} completed", key, pct=pct)
+                emit("sim", f"{spec.name}: day {day} of {total} completed{pass_label['text']}",
+                     key, pct=pct)
 
             start_date = (start_dates or {}).get(key)
             used_calendar = False
@@ -1327,6 +1334,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                         active_game, prepared_backups.get(key), ch.save_path(key))
                     game = FBPB3().launch()
                     game.load_save(spec.save_name, wait=30)
+                    pass_label["text"] = " (replay)"
                     game.sim_days(day_counts[key], on_day=day_finished)
                     game.save_game(path=ch.save_path(key))
                     stored = find_season_day(ch.save_path(key).read_bytes())
