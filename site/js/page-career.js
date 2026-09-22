@@ -417,6 +417,20 @@ function levelRow(t) {
     const ages = [t.row.from_age, t.row.to_age].filter((v) => v !== null && v !== undefined);
     if (ages.length === 2) lines.push(`Ages ${ages[0]} to ${ages[1]}.`);
     if (t.row.team_abbrev) lines.push(`Played for ${t.row.team_abbrev}.`);
+    /* WHAT HE WAS PAID AT THIS LEVEL. `finances` is recorded on the open level row by the
+       weekly sync, so a level he has left keeps the last figure it saw - which is the right
+       thing for a career page: it is a record of what he earned there, not a live quote.
+       The band is read, never recomputed; it is a percentile against his own league and
+       `points.payout_band` is the only implementation of that rule. */
+    const f = t.row.finances;
+    if (f && f.salary) {
+      const cash = '$' + Math.round(f.salary).toLocaleString('en-US');
+      lines.push(f.band ? `Earned ${cash} a year - ${f.band} money.`
+        : `Earned ${cash} a year.`);
+      if (f.payout != null) lines.push(`That paid him ${f.payout} skill points a season.`);
+    } else if (f) {
+      lines.push('No contract on file at this level.');
+    }
     if (t.row.how_it_ended) lines.push(String(t.row.how_it_ended));
   } else if (t.state === 'now') {
     lines.push(t.team ? `On ${t.team}.` : 'Waiting for a roster spot.');

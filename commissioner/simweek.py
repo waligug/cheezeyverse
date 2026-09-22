@@ -29,6 +29,7 @@ from pathlib import Path
 
 from . import announce
 from . import characters as ch
+from . import points
 from . import growth
 from . import notify
 from . import settings as cfgenv
@@ -583,6 +584,74 @@ def _sync_teams(league_key, L, st, log):
             log(f'{c["first_name"]} {c["last_name"]} is on {now} now, not {c.get("team_abbrev")}')
             moved += 1
     return moved
+
+
+def _sync_contracts(league_key, L, st, log):
+    """Record what the GAME is paying each character, so the website can show it.
+
+    WHY THIS HAS TO EXIST AT ALL. FBPB3 has carried seven years of salary per player since the
+    universe was created and not one byte of it has ever left the save. The offseason payout
+    reads it, spends it and throws it away, so a player sees `+36  contract payout: star` in his
+    ledger and has no way to find out what he earns, how long his deal runs, or what "star"
+    meant. The number that decides his biggest yearly payment is the one thing he cannot see.
+
+    IT GOES IN `level_history`, NOT A NEW COLUMN. `finances` is not in the store's
+    SETTABLE_FIELDS and adding a column means a Supabase migration, which is a thing a human has
+    to paste in before any of this works. `level_history` is jsonb, is already settable, is
+    already selected by CHARACTER_COLUMNS, and is where the draft already parks a contract - so
+    this ships without blocking on anybody.
+
+    THE BAND IS COMPUTED HERE, not in the browser. It is a percentile against this league's own
+    salaries, and `points.annual_payout` is the one implementation of that rule. Re-deriving it
+    in JavaScript would be a second copy that drifts the first time somebody tunes a band, and
+    the site would then confidently show a player a payout he does not get.
+
+    A LEAGUE WITH NO SALARY SCALE WRITES NO BAND. With Finances off every contract is the same
+    $1,000,000 token, `salary_distribution` refuses to rank one distinct value, and the honest
+    answer is that there is no scale yet - not that everybody is a star or everybody is a
+    minimum earner. The site reads a null band and says so.
+    """
+    written = 0
+    try:
+        salaries = [s for s in ((L.contract_of(pl) or [0])[0] for pl in L.players
+                                if pl.values.get("Team", 0) >= 1) if s]
+        bounds = points.salary_distribution(salaries)
+    except Exception as exc:                                            # noqa: BLE001
+        log(f"could not read {league_key} salaries: {exc}; contracts not recorded")
+        return 0
+    for c in st.characters(league=league_key):
+        if c.get("status") not in ("active", "declared"):
+            continue
+        try:
+            pl = L.find(f'{c["first_name"]} {c["last_name"]}', ch.codec_dob(c.get("game_dob")))
+            deal = L.contract_of(pl) or []
+        except Exception:                                               # noqa: BLE001
+            continue
+        salary = next((v for v in deal if v), 0)
+        finances = {
+            "salary": int(salary),
+            "years_left": sum(1 for v in deal if v),
+            # What this salary WOULD pay him at the next offseason. Pro only - prep and college
+            # keep the flat lump and a band there would be a promise nothing honours.
+            "payout": points.annual_payout(salary, bounds) if league_key == "pro" else None,
+            "band": points.payout_band(salary, bounds) if league_key == "pro" else None,
+            "league_median": int(bounds[0]) if bounds else None,
+            "scale": bool(bounds),
+        }
+        history = list(c.get("level_history") or [])
+        open_row = next((h for h in reversed(history)
+                         if isinstance(h, dict) and h.get("to_season") is None), None)
+        if open_row is None:
+            continue
+        if open_row.get("finances") == finances:
+            continue                       # unchanged; do not spend a write on it every week
+        open_row["finances"] = finances
+        try:
+            st.set_character_field(c["id"], "level_history", history)
+            written += 1
+        except Exception as exc:                                        # noqa: BLE001
+            log(f"could not record {c['first_name']}'s contract: {exc}")
+    return written
 
 
 def _dress_characters(league_key, L, st, log):
@@ -1185,6 +1254,14 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             traded = _sync_teams(key, L, st, lambda m: emit("apply", m, key))
             if traded:
                 emit("apply", f"{traded} character(s) had been traded since last week", key)
+            # NEVER FATAL. A salary is something the website shows; it is not something the week
+            # depends on, and a character must not miss his sim because a contract would not read.
+            try:
+                priced = _sync_contracts(key, L, st, lambda m: emit("apply", m, key))
+                if priced:
+                    emit("apply", f"recorded {priced} contract(s) for the site", key)
+            except Exception as exc:                                    # noqa: BLE001
+                emit("apply", f"could not record contracts ({exc}); the week is unaffected", key)
             dressed = _dress_characters(key, L, st, lambda m: emit("apply", m, key))
             activated, expect_a, activations = _activate_pending(
                 key, L, st, lambda m: emit("apply", m, key), season=season_now)

@@ -231,6 +231,36 @@ def test_a_character_is_never_signed_to_a_one_year_deal():
           inspect.getsource(offseason._run_offseason), True)
 
 
+def test_the_label_and_the_money_never_come_apart():
+    """The website shows the BAND; the ledger pays the POINTS. They must describe the same man.
+
+    `payout_band` first read `if salary and int(salary) <= edge`, so a salary of 0 matched no
+    edge, fell out of the loop and was labelled with the LAST band. A contract-less player - and
+    there are 45 of them on pro rosters today - would have read "star" on his own career page
+    while `annual_payout` quietly paid him the floor. The same slip was already in
+    `payout_reason`, which would have written "star, $0 a year" into a permanent ledger row.
+    """
+    print("the band agrees with the payment")
+    b = points.salary_distribution(LEAGUE)
+    for odd in (0, None, "", "junk", -5):
+        check(f"{odd!r} is the bottom band, not the top",
+              points.payout_band(odd, b), points.BAND_LABELS[0])
+        check(f"{odd!r} is paid the floor", points.annual_payout(odd, b), points.PAYOUT_FLOOR)
+        check(f"{odd!r} is not called a star in the ledger either",
+              "star" in points.payout_reason(odd, points.PAYOUT_FLOOR, b), False)
+    # And across the real league, the man on the top band is the man paid the top points.
+    for salary in measured_league():
+        top_label = points.payout_band(salary, b) == points.BAND_LABELS[-1]
+        top_money = points.annual_payout(salary, b) == points.PAYOUT_BANDS[-1][1]
+        if top_label != top_money:
+            check(f"${salary:,} label and money disagree", top_label, top_money)
+            break
+    else:
+        check("every salary in the measured league agrees", True, True)
+    check("no band label without a scale", points.payout_band(5_000_000, None), None)
+    check("one label per band", len(points.BAND_LABELS), len(points.PAYOUT_BANDS))
+
+
 def main():
     test_the_spread_is_what_was_asked_for()
     test_a_real_distribution_separates_people()
@@ -241,6 +271,7 @@ def main():
     test_a_stamped_character_never_lands_on_a_bare_row()
     test_the_bands_behave_on_the_league_the_game_really_built()
     test_a_character_is_never_signed_to_a_one_year_deal()
+    test_the_label_and_the_money_never_come_apart()
     print()
     for f in FAILS:
         print("  FAIL ", f)

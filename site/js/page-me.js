@@ -413,6 +413,7 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
     { label: 'Requests', node: el('div', {}, requestTable(requests)),
       badge: requests.filter((r) => r.status === 'pending' || r.status === 'approved').length || null },
     { label: 'Points', node: el('div', {}, ledgerTable(ledger, character)) },
+    { label: 'Money', node: moneyPanel(character) },
   ].filter((x) => x.node);
 
   body.append(tabs(sections), ...sections.map((x) => x.node));
@@ -504,6 +505,82 @@ function requestTable(requests) {
 function pillFor(status) {
   return { pending: 'pending', approved: 'active', applied: 'active', rejected: 'retired' }[status]
     || 'pending';
+}
+
+/**
+ * What the GAME pays him, and what that is worth in skill points.
+ *
+ * READ, NEVER COMPUTED. The band is a percentile against his own league's salaries and
+ * `points.payout_band` is the one implementation of that rule; the commissioner works it out
+ * during the weekly sync and parks it on the open level_history row. Deriving it again here
+ * would be a second copy that drifts the first time somebody tunes a band, and the page would
+ * confidently promise a payout he does not get.
+ *
+ * Returns null when there is nothing honest to show, so the tab simply does not appear.
+ */
+function financesOf(character) {
+  const history = character.level_history || [];
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const row = history[i];
+    if (row && typeof row === 'object' && row.to_season == null && row.finances) return row.finances;
+  }
+  return null;
+}
+
+function money(n) {
+  if (n == null) return '--';
+  return '$' + Math.round(n).toLocaleString('en-US');
+}
+
+function moneyPanel(character) {
+  const f = financesOf(character);
+  if (!f) return null;
+  const rows = [];
+  rows.push(el('tr', {}, el('td', {}, 'Salary'),
+    el('td', { class: 'cv-right' }, f.salary ? money(f.salary) + ' a year' : 'no contract')));
+  rows.push(el('tr', {}, el('td', {}, 'Years left'),
+    el('td', { class: 'cv-right' }, String(f.years_left ?? 0))));
+  if (f.band) {
+    rows.push(el('tr', {}, el('td', {}, 'Where that sits'),
+      el('td', { class: 'cv-right' }, f.band)));
+  }
+  if (f.payout != null) {
+    rows.push(el('tr', {}, el('td', {}, 'Pays him next offseason'),
+      el('td', { class: 'cv-right' }, '+' + f.payout + ' skill points')));
+  }
+  const table = el('div', { class: 'cv-scroll' },
+    el('table', { class: 'cv-table' }, el('tbody', {}, rows)));
+
+  const notes = [];
+  if (!f.scale) {
+    // THE HONEST EMPTY STATE. With Finances off every contract in the league is the same
+    // placeholder, so there is no distribution to rank anybody against. Saying "league minimum"
+    // here would be inventing a verdict out of one repeated number.
+    notes.push(el('p', { class: 'cv-hint' },
+      'His league has finances switched off, so every contract is the same placeholder and '
+      + 'nobody can be ranked yet. When they are switched on, the game decides what he is '
+      + 'worth and this is what pays him.'));
+  } else {
+    notes.push(el('p', { class: 'cv-hint' },
+      'Paid once a season, on top of the points he earns every week. It is worked out from '
+      + 'where his salary sits among everyone else in his league, not from a fixed amount - so '
+      + 'it moves as the league's money moves.'));
+    if (f.league_median) {
+      notes.push(el('p', { class: 'cv-muted' },
+        'The middle of his league earns ' + money(f.league_median) + ' a year.'));
+    }
+  }
+  if (f.years_left === 1) {
+    notes.push(el('p', { class: 'cv-hint' },
+      'His deal is up at the end of this season. He goes into free agency with everybody '
+      + 'else and gets paid what the league thinks he is worth - which is the point of '
+      + 'a short deal, not a problem with it.'));
+  }
+  if (!f.salary) {
+    notes.push(el('p', { class: 'cv-hint' },
+      'He has no contract on file. That is worth fixing before finances go on.'));
+  }
+  return el('div', {}, table, ...notes);
 }
 
 function ledgerTable(ledger, character) {

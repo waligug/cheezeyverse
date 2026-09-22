@@ -88,16 +88,54 @@ def annual_payout(salary, boundaries):
     return PAYOUT_BANDS[-1][1]
 
 
+# What each band is CALLED, in the same order as PAYOUT_BANDS. A module constant rather than a
+# local tuple because the website shows the label beside the money, and a second copy of these
+# four words would drift from the arithmetic the moment somebody renamed one.
+BAND_LABELS = ("league minimum", "rotation", "starter", "star")
+
+
+def payout_band(salary, boundaries):
+    """Which band this salary falls in, or None when the league has no salary scale yet.
+
+    None is a real answer and not a failure: with Finances off every contract is the same token,
+    `salary_distribution` refuses to rank one distinct value, and calling everybody a star (or
+    everybody a minimum earner) would be an invention. The site reads None and says there is no
+    scale rather than showing a label nothing earned.
+    """
+    # COERCED THE SAME WAY `annual_payout` COERCES, and that is the whole point of this block.
+    # The first version tested `if salary and ...`, so a salary of 0 matched no edge, fell out of
+    # the loop and was labelled with the LAST band - a contract-less player shown as a "star" on
+    # his own page while annual_payout quietly paid him the floor. The label and the money have
+    # to come apart nowhere.
+    try:
+        salary = int(salary or 0)
+    except (TypeError, ValueError):
+        salary = 0
+    if not boundaries:
+        return None
+    if salary <= 0:
+        return BAND_LABELS[0]
+    for edge, label in zip(boundaries, BAND_LABELS):
+        if salary <= edge:
+            return label
+    return BAND_LABELS[-1]
+
+
 def payout_reason(salary, points, boundaries):
     """The ledger line. It names the money AND the band, because a number with no explanation in
     somebody's history is the thing the one-row-per-component rule exists to prevent."""
+    # COERCED, BECAUSE THIS RUNS INSIDE THE OFFSEASON. A salary of None reached int() and raised
+    # TypeError - in the middle of building a ledger row, after the league has already been
+    # promoted, drafted and paid. Eleven of pro's sixty reserve seats carry no contract and a
+    # bare row reads as exactly this, so it was reachable.
+    try:
+        salary = int(salary or 0)
+    except (TypeError, ValueError):
+        salary = 0
     if not boundaries:
         return f"contract payout ({points}, no salary scale yet)"
-    labels = ("league minimum", "rotation", "starter", "star")
-    for edge, (label, (_pct, pts)) in zip(boundaries, zip(labels, PAYOUT_BANDS)):
-        if salary and int(salary) <= edge:
-            return f"contract payout: {label}, ${int(salary):,} a year"
-    return f"contract payout: {labels[-1]}, ${int(salary):,} a year"
+    return (f"contract payout: {payout_band(salary, boundaries)}, "
+            f"${salary:,} a year")
 
 
 def rookie_rate(pick):
