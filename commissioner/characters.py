@@ -39,21 +39,27 @@ IMPORT_CONTRACT = 1_000_000
 
 # HOW LONG A DEAL WRITTEN FOR A CHARACTER RUNS, by the level he is landing in.
 #
-# It is four everywhere, and the three are listed separately because they are four for three
-# different reasons: prep holds him from fourteen to PREP_LAST_AGE, college caps at
-# COLLEGE_MAX_YEARS, and pro is ROOKIE_YEARS. Tuning one of those must not silently tune the
-# other two, which is what a single shared constant would do.
+# ONE YEAR, DELIBERATELY, AND IT IS NOT THE BUG IT LOOKS LIKE. The obvious reading is that a
+# one-year deal is a hazard because it expires at the next rollover's free-agency stage. For an
+# AI body signed by the roster guard that is true, and `league_dat.SIGNING_YEARS` is longer for
+# exactly that reason. For a REAL CHARACTER it is backwards: free agency is the only event that
+# ever prices a man at what he is worth, and the measured range is $482K to $22.2M against a
+# median of $1.46M. A multi-year deal at the $1,000,000 import token does not protect him, it
+# locks him out of being paid properly - once per year, for as many years as the deal runs.
 #
-# WHY ANY OF THEM IS NOT ONE. A one-year deal expires at the next rollover's FREE AGENCY stage,
-# where the game throws every expiring contract open at once and the AI re-signs whom it likes.
-# So a character given one year is a free agent in the same offseason he arrived - and only the
-# DRAFT ever stated a term, which left the prep->college promotion, the website signup and the
-# rehearsal all writing one-year deals onto real people. All seven characters are in college on
-# one right now.
+# So a character at an established level expires with everybody else and is priced on his
+# merits. The one thing that must never happen is an EMPTY contract block, which is a different
+# failure entirely: Full Finances RELEASES a contract-less player as the league loads. One year
+# is what makes him legal to load without caging him.
 #
-# Re-typed rather than imported because offseason imports this module; tests/test_contract.py
-# pins them together so the copies cannot drift.
-LEVEL_CONTRACT_YEARS = {"prep": 4, "college": 4, "pro": 4}
+# THE DRAFT IS THE EXCEPTION and states its own term. A rookie deal is multi-year on purpose -
+# it is what keeps a drafted character on the team that picked him, which is the only thing that
+# makes draft night mean anything - and it carries a real rookie salary rather than the import
+# token, so he stays put AND is paid like a first-rounder.
+#
+# The three levels are listed separately rather than as one shared number so that changing the
+# answer for one of them cannot silently change it for the other two.
+LEVEL_CONTRACT_YEARS = {"prep": 1, "college": 1, "pro": 1}
 
 
 class ApplyError(Exception):

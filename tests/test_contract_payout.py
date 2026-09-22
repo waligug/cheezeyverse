@@ -199,15 +199,23 @@ def test_a_character_is_never_signed_to_a_one_year_deal():
     """
     print("the term a character's deal runs for")
     from commissioner import offseason
-    check("college matches COLLEGE_MAX_YEARS",
-          ch.LEVEL_CONTRACT_YEARS["college"], offseason.COLLEGE_MAX_YEARS)
-    check("pro matches ROOKIE_YEARS",
-          ch.LEVEL_CONTRACT_YEARS["pro"], offseason.ROOKIE_YEARS)
-    check("prep runs to PREP_LAST_AGE from fourteen",
-          ch.LEVEL_CONTRACT_YEARS["prep"], offseason.PREP_LAST_AGE - 14 + 1)
     check("every level is covered", sorted(ch.LEVEL_CONTRACT_YEARS), ["college", "prep", "pro"])
-    check("and not one of them is a single year",
-          all(y > 1 for y in ch.LEVEL_CONTRACT_YEARS.values()), True)
+    # ONE YEAR ON PURPOSE. Free agency is the only thing that ever prices a man at what he is
+    # worth - the measured spread is $482K to $22.2M - so a real character expires with everyone
+    # else and gets paid on his merits. A multi-year deal at the $1,000,000 import token is not
+    # protection, it is being locked out of that pricing once a year for as long as it runs.
+    check("a real character is never locked in",
+          set(ch.LEVEL_CONTRACT_YEARS.values()), {1})
+    # But NEVER zero: an empty block is the release-on-load case, which is a different failure.
+    check("and never left with an empty block",
+          all(y >= 1 for y in ch.LEVEL_CONTRACT_YEARS.values()), True)
+    # The draft is the exception - a rookie term keeps him on the team that picked him.
+    check("the draft still states a longer term of its own",
+          offseason.ROOKIE_YEARS > ch.LEVEL_CONTRACT_YEARS["pro"], True)
+    # An AI body the roster guard signs wants the opposite treatment and has its own number.
+    from commissioner.codec import league_dat as _lg
+    check("an AI backfill is not on the character rule",
+          _lg.SIGNING_YEARS > ch.LEVEL_CONTRACT_YEARS["pro"], True)
     # A term longer than the file can hold would be clipped silently.
     from commissioner.codec import league_dat as lg
     check("all of them fit in the contract block",
