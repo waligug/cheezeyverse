@@ -1708,8 +1708,19 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         for pl in rostered:
             pro_salaries[(pl.name, pl.dob)] = (pro.contract_of(pl) or [0])[0]
         pro_bounds = points.salary_distribution(pro_salaries.values())
-        log(f"pro salary bands: {pro_bounds}" if pro_bounds else
-            "pro has no salary scale yet (Finances off); the payout pays its floor")
+        if pro_bounds:
+            log(f"pro salary bands: {pro_bounds}")
+        else:
+            # SAY WHICH OF THE TWO IT IS. This used to read "(Finances off)" unconditionally,
+            # which is now wrong: Finances IS on in pro, and the scale is refused because every
+            # contract is still the same setup token - 300 men on $1,000,000 and nothing to
+            # rank. Telling somebody the switch is off when it is on sends them to look in the
+            # wrong place entirely.
+            paid = [v for v in pro_salaries.values() if v]
+            why = ("nobody is paid anything, so Finances is off here" if not paid
+                   else f"all {len(paid)} contracts are still the same number "
+                        f"(${max(paid):,}), so there is nothing to rank yet")
+            log(f"pro has no salary scale: {why}; the payout pays its floor")
     except Exception as exc:                                        # noqa: BLE001
         log(f"could not read pro contracts ({exc}); the payout pays its floor")
 
