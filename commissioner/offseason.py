@@ -101,13 +101,20 @@ ROOKIE_YEARS = 4
 # exception and the scale tapers to about the league minimum by the end of a round - the shape a
 # real rookie scale has, and well short of a cap nobody is near.
 # HOW LONG THE GAME CONTRACT RUNS, which is NOT how long the points deal runs. ROOKIE_YEARS
-# above is the skill-point rookie scale and stays at four. This is the deal FBPB3 sees, and
-# Nate's call is that everybody starts on a short one: "It's fine if they all start on small 1
-# years." One year means a drafted character expires with the rest of the league at the first
-# free agency and is priced by it, instead of being held on a commissioner-chosen number for
-# four years. The cost is real and worth saying out loud - he reaches free agency in the same
-# offseason he was drafted, so the team that picked him is not guaranteed to keep him.
-ROOKIE_GAME_YEARS = 1
+# above is the skill-point rookie scale and stays at four. This is the deal FBPB3 sees.
+#
+# TWO, AND THE REASON IS ARITHMETIC RATHER THAN TASTE. The draft happens INSIDE the offseason and
+# the game's own rollover runs immediately after it, so the rollover consumes a contract year
+# before the drafted man has played a single game. At one year he expires during his own draft
+# night, reaches free agency with the rest of the league and is signed by whoever bids - so
+# "drafted #1 by LCH" would name a team he never played for. At two, the rollover leaves him one
+# year in hand, he plays the whole of the next season for the team that picked him, and he is
+# priced by free agency at the offseason AFTER that.
+#
+# It is the shortest term that buys the rookie season, which is what Nate asked for: "He needs to
+# play his rookie year for the team that drafted him." Everyone else still starts on a single
+# year - see LEVEL_CONTRACT_YEARS - because nobody else has a draft night to honour.
+ROOKIE_GAME_YEARS = 2
 ROOKIE_SALARY_TOP = 5_000_000
 ROOKIE_SALARY_MIN = 500_000
 ROOKIE_SALARY_PICKS = 20

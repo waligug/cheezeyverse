@@ -293,11 +293,26 @@ def test_a_rookie_is_paid_like_one_rather_than_given_a_token():
 
     # THE TWO TERMS ARE DIFFERENT ON PURPOSE and confusing them is how somebody ends up locked
     # out of free agency for four years. ROOKIE_YEARS is skill points; ROOKIE_GAME_YEARS is the
-    # contract FBPB3 sees, and it is short so the league prices him.
-    check("the game contract is short", ROOKIE_GAME_YEARS == 1, f"{ROOKIE_GAME_YEARS}")
-    check("the points rookie scale is not", ROOKIE_YEARS > 1, f"{ROOKIE_YEARS}")
-    check("and every level default is short too",
+    # contract FBPB3 sees.
+    #
+    # TWO IS THE LOAD-BEARING NUMBER, and it is arithmetic rather than taste. The draft happens
+    # inside the offseason and the game's rollover runs straight after, consuming a contract
+    # year before the drafted man has played a game. At ONE he expires on his own draft night
+    # and free agency scatters him - "drafted #1 by LCH" would name a team he never played for.
+    # At TWO the rollover leaves him a year in hand and he plays the next season for the team
+    # that picked him. Anything longer and he skips being priced, which is the cage.
+    check("a drafted man keeps a year after the rollover eats one",
+          ROOKIE_GAME_YEARS - 1 >= 1, f"{ROOKIE_GAME_YEARS}yr - 1 = {ROOKIE_GAME_YEARS - 1}")
+    check("but not so long that he skips being priced",
+          ROOKIE_GAME_YEARS <= 2, f"{ROOKIE_GAME_YEARS}")
+    check("the points rookie scale is longer, being a different currency",
+          ROOKIE_YEARS > ROOKIE_GAME_YEARS, f"{ROOKIE_YEARS} vs {ROOKIE_GAME_YEARS}")
+    # NOBODY ELSE GETS THE EXTRA YEAR. Only the draft has a night to honour; a promotion or a
+    # signup has no team that earned the right to keep him.
+    check("every level default is a single year",
           set(LEVEL_CONTRACT_YEARS.values()) == {1}, f"{LEVEL_CONTRACT_YEARS}")
+    check("and the draft is the only thing that asks for more",
+          ROOKIE_GAME_YEARS > max(LEVEL_CONTRACT_YEARS.values()), True)
 
     scale = [rookie_salary(n) for n in range(1, ROOKIE_SALARY_PICKS + 2)]
     check("it never rises with the pick number", scale == sorted(scale, reverse=True), "")
