@@ -60,7 +60,11 @@ BACKUPS = ROOT / "backups"
 MANIFEST = ROOT / "universe" / "manifest.json"
 
 NEXT_LEVEL = {"prep": "college", "college": "pro"}
-# College eligibility runs four years, so 19-22.
+# College eligibility runs four years. A character promoted after his age-17 season plays them
+# at 18-21, which is a year below the AI band of 19-22 that ageout generates - deliberately. He
+# arrives as the youngest man in the league and has to earn his place in it, which is the same
+# rule the rest of the universe runs on. It is not the age mismatch the age-out removes: that
+# one was about bodies too OLD for their league still taking roster places.
 #
 # THE ARGUMENT THAT USED TO SIT HERE - that this must agree with ageout.AGE_CAPS "or the
 # universe has two different ladders in it" - is what raised this to 18 and silently cost every
@@ -1017,6 +1021,12 @@ def _offseason_report(result, store=None):
         paid.append(f'{result["paid"]} paid the offseason lump')
     if result.get("season_bonus"):
         paid.append(f'{result["season_bonus"]} season-bonus point(s) on top')
+    # The promotion grant is the biggest single payout an offseason makes. It was reaching the
+    # log and the result and stopping there, which is the one audience that does not read them.
+    grants = result.get("promotion_grants") or {}
+    if grants:
+        total = sum(points for rows in grants.values() for _, points in rows)
+        paid.append(f'{total} promotion-grant point(s) to {len(grants)} moving up')
     if paid:
         lines.append("")
         lines.append("**Points** - " + ", ".join(paid))
@@ -1059,8 +1069,11 @@ def _season_bonuses(characters, settings, log):
                 rounds=cfg.BY_KEY[key].playoff_rounds if key in cfg.BY_KEY else None,
                 league=key)
         except Exception as exc:
+            # NOT `continue`. The promotion grant is worked out below off the same cache, and
+            # skipping to the next character forfeited 20-44 points with nothing in the log to
+            # say so - the season bonus is a handful of points, the grant is a career step.
             log(f'no season bonus for {c["first_name"]} {c["last_name"]}: {exc}')
-            continue
+            rows = []
         if rows:
             out[c["id"]] = rows
         # THE PROMOTION GRANT IS WORKED OUT HERE TOO, for everybody, off the cache that has just
@@ -1300,11 +1313,14 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             # not cost somebody the offseason lump he has already earned.
             # Only the people who actually moved, and only what was computed BEFORE they did.
             if c["id"] in promoted_ids and promotion_grants.get(c["id"]):
-                granted_to.add(c["id"])
                 for why, amount in promotion_grants.get(c["id"], []):
                     try:
                         store.grant_points(c["id"], amount, why)
                         granted += amount
+                        # Credited only once the write has landed. Marking him before the call
+                        # meant a Supabase hiccup left the result and the saved report claiming
+                        # points he never got, which is the one record anybody would check.
+                        granted_to.add(c["id"])
                     except Exception as exc:                            # noqa: BLE001
                         log(f'could not pay "{why}" to '
                             f'{c["first_name"]} {c["last_name"]}: {exc}')

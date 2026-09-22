@@ -39,7 +39,7 @@ DEFAULTS = {
     "offseason_points": 15,
     # Paid on top of the lump sum for a college season seen through; it is what makes
     # staying a real alternative to declaring the moment you are allowed to.
-    "college_development_bonus": 12,
+    "college_development_bonus": 20,
 }
 
 

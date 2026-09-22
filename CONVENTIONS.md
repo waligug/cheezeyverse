@@ -469,7 +469,7 @@ bigger, older, better opposition, and an FBPB3 rating is relative to the league 
 
 | Move | Carries |
 |---|---|
-| Prep -> College | 97% |
+| Prep -> College | 100% - see the promotion grant |
 | College -> Pro, eligibility used (4 years) | 94% |
 | College -> Pro, 1 year early | 87% |
 | College -> Pro, 2 years early | 80% |
@@ -482,7 +482,7 @@ because a percentage of nothing is nothing.
 **Balanced by modelling the trade, not by feel.** At the first numbers I tried (4% per year early)
 declaring as a freshman was strictly best by about 34 points over a career - that is not a choice,
 it is an answer. Two changes fixed it: the penalty went to 7% per year, and a college season that is
-seen through pays a **12-point development bonus** on top of the usual offseason lump. Staying pays
+seen through pays a **20-point development bonus** on top of the usual offseason lump. Staying pays
 in points, leaving pays in time. The four options now finish within about 12 points of each other
 over a 300-point career, and the two extremes beat dithering in the middle, which is the right shape.
 

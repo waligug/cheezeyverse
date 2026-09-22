@@ -203,6 +203,14 @@ def test_a_college_season_seen_through_still_pays():
     check("with no row, that is what is paid", effective_development_bonus({}), 20)
     check("a row wins, which is the trap", effective_development_bonus(
         {"college_development_bonus": 12}), 12)
+    # AND THE ROW THAT ACTUALLY SHIPS. Checking a hypothetical dict is what let the real one sit
+    # at 12 while the constant said 20 - so read localstore's own defaults, which is the store
+    # the rehearsal and any local universe run on.
+    from commissioner import localstore
+    check("localstore's shipped row", effective_development_bonus(localstore.DEFAULTS), 20)
+    # Staying must still beat the cheapest way of leaving, or the whole thing inverts.
+    check("a college season seen through beats nothing",
+          effective_development_bonus(localstore.DEFAULTS) > 0, True)
 
 
 def test_the_browser_agrees_with_the_engine():
