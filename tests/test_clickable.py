@@ -37,6 +37,14 @@ from commissioner.driver.fbpb3 import CLICK_EXTENT, DriverError, FBPB3  # noqa: 
 DRIVER = ROOT / "commissioner" / "driver" / "fbpb3.py"
 
 
+# NOT EVERY PAIR OF INTEGERS IS A POINT. These are size BOUNDS - the min and max width and
+# height that make a window look like one of FBPB3's progress forms - and they are measured
+# against a window's dimensions, never clicked. Listed by name rather than matched by a suffix
+# so that a genuine coordinate can never be excluded by accident: a new entry here is a
+# deliberate statement that the thing is not a click target.
+NOT_COORDINATES = {"FBPB3._POPUP_W", "FBPB3._POPUP_H"}
+
+
 def coordinates():
     """{name: (x, y)} for every two-integer constant in the driver - the things it clicks."""
     tree = ast.parse(DRIVER.read_text(encoding="utf-8"))
@@ -48,7 +56,9 @@ def coordinates():
                 nums = [v.value for v in node.value.elts
                         if isinstance(v, ast.Constant) and isinstance(v.value, int)]
                 if len(nums) == 2 and isinstance(node.targets[0], ast.Name):
-                    found[prefix + node.targets[0].id] = tuple(nums)
+                    name = prefix + node.targets[0].id
+                    if name not in NOT_COORDINATES:
+                        found[name] = tuple(nums)
             elif isinstance(node, ast.ClassDef):
                 collect(node.body, f"{node.name}.")
 
