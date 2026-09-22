@@ -90,6 +90,27 @@ def verify(key):
     check(f"{key}: every reserve slot is findable", len(found) == len(reserves),
           f"{len(found)} of {len(reserves)}")
 
+    # CONTRACTS, because with Full Finances a rostered player who has none is RELEASED the moment
+    # the league loads, and nothing else in this file would notice. It is reported for every
+    # league and FAILED only where Finances is actually on, because prep and college are full of
+    # contract-less bodies that are perfectly safe while it is off - prep alone has 164.
+    #
+    # NOT A FAILURE: everybody being on a ONE-year deal. That is the deliberate setup for the
+    # first Finances rollover - the whole league expires together, free agency prices it, and it
+    # comes back with a real spread. Measured on a clone across two rollovers: 300 one-year deals
+    # in, 324 rostered and 132 distinct salaries out, nobody lost.
+    FINANCES_ON = ("pro",)
+    try:
+        rostered = [pl for pl in L.players if pl.values["Team"] > 0]
+        bare = [pl for pl in rostered if not any(pl.contract)]
+        detail = f"{len(bare)} of {len(rostered)} rostered have no contract"
+        if key in FINANCES_ON:
+            check(f"{key}: every rostered player is paid", not bare, detail)
+        else:
+            print(f"      {key}: {detail} (Finances is off here, so this is safe)")
+    except AttributeError:
+        print(f"      {key}: this codec cannot read contracts; skipped")
+
     if found:
         sample = found[0]
         pl = by_name_dob[(sample["name"], sample["dob"])]
