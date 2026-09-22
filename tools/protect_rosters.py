@@ -297,6 +297,53 @@ def protect(key, dry_run=False, store_characters=None):
 
     L.save(backup_dir=BACKUPS)
     check = LeagueDat(path)
+
+    # REGISTER WHAT WE JUST SIGNED, or this pass undoes itself for ever.
+    #
+    # The comment forty lines up already tells this story for prep: a recycled body is not in the
+    # manifest, so the NEXT run of this pass evicts it as a stranger, refills from the pool, and
+    # the pass has fresh work every publish while nothing improves. That was closed by
+    # `ageout.sync_manifest` - but `ageout.apply` runs only for prep and college
+    # (seasonflow.py:386), because AGE_CAPS has no 'pro' key. So pro never registered anything
+    # and kept churning: measured on the live panel log, "pro: 11 intruder(s) ... released 11,
+    # backfilled 11" on EVERY publish, while prep said "already clean" and college released none.
+    #
+    # Registering here rather than in ageout fixes it for whichever league is being guarded,
+    # including the one that has no age-out at all. sync_manifest rebuilds from who is actually
+    # rostered and excludes `keep`, so characters and reserve seats are never touched.
+    if fills and not dry_run:
+        try:
+            # THE PROTECTED SET IS NARROW, and getting it wrong is destructive in both
+            # directions. sync_manifest REBUILDS this league's filler rows from whoever is
+            # rostered and skips `pl.name in keep`, so:
+            #   - too NARROW (the (name, dob) tuples this function carries, which never match a
+            #     bare name) registers the sixty reserve seats as ordinary filler, and a seat
+            #     registered as filler is one the next pass may recycle out from under a signup;
+            #   - too WIDE (every manifest name) skips almost everybody, drops 240 live rows and
+            #     sets off a far worse churn than the one being fixed.
+            # Both were measured on the way to this line. What is wanted is exactly what
+            # ageout.protected_names means: the reserve SEATS, plus our characters under the
+            # names they actually play under.
+            protected = {r["name"] for r in man["players"]
+                         if r["league"] == key and r.get("role") == "reserve"}
+            for c in (store_characters or []):
+                if c.get("league") == key:
+                    protected.add(f'{c["first_name"]} {c["last_name"]}')
+            man2, registered, dropped = ageout.sync_manifest(check, key, protected, man)
+            if registered or dropped:
+                (ROOT / "universe" / "manifest.json").write_text(
+                    json.dumps(man2, indent=1), encoding="utf-8")
+                # COUNTS, not the lists themselves. sync_manifest returns the names, and on the
+                # first pro run that was seventy-one of them printed as a single wall of text
+                # across the panel's live log.
+                print(f"   registered {len(registered)} rostered bod"
+                      f"{'y' if len(registered) == 1 else 'ies'} in the manifest, "
+                      f"dropped {len(dropped)} stale row(s)")
+        except Exception as exc:                                        # noqa: BLE001
+            # Never fatal: an unregistered backfill is churn, a crashed roster guard is a
+            # league nobody tidied at all.
+            print(f"   (could not register the backfill: {exc}; it will be evicted next run)")
+
     sizes = Counter(len(v["ids"]) for v in check.teams().values())
     still_out = [p.name for p in check.players
                  if (p.name, p.dob) in keep and p.values["Team"] < 1]

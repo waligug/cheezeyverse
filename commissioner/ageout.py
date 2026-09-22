@@ -527,7 +527,13 @@ def apply(key, season, store=None, save_path=None, dry_run=False, log=print, see
     # ---- 2. refill with a new intake --------------------------------------------------------
     arrived, pending = [], []
     teams = L.teams()
-    pool = sorted((p for p in L.players if p.values["Team"] < 1 and p.name not in keep),
+    # FREE AGENTS ONLY, WHICH IS TEAM -1. `Team < 1` also catches -2, and -2 is the game's DRAFT
+    # POOL - 70 of college's 190 non-rostered records and 65 of prep's 185. Recycling one into
+    # roster filler consumes a draft record permanently, draining a pool we do not own and which
+    # the pro league now carries our outgoing college seniors into. `tools/protect_rosters.py`
+    # already had this right, selecting `== -1` for the same job; the two disagreed and this was
+    # the side that was wrong.
+    pool = sorted((p for p in L.players if p.values["Team"] == -1 and p.name not in keep),
                   key=lambda p: -age_of(p, season))
     taken = {p.name for p in L.players}
     for t in sorted(teams):
