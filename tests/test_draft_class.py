@@ -52,7 +52,20 @@ def run():
     if not (col_src.exists() and pro_src.exists()):
         print("SKIP  live college/pro saves not present")
         return 0
-    season = 2030
+    # THE LIVE SEASON, not a number written down here. This was pinned at 2030; the universe
+    # rolled into 2031 and the whole class went empty, because at 2030 nobody in college had yet
+    # reached the age-23 cap. Every "every carried man ..." assertion below then passed over an
+    # empty list and the test only failed when it indexed one - a stale fixture wearing the
+    # costume of a product bug.
+    season = None
+    try:
+        current = store.get_settings().get("current_season")
+        season = int(current) if current else None
+    except Exception:                                                   # noqa: BLE001
+        season = None
+    if season is None:
+        print("SKIP  cannot read the current season from the store")
+        return 0
 
     print("a name the codec cannot write is folded, not dropped")
     # `rename` refuses anything outside 32..126, and six college names carry accents. Folding
@@ -100,12 +113,24 @@ def run():
         print("\nbest first, so the board means something")
         sheets = [sum(draft.sheet(c)) for c in seniors]
         check("the class is sorted best first", sheets == sorted(sheets, reverse=True), True)
-        check("and the top man beats the bottom man", sheets[0] > sheets[-1], True)
+        # GUARDED, because an empty class makes every check above vacuous and this one an
+        # IndexError - which reads like a crash rather than like the thing that is actually wrong.
+        check("and the top man beats the bottom man",
+              bool(sheets) and sheets[0] > sheets[-1], True)
 
         print("\nthe write lands, and survives a save and a fresh parse")
         pro = LeagueDat(pro_p)
-        before = draft.field_from_save(LeagueDat(pro_p))
-        check("the game's own pool is blank to begin with", before, [])
+        before = draft.field_from_save(LeagueDat(pro_p), limit=None)
+        # NOT "the pool is blank". It was, and this asserted so - but FBPB3 fills its own pool
+        # during ITS rollover, so the moment the 2030 offseason ran the live save came back with
+        # 300 generated prospects in it and a precondition failed over a universe behaving
+        # correctly. What is actually being protected is that carry_into_pool STAMPS OUR MEN OVER
+        # whatever is there and they come out on top, which is what the checks below measure, and
+        # they measure it harder against a full pool than an empty one.
+        print(f"    (the game's own pool holds {len(before)} record(s) before we write)")
+        check("our seniors are not already in it",
+              {f'{c["first_name"]} {c["last_name"]}' for c in seniors}
+              & {f'{c["first_name"]} {c["last_name"]}' for c in before}, set())
         top = seniors[0]
         want_ratings = dict(top["ratings"])
         carried = draft.carry_into_pool(pro, seniors)
