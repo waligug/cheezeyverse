@@ -86,22 +86,55 @@ def main(argv):
         print()
 
     print("WHAT DISCORD WOULD SEE")
+    # THE REAL EMBED BUILDER, not a hand-written imitation of it. An earlier version of this
+    # printed its own approximation of the words, which meant the code that actually runs on
+    # draft night was the one thing the preview did not exercise - a preview that agrees with
+    # itself and not with the broadcast is worse than none. `Capture` satisfies the transport
+    # contract and keeps every payload, so nothing can leave the machine and what is printed
+    # below came out of draftcast.
     from commissioner import draftcast
-    cast = draftcast.DraftCast(2030, transport=None, delay=0, log=lambda m: None)
-    # No transport is configured under a preview, so nothing can leave the machine; render the
-    # embeds by hand to show the words.
-    for p in picks[:3]:
-        contract = {"team": p["team"], "rate": points.rookie_rate(p["pick"]),
-                    "years": offseason.ROOKIE_YEARS}
-        print(f'  {p["team"]} are on the clock with pick #{p["pick"]}...')
-        print(f'  #{p["pick"]} · {p["team"]} select {draft.describe(p["character"])}')
-        print(f'      {p["reason"]}')
-        print(f'      Rookie deal: {contract["years"]} yr · {contract["rate"]} '
-              "skill points a week")
-        print()
-    if len(picks) > 3:
-        print(f"  ...and {len(picks) - 3} more.")
+
+    class Capture:
+        def __init__(self):
+            self.payloads = []
+            self.message_id = None
+
+        def send(self, payload):
+            self.payloads.append(payload)
+
+        def close(self):
+            pass
+
+    seen = Capture()
+    cast = draftcast.DraftCast(season if not mock else 2030, transport=seen, delay=0,
+                               log=lambda m: None, sleep=lambda s: None)
+    cast.open(len(picks), order)
+    shown = picks[:3]
+    for p in shown:
+        cast.on_the_clock(p)
+        cast.pick(p, contract={"team": p["team"], "rate": points.rookie_rate(p["pick"]),
+                               "years": offseason.ROOKIE_YEARS})
+    # The closing board lists EVERY pick, the way the real broadcast does - only the pick-by-pick
+    # messages above are trimmed, because three is enough to read the shape of them.
+    cast.close(picks)
     cast.finish()
+
+    for payload in seen.payloads:
+        for embed in payload.get("embeds", []):
+            if embed.get("author"):
+                print(f'  [{embed["author"]["name"]}]')
+            if embed.get("title"):
+                print(f'  {embed["title"]}')
+            for line in (embed.get("description") or "").splitlines():
+                print(f"      {line}")
+            for field in embed.get("fields") or []:
+                print(f'      {field["name"]}: {field["value"]}')
+            print()
+    if len(picks) > len(shown):
+        more = len(picks) - len(shown)
+        print(f'  ...and {more} more pick{"" if more == 1 else "s"} would be announced the '
+              "same way.")
+    print(f"  ({len(seen.payloads)} messages captured, 0 sent - the transport is a list.)")
 
     print("\nNothing was written. No save was opened for writing, no point granted, "
           "no message posted.")
