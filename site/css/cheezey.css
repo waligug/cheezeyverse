@@ -474,6 +474,29 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .cv-chart-reflabel { fill: var(--ink); font: 700 11px var(--font); paint-order: stroke;
   stroke: var(--cream); stroke-width: 3.5px; stroke-linejoin: round; }
 
+/* A REAL PERSON'S CONTRACT, and the team he plays for. The fill is a gold gradient defined in
+   the SVG; these add the rim and the glow that make him findable in a column of ten colours
+   without reading a single name. */
+.cv-chart-bar.is-ours { stroke: #7A5A00; stroke-width: 2; filter: url(#cv-oursglow); }
+.cv-tab.has-ours { box-shadow: 0 0 0 2px var(--gold), 0 0 10px 2px rgba(242,183,5,.75);
+  border-color: var(--gold); }
+.cv-tab.has-ours.is-on { box-shadow: 0 0 0 2px #fff, 0 0 12px 3px rgba(242,183,5,.9); }
+
+/* the hover card: one node, moved to the cursor */
+.cv-capcard { position: fixed; z-index: 60; pointer-events: none; max-width: 260px;
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 8px 10px; font-size: 13px; color: var(--ink); }
+.cv-capcard[hidden] { display: none; }
+.cv-capcard-name { font-weight: 700; color: var(--crust); }
+.cv-capcard-ours { margin-left: 6px; font-size: 11px; font-weight: 700; color: #7A5A00;
+  background: var(--gold); border-radius: 999px; padding: 1px 7px; }
+.cv-capcard-money { margin-top: 2px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.cv-capcard-stats { display: flex; gap: 10px; margin-top: 6px; }
+.cv-capcard-stats span { display: flex; flex-direction: column; align-items: center; }
+.cv-capcard-stats b { font-variant-numeric: tabular-nums; }
+.cv-capcard-stats i { font-style: normal; font-size: 10px; color: var(--crust); }
+.cv-capcard-foot { margin-top: 6px; font-size: 11px; color: var(--crust); }
+
 /* money in a column reads as money only when the digits line up */
 .cv-num { font-variant-numeric: tabular-nums; }
 

@@ -29,6 +29,83 @@ const BLOCKS = [
 
 let TEAM = null;
 let DATA = null;
+let STATS = {};          // name -> the player's line from stats.json, when he has one
+
+/** His season, per game, or null when he has not played one. */
+function lineFor(name) {
+  const row = STATS[name];
+  if (!row || !row.G) return null;
+  const per = (n) => (n / row.G).toFixed(1);
+  return {
+    games: row.G, pts: per(row.PTS), reb: per(row.REB), ast: per(row.AST),
+    stl: per(row.STL), blk: per(row.BLK), ts: row.ts, page: row.page, rank: row.rank || {},
+  };
+}
+
+/* ONE CARD, MOVED - not one per block. Fifteen blocks a team and twenty teams would otherwise
+ * mean three hundred nodes built on every switch, and the card has to outlive the SVG anyway
+ * because it is positioned against the page rather than the chart. */
+let CARD = null;
+
+function card() {
+  if (!CARD) {
+    CARD = el('div', { class: 'cv-capcard', hidden: true });
+    document.body.append(CARD);
+  }
+  return CARD;
+}
+
+function showCard(event, man) {
+  const box = card();
+  clear(box);
+  const line = lineFor(man.name);
+  box.append(el('div', { class: 'cv-capcard-name' }, [
+    man.name,
+    man.ours ? el('span', { class: 'cv-capcard-ours' }, 'one of ours') : null,
+  ]));
+  box.append(el('div', { class: 'cv-capcard-money' }, [
+    money(man.salary),
+    el('span', { class: 'cv-muted' }, man.years === 1 ? ' · final year'
+      : ` · ${man.years} years`),
+    man.position ? el('span', { class: 'cv-muted' }, ` · ${man.position}`) : null,
+  ]));
+  if (line) {
+    box.append(el('div', { class: 'cv-capcard-stats' }, [
+      ['PTS', line.pts], ['REB', line.reb], ['AST', line.ast],
+      ['STL', line.stl], ['BLK', line.blk],
+    ].map(([label, v]) => el('span', {}, [
+      el('b', {}, v), el('i', {}, label),
+    ]))));
+    box.append(el('div', { class: 'cv-capcard-foot' },
+      `${line.games} games · ${Math.round(line.ts * 1000) / 10}% true shooting`));
+  } else {
+    // NOT AN ERROR. The draft pool and anybody signed since the last export have no line yet,
+    // and saying so is better than showing five zeroes as though he played and did nothing.
+    box.append(el('div', { class: 'cv-capcard-foot' }, 'No games in the published season yet.'));
+  }
+  box.hidden = false;
+  moveCard(event);
+}
+
+function moveCard(event) {
+  const box = card();
+  if (box.hidden) return;
+  const pad = 14;
+  const w = box.offsetWidth || 240;
+  const h = box.offsetHeight || 90;
+  // Flip rather than overflow: near the right or bottom edge the card would otherwise widen the
+  // page and produce a horizontal scrollbar on a phone.
+  let x = event.clientX + pad;
+  let y = event.clientY + pad;
+  if (x + w > window.innerWidth - 8) x = event.clientX - w - pad;
+  if (y + h > window.innerHeight - 8) y = event.clientY - h - pad;
+  box.style.left = `${Math.max(8, x)}px`;
+  box.style.top = `${Math.max(8, y)}px`;
+}
+
+function hideCard() {
+  if (CARD) CARD.hidden = true;
+}
 
 /** Round a ceiling up to a clean step so the gridlines land on round money. */
 function ceiling(value, step) {
@@ -73,6 +150,24 @@ function board(team, data) {
       + `${men.length} contracts, against a salary cap of ${money(data.cap)}`,
   });
 
+  // THE GOLD, defined once and referenced by every block that belongs to a real person. A flat
+  // fill would read as just another colour in a column that already has ten; a gradient with a
+  // bright diagonal band reads as metal, which is the point - you should be able to find your
+  // own player without looking for his name.
+  root.append(svg('defs', {}, [svg('filter', {
+    id: 'cv-oursglow', x: '-25%', y: '-25%', width: '150%', height: '150%',
+  }, svg('feDropShadow', {
+    dx: 0, dy: 0, stdDeviation: 3, 'flood-color': '#F2B705', 'flood-opacity': '.95',
+  })), svg('linearGradient', {
+    id: 'cv-gold', x1: '0%', y1: '0%', x2: '100%', y2: '100%',
+  }, [
+    svg('stop', { offset: '0%', 'stop-color': '#B8860B' }),
+    svg('stop', { offset: '38%', 'stop-color': '#F2B705' }),
+    svg('stop', { offset: '50%', 'stop-color': '#FFF3B0' }),
+    svg('stop', { offset: '62%', 'stop-color': '#F2B705' }),
+    svg('stop', { offset: '100%', 'stop-color': '#B8860B' }),
+  ])]));
+
   // gridlines every $10M, labelled down the left
   for (let v = 0; v <= top; v += 10_000_000) {
     root.append(svg('line', {
@@ -89,11 +184,25 @@ function board(team, data) {
     const h = Math.max(1, y(running) - y(running + man.salary));
     const boxY = y(running + man.salary);
     const over = data.luxury_tax && running + man.salary > data.luxury_tax;
-    root.append(svg('rect', {
+    const rect = svg('rect', {
       x: colX, y: boxY, width: colW, height: h, rx: 2,
       class: `cv-chart-bar${man.ours ? ' is-ours' : ''}${over ? ' is-over' : ''}`,
-      fill: BLOCKS[i % BLOCKS.length],
-    }, svg('title', {}, `${man.name} - ${money(man.salary)}`)));
+      fill: man.ours ? 'url(#cv-gold)' : BLOCKS[i % BLOCKS.length],
+      tabindex: '0',
+      role: 'img',
+      'aria-label': `${man.name}, ${money(man.salary)}`,
+    }, svg('title', {}, `${man.name} - ${money(man.salary)}`));
+    // Pointer AND keyboard, because a block is focusable and a tooltip nobody can reach by tab
+    // is a tooltip half the people reading this cannot use.
+    rect.addEventListener('mouseenter', (e) => showCard(e, man));
+    rect.addEventListener('mousemove', moveCard);
+    rect.addEventListener('mouseleave', hideCard);
+    rect.addEventListener('focus', (e) => {
+      const r = rect.getBoundingClientRect();
+      showCard({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }, man);
+    });
+    rect.addEventListener('blur', hideCard);
+    root.append(rect);
 
     // A LABEL ONLY WHERE ONE FITS. Fifteen names in a column this tall means most blocks are a
     // few pixels high; printing into them would overlap into an unreadable smear. Anything too
@@ -140,11 +249,13 @@ function renderTabs() {
   clear(strip);
   for (const team of DATA.teams) {
     const on = team.abbrev === TEAM;
+    const ours = team.players.some((m) => m.ours);
     strip.append(el('button', {
       type: 'button',
-      class: `cv-tab${on ? ' is-on' : ''}`,
+      class: `cv-tab${on ? ' is-on' : ''}${ours ? ' has-ours' : ''}`,
       'aria-pressed': on ? 'true' : 'false',
-      title: `${team.city} ${team.nickname}`,
+      title: ours ? `${team.city} ${team.nickname} - one of ours plays here`
+        : `${team.city} ${team.nickname}`,
       onclick: () => { TEAM = team.abbrev; render(); },
     }, team.abbrev));
   }
@@ -194,6 +305,7 @@ function renderTable() {
 }
 
 function render() {
+  hideCard();          // a card left open would describe a block the new team does not have
   renderTabs();
   renderBoard();
   renderTable();
@@ -202,7 +314,15 @@ function render() {
 /* -------------------------------------------------------------------------------- boot */
 
 async function load() {
-  const data = await freshJSON(`leagues/${LEAGUE}/cap.json`);
+  // Both at once. stats.json is optional - it is what puts a scoring line on the hover card,
+  // and a missing one costs the card its stats rather than costing the page its chart.
+  const [data, stats] = await Promise.all([
+    freshJSON(`leagues/${LEAGUE}/cap.json`),
+    freshJSON(`leagues/${LEAGUE}/stats.json`),
+  ]);
+  for (const row of (stats && stats.players) || []) {
+    if (row && row.name) STATS[row.name] = row;
+  }
   if (!data || !Array.isArray(data.teams) || !data.teams.length) {
     // freshJSON resolves to null for a 404 as well as for a network failure, so "not published
     // yet" is the honest reading rather than an error.
