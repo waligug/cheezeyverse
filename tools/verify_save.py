@@ -33,7 +33,14 @@ def verify(key):
         from commissioner import simweek
         for c in simweek.store().characters():
             slot = c.get("claimed_slot") or {}
-            if not slot or c.get("status") != "active":
+            # DECLARED IS STILL HERE. A character who has declared for the draft has not left
+            # his level - he is playing it out - and he still holds the reserve row he was
+            # stamped onto, renamed to him. Skipping him meant this went looking for the
+            # filler's original name, found nothing, and reported a seat as lost: on
+            # 2026-09-22 college read "47 of 48 findable, first missing Teddy Regner", which is
+            # the seat Dodger Manson is sitting in. Same blind spot that once hid a declared
+            # character from the draft itself.
+            if not slot or c.get("status") not in ("active", "declared"):
                 continue
             claimed = {"league": slot.get("league"), "team": slot.get("team"), "role": "reserve",
                        "name": f'{c["first_name"]} {c["last_name"]}',
