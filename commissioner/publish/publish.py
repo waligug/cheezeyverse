@@ -96,6 +96,26 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
             path = dst / name
             if path.exists():
                 retained[name] = path.read_bytes()
+    try:
+        current = int(str(season or season_label(key)).split()[-1])
+    except (ValueError, IndexError):
+        current = 0
+    # BEFORE restyle, and against the GAME'S OWN EXPORT, not the site copy.
+    #
+    # A character is put into this league by stamping his name onto an existing player's record,
+    # so the export writes his name above that man's whole career. Cleaning only `dst` left the
+    # bleed everywhere else, because `dst` is not what the rest of publish reads: `_write_stats`
+    # and `_write_careers` both parse `src`. Measured on 2031 pro, Dodger Manson's site page was
+    # clean while stats.json credited him with 20 games and 11 points - Vicente Cowden's 2030
+    # line, under Dodger's name, in a season where Dodger had never played a pro minute. Thirty
+    # foreign rows sat in the export page behind it.
+    #
+    # `src` is the driver's regenerable html_output(), rewritten wholesale every sim, and the
+    # save is the record of truth - so editing it here costs nothing and is idempotent: a second
+    # pass finds no rows at or before `first` left to drop. Doing it first also means restyle
+    # copies pages that are ALREADY clean, so the `dst` pass below becomes a no-op that only
+    # earns its keep when an export arrives by some other route.
+    repaired_src = fix_player_pages(key, src, current)
     pages = restyle(src, dst, league=spec.name, season=season or season_label(key), key=key,
                     ours=_our_players(key) if ours is None else ours,
                     cache_path=ROOT / "tmp" / "restyle-cache" / f"{key}.json")
@@ -106,10 +126,6 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
     stats = _write_stats(src, dst, key)
     cap = _write_cap(src, dst, key)
     # AFTER restyle, which rebuilds the folder from the game's export and would undo this.
-    try:
-        current = int(str(season or season_label(key)).split()[-1])
-    except (ValueError, IndexError):
-        current = 0
     repaired = fix_player_pages(key, dst, current)
     if mdb_fresh:
         games = _write_games(src, dst, key)
@@ -120,7 +136,7 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
         games = careers = {"deferred": True, "retained": sorted(retained)}
     return {"league": key, "name": spec.name, "pages": pages, "path": str(dst),
             "stats": stats, "games": games, "careers": careers, "cap": cap,
-            "repaired": repaired}
+            "repaired": repaired, "repaired_export": repaired_src}
 
 
 _YEAR_ROW = re.compile(r"^(20\d\d)$")
