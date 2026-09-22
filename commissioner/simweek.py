@@ -1605,8 +1605,11 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 settings_now = st.get_settings()
                 league_characters = [c for c in st.characters(league=key)
                                      if c.get("status") in ("active", "declared")]
+                # The season is what expires a rookie deal - without it ROOKIE_YEARS never
+                # counts down and a high pick keeps his rate for life.
                 for character, extra, why in _points.contract_topups(
-                        league_characters, key, settings_now, league_weeks):
+                        league_characters, key, settings_now, league_weeks,
+                        season=settings_now.get("current_season")):
                     st.grant_points(character["id"], extra, why)
                     emit("points", f'+{extra} to {character["first_name"]} '
                          f'{character["last_name"]} on his contract', key)

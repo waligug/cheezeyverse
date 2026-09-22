@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from commissioner import offseason  # noqa: E402
 from commissioner import points  # noqa: E402
 
 FAILS: list[str] = []
@@ -131,6 +132,41 @@ def run():
         check(f"{str(blank)[:34]}", points.current_contract(blank), None)
     check("a character that is not a mapping", points.current_contract(None), None)
 
+    # ---- the deal RUNS OUT -------------------------------------------------------------------
+    # ROOKIE_YEARS was written into every deal from the first draft and nothing ever counted it
+    # down, so a first-overall pick kept 6 a week for the rest of his career - the reward for
+    # being drafted high quietly became permanent, which is the one thing a rookie scale must not
+    # be. A deal signed in season S for Y years covers S through S+Y-1 and is over at S+Y.
+    print("a rookie deal expires")
+    deal = {"rate": 6, "years": offseason.ROOKIE_YEARS, "season_from": 2030, "pick": 1}
+    signed = {"league": "pro",
+              "level_history": [{"level": "pro", "to_season": None, "contract": deal}]}
+    for season in range(2030, 2030 + offseason.ROOKIE_YEARS):
+        check(f"{season} still pays", points.current_contract(signed, season) is deal, True)
+    gone = 2030 + offseason.ROOKIE_YEARS
+    check(f"{gone} has run out", points.current_contract(signed, gone), None)
+    check("and he drops to the league rate",
+          points.per_week("pro", {"points_per_week_pro": 3},
+                          points.current_contract(signed, gone)), 3)
+
+    # CANNOT-TELL KEEPS PAYING. Stopping somebody's income on a field nobody checked is worse
+    # than paying a little long, so a deal with no term, no start or junk in either never expires.
+    print("an unreadable term keeps paying")
+    for broken in ({"rate": 6}, {"rate": 6, "years": 0, "season_from": 2030},
+                   {"rate": 6, "years": 4}, {"rate": 6, "years": "x", "season_from": 2030}):
+        check(f"{str(broken)[:40]}", points.contract_expired(broken, 2099), False)
+    check("no season at all, no expiry", points.contract_expired(deal, None), False)
+
+    print("top-ups stop when the deal does")
+    who = dict(signed, id="x", first_name="Rook", last_name="Ie")
+    settings = {"points_per_week_pro": 3}
+    check("inside the deal he is topped up",
+          [x[1] for x in points.contract_topups([who], "pro", settings, 5, season=2031)], [15])
+    check("after it he is not",
+          points.contract_topups([who], "pro", settings, 5, season=2034), [])
+    check("the season can come from settings",
+          points.contract_topups([who], "pro", dict(settings, current_season=2034), 5), [])
+
     print()
     if FAILS:
         print("FAILED")
@@ -138,7 +174,8 @@ def run():
             print("  " + f)
         return 1
     print("OK  rookie deal: the scale rewards a high pick without runaway pay, a contract "
-          "overrides the level rate, and only the upward difference is granted")
+          "overrides the level rate, only the upward difference is granted, and the deal RUNS "
+          "OUT after ROOKIE_YEARS instead of paying him for life")
     return 0
 
 

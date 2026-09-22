@@ -163,8 +163,35 @@ def reason(league, rate, base="week simmed", contract=None):
     return f"{base} ({league} x{rate})"
 
 
-def current_contract(character):
+def contract_expired(deal, season):
+    """Has this deal run out by `season`? Unknown season or unknown term means no.
+
+    A deal signed in season S for Y years covers S through S+Y-1 and is over at S+Y. ROOKIE_YEARS
+    was written into every rookie deal from the first draft and NOTHING EVER COUNTED IT DOWN, so
+    a first-overall pick kept his 6-a-week rate for the rest of his career - the reward for being
+    drafted high quietly became permanent.
+
+    Missing or unreadable fields mean "cannot tell", and cannot-tell keeps paying him. The
+    alternative is silently stopping somebody's income on a field nobody has checked, and a
+    contract that pays too long is a smaller wrong than one that stops without warning.
+    """
+    if not hasattr(deal, "get") or season is None:
+        return False
+    try:
+        start = int(deal["season_from"])
+        years = int(deal["years"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    if years <= 0:
+        return False
+    return int(season) >= start + years
+
+
+def current_contract(character, season=None):
     """The deal a character is playing under right now, or None.
+
+    `season` expires it. Without one nothing expires, which is what every caller did before
+    expiry existed and is still right for a dry run that only wants to see the terms.
 
     IT LIVES ON THE LEVEL, not on a column. `contract` is not in the store's SETTABLE_FIELDS and
     is not a column on `characters`, so a direct write raises; `level_history` is jsonb, is
@@ -188,12 +215,12 @@ def current_contract(character):
         if league and entry.get("level") != league:
             continue
         deal = entry.get("contract")
-        if deal:
+        if deal and not contract_expired(deal, season):
             return deal
     return None
 
 
-def contract_topups(characters, league, settings, weeks):
+def contract_topups(characters, league, settings, weeks, season=None):
     """[(character, extra points, ledger line)] for anybody whose deal beats the league rate.
 
     WHY A TOP-UP AND NOT A RATE. `grant_week_points` is one RPC that pays every character in a
@@ -213,9 +240,17 @@ def contract_topups(characters, league, settings, weeks):
     """
     weeks = max(1, int(weeks or 1))
     base = per_week(league, settings)
+    if season is None:
+        # The season the top-up is being paid FOR. Without it a rookie deal never expires, which
+        # is the bug this argument exists to close, so read it from the settings the caller
+        # already has rather than quietly paying forever.
+        try:
+            season = int((settings or {}).get("current_season"))
+        except (TypeError, ValueError):
+            season = None
     out = []
     for c in characters or []:
-        contract = current_contract(c)
+        contract = current_contract(c, season)
         if not contract:
             continue
         rate = per_week(league, settings, contract)
