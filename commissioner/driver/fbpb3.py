@@ -1579,13 +1579,30 @@ class FBPB3:
             _clear_target()
             self.dismiss_all()
             self.click(TOP_TOOLS, 2)
-            self.click(TOOLS_LEAGUE_EDITOR, 3)
+            self.click(TOOLS_LEAGUE_EDITOR, 1)
             try:
-                combos = [c for c in self.main.descendants(class_name="ThunderRT6ComboBox")
-                          if c.is_visible()]
-                sort_by = next((c for c in combos if "Draft Pool" in c.item_texts()), None)
-                if sort_by is None:
-                    raise DriverError("the League Editor's Sort by list never appeared")
+                # WAIT FOR THE COMBOS, do not sleep at them. A flat 3s was enough on a quiet
+                # machine and not on a loaded one, and reading descendants() before the editor
+                # has painted returns nothing - the same failure this whole method exists to fix,
+                # one step earlier. The dropdown APPEARING is the thing to watch for.
+                found = []
+
+                def _sort_by_ready():
+                    found.clear()
+                    try:
+                        for c in self.main.descendants(class_name="ThunderRT6ComboBox"):
+                            if c.is_visible() and "Draft Pool" in c.item_texts():
+                                found.append(c)
+                                return True
+                    except Exception:                               # noqa: BLE001
+                        pass          # a control being rebuilt mid-transition is normal
+                    return False
+
+                if not self._wait_for(_sort_by_ready, EXPORT_OPEN_LIMIT):
+                    raise DriverError(
+                        f"the League Editor's Sort by list never appeared within "
+                        f"{EXPORT_OPEN_LIMIT}s, so the editor did not open")
+                sort_by = found[0]
                 # PROVE the selection took, the way combo() does: a dropdown that has not
                 # finished populating drops a valid request in silence and keeps its previous
                 # view, and selected_text() reports the LAST option when nothing is selected.

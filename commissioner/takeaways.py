@@ -261,14 +261,27 @@ def _season_stats(league, season):
     return data
 
 
-def archive_overview(league, season, html_dir):
+def archive_overview(league, season, html_dir, overwrite=False):
+    """Freeze a finished season's standings. A season already frozen is left alone.
+
+    The same rule statsarchive.save runs under, and it is reachable for the same reason: a
+    rollover can fail AFTER archive_finished has written this - the 2029 one did, crashing in
+    FBPB3's own season transition - and the obvious response is to run the offseason again. By
+    then the export has rolled over, so a second write would put the NEW season's standings in
+    the old season's file, under a season number that says otherwise. A finished season cannot
+    change, so rewriting one can only ever damage it.
+
+    `overwrite` is for repairing a season written wrong, the way statsarchive's force is.
+    """
     from .seasonbonus import league_stats
+    ARCHIVE.mkdir(parents=True, exist_ok=True)
+    path = ARCHIVE / f"overview-{league}-{int(season)}.json"
+    if path.exists() and not overwrite:
+        return json.loads(path.read_text(encoding="utf-8"))
     data = league_stats(html_dir)
     if not data.get("table"):
         raise ValueError(f"{league}: finished-season standings missing")
     data.update(league=league, season=int(season))
-    ARCHIVE.mkdir(parents=True, exist_ok=True)
-    path = ARCHIVE / f"overview-{league}-{int(season)}.json"
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     temp.replace(path)
