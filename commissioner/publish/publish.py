@@ -103,6 +103,12 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
     # is exactly what happened to games.json: run_sim wrote it before publish(), a publish then
     # removed it from the site, and the comment on that call claimed the opposite.
     stats = _write_stats(src, dst, key)
+    # AFTER restyle, which rebuilds the folder from the game's export and would undo this.
+    try:
+        current = int(str(season or season_label(key)).split()[-1])
+    except (ValueError, IndexError):
+        current = 0
+    repaired = fix_player_pages(key, dst, current)
     if mdb_fresh:
         games = _write_games(src, dst, key)
         careers = _write_careers(src, dst, key)
@@ -111,8 +117,149 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
             (dst / name).write_bytes(payload)
         games = careers = {"deferred": True, "retained": sorted(retained)}
     return {"league": key, "name": spec.name, "pages": pages, "path": str(dst),
-            "stats": stats, "games": games, "careers": careers}
+            "stats": stats, "games": games, "careers": careers, "repaired": repaired}
 
+
+_YEAR_ROW = re.compile(r"^(20\d\d)$")
+
+
+def _row_cells(row):
+    out = []
+    for cell in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row, re.S | re.I):
+        text = re.sub(r"<[^>]+>", "", cell)
+        text = re.sub(r"(?:&nbsp;|&#160;|&#xA0;)", " ", text)
+        out.append(text.strip())
+    return out
+
+
+def strip_foreign_history(html, first_season):
+    """Drop the seasons on a player page that belong to whoever held the row before him.
+
+    FBPB3 keeps a player's history on his ROW, and a character is stamped onto a reserve row that
+    already existed - `characters.stamp_character` renames it and rewrites its birthday, and the
+    row's past follows the new name. Johnny Gartholomew's college page, one day into the league,
+    listed 19 games in 2028, 5 in 2029, and TWO Cheezeyverse College Championships he did not win.
+
+    The save cannot be corrected from here: that history lives in league.dat structures the codec
+    does not model. But the published page is ours, and a page that credits somebody with another
+    man's championships is worse than a page with a gap in it.
+
+    Any row whose first cell is a year before `first_season` goes - stat lines and award lines
+    alike, since both are year-led. AND SO DOES THE "Career" ROW OF ANY TABLE WE TOUCHED: it is a
+    total of the rows that were there, so once some are gone it is simply wrong, and a missing
+    total is honest where a wrong one is not.
+    """
+    rows = list(re.finditer(r"<tr[^>]*>.*?</tr>", html, re.S | re.I))
+    if not rows:
+        return html, 0
+    drop = set()
+    kept_years = dropped_years = 0
+    kept_total = dropped_total = 0
+    for m in rows:
+        cells = _row_cells(m.group(0))
+        first = cells[0] if cells else ""
+        year = _YEAR_ROW.match(first)
+        if year:
+            if int(year.group(1)) < first_season:
+                drop.add(m.start())
+                dropped_years += 1
+                dropped_total += 1
+            else:
+                kept_years += 1
+                kept_total += 1
+            continue
+        if first.lower().startswith("career"):
+            # Only a table we edited loses its total; one left alone keeps it.
+            if dropped_years:
+                drop.add(m.start())
+            kept_years = dropped_years = 0
+            continue
+        kept_years = dropped_years = 0
+    # A SUMMARY OF SEASONS THAT ARE NOT HIS IS NOT HIS EITHER. "Career Highs" and
+    # "Total - Championships: 2" are not year-led, so the pass above leaves them: Gartholomew's
+    # page still claimed two championships after every 2028 and 2029 line had gone. When NOTHING
+    # of his own is left on the page, the whole career block belongs to the man who held the row
+    # before him, so it all goes; the championship total goes whenever any season was dropped,
+    # because it counted those seasons.
+    nothing_is_his = kept_total == 0 and dropped_total > 0
+    if dropped_total:
+        for m in rows:
+            if m.start() in drop:
+                continue
+            cells = _row_cells(m.group(0))
+            first = (cells[0] if cells else "").lower()
+            joined = " ".join(cells).lower()
+            if "championship" in joined:
+                drop.add(m.start())
+            elif nothing_is_his and (first.startswith("career") or first.startswith("total")):
+                drop.add(m.start())
+
+    if not drop:
+        return html, 0
+    out, at = [], 0
+    for m in rows:
+        if m.start() in drop:
+            out.append(html[at:m.start()])
+            at = m.end()
+    out.append(html[at:])
+    return "".join(out), len(drop)
+
+
+def _first_season_in(key, name, dob, fallback):
+    """The earliest season this man really played in this league, from the archives.
+
+    The archives are the trustworthy record: every season was written while the rows still had
+    the right names, and statsarchive.save refuses to rewrite a finished one. `fallback` is the
+    season now, for somebody who has arrived but not yet played one.
+    """
+    from .. import statsarchive
+    seasons = []
+    for season, payload in statsarchive.archived_seasons(key):
+        for row in payload.get("players") or []:
+            if row.get("name") == name and (not dob or row.get("dob") == dob):
+                seasons.append(int(season))
+                break
+    return min(seasons) if seasons else fallback
+
+
+def fix_player_pages(key, dst, season, characters=None):
+    """Rewrite our own characters' pages so they carry only their own career. Never fatal.
+
+    Reads the characters itself rather than taking `_our_players`, which is a {player id: name}
+    map for badging and carries none of the fields this needs.
+    """
+    if characters is None:
+        try:
+            from ..simweek import store
+            characters = store().characters(league=key)
+        except Exception:                                               # noqa: BLE001
+            return []
+    fixed = []
+    for c in characters or []:
+        if not isinstance(c, dict) or c.get("league") != key:
+            continue
+        page_id = (c.get("league_player_ids") or {}).get(key)
+        if page_id is None:
+            continue
+        page = Path(dst) / "players" / f"player{page_id}.htm"
+        if not page.exists():
+            continue
+        name = f'{c.get("first_name")} {c.get("last_name")}'
+        try:
+            first = _first_season_in(key, name, c.get("game_dob"), int(season))
+            html = page.read_text(encoding="latin-1")
+            # Only his own page, and only if it is really his - a stale id must not edit a
+            # stranger's page.
+            if name not in html:
+                continue
+            new, dropped = strip_foreign_history(html, first)
+            if dropped:
+                page.write_text(new, encoding="latin-1")
+                fixed.append({"name": name, "page": f"player{page_id}", "from": first,
+                              "rows_dropped": dropped})
+        except Exception:                                               # noqa: BLE001
+            continue   # a page we could not clean is published as the game wrote it
+    return fixed
 
 def _write_games(src, dst, key):
     """Emit `games.json`: each character's own game lines, for the head-to-head page.
