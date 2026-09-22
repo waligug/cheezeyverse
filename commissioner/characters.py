@@ -146,9 +146,7 @@ def pick_slot(slots, position=None, team=None, busy=None, divisions=None, team_o
     """
     where = team_of or (lambda slot: slot.team)
 
-    if team:
-        pools = ([s for s in slots if where(s) == team], slots)
-    elif busy:
+    if busy:
         in_division = {}
         for abbrev, n in busy.items():
             d = (divisions or {}).get(abbrev)
@@ -159,9 +157,15 @@ def pick_slot(slots, position=None, team=None, busy=None, divisions=None, team_o
             key=lambda s: (busy.get(where(s), 0),
                            in_division.get((divisions or {}).get(where(s)), 0),
                            where(s) or ""))
-        pools = (ordered,)
     else:
-        pools = (slots,)
+        ordered = list(slots)
+
+    # THE FALLBACK IS SPREAD TOO. `team` still wins outright, but when that team has no free
+    # reserve row the second pool used to be the raw list in league order - so every pick that
+    # overflowed landed in the same place. One promotion never noticed; a draft promotes sixty
+    # in a row, and the whole overflow would stack on one roster. That is the exact bug `busy`
+    # was written for, and it was reachable again through the one branch that skipped it.
+    pools = ([s for s in slots if where(s) == team], ordered) if team else (ordered,)
 
     for pool in pools:
         if position:

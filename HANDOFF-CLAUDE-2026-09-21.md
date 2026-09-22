@@ -816,3 +816,83 @@ saves every sim week** — which also stops `backups/` (already **3.3 GB over 47
   the same test `_rebase_reserves` uses for "taken". Nate caught me reporting that as a bug.
 
 — Claude (second session)
+
+---
+
+## 2026-09-22 — Claude (second session): draft night, and the start of a contract economy
+
+Dodger Manson declared, and the draft had **never run**. Until `e2738a7a5` it could not have —
+`movers()` skipped declared characters, so he would have sat in college for ever.
+
+### What the draft was
+
+`run_draft` sorted everybody by one global `_promise` score and handed pick *i* to
+`order[i % len(order)]`. Every team wanted the same player in the same order. Nothing about a team
+entered into it, and the only output was `log()` lines that reached the panel and never Discord.
+
+### `commissioner/draft.py` — teams with opinions
+
+- **A stable personality per team**, from an md5 of its abbreviation: *upside*, *win-now*,
+  *need-first*, *best-available*, each a weight vector over `ceiling` / `now` / `fit`. md5 rather
+  than `hash()` because Python salts `hash()` per process — a team would have had a different
+  temperament every time the panel restarted.
+- **A real positional hole**, from `ageout._needed_position`, reused rather than rewritten so the
+  draft and the age-out intake cannot form two different opinions about what a team is missing.
+- **THE PRINTED REASON IS THE REASON USED.** `evaluate` returns the score *and* the term that
+  produced it; `reason_for` builds its sentence from that term. A "fill the hole" team that took
+  the highest ceiling because it had no hole does not get to claim it filled one — caught in the
+  first preview, fixed, and pinned by a test that will fail the moment somebody tunes a weight.
+
+### `commissioner/draftcast.py` — live, pick by pick
+
+One message per pick with an on-the-clock beat between. It borrows `WebhookMessage` and the
+`RateLimited`/`Refused` mapping from `simstatus` because **`notify` has no rate-limit handling at
+all** — a 429 is logged and the message dropped, and a draft posts twenty messages in a minute, so
+the dropped one is somebody's pick.
+
+**It resets `message_id` before every send.** `WebhookMessage` is built to POST once and PATCH for
+ever, which is right for a progress card and catastrophic here: pick #2 would edit pick #1 and the
+board would collapse into one mutating message.
+
+Nothing it can do raises into the draft. By the time a pick is announced the character has already
+been stamped onto a pro roster.
+
+### Contracts — the game's are dead, so these are ours
+
+Every one of the 530 pro players carries exactly one distinct `Contract1`: **1000000**, the
+`IMPORT_CONTRACT` constant `generate.py` writes at import. The game never updates it because
+Finances is Off, which `CONVENTIONS.md:73` says is required. `capreport.htm` is team-level and
+shows negative salaries. **There is no market to read.**
+
+What *is* real and unused: `Greed`, `Loyalty`, `Winner`, `Happiness` per player in the MDB.
+
+- **Rookie deal by draft slot** (`points.ROOKIE_SCALE`): 6/5/4/3 points a week. The order is
+  reverse standings, so a high pick goes to a bad team and **money and minutes arrive together**.
+- **It rides on `level_history`, not a column.** `contract` is not in `SETTABLE_FIELDS` and is not
+  a column, so a direct write raises and the deal would silently never exist. `level_history` is
+  jsonb, is already written by `promote`, and is read back — and a deal belongs to the level he
+  signed at, so it closes when the level does.
+- **Paid as a top-up, not a rate.** `grant_week_points` is one RPC paying everybody in a league the
+  same number; per-character pay means a migration, and a deploy landing before its migration
+  fails the points step of every Sim Week. So the league rate is paid as always and only the
+  upward difference is granted, with its own ledger row. A cheap deal is never clawed back.
+
+### Two bugs the tests caught, not the preview
+
+- `run_draft` **announced picks on a dry run**. Latent, because the offseason only builds a cast
+  for real runs — but a preview posting to the server cannot be taken back. Dry runs are now
+  silent unconditionally.
+- `test_sim_status` encoded the *old* day-counter contract ("the screen can provide lower-bound
+  progress"). That behaviour deliberately changed in `e9e83ca94`; the test now asserts the real
+  day from the heading, plus a new case that a misread heading reports **nothing** rather than a
+  guess.
+
+### Still design-only
+
+Free agency (choose team and rate, offers seeded from real Greed/Loyalty) and turning Finances on
+in pro. The latter is measured, not guessed: **45 players on real pro rosters have no contract and
+would be released on load**, as would 11 of the 60 pro reserve seats a drafted character is stamped
+into. It needs `fixtures/saves/` populated first — `test_codec.py` SKIPs here because it is empty.
+Full write-up in `C:\Users\Server\.claude\plans\sunny-petting-hearth.md`.
+
+— Claude (second session)

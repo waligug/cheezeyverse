@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import date
 import tempfile
 import threading
 import time
@@ -228,16 +229,49 @@ class StatusTests(unittest.TestCase):
         game._wait_for = lambda fn, *_: fn()
         game._calendar_cell_selected = lambda *_: True
         game._message_boxes = lambda: []
-        game._grab = lambda *_args, **_kw: Picture(next(states))
+        # Exhausting the sequence is not a failure: the loop grabs as often as it likes, and
+        # pinning an exact call count made this test break the moment the date became readable.
+        game._grab = lambda *_args, **_kw: Picture(next(states, b"ready"))
         signatures = iter((b"start", b"next"))
-        game._date_signature = lambda: next(signatures)
+        game._date_signature = lambda: next(signatures, b"next")
+        # PROGRESS IS THE CALENDAR HEADING, not a count of repaints. The signature proves the
+        # label changed; only the heading says what it changed TO. FBPB advances faster than the
+        # poll, so counting repaints under-reported badly - a 29-day jump reached about 18 and
+        # then leapt to 29. Here the game is showing the 19th, one day on from the 18th.
+        game._calendar_date = lambda: date(2029, 3, 19)
         self.assertTrue(game.sim_to_date(
             2, "2029-03-18", on_day=lambda day, total: seen.append((day, total))))
         self.assertIn((793, 392), clicks)  # March 19: March 18-19 is two inclusive dates.
         self.assertIn((794, 651), clicks)
-        # The screen can provide lower-bound progress, but only the saved season day can claim
-        # exact completion; run_sim emits that after it validates league.dat.
+        # One real day elapsed, and the total is what was asked for. Only the saved season day
+        # can claim exact completion; run_sim emits that after it validates league.dat.
         self.assertEqual(seen, [(1, 2)])
+
+    def test_calendar_sim_reports_nothing_when_the_heading_cannot_be_read(self):
+        """A misread heading must leave the counter alone rather than invent a day.
+
+        OCR on a small crop misses sometimes. Reporting a guess would move the panel's day count
+        backwards or jump it wildly, which is exactly the untrustworthiness this replaced.
+        """
+        class Picture:
+            def __init__(self, value): self.value = value
+            def tobytes(self): return self.value
+
+        game = FBPB3()
+        seen = []
+        states = iter((b"ready", b"busy", b"ready", b"ready"))
+        game.click = lambda *args: None
+        game._wait_until_still = lambda **kw: True
+        game._wait_for = lambda fn, *_: fn()
+        game._calendar_cell_selected = lambda *_: True
+        game._message_boxes = lambda: []
+        game._grab = lambda *_args, **_kw: Picture(next(states, b"ready"))
+        signatures = iter((b"start", b"next"))
+        game._date_signature = lambda: next(signatures, b"next")
+        game._calendar_date = lambda: None
+        self.assertTrue(game.sim_to_date(
+            2, "2029-03-18", on_day=lambda day, total: seen.append((day, total))))
+        self.assertEqual(seen, [])
 
     def test_calendar_sim_cancels_playoff_warning_without_claiming_progress(self):
         class Picture:

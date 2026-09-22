@@ -1596,6 +1596,23 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             result["summary"]["points"].append({"league": key, "per_player": league_weeks, "players": n})
             if n:
                 emit("points", f"{league_weeks} point(s) to {n} character(s) in {key}", key)
+            # A CONTRACT PAYS ON TOP. grant_week_points is one RPC paying everybody in a league
+            # the same number, so a man on a bigger deal gets the difference as his own ledger
+            # row rather than a schema migration. Never fatal: the week is already played, saved
+            # and published by here, and a missed top-up is a correction, not a lost week.
+            try:
+                from . import points as _points
+                settings_now = st.get_settings()
+                league_characters = [c for c in st.characters(league=key)
+                                     if c.get("status") in ("active", "declared")]
+                for character, extra, why in _points.contract_topups(
+                        league_characters, key, settings_now, league_weeks):
+                    st.grant_points(character["id"], extra, why)
+                    emit("points", f'+{extra} to {character["first_name"]} '
+                         f'{character["last_name"]} on his contract', key)
+            except Exception as exc:                                    # noqa: BLE001
+                emit("points", f"contract top-ups did not run for {key} ({exc}); "
+                     "the league rate was paid", key)
         at("finish")
         emit("points", "updating the completed week")
         st.set_setting("current_week", week_done)

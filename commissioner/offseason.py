@@ -45,6 +45,9 @@ from datetime import datetime
 from pathlib import Path
 
 from . import ageout
+from . import draft
+from . import draftcast
+from . import points
 from . import characters as ch
 from . import notify
 from . import seasonbonus
@@ -81,6 +84,9 @@ NEXT_LEVEL = {"prep": "college", "college": "pro"}
 # NOT the same rule as the filler age-out: ageout.AGE_CAPS["prep"] = 19 releases AI bodies and
 # is deliberately independent, so this can move without touching the population maths.
 PREP_LAST_AGE = 17
+# How long a rookie deal runs before free agency has to decide anything. Four, so a drafted
+# character reaches his first real negotiation at about the age a college senior would have.
+ROOKIE_YEARS = 4
 COLLEGE_MAX_YEARS = 4
 
 # ---- when a career ends ---------------------------------------------------------------------
@@ -451,6 +457,7 @@ def convert(ratings, factor):
 
 
 def promote(character, to_league, store, log=print, dry_run=False, how="promoted", season=None,
+            contract=None,
             team=None, busy=None):
     """Move one character up a level, carrying his ratings, and hand back his old slot.
 
@@ -579,12 +586,20 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
     if hasattr(store, "record_level"):
         try:
             placed = LeagueDat(dst_path).find(name, ch.codec_dob(character.get("game_dob") or slot.dob))
-            store.record_level(character["id"], {
+            entry = {
                 "level": to_league, "team_abbrev": slot.team, "player_id": placed.id,
                 "from_season": season, "to_season": None,
                 "how_it_started": how, "how_it_ended": None,
                 "carried": conv["factor"], "years_early": conv["early_years"],
-            })
+            }
+            # THE DEAL RIDES ON THE LEVEL, and it has to, because there is nowhere else to put
+            # it: `contract` is not a column and not in SETTABLE_FIELDS, so writing it directly
+            # would raise and the rookie deal would silently never exist. `level_history` is
+            # jsonb, is already written here, and IS read back - and a contract genuinely belongs
+            # to the level he signed at, so it closes itself when the level does.
+            if contract:
+                entry["contract"] = dict(contract, team=slot.team)
+            store.record_level(character["id"], entry)
         except Exception as exc:
             log(f"   (could not record the level for {name}: {exc})")
     log(f"   {name}: {from_league} -> {to_league}, {slot.team}")
@@ -656,34 +671,86 @@ def draft_order(pro_save=None):
     return [abbrev for _, _, abbrev in rows]
 
 
-def run_draft(declared, store, log=print, dry_run=False, season=None):
-    """Assign declared players to pro teams, worst record first. Returns the picks."""
+def _draft_needs(log=print):
+    """What each pro team is shortest of, read off the pro save. Empty when it cannot be read.
+
+    Never fatal: a draft with no needs is the old behaviour - everybody drafts on talent - and
+    that is a far better outcome than a draft that refuses to run because a save was busy.
+    """
+    try:
+        from .codec.league_dat import LeagueDat
+        return draft.needs_from_save("pro", LeagueDat(ch.save_path("pro")))
+    except Exception as exc:                                            # noqa: BLE001
+        log(f"   (could not read pro rosters for team needs: {exc}; drafting on talent alone)")
+        return {}
+
+
+def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None):
+    """Assign declared players to pro teams, worst record first. Returns the picks.
+
+    `cast` is an optional `draftcast.DraftCast`. It is announced to after each pick has actually
+    landed, never before - a pick posted to Discord that then fails to stamp would be the one
+    thing worse than no broadcast at all.
+    """
     if not declared:
         return []
+    # A DRY RUN ANNOUNCES NOTHING. The offseason only builds a cast when it is doing the real
+    # thing, so this is belt and braces - but a preview that posts draft picks to the server is
+    # the one bug in here that cannot be taken back, and the guard costs a line.
+    if dry_run:
+        cast = None
     order = draft_order()
-    ranked = sorted(declared, key=lambda c: -_promise(c))
-    picks = []
-    for i, character in enumerate(ranked):
-        team = order[i % len(order)]
-        picks.append({"round": i // len(order) + 1, "pick": i + 1,
-                      "team": team, "character": character})
+    needs = _draft_needs(log)
+    # Each team evaluates the remaining board through its own profile and its own hole, so the
+    # order is no longer one global ranking with team names stapled on. `_promise` survives as
+    # the tiebreak inside `draft.sheet` for anybody with no ratings at all.
+    picks = draft.build_board(declared, order, needs=needs)
     log(f"   draft order starts {', '.join(order[:4])}")
+    # ONE TALLY ACROSS THE WHOLE DRAFT, per promote()'s own contract. Left to itself promote
+    # re-reads the store on every call: correct, because activate_character has written the
+    # previous man's team before the next pick asks - but that is sixty round trips in the
+    # middle of a draft, and a pick that dies on a timeout is a pick that has to be unpicked by
+    # hand. Counting placements in here is what the prep->college intake already does.
+    busy = None
+    if store is not None:
+        busy = {t.abbrev: 0 for t in cfg.BY_KEY["pro"].teams}
+        try:
+            for other in store.characters(league="pro"):
+                if other.get("status") in ("active", "declared") and other.get("team_abbrev"):
+                    busy[other["team_abbrev"]] = busy.get(other["team_abbrev"], 0) + 1
+        except Exception as exc:                                        # noqa: BLE001
+            log(f"   (could not tally pro rosters: {exc}; each pick will read the store)")
+            busy = None
+    if cast is not None:
+        cast.open(len(picks), order)
     for p in picks:
         c = p["character"]
         log(f'   #{p["pick"]:2} {p["team"]}  {c["first_name"]} {c["last_name"]}')
+        log(f'        {p["reason"]}')
+        if cast is not None:
+            cast.on_the_clock(p)
         if not dry_run:
             try:
                 how = f'drafted #{p["pick"]} by {p["team"]}'
+                # Worked out before the move so the number announced is the number stored: the
+                # team comes off the slot he actually lands in, which is not always the team
+                # that picked him when a roster has no free reserve row.
+                deal = {"rate": points.rookie_rate(p["pick"]), "years": ROOKIE_YEARS,
+                        "season_from": season, "pick": p["pick"]}
                 moved = promote(c, "pro", store, log=log, how=how, season=season,
-                                team=p["team"])
+                                team=p["team"], contract=deal, busy=busy)
                 if moved["slot"].get("team") != p["team"]:
                     # Not fatal - a roster with no free reserve row cannot take him and
                     # anywhere in the league is better than nowhere - but it must be said,
                     # because the career page will read "drafted by X, plays for Y".
                     log(f'   ! {p["team"]} had no free slot; '
                         f'{c["first_name"]} goes to {moved["slot"].get("team")} instead')
+                landed = moved["slot"].get("team")
+                if busy is not None and landed:
+                    busy[landed] = busy.get(landed, 0) + 1
                 p["slot"] = moved["slot"]
                 p["conversion"] = moved["conversion"]
+                p["contract"] = dict(deal, team=moved["slot"].get("team") or p["team"])
                 if hasattr(store, "set_character_field"):
                     store.set_character_field(c["id"], "draft_pick", p["pick"])
                     store.set_character_field(c["id"], "draft_round", p["round"])
@@ -693,9 +760,11 @@ def run_draft(declared, store, log=print, dry_run=False, season=None):
                     raise
                 log(f'   ! pick #{p["pick"]} failed: {exc}')
                 p["error"] = str(exc)
+        if cast is not None and "error" not in p:
+            cast.pick(p, contract=p.get("contract"))
+    if cast is not None:
+        cast.close([p for p in picks if "error" not in p])
     return [p for p in picks if "error" not in p] + [p for p in picks if "error" in p]
-
-
 def _promise(character):
     """A rough ranking for draft night: what he is now, weighted by where he can still get to."""
     ratings = character.get("ratings") or {}
@@ -1013,7 +1082,28 @@ def _offseason_report(result, store=None):
             # exactly who needs to know, and he will not find it by reading a list of winners.
             lines.append(f'- no movement at all: {", ".join(m["name"] for m in stalled[:4])}')
 
-    for label, key in (("Moved up", "promoted"), ("Drafted", "drafted"), ("Retired", "retired")):
+    # THE DRAFT GETS ITS OWN BOARD, in pick order, with what each man signed for. `drafted` is a
+    # list of pick DICTS, so the generic str() below would have dumped raw Python into Discord -
+    # and the draft is the one part of an offseason people want to read line by line anyway.
+    drafted = result.get("drafted") or []
+    if drafted:
+        lines.append("")
+        lines.append("**Draft**")
+        for p in drafted[:12]:
+            if not isinstance(p, dict):
+                lines.append(f"- {p}")
+                continue
+            c = p.get("character") or {}
+            name = f'{c.get("first_name", "")} {c.get("last_name", "")}'.strip() or "?"
+            deal = p.get("contract") or {}
+            rate = f' - {deal["rate"]}/wk' if deal.get("rate") is not None else ""
+            lines.append(f'- #{p.get("pick", "?")} {p.get("team", "?")}  {name}{rate}')
+            if p.get("reason"):
+                lines.append(f'  {p["reason"]}')
+        if len(drafted) > 12:
+            lines.append(f"- ...and {len(drafted) - 12} more")
+
+    for label, key in (("Moved up", "promoted"), ("Retired", "retired")):
         rows = result.get(key) or []
         if rows:
             lines.append("")
@@ -1272,7 +1362,21 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             name = f'{c.get("first_name")} {c.get("last_name")}'
             log(f"   ! {name} did not move: {exc}")
             result["failed"].append({"character": c, "stage": "promote", "error": str(exc)})
-    result["drafted"] = run_draft(moving["draft"], store, log=log, dry_run=dry_run, season=season)
+    # DRAFT NIGHT GOES OUT LIVE, one pick at a time, and only when there is a draft to watch.
+    # A dry run builds the same board and announces none of it - the preview must be able to show
+    # the room exactly what will happen without telling the room it happened.
+    cast = None
+    if moving["draft"] and not dry_run:
+        try:
+            cast = draftcast.DraftCast(season, log=log)
+        except Exception as exc:                                        # noqa: BLE001
+            log(f"   (no draft broadcast: {exc}; the draft itself is unaffected)")
+    try:
+        result["drafted"] = run_draft(moving["draft"], store, log=log, dry_run=dry_run,
+                                      season=season, cast=cast)
+    finally:
+        if cast is not None:
+            cast.finish()
 
     # Bank the college year BEFORE anything reads it again. This was a real bug: three places
     # read `college_years` and nothing wrote it, so every college player was permanently a
