@@ -35,6 +35,10 @@ LOCKED = {"Fouling"}
 # rather than re-typed would be circular - generate imports this module - so it is stated here
 # and the two are pinned together by tests/test_contract_payout.py.
 IMPORT_CONTRACT = 1_000_000
+try:
+    from .codec.league_dat import CONTRACT_YEARS
+except ImportError:      # an older codec without contract support
+    CONTRACT_YEARS = 7
 
 
 class ApplyError(Exception):
@@ -269,9 +273,23 @@ def stamp_character(L, slot, character):
     # This does not wait for Finances to be switched on: a seat that is bare today is a landmine
     # today. An existing deal is left exactly alone - he keeps what the seat was paying, and only
     # a bare row gets the token the game's own import path uses.
+    #
+    # LENGTH MATTERS AS MUCH AS EXISTENCE, and it is not obvious why. A one-year deal expires at
+    # the very next rollover, and with Finances on that rollover runs FREE AGENCY - measured on a
+    # clone 2026-09-22: every one-year contract in the league expired together and all 511 players
+    # became free agents before the AI re-signed them. A character drafted in season S and given
+    # one year would therefore be a free agent minutes later, in the same offseason he arrived,
+    # and the AI would sign him wherever it liked. "Drafted #1 by LCH" would be a sentence about
+    # a team he never played for. `contract_years` is how the draft says "this is a rookie deal,
+    # make it last", and it is why promote passes its own ROOKIE_YEARS through.
     try:
+        years = character.get("contract_years")
+        try:
+            years = max(1, min(int(years), CONTRACT_YEARS))
+        except (TypeError, ValueError):
+            years = 1
         if not any(L.contract_of(pl)):
-            L.set_contract(pl, [IMPORT_CONTRACT])
+            L.set_contract(pl, [IMPORT_CONTRACT] * years)
     except AttributeError:
         pass          # an older codec without contract support; the stamp itself still stands
     if character.get("position"):

@@ -186,10 +186,64 @@ def test_signing_a_free_agent_pays_him():
         check("and it survives the save", any(again.contract), f"{again.contract[:2]}")
 
 
+def test_a_drafted_man_gets_a_deal_that_outlasts_the_rollover():
+    """A one-year rookie deal expires in the offseason it is signed.
+
+    run_draft happens INSIDE the offseason and the game's own rollover runs straight after it.
+    With Finances on that rollover includes FREE AGENCY, where every expiring contract is thrown
+    open at once - measured on a clone 2026-09-22, all 511 players became free agents together.
+    So a character stamped with one year would be a free agent minutes after being drafted, and
+    the AI would place him wherever it liked. "Drafted #1 by LCH" has to survive the same night.
+    """
+    if not SAVE.exists():
+        print("SKIP  cv-pro-aged save fixture missing")
+        return
+    from commissioner import characters as ch
+    from commissioner.codec.league_dat import RATINGS
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp) / "league.dat"
+        shutil.copy2(SAVE, work)
+        L = LeagueDat(work)
+
+        seats = [p for p in L.players if not any(p.contract) and p.values["Team"] > 0]
+        if not seats:
+            print("SKIP  no bare seat in the fixture")
+            return
+
+        def stamp(seat, years):
+            slot = type("S", (), {"name": seat.name, "dob": seat.dob,
+                                  "height": 0, "weight": 0})()
+            return ch.stamp_character(L, slot, {
+                "first_name": "Dodger", "last_name": "Manson%s" % years,
+                "dob": seat.dob, "height_inches": 86, "position": "C",
+                "ratings": {f: 70 for f in RATINGS}, "potentials": {},
+                "contract_years": years})
+
+        pl = stamp(seats[0], 4)
+        got = L.contract_of(pl)
+        check("a four-year rookie deal is four years",
+              sum(1 for y in got if y > 0), 4, )
+        check("and every year is paid the same", len(set(y for y in got if y > 0)), 1)
+
+        pl = stamp(seats[1], None)
+        check("no term given still pays him one year",
+              sum(1 for y in L.contract_of(pl) if y > 0), 1)
+
+        pl = stamp(seats[2], 99)
+        check("a silly term is clipped to what the field holds",
+              sum(1 for y in L.contract_of(pl) if y > 0), CONTRACT_YEARS)
+
+        L.save()
+        back = LeagueDat(work)
+        still = back.find("Dodger Manson4", seats[0].dob)
+        check("the term survives a save", sum(1 for y in still.contract if y > 0), 4)
+
+
 test_reads_what_the_game_exports()
 test_writes_and_survives_a_reload()
 test_it_refuses_what_would_corrupt_a_save()
 test_signing_a_free_agent_pays_him()
+test_a_drafted_man_gets_a_deal_that_outlasts_the_rollover()
 
 if failures:
     print("\nFAILED: " + ", ".join(failures))

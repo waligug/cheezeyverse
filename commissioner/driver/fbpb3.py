@@ -907,10 +907,36 @@ class FBPB3:
         self.advance_to_offseason(log=log)
 
         seen = []
-        for label, xy, phase in (("END SEASON", HOTSEAT_END_SEASON, False),
-                                 ("OFFSEASON", HOTSEAT_OFFSEASON, False),
-                                 ("HIRE STAFF", HOTSEAT_HIRE_STAFF, True),
-                                 ("TRAINING CAMPS", HOTSEAT_TRAINING_CAMPS, False)):
+        # THE TAIL OF THE OFFSEASON IS DRIVEN BY WHAT THE BUTTON SAYS, not by a fixed order.
+        #
+        # Measured on a clone of the live pro save, 2026-09-22: with Finances Off the sequence
+        # ends END SEASON -> OFFSEASON -> HIRE STAFF -> TRAINING CAMPS. With FULL FINANCES there
+        # is a FREE AGENCY stage in between, and it occupies THE SAME PIXEL as TRAINING CAMPS.
+        #
+        # An earlier version of this decided in advance whether free agency was there by reading
+        # that pixel before navigating to the Hot Seat - so it read whatever screen HIRE STAFF
+        # happened to leave up, and a blank read was taken as "no free agency". Skipping it then
+        # sent TRAINING CAMPS at a button that said FREE AGENCY. _expect_button refuses to click
+        # on a mismatch, so that failed loudly rather than doing something strange, but it still
+        # stranded the league mid-offseason. Reading the button AFTER navigating, and treating
+        # "unreadable" as "wait longer" rather than "not there", is what makes that impossible.
+        head = (("END SEASON", HOTSEAT_END_SEASON, False),
+                ("OFFSEASON", HOTSEAT_OFFSEASON, False),
+                ("HIRE STAFF", HOTSEAT_HIRE_STAFF, True))
+        for label, xy, phase in head + ((None, HOTSEAT_TRAINING_CAMPS, None),) * 4:
+            if label is None:
+                if seen and seen[-1][0] == "TRAINING CAMPS":
+                    break
+                self.click(NAV_HOT_SEAT, 0)
+                word = self._read_button(xy, timeout=180)
+                if self._same(word, "TRAININGCAMPS"):
+                    label, phase = "TRAINING CAMPS", False
+                elif self._same(word, "FREEAGENCY"):
+                    label, phase = "FREE AGENCY", True
+                else:
+                    raise DriverError(
+                        f"offseason stalled at {xy}: the button reads {word!r}, which is "
+                        "neither TRAINING CAMPS nor FREE AGENCY. No further click was sent.")
             self.click(NAV_HOT_SEAT, 0)
             # 15s was the default and it is not enough here: each of these lands straight after
             # the previous phase's work, and the scouting popup on a finished season outlives it.
@@ -918,14 +944,23 @@ class FBPB3:
             before, stage_before = self._date_signature(), self._stage_signature()
             self.click(xy, 0)
             if phase:
-                self._expect_button(PHASE_PROCESS_ALL, "PROCESS ALL", timeout=60)
+                # THE ACTION BUTTON IS NOT ALWAYS CALLED "PROCESS ALL". Hire Staff runs one
+                # batch and says PROCESS ALL; free agency runs a series of DAYS and says RUN ALL
+                # DAYS on the same pixel. Both then become PROCEED. Waiting for a literal
+                # "PROCESS ALL" stalls on free agency for the whole timeout and then gives up on
+                # a screen that was working perfectly.
+                self._expect_action_button(timeout=60)
                 self.click(PHASE_PROCESS_ALL, 0)
-                self._expect_button(PHASE_PROCESS_ALL, "PROCEED", timeout=120)
+                # Free agency signs a whole league one day at a time, which is far longer than
+                # hiring staff takes, so it gets room rather than the old flat 120s.
+                self._expect_button(PHASE_PROCESS_ALL, "PROCEED", timeout=900)
                 self.click(PHASE_PROCESS_ALL, 0)
             self._wait_stage_change(stage_before, timeout=max(60, wait * 10))
             moved = self._date_signature() != before
             seen.append((label, moved, True))
             log(f"   {label}: confirmed stage change; calendar {'moved' if moved else 'unchanged'}")
+        if not any(s[0] == "TRAINING CAMPS" for s in seen):
+            raise DriverError("the offseason never reached TRAINING CAMPS; it is not finished")
         return seen
 
     def advance_to_offseason(self, limit=90, log=print):
@@ -999,6 +1034,88 @@ class FBPB3:
             if window.is_visible() and self._looks_like_popup(window):
                 return True
         return False
+
+    # These buttons are owner-drawn and read by OCR, so a letter comes back wrong from time to
+    # time - RUN ALL DAYS was read as 'RUNAUDAYS' once, the "LL" as a "U". An exact comparison
+    # then rejects a button that says precisely what it should. Matching on the shape of the
+    # word survives that without loosening anything that matters: no two buttons on these
+    # screens are one OCR slip apart.
+    _ACTION_WORDS = ("PROCESSALL", "RUNALLDAYS", "PROCESSDAY", "RUNDAY")
+
+    @staticmethod
+    def _word(text):
+        return "".join(c for c in (text or "").upper() if c.isalpha())
+
+    def _read_button(self, xy, timeout=60):
+        """The button's word, waiting through BLANK reads while the screen paints.
+
+        A blank read is "not yet", never "nothing there". Conflating the two is what made an
+        optional stage look absent because the window had not finished repainting, and a stage
+        wrongly judged absent is a stranded offseason.
+        """
+        end = time.monotonic() + timeout
+        word = ""
+        while time.monotonic() < end:
+            if self._message_boxes():
+                raise DriverError(f"a message box is open while reading the button at {xy}")
+            try:
+                word = self._word(self._button_text(xy))
+            except Exception:                                           # noqa: BLE001
+                word = ""
+            if word and not self._progress_popup_visible():
+                return word
+            time.sleep(0.25)
+        return word
+
+    def _same(self, got, want):
+        """One button word against another, tolerating a single OCR slip."""
+        got, want = self._word(got), self._word(want)
+        return bool(got) and (got == want or self._close(got, want))
+
+    def _button_is(self, xy, label, tries=3):
+        """True when the button at `xy` reads `label`, tolerating an OCR slip. Never raises.
+
+        Used to ASK whether an optional stage is present, which is a different question from
+        _expect_button's "wait until it is" - a stage that does not exist would there be a
+        timeout and a failed rollover rather than a step to skip.
+        """
+        want = self._word(label)
+        for _ in range(tries):
+            try:
+                got = self._word(self._button_text(xy))
+            except Exception:                                           # noqa: BLE001
+                got = ""
+            if got == want:
+                return True
+            if got and self._close(got, want):
+                return True
+            time.sleep(0.5)
+        return False
+
+    @staticmethod
+    def _close(a, b):
+        """Same length and at most one differing character, or one a prefix-ish of the other."""
+        if abs(len(a) - len(b)) > 2:
+            return False
+        if len(a) == len(b):
+            return sum(1 for x, y in zip(a, b) if x != y) <= 1
+        short, long_ = (a, b) if len(a) < len(b) else (b, a)
+        return long_.startswith(short[:4]) and long_.endswith(short[-4:])
+
+    def _expect_action_button(self, timeout=60):
+        """Wait for the phase screen's action button, whatever this phase calls it."""
+        end = time.monotonic() + timeout
+        seen = ""
+        while time.monotonic() < end:
+            try:
+                seen = self._word(self._button_text(PHASE_PROCESS_ALL))
+            except Exception:                                           # noqa: BLE001
+                seen = ""
+            if seen and any(self._close(seen, w) or seen == w for w in self._ACTION_WORDS):
+                return seen
+            time.sleep(0.5)
+        raise DriverError(f"no action button on the phase screen at {PHASE_PROCESS_ALL}; "
+                          f"read {seen!r}, expected one of {self._ACTION_WORDS}")
 
     def _expect_button(self, xy, label, timeout=15, require_idle=True):
         """Wait until the button at `xy` really says `label`.

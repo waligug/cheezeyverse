@@ -544,6 +544,14 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
         # carries his current height into the new save rather than his starting one.
         "weight_lbs": weight,
         "position": character.get("position"), "ratings": ratings, "potentials": potentials,
+        # THE DEAL HAS TO OUTLAST THE ROLLOVER HE ARRIVES IN. run_draft happens inside the
+        # offseason, and the game's own rollover runs straight after it - with Finances on that
+        # includes FREE AGENCY, where every expiring contract in the league is thrown open at
+        # once. A one-year rookie deal would expire in the same offseason it was signed and the
+        # AI would re-sign him wherever it pleased, so the man drafted #1 by LCH would open the
+        # season somewhere else. ROOKIE_YEARS is the same term the points deal uses, so the
+        # game and the ledger agree about how long he is a rookie.
+        "contract_years": (contract or {}).get("years"),
     })
     # Prepare BOTH saves before committing either. A missing source claim must not leave a
     # second copy of the player in college/pro while his store record still points at prep.
