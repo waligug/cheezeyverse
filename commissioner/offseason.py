@@ -1287,6 +1287,17 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
                 f"the offseason stands")
             result["aged_out"][key] = {"error": str(exc)}
 
+    # WHAT THE GRANT WOULD PAY, on a dry run as well as a real one. This used to be set only
+    # inside the `if not dry_run` block below, so a preview - the thing somebody reads BEFORE an
+    # irreversible rollover - showed the lump and the development bonus and stayed silent about
+    # what is now the largest payment of the offseason. The real run narrows this to what was
+    # actually paid once the writes have landed.
+    result["promotion_grants"] = {
+        r["character"]["id"]: promotion_grants[r["character"]["id"]]
+        for r in result.get("promoted", [])
+        if isinstance(r, dict) and r.get("character")
+        and promotion_grants.get(r["character"].get("id"))}
+
     # The offseason lump sum: every active character is a year older and gets paid for it,
     # and a college season that was seen through pays a development bonus on top.
     lump = int(settings.get("offseason_points", 15))
