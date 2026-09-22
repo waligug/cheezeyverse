@@ -166,9 +166,20 @@ def test_signing_a_free_agent_pays_him():
 
         short = min(L.teams().items(), key=lambda kv: kv[1]["size"])[0]
         man = pool[0]
-        L.sign(man, short)
+        # sign_many IS THE PRODUCTION PATH - protect_rosters' backfill and ageout's intake both
+        # use it, and nothing outside tests calls sign(). The first version of this test drove
+        # sign(), so the guard could be (and was) unreachable while this still passed.
+        L.sign_many([(man, short)])
+        man = L.find(man.name, man.dob)
         check("a signed player leaves with a contract", any(man.contract), f"{man.contract[:2]}")
         check("he is on the team", man.values["Team"] == short, f"{man.values['Team']}")
+        # AND FOR LONGER THAN ONE YEAR. One year expires at the next rollover's free agency, so
+        # a one-year backfill is a release-on-load postponed by an offseason, not prevented.
+        check("and for more than a single year",
+              sum(1 for y in man.contract if y > 0) > 1,
+              f"{sum(1 for y in man.contract if y > 0)}yr")
+        check("sign() carries the same guarantee",
+              "_ensure_paid" in __import__("inspect").getsource(LeagueDat.sign), True)
 
         # AND AN EXISTING DEAL IS NEVER OVERWRITTEN. A player the game already pays keeps his
         # number; signing must not quietly reprice somebody.
@@ -194,49 +205,127 @@ def test_a_drafted_man_gets_a_deal_that_outlasts_the_rollover():
     open at once - measured on a clone 2026-09-22, all 511 players became free agents together.
     So a character stamped with one year would be a free agent minutes after being drafted, and
     the AI would place him wherever it liked. "Drafted #1 by LCH" has to survive the same night.
+
+    THE CASE THAT MATTERS IS A SEAT THAT IS NOT BARE. 49 of pro's 60 reserve rows already carry a
+    deal and every one of them is a single year, so a gate of "only fill an empty contract" left
+    the rookie term unwritten on 82% of the places a pick can land. The first version of this
+    test could not see that, because it called check(name, got, want) against a helper whose
+    signature is check(name, cond, detail) - every assertion printed its expected value and
+    compared nothing at all.
     """
     if not SAVE.exists():
         print("SKIP  cv-pro-aged save fixture missing")
         return
     from commissioner import characters as ch
     from commissioner.codec.league_dat import RATINGS
+
+    def years_of(contract):
+        return sum(1 for y in contract if y > 0)
+
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp) / "league.dat"
         shutil.copy2(SAVE, work)
         L = LeagueDat(work)
 
-        seats = [p for p in L.players if not any(p.contract) and p.values["Team"] > 0]
-        if not seats:
-            print("SKIP  no bare seat in the fixture")
+        rostered = [p for p in L.players if p.values["Team"] > 0]
+        bare = [p for p in rostered if not any(p.contract)]
+        held = [p for p in rostered if years_of(p.contract) == 1]
+        check("the fixture has rows that already hold a one-year deal", bool(held),
+              f"{len(held)} of {len(rostered)} rostered")
+        if not (bare and held):
+            print("SKIP  the fixture lacks both a bare row and a held one")
             return
 
+        used = 0
+
         def stamp(seat, years):
+            nonlocal used
+            used += 1
             slot = type("S", (), {"name": seat.name, "dob": seat.dob,
                                   "height": 0, "weight": 0})()
             return ch.stamp_character(L, slot, {
-                "first_name": "Dodger", "last_name": "Manson%s" % years,
+                "first_name": "Rookie", "last_name": "Number%d" % used,
                 "dob": seat.dob, "height_inches": 86, "position": "C",
                 "ratings": {f: 70 for f in RATINGS}, "potentials": {},
                 "contract_years": years})
 
-        pl = stamp(seats[0], 4)
+        # THE REGRESSION. A seat that already holds one year must still end up on four.
+        occupied = held[0]
+        before = list(occupied.contract)
+        pl = stamp(occupied, 4)
         got = L.contract_of(pl)
-        check("a four-year rookie deal is four years",
-              sum(1 for y in got if y > 0), 4, )
-        check("and every year is paid the same", len(set(y for y in got if y > 0)), 1)
+        check("a stated term overwrites the seat's existing deal",
+              years_of(got) == 4, f"was {years_of(before)}yr, now {years_of(got)}yr")
+        check("and every year of it is paid the same",
+              len(set(y for y in got if y > 0)) == 1, f"{got[:4]}")
 
-        pl = stamp(seats[1], None)
-        check("no term given still pays him one year",
-              sum(1 for y in L.contract_of(pl) if y > 0), 1)
+        pl = stamp(bare[0], 4)
+        check("a bare seat also gets the full term",
+              years_of(L.contract_of(pl)) == 4, f"{L.contract_of(pl)[:4]}")
 
-        pl = stamp(seats[2], 99)
+        pl = stamp(bare[1] if len(bare) > 1 else held[1], None)
+        check("no term stated still leaves him paid",
+              years_of(L.contract_of(pl)) >= 1, f"{L.contract_of(pl)[:2]}")
+
+        pl = stamp(bare[2] if len(bare) > 2 else held[2], 99)
         check("a silly term is clipped to what the field holds",
-              sum(1 for y in L.contract_of(pl) if y > 0), CONTRACT_YEARS)
+              years_of(L.contract_of(pl)) == CONTRACT_YEARS,
+              f"{years_of(L.contract_of(pl))}")
 
         L.save()
         back = LeagueDat(work)
-        still = back.find("Dodger Manson4", seats[0].dob)
-        check("the term survives a save", sum(1 for y in still.contract if y > 0), 4)
+        still = back.find("Rookie Number1", occupied.dob)
+        check("the term survives a save", years_of(still.contract) == 4,
+              f"{still.contract[:4]}")
+
+
+def test_a_rookie_is_paid_like_one_rather_than_given_a_token():
+    """Four years of the $1M import token is a cage, not a rookie deal.
+
+    Free agency is the only event that ever prices a character properly - the AI paid $482,464 to
+    $22,218,759 on the clone, median $1,460,090 - so a man held on the league's setup token skips
+    being valued for as many years as his deal runs. A rookie scale keeps him on the team that
+    drafted him AND pays him like a first-rounder.
+    """
+    from commissioner.offseason import (rookie_salary, ROOKIE_SALARY_MIN, ROOKIE_SALARY_TOP,
+                                        ROOKIE_SALARY_PICKS, ROOKIE_GAME_YEARS, ROOKIE_YEARS)
+    from commissioner.characters import IMPORT_CONTRACT, LEVEL_CONTRACT_YEARS
+
+    # THE TWO TERMS ARE DIFFERENT ON PURPOSE and confusing them is how somebody ends up locked
+    # out of free agency for four years. ROOKIE_YEARS is skill points; ROOKIE_GAME_YEARS is the
+    # contract FBPB3 sees, and it is short so the league prices him.
+    check("the game contract is short", ROOKIE_GAME_YEARS == 1, f"{ROOKIE_GAME_YEARS}")
+    check("the points rookie scale is not", ROOKIE_YEARS > 1, f"{ROOKIE_YEARS}")
+    check("and every level default is short too",
+          set(LEVEL_CONTRACT_YEARS.values()) == {1}, f"{LEVEL_CONTRACT_YEARS}")
+
+    scale = [rookie_salary(n) for n in range(1, ROOKIE_SALARY_PICKS + 2)]
+    check("it never rises with the pick number", scale == sorted(scale, reverse=True), "")
+    check("first overall is the top of the scale", rookie_salary(1) == ROOKIE_SALARY_TOP,
+          f"${rookie_salary(1):,}")
+    check("and it is well clear of the setup token",
+          rookie_salary(1) > IMPORT_CONTRACT * 4, f"${rookie_salary(1):,}")
+    check("a late pick falls to the league minimum",
+          rookie_salary(ROOKIE_SALARY_PICKS) == ROOKIE_SALARY_MIN,
+          f"${rookie_salary(ROOKIE_SALARY_PICKS):,}")
+    check("nobody is ever paid nothing", min(scale) > 0, f"${min(scale):,}")
+    # The taper is geometric: the gap at the top of the board must be worth more than the gap at
+    # the bottom, or the scale says a lottery pick and a second-rounder are nearly the same man.
+    check("the top of the board is worth more than the bottom",
+          (rookie_salary(1) - rookie_salary(2)) > (rookie_salary(15) - rookie_salary(16)), True)
+    for bad in (None, 0, -3, "x"):
+        check(f"pick {bad!r} still pays the minimum", rookie_salary(bad) == ROOKIE_SALARY_MIN, "")
+
+    # AND IT STAYS INSIDE THE EXCEPTION A CAPPED-OUT TEAM CAN STILL USE. The draft order is
+    # REVERSE standings, so a high pick goes to a bad team - but after free agency every team in
+    # the clone was $65-78M against a $63,482,168 cap, because Bird rights let you exceed it to
+    # re-sign your own. The number that actually decides whether a rookie can be paid is the
+    # mid-level exception, measured at $5,468,453 on the live save, not the cap.
+    MID_LEVEL = 5_468_453
+    check("even the first pick fits inside the mid-level exception",
+          rookie_salary(1) <= MID_LEVEL, f"${rookie_salary(1):,} vs ${MID_LEVEL:,}")
+    check("and he is a real fraction of it, not a rounding error",
+          rookie_salary(1) > MID_LEVEL * 0.5, f"${rookie_salary(1):,}")
 
 
 test_reads_what_the_game_exports()
@@ -244,6 +333,7 @@ test_writes_and_survives_a_reload()
 test_it_refuses_what_would_corrupt_a_save()
 test_signing_a_free_agent_pays_him()
 test_a_drafted_man_gets_a_deal_that_outlasts_the_rollover()
+test_a_rookie_is_paid_like_one_rather_than_given_a_token()
 
 if failures:
     print("\nFAILED: " + ", ".join(failures))

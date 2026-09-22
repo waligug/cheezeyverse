@@ -35,6 +35,13 @@ from commissioner.driver.fbpb3 import DOCS  # noqa: E402
 # it keeps one number in the league rather than inventing a second, and 15 x $1M is $15M against
 # a $63M cap, so no team can be pushed over by this.
 SALARY = 1_000_000
+# MORE THAN ONE YEAR, and this is the whole lesson of the day. A one-year deal stops a
+# player being released ON LOAD and does nothing about the ROLLOVER: measured on a clone
+# 2026-09-22, every one-year contract in the league expired together at the offseason and
+# all 511 players became free agents at once. So a one-year grant is a release postponed
+# by a season, and postponed trouble is the kind nobody connects to its cause. Matches the
+# codec's own SIGNING_YEARS so the two cannot drift.
+YEARS = 3
 
 
 def main(argv=None):
@@ -42,7 +49,7 @@ def main(argv=None):
     ap.add_argument("save", help="leaguedata folder name, e.g. CV_FinTest")
     ap.add_argument("--apply", action="store_true", help="write; otherwise report only")
     ap.add_argument("--salary", type=int, default=SALARY)
-    ap.add_argument("--years", type=int, default=1)
+    ap.add_argument("--years", type=int, default=YEARS)
     ap.add_argument("--backup", default=None, help="folder to copy the save into first")
     a = ap.parse_args(argv)
 
@@ -78,6 +85,8 @@ def main(argv=None):
     if not a.apply:
         print(f"\nreport only. Re-run with --apply to write ${a.salary:,} x {a.years}yr "
               f"to {len(bare)} players.")
+        if a.years < 2:
+            print("   NOTE: a one-year deal expires at the very next rollover's free agency.")
         return 0
 
     deal = [a.salary] * a.years

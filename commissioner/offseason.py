@@ -87,6 +87,44 @@ PREP_LAST_AGE = 17
 # How long a rookie deal runs before free agency has to decide anything. Four, so a drafted
 # character reaches his first real negotiation at about the age a college senior would have.
 ROOKIE_YEARS = 4
+# WHAT A DRAFTED CHARACTER IS PAID IN THE GAME, as distinct from the skill points he earns.
+#
+# The first version handed every pick the same $1,000,000 IMPORT_CONTRACT - the token the league
+# was built with. Four years of it keeps him on the team that drafted him, which is the point of
+# draft night, but at a tenth of what the league pays its better players that is a cage rather
+# than a rookie deal: free agency is the only event that ever prices a man properly, and a token
+# contract makes him skip it four years running.
+#
+# The numbers are the LEAGUE'S OWN, not invented. Measured on the live pro save and on the
+# post-free-agency clone: cap $63,482,168, mid-level exception $5,468,453, the lowest salary the
+# AI actually paid anybody $482,464, median $1,460,090. So pick 1 lands just under the mid-level
+# exception and the scale tapers to about the league minimum by the end of a round - the shape a
+# real rookie scale has, and well short of a cap nobody is near.
+# HOW LONG THE GAME CONTRACT RUNS, which is NOT how long the points deal runs. ROOKIE_YEARS
+# above is the skill-point rookie scale and stays at four. This is the deal FBPB3 sees, and
+# Nate's call is that everybody starts on a short one: "It's fine if they all start on small 1
+# years." One year means a drafted character expires with the rest of the league at the first
+# free agency and is priced by it, instead of being held on a commissioner-chosen number for
+# four years. The cost is real and worth saying out loud - he reaches free agency in the same
+# offseason he was drafted, so the team that picked him is not guaranteed to keep him.
+ROOKIE_GAME_YEARS = 1
+ROOKIE_SALARY_TOP = 5_000_000
+ROOKIE_SALARY_MIN = 500_000
+ROOKIE_SALARY_PICKS = 20
+
+
+def rookie_salary(pick):
+    """The game salary for a draft slot, tapering from the top pick to the league minimum."""
+    try:
+        n = int(pick)
+    except (TypeError, ValueError):
+        return ROOKIE_SALARY_MIN
+    if n < 1 or n >= ROOKIE_SALARY_PICKS:
+        return ROOKIE_SALARY_MIN
+    # Geometric rather than linear: the gap between picks 1 and 2 should be worth more than the
+    # gap between 18 and 19, which is how every real scale behaves.
+    span = (n - 1) / (ROOKIE_SALARY_PICKS - 1)
+    return int(round(ROOKIE_SALARY_TOP * (ROOKIE_SALARY_MIN / ROOKIE_SALARY_TOP) ** span, -3))
 COLLEGE_MAX_YEARS = 4
 
 # ---- when a career ends ---------------------------------------------------------------------
@@ -555,8 +593,15 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
         # the level he is joining. A promotion is not a rookie contract and has no points rate,
         # so it states a TERM without fabricating a deal in his career history - which is why
         # this is a separate argument rather than a `contract` with no rate in it.
-        "contract_years": ((contract or {}).get("years") or contract_years
+        # `game_years` wins when the caller states one, because the points deal and the game
+        # deal are different lengths on purpose: four years of skill-point rookie scale, one
+        # year of contract so free agency prices him.
+        "contract_years": ((contract or {}).get("game_years") or contract_years
                            or ch.LEVEL_CONTRACT_YEARS.get(to_league)),
+        # AND WHAT HE IS PAID. A drafted character carries a rookie-scale salary; everyone else
+        # passes nothing and takes the league's own token, because only the draft knows a slot
+        # and only a slot prices a rookie.
+        "contract_salary": (contract or {}).get("salary"),
     })
     # Prepare BOTH saves before committing either. A missing source claim must not leave a
     # second copy of the player in college/pro while his store record still points at prep.
@@ -782,7 +827,11 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
                 # team comes off the slot he actually lands in, which is not always the team
                 # that picked him when a roster has no free reserve row.
                 deal = {"rate": points.rookie_rate(p["pick"]), "years": ROOKIE_YEARS,
-                        "season_from": season, "pick": p["pick"]}
+                        "season_from": season, "pick": p["pick"],
+                        # `rate` is skill points a week; `salary` is what the GAME pays him.
+                        # Different currencies answering different questions.
+                        "salary": rookie_salary(p["pick"]),
+                        "game_years": ROOKIE_GAME_YEARS}
                 moved = promote(c, "pro", store, log=log, how=how, season=season,
                                 team=p["team"], contract=deal, busy=busy)
                 if moved["slot"].get("team") != p["team"]:

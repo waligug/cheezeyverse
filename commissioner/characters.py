@@ -320,11 +320,24 @@ def stamp_character(L, slot, character):
             years = 1                      # a term we cannot read is still a term he needs
     else:
         years = 0                          # nothing stated: fill a bare row only
+    # AND WHAT HE IS PAID, which is a separate question from how long for. A stated term with no
+    # stated salary is still the league token - that is right for a promotion or a signup, where
+    # nobody has priced him. The DRAFT prices him, on a rookie scale built from the league's own
+    # cap and exceptions, because four years of the $1,000,000 import token is not a rookie deal,
+    # it is a cage: free agency is the only event that ever pays a man what he is worth, and a
+    # token contract makes him skip it for as many years as it runs.
+    salary = character.get("contract_salary")
+    try:
+        salary = int(salary)
+        if not 0 < salary <= lg.CONTRACT_MAX:
+            raise ValueError
+    except (TypeError, ValueError):
+        salary = IMPORT_CONTRACT
     try:
         if years:
-            L.set_contract(pl, [IMPORT_CONTRACT] * years)
+            L.set_contract(pl, [salary] * years)
         elif not any(L.contract_of(pl)):
-            L.set_contract(pl, [IMPORT_CONTRACT])
+            L.set_contract(pl, [salary])
     except AttributeError:
         # An older codec with no contract support. Narrow on purpose: this used to wrap the
         # clamp and the reads too, so a real AttributeError from inside the codec was swallowed

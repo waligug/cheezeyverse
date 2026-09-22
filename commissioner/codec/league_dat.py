@@ -53,6 +53,9 @@ CONTRACT_MAX = 2_000_000_000   # int32 headroom; the game's own imports use 1_00
 # `generate.IMPORT_CONTRACT` and `characters.IMPORT_CONTRACT` use, so one league has one token
 # salary rather than three that drift.
 SIGNING_CONTRACT = 1_000_000
+# Longer than one year on purpose - see _ensure_paid. One year expires at the very next
+# rollover, which turns a release-on-load into a release-one-offseason-later.
+SIGNING_YEARS = 3
 BIO_INTS = ["Height", "Weight", "_zero", "BirthMonth", "BirthDay", "BirthYear"]
 E_FIELDS = {"Position": 18, "Team": 40, "Inactive": 46, "Exp": 82}  # Inactive: -1 = dressed out
 POSITIONS = {1: "C", 2: "PF", 3: "SF", 4: "SG", 5: "PG"}
@@ -588,7 +591,29 @@ class LeagueDat:
             self.data[at:at + remove] = value
         self._reparse()
 
-    def sign(self, pl, t, minutes=True):
+    def _ensure_paid(self, pl, years=None):
+        """A rostered player must have a contract. Never re-prices a man who already has one.
+
+        A ROSTERED PLAYER MUST HAVE A CONTRACT, and a signing function is the only place that can
+        guarantee it. Under Full Finances the game RELEASES a contract-less player as the league
+        loads, so signing one is a move that undoes itself - and the pool these sign FROM is 150
+        free agents of whom every single one is bare.
+
+        The default term is deliberately longer than one year. A one-year deal expires at the
+        very next rollover's FREE AGENCY stage, so a backfill signed on a single year would be
+        gone again one offseason later - slower than being released on load, and harder to see.
+        """
+        if any(self.contract_of(pl)):
+            return False
+        n = SIGNING_YEARS if years is None else years
+        try:
+            n = max(1, min(int(n), CONTRACT_YEARS))
+        except (TypeError, ValueError):
+            n = SIGNING_YEARS
+        self.set_contract(pl, [SIGNING_CONTRACT] * n)
+        return True
+
+    def sign(self, pl, t, minutes=True, years=SIGNING_YEARS):
         """Add a free agent / draft-pool player to team t. Roster array grows by one.
 
         A player who is only on the roster never appears in a box score, so by default he also takes over the
@@ -621,12 +646,11 @@ class LeagueDat:
         # It belongs here rather than in ageout and protect_rosters because it is a property of
         # the FILE, not of anyone's intent: there is no correct way to put a man on a roster
         # without paying him. An existing deal is never touched - he keeps what he had.
-        if not any(self.contract_of(pl)):
-            self.set_contract(pl, [SIGNING_CONTRACT])
+        self._ensure_paid(pl, years)
         self._roster_count_add(info, +1)
         self._splice(info["roster_at"] + 2 * info["size"], 0, struct.pack("<h", pl.id))
 
-    def sign_many(self, assignments, minutes=True):
+    def sign_many(self, assignments, minutes=True, years=SIGNING_YEARS):
         """Sign ``(player, team)`` assignments and re-parse the save once."""
         assignments = list(assignments)
         if not assignments:
@@ -654,6 +678,12 @@ class LeagueDat:
                 self.set(pl, field_name, t)
             if minutes:
                 self.set(pl, "Inactive", 0)
+            # THIS IS THE PATH PRODUCTION USES. sign() carries the same guarantee and is called
+            # by nothing but tests: protect_rosters' backfill (every sim week) and ageout's
+            # recycled-body intake both come through here. Leaving it out meant the guard in
+            # sign() was unreachable and every backfilled player was RELEASED on the next load
+            # under Full Finances - teams short, the guard re-signing them next week, for ever.
+            self._ensure_paid(pl, years)
             by_team.setdefault(t, []).append(pl.id)
             sizes[t] += 1
         edits = []

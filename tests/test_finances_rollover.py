@@ -1,19 +1,14 @@
 """The offseason grows a stage when Finances is on, and the driver has to expect it.
 
-MEASURED ON A CLONE OF THE LIVE PRO SAVE, 2026-09-22. With Finances Off the rollover is
-END SEASON -> OFFSEASON -> HIRE STAFF -> TRAINING CAMPS, which is what roll_over_season has
-always driven. With FULL FINANCES there is a FREE AGENCY stage between HIRE STAFF and TRAINING
-CAMPS, and it takes the SAME on-screen button as TRAINING CAMPS.
+MEASURED ON A CLONE OF THE LIVE PRO SAVE, 2026-09-22. With Finances Off the rollover ends
+END SEASON -> OFFSEASON -> HIRE STAFF -> TRAINING CAMPS. With FULL FINANCES there is a FREE
+AGENCY stage in between, on the SAME pixel as TRAINING CAMPS, and its action button says RUN ALL
+DAYS rather than PROCESS ALL because free agency is a run of days.
 
-roll_over_season's own docstring predicted this - "a league with them on would stop at a button
-this does not press" - and it did exactly that, safely, rather than clicking blind. This pins the
-behaviour that replaces stopping.
-
-TWO THINGS ARE BEING PROTECTED and they pull in opposite directions:
-  * a Finances league must not stall at a stage nobody drives, and
-  * a Finances-OFF league must behave exactly as it did before, so the step has to be SKIPPED
-    rather than waited for when the button is not there. A missing optional stage that is waited
-    for is a timeout, and a timeout mid-rollover strands the universe in the offseason.
+WHAT GOES WRONG HERE IS EXPENSIVE AND QUIET. seasonflow wraps roll_over_season in no timeout and
+its `finally` runs `exit_game(save=False)`, so a rollover the game really completed can be thrown
+away by a driver that merely failed to recognise the end of it. Every assertion below exists
+because some version of this file let one of those through.
 
     python tests/test_finances_rollover.py
 """
@@ -40,32 +35,16 @@ def check(name, got, want):
         print(f"  FAIL  {name}: got {got!r}, wanted {want!r}")
 
 
-class Screen:
-    """A driver whose buttons say whatever the test wants, and which records its clicks."""
-
-    def __init__(self, labels):
-        self.labels = dict(labels)
-        self.reads = []
-
-    def text(self, xy):
-        self.reads.append(xy)
-        return self.labels.get(xy, "")
-
-
 class FakeGame:
-    """A stage machine that answers like the real Hot Seat, so roll_over_season can be DRIVEN.
+    """A stage machine that answers like the real Hot Seat, so roll_over_season can be DRIVEN."""
 
-    Source inspection proves the code says the right words; this proves it does the right thing.
-    The rollover is the one path that cannot be rehearsed against the real game cheaply, and a
-    wrong click there strands the universe mid-offseason, so it gets driven end to end here.
-    """
-
-    def __init__(self, finances):
-        # The tail button carries FREE AGENCY only when Finances is on; both end at TRAINING CAMPS.
+    def __init__(self, finances, tail_after_camps="SIMTOPLAYOFFS", misread=None):
         self.stages = ["ENDSEASON", "OFFSEASON", "HIRESTAFF"]
         self.stages += ["FREEAGENCY"] if finances else []
         self.stages += ["TRAININGCAMPS"]
         self.needs_phase = {"HIRESTAFF": "PROCESSALL", "FREEAGENCY": "RUNALLDAYS"}
+        self.tail_after_camps = tail_after_camps
+        self.misread = misread or {}
         self.i = 0
         self.on_phase = False
         self.ran = False
@@ -73,27 +52,29 @@ class FakeGame:
         self.clicks = []
         self.done = False
 
-    # ---- what the screen says ----
+    def _say(self, word):
+        return self.misread.get(word, word)
+
     def button_text(self, xy):
         if xy == PHASE_PROCESS_ALL:
             if not self.on_phase:
                 return ""
-            return "PROCEED" if self.ran else self.needs_phase[self.stages[self.i]]
-        if self.done or self.on_phase:
+            return self._say("PROCEED" if self.ran else self.needs_phase[self.stages[self.i]])
+        if self.on_phase:
             return ""
+        if self.done:
+            # THE PANEL GIVES WAY TO THE SIM BUTTONS. Same pixel, which is exactly why a driver
+            # that insists on TRAINING CAMPS can fail a rollover the game finished.
+            return self._say(self.tail_after_camps) if xy == HOTSEAT_TRAINING_CAMPS else ""
         cur = self.stages[self.i]
-        if xy == HOTSEAT_END_SEASON:
-            return "ENDSEASON" if cur == "ENDSEASON" else ""
-        if xy == HOTSEAT_OFFSEASON:
-            return "OFFSEASON" if cur == "OFFSEASON" else ""
-        if xy == HOTSEAT_HIRE_STAFF:
-            return "HIRESTAFF" if cur == "HIRESTAFF" else ""
+        want = {HOTSEAT_END_SEASON: "ENDSEASON", HOTSEAT_OFFSEASON: "OFFSEASON",
+                HOTSEAT_HIRE_STAFF: "HIRESTAFF"}.get(xy)
+        if want:
+            return self._say(cur) if cur == want else ""
         if xy == HOTSEAT_TRAINING_CAMPS:
-            # The pixel both FREE AGENCY and TRAINING CAMPS live on.
-            return cur if cur in ("FREEAGENCY", "TRAININGCAMPS") else ""
+            return self._say(cur) if cur in ("FREEAGENCY", "TRAININGCAMPS") else ""
         return ""
 
-    # ---- what a click does ----
     def click(self, xy, wait=0, real=True):
         self.clicks.append(xy)
         if xy == NAV_HOT_SEAT:
@@ -102,11 +83,13 @@ class FakeGame:
             if not self.on_phase:
                 raise AssertionError("pressed the action button with no phase screen open")
             if not self.ran:
-                self.ran = True            # RUN ALL DAYS / PROCESS ALL -> becomes PROCEED
+                self.ran = True
             else:
                 self._advance()
             return
-        if self.button_text(xy) == self.stages[self.i]:
+        if self.done:
+            raise AssertionError(f"clicked {xy} after the offseason was over")
+        if self.button_text(xy) == self._say(self.stages[self.i]):
             if self.stages[self.i] in self.needs_phase:
                 self.on_phase, self.ran = True, False
             else:
@@ -124,9 +107,7 @@ class FakeGame:
             self.done = True
 
 
-def drive(finances):
-    """Run the REAL roll_over_season against the fake, and report what it did."""
-    fake = FakeGame(finances)
+def wire(fake):
     g = FBPB3.__new__(FBPB3)
     g.advance_to_offseason = lambda log=None, **k: None
     g.click = fake.click
@@ -135,123 +116,186 @@ def drive(finances):
     g._progress_popup_visible = lambda: False
     g._wait_until_still = lambda **k: True
     g._date_signature = lambda: fake.day
-    g._stage_signature = lambda: (fake.i, fake.on_phase, fake.ran, fake.done)
+    # THE REAL _stage_signature IS A CROP OF THE STAGE-NAME BOX, which does not move until the
+    # phase actually completes. An earlier fake included on_phase, so merely OPENING a phase
+    # screen counted as a stage change - and the bug roll_over_season's docstring records as
+    # "how this was first got wrong", pressing EXIT instead of PROCEED, would have passed.
+    g._stage_signature = lambda: (fake.i, fake.done)
 
     def wait_stage_change(before, timeout=120):
         if g._stage_signature() == before:
             raise AssertionError("stage did not change")
     g._wait_stage_change = wait_stage_change
-    log = []
-    seen = g.roll_over_season(log=log.append)
-    return fake, [s[0] for s in seen], log
+    return g
 
 
-def test_the_rollover_is_actually_driven():
-    print("FINANCES ON: the rollover drives free agency and still finishes at training camps")
-    fake, order, _ = drive(True)
-    check("every stage, in order", order,
-          ["END SEASON", "OFFSEASON", "HIRE STAFF", "FREE AGENCY", "TRAINING CAMPS"])
-    check("the game reached its end state", fake.done, True)
-    check("no phase screen was left open", fake.on_phase, False)
-
-    print("FINANCES OFF: unchanged from what it has always done")
-    fake, order, _ = drive(False)
-    check("free agency is not invented", order,
-          ["END SEASON", "OFFSEASON", "HIRE STAFF", "TRAINING CAMPS"])
-    check("the game reached its end state", fake.done, True)
-
-    print("A STALLED BUTTON IS REPORTED, NEVER CLICKED THROUGH")
-    # The failure that matters: the tail pixel says something nobody planned for. It must raise
-    # with the reason rather than press a button whose meaning is unknown.
-    fake = FakeGame(True)
-    g = FBPB3.__new__(FBPB3)
-    g.advance_to_offseason = lambda log=None, **k: None
-    g.click = fake.click
-    g._message_boxes = lambda: []
-    g._progress_popup_visible = lambda: False
-    g._wait_until_still = lambda **k: True
-    g._date_signature = lambda: fake.day
-    g._stage_signature = lambda: (fake.i, fake.on_phase, fake.ran, fake.done)
-    g._wait_stage_change = lambda before, timeout=120: None
-    real_text = fake.button_text
-
-    def gibberish(xy):
-        if xy == HOTSEAT_TRAINING_CAMPS and fake.i >= 3:
-            return "EXPANSIONDRAFT"          # a stage this league does not use
-        return real_text(xy)
-    g._button_text = gibberish
-    try:
-        g.roll_over_season(log=lambda m: None)
-        outcome = "it carried on"
-    except DriverError as exc:
-        outcome = "raised" if "No further click was sent" in str(exc) else f"raised: {exc}"
-    except AssertionError as exc:
-        outcome = f"CLICKED SOMETHING: {exc}"
-    check("an unknown stage stops the rollover cleanly", outcome, "raised")
-    check("and it never pressed the unknown button",
-          HOTSEAT_TRAINING_CAMPS not in fake.clicks[3:] or True, True)
+def drive(finances, **kw):
+    fake = FakeGame(finances, **kw)
+    seen = wire(fake).roll_over_season(log=lambda m: None)
+    return fake, [s[0] for s in seen]
 
 
 def run():
     g = FBPB3.__new__(FBPB3)
 
     print("an OCR slip does not turn a button into a different button")
-    # This is the real misread: RUN ALL DAYS came back as RUNAUDAYS, the "LL" read as a "U".
     check("the exact word", FBPB3._close("RUNALLDAYS", "RUNALLDAYS"), True)
-    check("one letter wrong, same length", FBPB3._close("RUNALLDAYS", "RUNALLDAYT"), True)
-    check("the real misread is recognised", FBPB3._close("RUNAUDAYS", "RUNALLDAYS"), True)
+    check("a substitution is forgiven", FBPB3._close("RUNAUDAYS", "RUNALLDAYS"), True)
+    # A CLIPPED CROP DROPS THE LAST LETTER far more often than it garbles a middle one, and the
+    # old rule required the ENDS to match, which a truncation can never do.
+    check("a dropped last letter is forgiven", FBPB3._close("TRAININGCAMP", "TRAININGCAMPS"), True)
+    check("so is a clipped FREE AGENCY", FBPB3._close("FREEAGENC", "FREEAGENCY"), True)
     check("PROCESS ALL is not RUN ALL DAYS", FBPB3._close("PROCESSALL", "RUNALLDAYS"), False)
     check("PROCEED is not PROCESS ALL", FBPB3._close("PROCEED", "PROCESSALL"), False)
+    check("FREE AGENCY is not TRAINING CAMPS",
+          FBPB3._close("FREEAGENCY", "TRAININGCAMPS"), False)
     check("nothing matches nothing useful", FBPB3._close("", "RUNALLDAYS"), False)
+    check("a trailing S read as a 5 still resolves",
+          FBPB3._word("TRAINING CAMP5") == "TRAININGCAMP"
+          and FBPB3._close("TRAININGCAMP", "TRAININGCAMPS"), True)
 
-    print("punctuation and case never decide anything")
-    check("word strips to letters", FBPB3._word(" Run All-Days! "), "RUNALLDAYS")
-    check("blank is blank", FBPB3._word(None), "")
+    print("the action words are only ones actually seen on these screens")
+    check("PROCESS ALL", "PROCESSALL" in FBPB3._ACTION_WORDS, True)
+    check("RUN ALL DAYS", "RUNALLDAYS" in FBPB3._ACTION_WORDS, True)
+    # RUN DAY was a guess, and it is one substitution from SUNDAY - a word the free-agency
+    # screen, which runs a series of DAYS, can genuinely paint into this read box.
+    check("no day of the week is an action button",
+          [d for d in ("SUNDAY", "MONDAY", "FRIDAY")
+           if any(FBPB3._close(d, w) or d == w for w in FBPB3._ACTION_WORDS)], [])
 
-    print("_button_is ASKS whether a stage is there; it never waits one into existence")
-    xy = (910, 651)
-    seen = Screen({xy: "FREEAGENCY"})
-    g._button_text = seen.text
-    check("free agency is recognised", g._button_is(xy, "FREEAGENCY", tries=1), True)
+    print("_read_button settles before it commits, and says which half failed")
 
-    # THE CASE THAT MATTERS FOR A FINANCES-OFF LEAGUE. The same pixel says TRAINING CAMPS, and
-    # the optional step has to report "not here" promptly rather than blocking.
-    off = Screen({xy: "TRAININGCAMPS"})
-    g._button_text = off.text
-    check("training camps is not free agency", g._button_is(xy, "FREEAGENCY", tries=1), False)
+    class Screen:
+        def __init__(self, words):
+            self.words, self.n = list(words), 0
 
-    print("a button that cannot be read is not a stage")
-    class Broken:
         def __call__(self, xy):
-            raise RuntimeError("window is repainting")
-    g._button_text = Broken()
-    check("an unreadable button reports absent, not present",
-          g._button_is(xy, "FREEAGENCY", tries=1), False)
-    check("and it does not raise into the rollover", True, True)
+            w = self.words[min(self.n, len(self.words) - 1)]
+            self.n += 1
+            return w
 
-    print("the rollover sequence includes free agency, as an OPTIONAL step")
-    import inspect
-    src = inspect.getsource(FBPB3.roll_over_season)
-    check("FREE AGENCY is in the sequence", "FREE AGENCY" in src, True)
-    check("the tail reads the button rather than assuming an order",
-          "_read_button" in src, True)
-    check("an unknown word raises instead of being clicked",
-          "No further click was sent" in src, True)
-    check("and the rollover is not finished until TRAINING CAMPS happened",
-          "never reached TRAINING CAMPS" in src, True)
-    check("the action button is read rather than assumed",
-          "_expect_action_button" in src, True)
-    check("PROCESS ALL is no longer demanded literally",
-          'self._expect_button(PHASE_PROCESS_ALL, "PROCESS ALL"' in src, False)
+    g._message_boxes = lambda: []
+    g._progress_popup_visible = lambda: False
+    # A stale word from the previous screen, then the real one. Committing to the first read is
+    # what made the tail raise "offseason stalled" at a league that was perfectly fine.
+    g._button_text = Screen(["PROCEED", "FREEAGENCY", "FREEAGENCY"])
+    check("a one-off stale read is not committed to",
+          g._read_button((910, 651), timeout=5), "FREEAGENCY")
 
-    print("the action button accepts either phase's word")
-    for word in ("PROCESSALL", "RUNALLDAYS"):
-        check(f"{word} is an action button",
-              any(FBPB3._close(word, w) or word == w for w in FBPB3._ACTION_WORDS), True)
-    check("PROCEED is NOT an action button - it is the thing that comes after",
-          any(FBPB3._close("PROCEED", w) for w in FBPB3._ACTION_WORDS), False)
+    g._button_text = Screen([""])
+    try:
+        g._read_button((910, 651), timeout=0.6)
+        out = "returned"
+    except DriverError as exc:
+        out = "blank" if "never painted" in str(exc) else f"other: {exc}"
+    check("a screen that never paints is reported as that", out, "blank")
 
-    test_the_rollover_is_actually_driven()
+    print("_expect_button forgives the same slip the tail already forgave")
+    # Identifying a stage tolerantly and then re-checking it EXACTLY one line later made the
+    # tolerance decoration: accepted upstream, rejected here, after the full timeout.
+    g._button_text = lambda xy: "FREEAGENCV"
+    try:
+        g._expect_button((910, 651), "FREE AGENCY", timeout=2)
+        out = "accepted"
+    except DriverError:
+        out = "rejected"
+    check("a single-character misread is accepted", out, "accepted")
+    g._button_text = lambda xy: "TRAININGCAMPS"
+    try:
+        g._expect_button((910, 651), "FREE AGENCY", timeout=1)
+        out = "accepted"
+    except DriverError:
+        out = "rejected"
+    check("but a genuinely different stage is not", out, "rejected")
+
+    print("_expect_action_button keeps both gates its predecessor had")
+    g._button_text = lambda xy: "PROCESSALL"
+    g._message_boxes = lambda: ["Confirm"]
+    try:
+        g._expect_action_button(timeout=1)
+        out = "returned"
+    except DriverError as exc:
+        out = "message box" if "message box" in str(exc) else f"other: {exc}"
+    check("a modal is named immediately, not mistaken for a label mismatch", out, "message box")
+    g._message_boxes = lambda: []
+    g._progress_popup_visible = lambda: True
+    try:
+        g._expect_action_button(timeout=1)
+        out = "returned while busy"
+    except DriverError:
+        out = "waited"
+    check("and it never returns while a progress popup is up", out, "waited")
+
+    print("THE ROLLOVER IS ACTUALLY DRIVEN")
+    fake, order = drive(True)
+    check("Finances on: every stage, in order", order,
+          ["END SEASON", "OFFSEASON", "HIRE STAFF", "FREE AGENCY", "TRAINING CAMPS"])
+    check("it reached the end", fake.done, True)
+    check("no phase screen was left open", fake.on_phase, False)
+
+    fake, order = drive(False)
+    check("Finances off: unchanged from what it always did", order,
+          ["END SEASON", "OFFSEASON", "HIRE STAFF", "TRAINING CAMPS"])
+    check("it reached the end", fake.done, True)
+
+    print("an OCR slip mid-rollover does not stop it")
+    fake, order = drive(True, misread={"FREEAGENCY": "FREEAGENCV", "RUNALLDAYS": "RUNAUDAYS"})
+    check("the whole sequence still ran", order,
+          ["END SEASON", "OFFSEASON", "HIRE STAFF", "FREE AGENCY", "TRAINING CAMPS"])
+
+    print("a finished rollover is never mistaken for a failure")
+    # The offseason panel REPLACES the sim buttons, and TRAINING CAMPS shares its pixel with
+    # SIM TO PLAYOFFS. seasonflow discards the rollover on any raise, so this must not raise.
+    for word in ("SIMTOPLAYOFFS", "SIMDAY", "SIMPRESEASON"):
+        try:
+            fake, order = drive(True, tail_after_camps=word)
+            out = order[-1]
+        except DriverError as exc:
+            out = f"raised: {exc}"
+        check(f"the panel giving way to {word} is completion", out, "TRAINING CAMPS")
+
+    print("a stage that did not really advance is reported, not driven again")
+    # _wait_stage_change only proves a crop changed. If it lies, a button-driven loop would run
+    # free agency over and over at 60s + 900s a time before failing.
+    fake = FakeGame(True)
+    g2 = wire(fake)
+    g2._wait_stage_change = lambda before, timeout=120: None     # the wait lies
+    real_advance = fake._advance
+
+    def stuck():
+        # The phase SCREEN closes - otherwise the fake shows a blank Hot Seat and the driver
+        # simply cannot read anything, which is a different failure from the one under test.
+        # What does not happen is the stage moving on.
+        fake.on_phase, fake.ran = False, False
+        if fake.stages[fake.i] != "FREEAGENCY":
+            real_advance()
+
+    fake._advance = stuck
+    try:
+        g2.roll_over_season(log=lambda m: None)
+        out = "carried on"
+    except DriverError as exc:
+        out = "refused" if "already run" in str(exc) else f"other: {exc}"
+    except AssertionError as exc:
+        out = f"CLICKED SOMETHING: {exc}"
+    check("free agency is never driven twice", out, "refused")
+
+    print("an unknown stage stops the rollover cleanly")
+    fake = FakeGame(True)
+    g3 = wire(fake)
+    real_text = fake.button_text
+    g3._button_text = lambda xy: ("EXPANSIONDRAFT"
+                                  if xy == HOTSEAT_TRAINING_CAMPS and fake.i >= 3
+                                  else real_text(xy))
+    try:
+        g3.roll_over_season(log=lambda m: None)
+        out = "carried on"
+    except DriverError as exc:
+        out = "raised" if "No further click was sent" in str(exc) else f"other: {exc}"
+    except AssertionError as exc:
+        out = f"CLICKED SOMETHING: {exc}"
+    check("an unrecognised stage raises instead of being pressed", out, "raised")
+    check("and that pixel was never clicked", fake.clicks.count(HOTSEAT_TRAINING_CAMPS), 0)
 
     print()
     if FAILS:
@@ -260,7 +304,8 @@ def run():
             print("  " + f)
         return 1
     print("OK  finances rollover: the free-agency stage is driven when it exists and skipped "
-          "when it does not, and an OCR slip no longer rejects the right button")
+          "when it does not, a finished rollover is recognised however the panel ends, a stage "
+          "is never driven twice, and an OCR slip no longer rejects the right button")
     return 0
 
 
