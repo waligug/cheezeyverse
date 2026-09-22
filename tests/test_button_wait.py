@@ -95,6 +95,29 @@ def run():
         except DriverError as exc:
             check(f"require_idle={idle}", f"raised {exc}", True)
 
+
+    print("a progress popup is a window of about the right SIZE, not any window at all")
+    from types import SimpleNamespace
+
+    class _Rect:
+        def __init__(self, w, h): self._w, self._h = w, h
+        def width(self): return self._w
+        def height(self): return self._h
+
+    def _win(w, h):
+        return SimpleNamespace(rectangle=lambda: _Rect(w, h))
+
+    looks = FBPB3._looks_like_popup
+    fake = SimpleNamespace(_POPUP_W=FBPB3._POPUP_W, _POPUP_H=FBPB3._POPUP_H)
+    check("a progress-form-sized window is a popup", looks(fake, _win(420, 200)), True)
+    # The 2029 rollover died because ANY ThunderRT6 window counted, with no size test. FBPB3
+    # keeps a full-screen one on the offseason screen.
+    check("a full-screen window is NOT a popup", looks(fake, _win(1019, 762)), False)
+    check("a tiny one is not either", looks(fake, _win(40, 20)), False)
+    check("a window that vanished mid-check is not a popup",
+          looks(fake, SimpleNamespace(rectangle=lambda: (_ for _ in ()).throw(RuntimeError()))),
+          False)
+
     print()
     if FAILS:
         print("FAILED")

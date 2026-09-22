@@ -849,7 +849,9 @@ class FBPB3:
                                  ("HIRE STAFF", HOTSEAT_HIRE_STAFF, True),
                                  ("TRAINING CAMPS", HOTSEAT_TRAINING_CAMPS, False)):
             self.click(NAV_HOT_SEAT, 0)
-            self._expect_button(xy, label)
+            # 15s was the default and it is not enough here: each of these lands straight after
+            # the previous phase's work, and the scouting popup on a finished season outlives it.
+            self._expect_button(xy, label, timeout=180)
             before, stage_before = self._date_signature(), self._stage_signature()
             self.click(xy, 0)
             if phase:
@@ -890,18 +892,49 @@ class FBPB3:
         self._button_cache = cache
         return text
 
+    # A progress form is roughly this big. Measured from the end-season scouting popup; the
+    # range is deliberately wider than one dialog so a near neighbour still counts.
+    _POPUP_W = (250, 700)
+    _POPUP_H = (100, 420)
+
+    def _looks_like_popup(self, window):
+        try:
+            rect = window.rectangle()
+        except Exception:      # noqa: BLE001 - a window that vanished mid-check is not a popup
+            return False
+        return (self._POPUP_W[0] <= rect.width() <= self._POPUP_W[1]
+                and self._POPUP_H[0] <= rect.height() <= self._POPUP_H[1])
+
     def _progress_popup_visible(self):
-        # END SEASON changes the stage *before* its scouting/progress popup closes.
-        # Underlying button labels remain visible; they are not proof that work is done.
-        if any(w.handle != self.main.handle and w.class_name().startswith("ThunderRT6")
-               for w in self.app.windows(visible_only=True)):
-            return True
+        """Is one of FBPB3's progress forms still up?
+
+        END SEASON changes the stage *before* its scouting popup closes, and the underlying
+        button labels stay readable the whole time - so the label alone is not proof the work
+        finished. That is what this is for.
+
+        IT MUST BE A POPUP, NOT MERELY A ThunderRT6 WINDOW. The first check here used to return
+        True for ANY visible top-level window of that class other than the main one, with no size
+        test at all, while the owned-child check right below it did filter by size. FBPB3 keeps
+        such a window around on the offseason screen, so the gate never cleared: the 2029 rollover
+        died with "END SEASON was readable the whole time, but a progress popup never cleared
+        within 15s" after the store had already promoted everybody. Both paths now ask the same
+        question - is there a window the size and shape of a progress form - instead of one of
+        them asking merely whether a window exists.
+        """
+        for window in self.app.windows(visible_only=True):
+            if window.handle == self.main.handle:
+                continue
+            try:
+                if not window.class_name().startswith("ThunderRT6"):
+                    continue
+            except Exception:  # noqa: BLE001
+                continue
+            if self._looks_like_popup(window):
+                return True
         # Some VB6 progress forms are owned child windows, not enumerated top-level dialogs.
         for window in self.main.descendants(class_name="ThunderRT6FormDC"):
-            if window.is_visible():
-                rect = window.rectangle()
-                if 300 <= rect.width() <= 600 and 120 <= rect.height() <= 350:
-                    return True
+            if window.is_visible() and self._looks_like_popup(window):
+                return True
         return False
 
     def _expect_button(self, xy, label, timeout=15, require_idle=True):
