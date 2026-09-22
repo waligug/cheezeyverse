@@ -63,6 +63,14 @@ CLICK_EXTENT = (960, 670)
 # shrink them; nothing else should.
 LOAD_LIMIT_FLOOR = 30
 SAVE_LIMIT_FLOOR = 30
+# The player export. EXPORT_GRID_LIMIT is how long the League Editor's list may take to fill on
+# the biggest save; EXPORT_OPEN_LIMIT how long the Player File screen has to replace it once
+# EXPORT is clicked; EXPORT_WRITE_LIMIT how long the CSV may take to be written and go quiet.
+# Named so the tests can shrink them; nothing else should.
+EXPORT_GRID_LIMIT = 30
+EXPORT_OPEN_LIMIT = 15
+EXPORT_WRITE_LIMIT = 30
+EXPORT_ATTEMPTS = 3
 
 
 class DriverError(Exception):
@@ -1480,70 +1488,181 @@ class FBPB3:
     def export_players(self, name):
         """Current League Editor -> Players -> Export -> Save as PlayerFiles/<name>.csv.
 
-        Returns the path. Nothing else in the commissioner calls this, so it had quietly stopped
-        working: the first real use on SERVERPC failed twice, and the screenshots said why.
+        Nothing else in the commissioner calls this, so it had quietly stopped working and the
+        first real use found out. Selecting "Players" repopulates the grid from the whole league,
+        and on a 530-player save that takes longer than a flat sleep allowed; the EXPORT click
+        landed mid-load and VB6 swallowed it, taking focus and opening nothing.
 
-        SELECTING "Players" REPOPULATES THE GRID from the whole league, and on a five-hundred
-        player save that takes longer than the flat two seconds that used to sit here. An EXPORT
-        click landing mid-load is SWALLOWED - the button takes focus and nothing opens, which is
-        exactly what the capture showed: six rows at the moment of the click, a full list an
-        instant later, and no dialog ever. So the grid is watched until it stops changing, and
-        the open is retried: each attempt is cheap and idempotent, since EXPORT either opens the
-        Player File screen or does nothing at all.
+        THE RETRY IS THE DANGEROUS PART, and the first attempt at one was worse than no retry at
+        all. PLAYER_FILE_SAVE and EDITOR_EXIT ARE THE SAME PIXEL (917, 662): on the exact failure
+        a retry exists for - EXPORT swallowed, screen still the League Editor - clicking SAVE
+        presses EXIT instead, and every later click lands on a Tools screen this driver has no
+        model of. So SAVE is never sent on faith. The Player File screen has to have replaced the
+        editor first, which is read off the EXPORT button itself: while that pixel still says
+        EXPORT we are still in the editor and the click did nothing.
+
+        Each attempt re-navigates from Tools rather than clicking again where it stands, the way
+        _open_html_screen does, because a leftover modal that ate the first click will eat the
+        second and waiting longer cannot fix it.
         """
         target = DOCS / "PlayerFiles" / f"{name}.csv"
-        if target.exists():
-            target.unlink()
 
-        def _name_box():
-            """The save-as dialog exists. Watched for, never slept past."""
-            return self.app.window(class_name="ThunderRT6FormDC").child_window(
-                class_name="ThunderRT6TextBox").exists()
+        def _clear_target():
+            """Remove any previous export, INSIDE the attempt loop rather than once before it.
 
-        self.click(TOP_TOOLS)
-        self.click(TOOLS_LEAGUE_EDITOR, 3)
-        combos = [c for c in self.main.descendants(class_name="ThunderRT6ComboBox") if c.is_visible()]
-        sort_by = next(c for c in combos if "Draft Pool" in c.item_texts())
-        sort_by.select("Players")
+            Clearing once was a bug the retry made reachable: attempt 1 could leave a partial
+            CSV, and attempt 2's write-wait would find that stale file already quiet and return
+            it as success. make_codec_fixtures then copies a truncated export into the fixture
+            set and test_codec compares it row by row against a 530-player save - a phantom
+            failure that reads as a codec bug.
 
-        # The grid has finished filling when two grabs a second apart are identical.
-        last, stable_since = None, None
-        end = time.time() + 30
-        while time.time() < end:
+            Wrapped because this driver's error contract is DriverError: the file being held
+            open, by Excel or by a test_codec run, must not escape as a bare OSError.
+            """
             try:
-                shot = self._grab(cheap=True).tobytes()
-            except Exception:                                       # noqa: BLE001
-                shot = None
-            if shot is not None and shot == last:
-                if stable_since is None:
-                    stable_since = time.time()
-                elif time.time() - stable_since >= 1.0:
-                    break
-            else:
-                stable_since = None
-            last = shot
-            time.sleep(0.25)
+                if target.exists():
+                    target.unlink()
+            except OSError as exc:
+                raise DriverError(f"cannot clear the previous export at {target}: {exc}") from exc
 
-        for attempt in range(3):
-            self.click(EDITOR_EXPORT, 3)
-            self.click(PLAYER_FILE_SAVE, 2)
-            if self._wait_for(_name_box, 8):
-                break
-            if attempt == 2:
+        def _name_box(timeout):
+            """The save-as text box on a VISIBLE dialog, waited for and returned.
+
+            Not `window(...).child_window(...).exists()`: pywinauto's exists() forces
+            visible_only=False, and VB6 keeps forms loaded-but-hidden - so that check is true
+            before anything has opened, and the export name would be typed into whatever is
+            actually on screen. It also raises ElementAmbiguousError when two forms match, which
+            _wait_for would swallow as "not yet" while the dialog sat open. Scan the visible
+            windows instead and take the one that really has a box.
+            """
+            found = []
+
+            def _look():
+                found.clear()
+                for w in self.app.windows(visible_only=True):
+                    try:
+                        if not w.class_name().startswith("ThunderRT6Form"):
+                            continue
+                        boxes = [b for b in w.descendants(class_name="ThunderRT6TextBox")
+                                 if b.is_visible()]
+                    except Exception:                               # noqa: BLE001
+                        continue
+                    if boxes:
+                        found.append(boxes[0])
+                return bool(found)
+
+            if not self._wait_for(_look, timeout):
                 raise DriverError(
-                    "the player-export name dialog never appeared after three attempts. The "
-                    "League Editor was on Players and its list had settled, so EXPORT itself is "
-                    "not opening - check EDITOR_EXPORT and PLAYER_FILE_SAVE against the screen.")
+                    f"the export name dialog never appeared within {timeout}s, although the "
+                    f"League Editor had been left - so SAVE opened something else")
+            return found[0]
 
-        box = self.app.window(class_name="ThunderRT6FormDC").child_window(class_name="ThunderRT6TextBox")
-        box.set_focus()
-        box.type_keys(name, with_spaces=True, set_foreground=False)
-        time.sleep(0.5)
-        self.click(SAVE_NAME_OK, 3)
-        end = time.time() + 30
-        while not target.exists() and time.time() < end:
-            time.sleep(0.5)
-        if not target.exists():
-            raise DriverError(f"player export did not appear at {target}")
-        self.click(EDITOR_EXIT, 3)  # back to the Tools screen
-        return target
+        def _left_the_editor():
+            """The EXPORT button is gone, so something opened over the League Editor.
+
+            Read from the screen rather than from a window handle: VB6 keeps forms loaded but
+            hidden, so "a ThunderRT6FormDC with a textbox exists" is true before anything opens.
+            """
+            try:
+                from .screen_text import normalize
+                return "EXPORT" not in normalize(self._button_text(EDITOR_EXPORT))
+            except Exception:                                       # noqa: BLE001
+                return False
+
+        last = None
+        for attempt in range(EXPORT_ATTEMPTS):
+            _clear_target()
+            self.dismiss_all()
+            self.click(TOP_TOOLS, 2)
+            self.click(TOOLS_LEAGUE_EDITOR, 3)
+            try:
+                combos = [c for c in self.main.descendants(class_name="ThunderRT6ComboBox")
+                          if c.is_visible()]
+                sort_by = next((c for c in combos if "Draft Pool" in c.item_texts()), None)
+                if sort_by is None:
+                    raise DriverError("the League Editor's Sort by list never appeared")
+                # PROVE the selection took, the way combo() does: a dropdown that has not
+                # finished populating drops a valid request in silence and keeps its previous
+                # view, and selected_text() reports the LAST option when nothing is selected.
+                # Compare the index instead. Exporting the Draft Pool under the Players name
+                # would be a successful run producing the wrong file.
+                sort_by.select("Players")
+                wanted = sort_by.item_texts().index("Players")
+                if sort_by.selected_index() != wanted:
+                    raise DriverError("the League Editor stayed on its previous view; "
+                                      "'Players' did not take")
+                # The grid is filling. This is a TIMING signal and nothing is decided on it -
+                # the decision below is the EXPORT button disappearing - so the cheap read is
+                # allowed here, which is the rule _wait_until_still states.
+                if not self._wait_until_still(settle=1.0, timeout=EXPORT_GRID_LIMIT,
+                                              poll=0.25, cheap=True):
+                    raise DriverError(
+                        f"the League Editor's player list was still changing after "
+                        f"{EXPORT_GRID_LIMIT}s; the export was not attempted")
+
+                self.click(EDITOR_EXPORT, 1)
+                if not self._wait_for(_left_the_editor, EXPORT_OPEN_LIMIT):
+                    raise DriverError(
+                        f"EXPORT was clicked but the League Editor is still up after "
+                        f"{EXPORT_OPEN_LIMIT}s, so the click was swallowed")
+                # Only now is (917, 662) SAVE rather than EXIT.
+                self.click(PLAYER_FILE_SAVE, 2)
+                box = _name_box(EXPORT_OPEN_LIMIT)
+                # SET IT, THEN WAKE THE FORM UP. set_edit_text puts the text in with one
+                # message and never fires VB6's Change event, so the dialog's SAVE button stays
+                # DISABLED - the name is sitting there correctly typed and the button is grey,
+                # which is exactly what it looked like on screen. The old code got away with
+                # type_keys only because keystrokes fire Change per character.
+                #
+                # So: set it exactly (no escaping worries, no {}()+^%~ being read as key
+                # syntax), then send an edit that changes nothing - END, a space, a backspace -
+                # purely so the control reports a change and the form enables its button. The
+                # text is re-verified afterwards because a stray keystroke landing elsewhere
+                # would otherwise save under the wrong name.
+                self._set_export_text(box, name)
+                with self._foreground():
+                    box.set_focus()
+                    box.type_keys("{END}{SPACE}{BACKSPACE}", set_foreground=True)
+                if box.window_text() != name:
+                    raise DriverError(
+                        f"the export name box reads {box.window_text()!r}, not {name!r}")
+                # BEFORE the click, the way save_game does. Reading it afterwards captures the
+                # file the click has already begun writing, so "it changed" is never true and a
+                # perfectly good export times out.
+                before = self._file_mark(target)
+                self.click(SAVE_NAME_OK, 0)
+
+                # WRITTEN AND QUIET, not merely created. exists() is true the instant FBPB3
+                # opens the file, and make_codec_fixtures copies it straight into a fixture that
+                # test_codec then compares row by row - a truncated CSV there reads as a codec
+                # bug. Same two conditions save_game uses on league.dat.
+                # Seeded with what was on disk BEFORE the click, and accepted only once it has
+                # CHANGED and then gone quiet - the pair of conditions save_game and output_mdb
+                # both use. Seeding None instead would accept whatever was already there.
+                end, quiet = time.monotonic() + EXPORT_WRITE_LIMIT, None
+                mark = before
+                while time.monotonic() < end:
+                    now = self._file_mark(target)
+                    if now != mark:
+                        mark, quiet = now, time.monotonic()
+                    elif (mark and mark != before and mark[1] > 0
+                          and quiet and time.monotonic() - quiet >= 1.0):
+                        self.click(EDITOR_EXIT, 3)      # back to Tools
+                        return target
+                    time.sleep(0.2)
+                raise DriverError(f"the player export never finished writing to {target}")
+            except DriverError as exc:
+                last = exc
+                # Back out to somewhere known before trying again. A modal left open swallows
+                # the caller's exit_game clicks and costs it 45 seconds before it kills the
+                # process, so this must not be skipped on the way to raising.
+                self.dismiss_all()
+        # Leave the game somewhere known. dismiss_all only clears #32770 message boxes, so a VB6
+        # Player File screen would still be up and would swallow the caller's exit_game clicks -
+        # 45 seconds of timeouts and then a kill. _open_html_screen sends ESC for this reason.
+        try:
+            self.main.type_keys("{ESC}", set_foreground=False)
+            self.click(EDITOR_EXIT, 1)
+        except Exception:                                           # noqa: BLE001
+            pass
+        raise DriverError(f"player export failed after {EXPORT_ATTEMPTS} attempts: {last}")

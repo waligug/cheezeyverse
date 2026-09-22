@@ -75,25 +75,44 @@ def main(argv=None):
         print("REFUSING: something else holds the save lock")
         return 1
     try:
-        # THE COPY FIRST, with the game closed, so the .dat and the .csv describe the same
-        # moment. Exporting first and copying after would let anything the game does on the way
-        # out land between them, and a fixture whose two halves disagree is worse than none:
-        # every future failure would be argued about instead of fixed.
-        dest_dat.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest_dat)
-        print(f"copied {dest_dat.stat().st_size:,} bytes")
+        # THE SAVE IS READ FIRST, with the game closed, so the .dat and the .csv describe the
+        # same moment - exporting first would let anything the game does on the way out land
+        # between them.
+        #
+        # BUT IT IS STAGED, NOT INSTALLED. The export can fail; it is a GUI driven by simulated
+        # clicks. Writing the save into place first would leave a new league.dat beside the
+        # PREVIOUS run's .csv, and a fixture whose two halves disagree is worse than none: every
+        # later failure gets argued about instead of fixed. Both halves land together or neither
+        # does.
+        # STAGE THE .dat, do not install it. The export can fail - it is a GUI driven by
+        # simulated clicks - and writing the save into place first would leave a new league.dat
+        # beside the PREVIOUS run's .csv. That is the disagreeing pair this file's own comment
+        # forbids, and it is worse than having no fixture: every later failure gets argued about
+        # instead of fixed. Both halves are moved into place together, or neither is.
+        staged_dat = dest_dat.with_suffix(".dat.staged")
+        staged_dat.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, staged_dat)
+        print(f"staged {staged_dat.stat().st_size:,} bytes")
 
-        game = FBPB3().launch()
         try:
-            game.load_save(args.save)
-            produced = game.export_players(name)
-        finally:
+            game = FBPB3().launch()
             try:
-                game.exit_game(save=False)
-            except Exception:                                       # noqa: BLE001
-                FBPB3.kill()
+                game.load_save(args.save)
+                produced = game.export_players(name)
+            finally:
+                try:
+                    game.exit_game(save=False)
+                except Exception:                                   # noqa: BLE001
+                    FBPB3.kill()
+        except Exception as exc:                                    # noqa: BLE001
+            staged_dat.unlink(missing_ok=True)
+            print(f"export failed, so nothing was installed: {exc}")
+            print("the previous fixture pair, if any, is untouched.")
+            return 1
+
         EXPORTS.mkdir(parents=True, exist_ok=True)
         shutil.copy2(produced, dest_csv)
+        staged_dat.replace(dest_dat)
         print(f"exported {dest_csv.stat().st_size:,} bytes from {produced}")
     finally:
         simweek._SIM_LOCK.release()
