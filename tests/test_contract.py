@@ -147,9 +147,49 @@ def test_it_refuses_what_would_corrupt_a_save():
         check("clearing a contract is allowed", p.contract == [0] * CONTRACT_YEARS, f"{p.contract}")
 
 
+def test_signing_a_free_agent_pays_him():
+    """The roster backfill signs from a pool that is 150-for-150 contract-less.
+
+    Without this the guard would top up a short team every publish with players the next load
+    releases again - the league shedding and re-signing the same men for ever, one team at a
+    time, and nothing anywhere reporting it.
+    """
+    if not SAVE.exists():
+        print("SKIP  cv-pro-aged save fixture missing")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp) / "league.dat"
+        shutil.copy2(SAVE, work)
+        L = LeagueDat(work)
+        pool = [p for p in L.players if p.values["Team"] <= 0 and not any(p.contract)]
+        check("the free-agent pool really is unpaid", len(pool) > 50, f"{len(pool)} bare")
+
+        short = min(L.teams().items(), key=lambda kv: kv[1]["size"])[0]
+        man = pool[0]
+        L.sign(man, short)
+        check("a signed player leaves with a contract", any(man.contract), f"{man.contract[:2]}")
+        check("he is on the team", man.values["Team"] == short, f"{man.values['Team']}")
+
+        # AND AN EXISTING DEAL IS NEVER OVERWRITTEN. A player the game already pays keeps his
+        # number; signing must not quietly reprice somebody.
+        paid = [p for p in L.players if p.values["Team"] <= 0 and any(p.contract)]
+        if paid:
+            rich = paid[0]
+            L.set_contract(rich, [4_250_000])
+            L.sign(rich, short)
+            check("signing does not reprice a man who already had a deal",
+                  rich.contract[0] == 4_250_000, f"{rich.contract[:2]}")
+
+        L.save()
+        back = LeagueDat(work)
+        again = back.find(man.name, man.dob)
+        check("and it survives the save", any(again.contract), f"{again.contract[:2]}")
+
+
 test_reads_what_the_game_exports()
 test_writes_and_survives_a_reload()
 test_it_refuses_what_would_corrupt_a_save()
+test_signing_a_free_agent_pays_him()
 
 if failures:
     print("\nFAILED: " + ", ".join(failures))

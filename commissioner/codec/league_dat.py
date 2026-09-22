@@ -49,6 +49,10 @@ RATING_MAX = 150  # the game stores ratings above 100 (a real player file reache
 CONTRACT_YEARS = 7
 CONTRACT_FROM_T1 = 114
 CONTRACT_MAX = 2_000_000_000   # int32 headroom; the game's own imports use 1_000_000
+# What a player signed by the codec is paid when he has no deal of his own. The same number
+# `generate.IMPORT_CONTRACT` and `characters.IMPORT_CONTRACT` use, so one league has one token
+# salary rather than three that drift.
+SIGNING_CONTRACT = 1_000_000
 BIO_INTS = ["Height", "Weight", "_zero", "BirthMonth", "BirthDay", "BirthYear"]
 E_FIELDS = {"Position": 18, "Team": 40, "Inactive": 46, "Exp": 82}  # Inactive: -1 = dressed out
 POSITIONS = {1: "C", 2: "PF", 3: "SF", 4: "SG", 5: "PG"}
@@ -607,6 +611,18 @@ class LeagueDat:
             self.set(pl, field_name, t)
         if minutes:
             self.set(pl, "Inactive", 0)
+        # A ROSTERED PLAYER MUST HAVE A CONTRACT, and this is the only place that can guarantee
+        # it. Under Full Finances the game RELEASES a contract-less player as the league loads,
+        # so signing one is a move that undoes itself on the next load - and the pool this signs
+        # FROM is 150 free agents of whom every single one is bare. The roster guard backfills a
+        # short team from exactly that pool every publish, so the league would have shed players
+        # and re-signed them for ever, one team at a time, with nothing reporting it.
+        #
+        # It belongs here rather than in ageout and protect_rosters because it is a property of
+        # the FILE, not of anyone's intent: there is no correct way to put a man on a roster
+        # without paying him. An existing deal is never touched - he keeps what he had.
+        if not any(self.contract_of(pl)):
+            self.set_contract(pl, [SIGNING_CONTRACT])
         self._roster_count_add(info, +1)
         self._splice(info["roster_at"] + 2 * info["size"], 0, struct.pack("<h", pl.id))
 
