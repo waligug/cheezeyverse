@@ -136,6 +136,93 @@ def test_a_stamped_character_never_lands_on_a_bare_row():
     check("and it is a real contract", ch.IMPORT_CONTRACT > 0, True)
 
 
+# WHAT FBPB3 ACTUALLY PAYS, measured rather than imagined. `LEAGUE` above is a made-up shape that
+# looks like a real one; this is the real one, read off CV_FinTest after a season and a rollover
+# with Full Finances on - 308 rostered men, 84 distinct salaries. Printed by
+# `python tools/salary_report.py CV_FinTest`.
+#
+# Kept as deciles rather than 308 literals because the decile profile IS the thing being asserted:
+# the league is brutally bottom-heavy - 70% of it is under $1.9M - and then jumps five-fold into a
+# short tail of max deals. A payout curve that behaves on an evenly spread invented league and
+# not on this one is a curve that has never been tested.
+MEASURED = [482_464, 482_464, 482_464, 818_920, 1_085_545, 1_460_090,
+            1_510_876, 1_813_051, 9_201_974, 15_870_542, 22_218_759]
+
+
+def measured_league():
+    """308 salaries interpolated from the measured deciles, so the shape is the real shape."""
+    out = []
+    for i in range(len(MEASURED) - 1):
+        lo, hi = MEASURED[i], MEASURED[i + 1]
+        for k in range(31):                      # ~31 men per decile, 310 all told
+            out.append(int(lo + (hi - lo) * k / 31))
+    return out
+
+
+def test_the_bands_behave_on_the_league_the_game_really_built():
+    """The distribution is bottom-heavy and long-tailed. The curve has to survive that shape."""
+    print("the measured pro league")
+    league = measured_league()
+    b = points.salary_distribution(league)
+    low = points.annual_payout(MEASURED[0], b)
+    high = points.annual_payout(MEASURED[-1], b)
+    print(f"        $482,464 -> {low}    $22,218,759 -> {high}")
+    check("the minimum earner is on the floor", low, points.PAYOUT_FLOOR)
+    check("the max earner is on the top band", high, points.PAYOUT_BANDS[-1][1])
+    check("still 3-4x on real money", 3.0 <= high / low <= 4.0, True)
+
+    # THE CONSEQUENCE WORTH STATING OUT LOUD: the first band is "below the median", so by
+    # construction half the league is on the floor. That is the design - a payout keyed to where
+    # a man sits among his own peers pays the bottom half the bottom rate - but it is the first
+    # thing somebody will call a bug, so it is asserted rather than left to be discovered.
+    # Deliberately p40 and not the median itself: the median IS the first boundary, so which
+    # side of it that one salary falls on is a rounding question, not a design one, and pinning
+    # a test to it would make the band edges untouchable.
+    check("a below-median earner is paid the floor",
+          points.annual_payout(MEASURED[4], b), points.PAYOUT_FLOOR)
+    paid = [points.annual_payout(s, b) for s in league]
+    check("and that really is about half of them",
+          0.4 <= paid.count(points.PAYOUT_FLOOR) / len(paid) <= 0.6, True)
+    check("every band is actually used", len(set(paid)), len(points.PAYOUT_BANDS))
+    check("nobody is paid nothing", min(paid) > 0, True)
+
+
+def test_a_character_is_never_signed_to_a_one_year_deal():
+    """One year expires at the next rollover's FREE AGENCY, in the same offseason it was signed.
+
+    Only the DRAFT ever stated a term. The prep->college promotion, the website signup and the
+    rehearsal all left `contract_years` unset, which `stamp_character` reads as "fill a bare row
+    with one year" - and all seven characters are in college on exactly that deal right now.
+
+    The constants are re-typed in characters.py because offseason imports it, so this is the pin
+    that stops the two copies drifting.
+    """
+    print("the term a character's deal runs for")
+    from commissioner import offseason
+    check("college matches COLLEGE_MAX_YEARS",
+          ch.LEVEL_CONTRACT_YEARS["college"], offseason.COLLEGE_MAX_YEARS)
+    check("pro matches ROOKIE_YEARS",
+          ch.LEVEL_CONTRACT_YEARS["pro"], offseason.ROOKIE_YEARS)
+    check("prep runs to PREP_LAST_AGE from fourteen",
+          ch.LEVEL_CONTRACT_YEARS["prep"], offseason.PREP_LAST_AGE - 14 + 1)
+    check("every level is covered", sorted(ch.LEVEL_CONTRACT_YEARS), ["college", "prep", "pro"])
+    check("and not one of them is a single year",
+          all(y > 1 for y in ch.LEVEL_CONTRACT_YEARS.values()), True)
+    # A term longer than the file can hold would be clipped silently.
+    from commissioner.codec import league_dat as lg
+    check("all of them fit in the contract block",
+          all(y <= lg.CONTRACT_YEARS for y in ch.LEVEL_CONTRACT_YEARS.values()), True)
+
+    # promote() must state a term even when no deal is passed - that is the college path.
+    import inspect
+    src = inspect.getsource(offseason.promote)
+    check("promote falls back to the level's own term",
+          "LEVEL_CONTRACT_YEARS" in src, True)
+    check("and the prep->college promotion states one",
+          "contract_years=ch.LEVEL_CONTRACT_YEARS[\"college\"]" in
+          inspect.getsource(offseason._run_offseason), True)
+
+
 def main():
     test_the_spread_is_what_was_asked_for()
     test_a_real_distribution_separates_people()
@@ -144,6 +231,8 @@ def main():
     test_the_boundaries_move_with_the_league()
     test_the_ledger_line_says_why()
     test_a_stamped_character_never_lands_on_a_bare_row()
+    test_the_bands_behave_on_the_league_the_game_really_built()
+    test_a_character_is_never_signed_to_a_one_year_deal()
     print()
     for f in FAILS:
         print("  FAIL ", f)

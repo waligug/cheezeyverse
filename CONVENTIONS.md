@@ -105,7 +105,18 @@ next step.
 - Length changes are fine: the file is a sequential VB6 stream; the codec re-parses after every splice.
 
 ## League Options that matter (Tools → League Options, real combo boxes)
-- Finances (402,190): **Finances Off** required. With Full Finances a codec-signed player (no contract) is released on load.
+- Finances (402,190): **per league, and it is not the same answer for each.**
+  - **PREP: Finances Off, always.** 164 of its 240 rostered players carry no contract, so Full Finances would
+    release 68% of its rosters on the next load - and prep is the league every new signup lands in.
+  - **PRO: Full Finances is survivable, and measured so** (2026-09-22, sandbox `CV_FinTest`): with every bare
+    contract backfilled FIRST, turning it on released nobody, and the league then survived a full season and a
+    rollover. After free agency it holds 308 rostered men on 84 distinct salaries, $482,464 to $22,218,759.
+    `python tools/salary_report.py CV_FinTest` prints it; `tools/verify_save.py` ALL PASS is the gate.
+  - The rule underneath both: **a contract-less player is released as the league loads.** Finances Off merely
+    hides that; it does not make a bare row safe. Everything that puts a man on a roster pays him -
+    `LeagueDat.sign`/`sign_many` via `_ensure_paid`, and `characters.stamp_character` via `contract_years`.
+  - A ONE-YEAR deal is barely better than none: it expires at the very next rollover's free-agency stage, in the
+    same offseason it was signed. `characters.LEVEL_CONTRACT_YEARS` is what a character gets instead.
 - Attribute Style (402,166): **0-100** makes MDB `Player` current ratings numeric (potentials stay letters).
 - Scouting (402,334): set **Off** for the universe; with it On the MDB/UI ratings are fuzzed (Harper Inside 27 shows 24).
 - Autosave (788,214): **Never** (the app controls saves). Cpu offers trades (788,335): **No**.
@@ -149,9 +160,14 @@ Unknowns to resolve: DOB age floor, depth charts for signed players, draft pool 
   13- and a 14-year-old simmed a full season plus offseason with both still rostered and no crash. One crash during
   testing was a stray click, not the ages (not reproducible). The game does sometimes rewrite an edited DOB to
   `12/1/<year>` at season rollover, so re-assert DOB after each offseason if exact birthdays matter.
-- 2026-09-17 **Offseason runs hands-off**: sim months to the end of the postseason, then END SEASON -> OFFSEASON ->
-  HIRE STAFF (its screen needs PROCESS ALL, then the same button becomes PROCEED) -> FREE AGENCY, and the next
-  regular season starts. Draft lottery / rookie draft / dispersal / expansion stay disabled in this league.
+- 2026-09-17 / **amended 2026-09-22** **Offseason runs hands-off**, but the STAGE LIST DEPENDS ON THE FINANCES
+  SETTING, which is why two people measured it and got two answers. Both were right about their own league:
+  - Finances **Off**:  END SEASON -> OFFSEASON -> HIRE STAFF -> TRAINING CAMPS -> the new season's calendar.
+  - **Full Finances**: END SEASON -> OFFSEASON -> HIRE STAFF -> **FREE AGENCY** -> TRAINING CAMPS.
+  HIRE STAFF and FREE AGENCY each open a screen needing PROCESS ALL, after which the same button becomes PROCEED.
+  **FREE AGENCY AND TRAINING CAMPS OCCUPY THE SAME PIXEL** (`HOTSEAT_TRAINING_CAMPS`), so the rollover must read
+  the button's text rather than counting clicks - see the comment at `driver/fbpb3.py:913`, which is the
+  load-bearing copy of this fact. Draft lottery / rookie draft / dispersal / expansion stay disabled.
 - 2026-09-17 **Codec survives an aged save**: `tests/test_codec.py` parses both fixtures (390 fresh, 409 aged),
   matches the game's own exports field for field, and round-trips rating edits, swaps and release+sign on both.
 - Two FBPB3 instances at once silently break automation (clicks and exports go to the wrong league). `launch()`

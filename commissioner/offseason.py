@@ -457,7 +457,7 @@ def convert(ratings, factor):
 
 
 def promote(character, to_league, store, log=print, dry_run=False, how="promoted", season=None,
-            contract=None,
+            contract=None, contract_years=None,
             team=None, busy=None):
     """Move one character up a level, carrying his ratings, and hand back his old slot.
 
@@ -551,7 +551,12 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
         # AI would re-sign him wherever it pleased, so the man drafted #1 by LCH would open the
         # season somewhere else. ROOKIE_YEARS is the same term the points deal uses, so the
         # game and the ledger agree about how long he is a rookie.
-        "contract_years": (contract or {}).get("years"),
+        # Taken from the deal when there is one (the draft's rookie years), and otherwise from
+        # the level he is joining. A promotion is not a rookie contract and has no points rate,
+        # so it states a TERM without fabricating a deal in his career history - which is why
+        # this is a separate argument rather than a `contract` with no rate in it.
+        "contract_years": ((contract or {}).get("years") or contract_years
+                           or ch.LEVEL_CONTRACT_YEARS.get(to_league)),
     })
     # Prepare BOTH saves before committing either. A missing source claim must not leave a
     # second copy of the player in college/pro while his store record still points at prep.
@@ -693,6 +698,25 @@ def _draft_needs(log=print):
         return {}
 
 
+def _draft_field(log=print, limit=None):
+    """FBPB3's own prospect class, so our people are drafted against a field rather than alone.
+
+    Empty is the normal answer for most of the year - the pool records exist all season but the
+    game only fills them in during its own offseason - and empty simply means the board is our
+    characters, exactly as it was before. Nothing here is ever promoted or paid.
+    """
+    try:
+        field = draft.field_from_save(LeagueDat(ch.save_path("pro")), limit=limit)
+        if field:
+            log(f"   the field: {len(field)} prospects from the game's own pool")
+        else:
+            log("   the game's draft class is not generated yet; our people draft alone")
+        return field
+    except Exception as exc:                                            # noqa: BLE001
+        log(f"   (could not read the draft pool: {exc}; our people draft alone)")
+        return []
+
+
 def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None):
     """Assign declared players to pro teams, worst record first. Returns the picks.
 
@@ -709,10 +733,17 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
         cast = None
     order = draft_order()
     needs = _draft_needs(log)
+    # TRIMMED TO THE SIZE OF AN ACTUAL DRAFT. The pool is eighty deep; left whole, a character
+    # who slides drags the board out to eighty announced picks to reach him - eighty Discord
+    # messages for one signing. Taking the best of the field keeps the night two rounds long and
+    # still gives our people a real field to be measured against.
+    room = max(0, draft.DRAFT_ROUNDS * len(order) - len(declared))
+    field = _draft_field(log, limit=room) if room else []
     # Each team evaluates the remaining board through its own profile and its own hole, so the
     # order is no longer one global ranking with team names stapled on. `_promise` survives as
     # the tiebreak inside `draft.sheet` for anybody with no ratings at all.
-    picks = draft.build_board(declared, order, needs=needs)
+    picks = draft.build_board(declared, order, needs=needs, field=field)
+    undrafted = draft.undrafted_from(declared, field, picks)
     log(f"   draft order starts {', '.join(order[:4])}")
     # ONE TALLY ACROSS THE WHOLE DRAFT, per promote()'s own contract. Left to itself promote
     # re-reads the store on every call: correct, because activate_character has written the
@@ -730,14 +761,21 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
             log(f"   (could not tally pro rosters: {exc}; each pick will read the store)")
             busy = None
     if cast is not None:
-        cast.open(len(picks), order)
+        cast.open(len(declared), order, board=len(picks))
     for p in picks:
         c = p["character"]
-        log(f'   #{p["pick"]:2} {p["team"]}  {c["first_name"]} {c["last_name"]}')
+        mark = "" if p.get("is_character", True) else "  (field)"
+        log(f'   #{p["pick"]:2} {p["team"]}  {c["first_name"]} {c["last_name"]}{mark}')
         log(f'        {p["reason"]}')
+        if p.get("snub"):
+            log(f'        {p["snub"]}')
         if cast is not None:
             cast.on_the_clock(p)
-        if not dry_run:
+        # A FIELD PROSPECT IS ANNOUNCED AND NOTHING ELSE. He belongs to FBPB3, which runs its own
+        # draft over the same pool; promoting him here would invent a transaction the game never
+        # made. `is_character` defaults to True so a board built by anything that predates the
+        # field still writes every pick, which is the safe way round.
+        if not dry_run and p.get("is_character", True):
             try:
                 how = f'drafted #{p["pick"]} by {p["team"]}'
                 # Worked out before the move so the number announced is the number stored: the
@@ -771,8 +809,11 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
         if cast is not None and "error" not in p:
             cast.pick(p, contract=p.get("contract"))
     if cast is not None:
-        cast.close([p for p in picks if "error" not in p])
-    return [p for p in picks if "error" not in p] + [p for p in picks if "error" in p]
+        cast.close([p for p in picks if "error" not in p], undrafted=undrafted)
+    # Only OUR picks are returned. The field is scenery: it is scored, announced and roasted, but
+    # the offseason report counts promotions, and a field prospect was never promoted.
+    mine = [p for p in picks if p.get("is_character", True)]
+    return [p for p in mine if "error" not in p] + [p for p in mine if "error" in p]
 def _promise(character):
     """A rough ranking for draft night: what he is now, weighted by where he can still get to."""
     ratings = character.get("ratings") or {}
@@ -1358,8 +1399,12 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             college_busy[other["team_abbrev"]] = college_busy.get(other["team_abbrev"], 0) + 1
     for c in moving["college"]:
         try:
+            # THE TERM IS STATED. Without it the stamp wrote a one-year deal, which expires at
+            # the very next rollover's free agency - so every character promoted out of prep
+            # would be thrown open to the AI in the same offseason he arrived at college.
             moved = promote(c, "college", store, log=log, dry_run=dry_run,
-                            how="aged out of prep", season=season, busy=college_busy)
+                            how="aged out of prep", season=season, busy=college_busy,
+                            contract_years=ch.LEVEL_CONTRACT_YEARS["college"])
             result["promoted"].append(moved)
             landed = (moved.get("slot") or {}).get("team") or moved.get("team")
             if landed:

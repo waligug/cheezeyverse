@@ -204,6 +204,9 @@ def build_cast(paths, season, log=print):
             "first_name": person["first_name"], "last_name": person["last_name"],
             "dob": dob, "height_inches": person["height"], "weight_lbs": person["weight"],
             "build": "solid", "position": "C", "ratings": ratings, "potentials": potentials,
+            # The rehearsal exists to behave exactly like the real thing; a one-year deal here
+            # would make it survive a rollover the live path would not.
+            "contract_years": ch.LEVEL_CONTRACT_YEARS.get(league),
         })
         ch.commit(L, [(f'{person["first_name"]} {person["last_name"]}', dob,
                        {"Height": person["height"]})])

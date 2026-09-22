@@ -107,28 +107,43 @@ class DraftCast:
                 pass
 
     # ---- the broadcast ---------------------------------------------------------------------
-    def open(self, count, order):
-        """The board is open. Named teams, so the first message is worth reading on its own."""
+    def open(self, count, order, board=None):
+        """The board is open. Named teams, so the first message is worth reading on its own.
+
+        `count` is how many of OURS declared; `board` is the whole board including the game's own
+        prospect field. They are different numbers and saying the larger one as "declared" would
+        credit the universe with sixty signups it does not have.
+        """
         try:
             head = ", ".join(order[:5]) + ("…" if len(order) > 5 else "")
+            body = f"**{count}** player{'' if count == 1 else 's'} declared."
+            if board and board > count:
+                body += f" {board} names on the board."
             return self._post({
                 "author": {"name": "CHEEZEYVERSE · DRAFT NIGHT"},
                 "title": _clean(f"The {self.season} draft is open", 200),
                 "color": COLOR_OPEN,
-                "description": (f"**{count}** player{'' if count == 1 else 's'} declared.\n"
+                "description": (f"{body}\n"
                                 f"Order, worst record first: {_clean(head, 300)}"),
             })
         except Exception:                                               # noqa: BLE001
             return False
 
     def on_the_clock(self, pick):
-        """Who is about to choose. The pause before a pick is most of the drama."""
+        """Who is about to choose, and what they walked in wanting.
+
+        Saying the temperament BEFORE the name is what turns a result into a decision: the room
+        gets to disagree with a team for a few seconds first. Both halves are read off the pick
+        the board already built, so this can never promise a rationale the pick then contradicts.
+        """
         try:
-            posted = self._post({
-                "color": COLOR,
-                "description": _clean(f"**{pick['team']}** are on the clock "
-                                      f"with pick #{pick['pick']}…", 300),
-            })
+            line = f"**{pick['team']}** are on the clock with pick #{pick['pick']}…"
+            profile = draftlib.PROFILES.get(pick.get("profile"))
+            if profile:
+                line += f"\nThis is a front office that {profile['label']}."
+            if pick.get("need"):
+                line += f" They are thinnest at **{_clean(pick['need'], 12)}**."
+            posted = self._post({"color": COLOR, "description": _clean(line, 400)})
             self._pause()
             return posted
         except Exception:                                               # noqa: BLE001
@@ -149,6 +164,11 @@ class DraftCast:
             if pick.get("need"):
                 fields.append({"name": "Their hole", "value": _clean(pick["need"], 60),
                                "inline": True})
+            # The man nobody is taking. `snub` is None until somebody has genuinely sat through
+            # several picks, so this field appears exactly when it has earned the joke.
+            if pick.get("snub"):
+                fields.append({"name": "Still waiting", "value": _clean(pick["snub"], 300),
+                               "inline": False})
             embed = {
                 "author": {"name": f"CHEEZEYVERSE · {self.season} DRAFT"},
                 "title": _clean(f"#{pick['pick']} · {pick['team']} select "
@@ -166,20 +186,46 @@ class DraftCast:
         except Exception:                                               # noqa: BLE001
             return False
 
-    def close(self, picks):
-        """The finished board, so the channel keeps one message worth scrolling back to."""
+    def close(self, picks, undrafted=None):
+        """The finished board, so the channel keeps one message worth scrolling back to.
+
+        `undrafted` is anyone who was on the board when it ran out of picks. In a draft of nothing
+        but our own characters that list is always empty - every declarant is taken - so it only
+        ever has anything in it once the game's own prospect field is on the board too.
+        """
         try:
             lines = []
             for p in picks[:25]:
                 name = draftlib.describe(p.get("character") or {})
                 lines.append(f"**{p['pick']}.** {p['team']}  {name}")
             body = "\n".join(lines) or "Nobody declared."
-            return self._post({
+            embed = {
                 "author": {"name": "CHEEZEYVERSE · DRAFT NIGHT"},
                 "title": _clean(f"The {self.season} draft is complete", 200),
                 "color": COLOR_DONE,
                 "description": _clean(body, 3800),
-            })
+            }
+            fields = []
+            try:
+                slid = draftlib.slides(picks)
+            except Exception:                                           # noqa: BLE001
+                slid = []
+            if slid:
+                worst = slid[:3]
+                fields.append({"name": "The slide", "value": _clean(
+                    "\n".join(f"**{name}** went {n} pick{'' if n == 1 else 's'} later "
+                              f"than his sheet said (#{pick})" for pick, name, n in worst),
+                    900), "inline": False})
+            if undrafted:
+                names = [draftlib.describe(c).split("  ")[0] for c in undrafted[:12]]
+                more = len(undrafted) - len(names)
+                fields.append({"name": f"Undrafted ({len(undrafted)})", "value": _clean(
+                    ", ".join(names) + (f" … and {more} more" if more > 0 else "")
+                    + "\nNobody called their name. The phone did not ring.", 900),
+                    "inline": False})
+            if fields:
+                embed["fields"] = fields
+            return self._post(embed)
         except Exception:                                               # noqa: BLE001
             return False
 

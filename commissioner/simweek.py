@@ -506,7 +506,11 @@ def _activate_pending(league_key, L, st, log, season=None):
         dob = _arrival_dob(c.get("dob") or slot.dob, season)
         before_stamp = copy.deepcopy(L.__dict__)
         try:
-            ch.stamp_character(L, slot, {**c, "dob": dob})
+            # The term the level runs to, not the one year a bare `contract_years` becomes. A
+            # signup placed mid-season would otherwise reach the next rollover with an expiring
+            # deal and be thrown into free agency in the first offseason he ever saw.
+            ch.stamp_character(L, slot, {
+                "contract_years": ch.LEVEL_CONTRACT_YEARS.get(league_key), **c, "dob": dob})
         except Exception as exc:
             L.__dict__.clear()
             L.__dict__.update(before_stamp)

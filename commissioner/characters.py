@@ -22,6 +22,7 @@ from pathlib import Path
 
 from . import growth
 from .codec.league_dat import POTENTIALS, RATING_MAX, RATINGS, CodecError, LeagueDat
+from .codec import league_dat as lg
 from .universe import config as cfg
 
 DOCS = Path(r"C:\Users\Public\Documents\GDS\Fast Break Pro Basketball 3")
@@ -35,10 +36,24 @@ LOCKED = {"Fouling"}
 # rather than re-typed would be circular - generate imports this module - so it is stated here
 # and the two are pinned together by tests/test_contract_payout.py.
 IMPORT_CONTRACT = 1_000_000
-try:
-    from .codec.league_dat import CONTRACT_YEARS
-except ImportError:      # an older codec without contract support
-    CONTRACT_YEARS = 7
+
+# HOW LONG A DEAL WRITTEN FOR A CHARACTER RUNS, by the level he is landing in.
+#
+# It is four everywhere, and the three are listed separately because they are four for three
+# different reasons: prep holds him from fourteen to PREP_LAST_AGE, college caps at
+# COLLEGE_MAX_YEARS, and pro is ROOKIE_YEARS. Tuning one of those must not silently tune the
+# other two, which is what a single shared constant would do.
+#
+# WHY ANY OF THEM IS NOT ONE. A one-year deal expires at the next rollover's FREE AGENCY stage,
+# where the game throws every expiring contract open at once and the AI re-signs whom it likes.
+# So a character given one year is a free agent in the same offseason he arrived - and only the
+# DRAFT ever stated a term, which left the prep->college promotion, the website signup and the
+# rehearsal all writing one-year deals onto real people. All seven characters are in college on
+# one right now.
+#
+# Re-typed rather than imported because offseason imports this module; tests/test_contract.py
+# pins them together so the copies cannot drift.
+LEVEL_CONTRACT_YEARS = {"prep": 4, "college": 4, "pro": 4}
 
 
 class ApplyError(Exception):
@@ -271,8 +286,7 @@ def stamp_character(L, slot, character):
     # Discord, and be a free agent by the next Sim Week with nothing anywhere saying why.
     #
     # This does not wait for Finances to be switched on: a seat that is bare today is a landmine
-    # today. An existing deal is left exactly alone - he keeps what the seat was paying, and only
-    # a bare row gets the token the game's own import path uses.
+    # today.
     #
     # LENGTH MATTERS AS MUCH AS EXISTENCE, and it is not obvious why. A one-year deal expires at
     # the very next rollover, and with Finances on that rollover runs FREE AGENCY - measured on a
@@ -280,18 +294,37 @@ def stamp_character(L, slot, character):
     # became free agents before the AI re-signed them. A character drafted in season S and given
     # one year would therefore be a free agent minutes later, in the same offseason he arrived,
     # and the AI would sign him wherever it liked. "Drafted #1 by LCH" would be a sentence about
-    # a team he never played for. `contract_years` is how the draft says "this is a rookie deal,
-    # make it last", and it is why promote passes its own ROOKIE_YEARS through.
-    try:
-        years = character.get("contract_years")
+    # a team he never played for.
+    #
+    # WHICH IS WHY A STATED TERM OVERWRITES AN EXISTING DEAL, and the first version of this did
+    # not. It only filled a BARE row - and the seats are not bare: 49 of pro's 60 reserve rows
+    # already carry a deal, every one of them a single year (college 30 of 41, prep 23 of 48, all
+    # one year). So the draft set four years, found the dormant filler's one-year contract in the
+    # way, and silently kept it on 49 of the 60 places a pick can land. The fix fired on 11.
+    #
+    # A term is only stated by a caller that knows the deal is the CHARACTER'S - the draft, with
+    # its rookie years. Everyone else passes nothing and keeps the old behaviour of filling a
+    # bare row and leaving an existing one alone, because a signup inheriting the seat's deal is
+    # harmless and re-pricing him is not this function's business.
+    wanted = character.get("contract_years")
+    if wanted is not None:
         try:
-            years = max(1, min(int(years), CONTRACT_YEARS))
+            years = max(1, min(int(wanted), lg.CONTRACT_YEARS))
         except (TypeError, ValueError):
-            years = 1
-        if not any(L.contract_of(pl)):
+            years = 1                      # a term we cannot read is still a term he needs
+    else:
+        years = 0                          # nothing stated: fill a bare row only
+    try:
+        if years:
             L.set_contract(pl, [IMPORT_CONTRACT] * years)
+        elif not any(L.contract_of(pl)):
+            L.set_contract(pl, [IMPORT_CONTRACT])
     except AttributeError:
-        pass          # an older codec without contract support; the stamp itself still stands
+        # An older codec with no contract support. Narrow on purpose: this used to wrap the
+        # clamp and the reads too, so a real AttributeError from inside the codec was swallowed
+        # as "old codec" and the character was stamped with NO contract at all - the exact
+        # landmine this block exists to defuse, reachable through its own error handler.
+        pass
     if character.get("position"):
         L.set(pl, "Position", POSITION_CODES[character["position"]])
 

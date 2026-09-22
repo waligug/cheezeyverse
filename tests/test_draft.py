@@ -78,8 +78,15 @@ def run():
               said_hole and not really_fit, False)
         catchphrase = draft.PROFILES[p["profile"]]["line"].format(team=p["team"])
         if catchphrase in p["reason"]:
-            check(f'#{p["pick"]} its catchphrase names the term that won',
-                  draft.PROFILE_TERM[p["profile"]] is not None, True)
+            # Three of the four lines claim a term and are honest only when it won.
+            # `best_available`'s claims the ABSENCE of one ("we do not draft for need"), which is
+            # honest on any pick fit did not decide - so the invariant is per profile, not a flat
+            # "PROFILE_TERM is not None". Asserting the flat version made a best-available team
+            # unable to ever say its own line.
+            terms = draft.evaluate(p["character"], p.get("need"), p["profile"])[1]["terms"]
+            won = max(terms, key=terms.get)
+            check(f'#{p["pick"]} its catchphrase is honest about the term that won',
+                  draft._catchphrase_is_honest(p["profile"], won), True)
 
     print("the board is a board")
     many = [man(f"P{i}", "C", 70 - i, 80 - i) for i in range(7)]
@@ -118,13 +125,18 @@ def run():
         def close(self, picks): calls.append(("close", len(picks)))
 
     real_needs = offseason._draft_needs
+    real_field = offseason._draft_field
     offseason._draft_needs = lambda log=print: {"LCH": "C"}
+    # No save read in a unit test: the real one opens CV_Pro, which is 530 records and only
+    # exists on the machine the universe lives on.
+    offseason._draft_field = lambda log=print, limit=None: []
     try:
         lines = []
         picks = offseason.run_draft([ready, raw], store=None, log=lines.append,
                                     dry_run=True, season=2030, cast=Cast())
     finally:
         offseason._draft_needs = real_needs
+        offseason._draft_field = real_field
 
     check("everyone declared is on the board", len(picks), 2)
     check("the log names the reason, not just the pick",

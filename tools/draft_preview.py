@@ -19,6 +19,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# The embeds carry "·" and "…". A Windows console is cp1252 and turns both into "?" - which made
+# the preview look like it had an encoding bug in the BROADCAST, when the broadcast posts UTF-8
+# to Discord perfectly well and it was only ever this terminal.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:                                                        # noqa: BLE001
+    pass
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
@@ -51,7 +59,7 @@ def main(argv):
         mock = int(argv[i + 1]) if len(argv) > i + 1 else 6
 
     if mock:
-        declared, needs = _mock(mock), {}
+        declared, needs, field = _mock(mock), {}, []
         print(f"{mock} invented prospects; no store or save read.\n")
     else:
         from commissioner import simweek
@@ -68,10 +76,12 @@ def main(argv):
                           f'declared={c.get("declared")} years={c.get("college_years")}')
             return 0
         needs = offseason._draft_needs(log=lambda m: print("  " + m))
+        field = offseason._draft_field(log=lambda m: print("  " + m))
         print(f"Season {season}: {len(declared)} in the draft.\n")
 
     order = offseason.draft_order()
-    picks = draft.build_board(declared, order, needs=needs)
+    picks = draft.build_board(declared, order, needs=needs, field=field)
+    undrafted = draft.undrafted_from(declared, field, picks)
 
     print(f"Order, worst record first: {', '.join(order[:6])}...\n")
     print("THE BOARD")
@@ -81,8 +91,11 @@ def main(argv):
         print(f'  #{p["pick"]:>2}  {p["team"]:<4} {draft.describe(p["character"]):<34} '
               f'{rate} pts/wk')
         print(f'        profile: {draft.PROFILES[p["profile"]]["label"]:<22} '
-              f'their hole: {need}')
+              f'their hole: {need}   sheet said #{p.get("expected")}'
+              f'{"" if p.get("is_character", True) else "   (field, not ours)"}')
         print(f'        {p["reason"]}')
+        if p.get("snub"):
+            print(f'        ~ {p["snub"]}')
         print()
 
     print("WHAT DISCORD WOULD SEE")
@@ -108,7 +121,7 @@ def main(argv):
     seen = Capture()
     cast = draftcast.DraftCast(season if not mock else 2030, transport=seen, delay=0,
                                log=lambda m: None, sleep=lambda s: None)
-    cast.open(len(picks), order)
+    cast.open(len(declared), order, board=len(picks))
     shown = picks[:3]
     for p in shown:
         cast.on_the_clock(p)
@@ -116,7 +129,7 @@ def main(argv):
                                "years": offseason.ROOKIE_YEARS})
     # The closing board lists EVERY pick, the way the real broadcast does - only the pick-by-pick
     # messages above are trimmed, because three is enough to read the shape of them.
-    cast.close(picks)
+    cast.close(picks, undrafted=undrafted)
     cast.finish()
 
     for payload in seen.payloads:

@@ -146,33 +146,175 @@ def describe(character):
 PROFILE_TERM = {"upside": "ceiling", "win_now": "now", "need_first": "fit",
                 "best_available": None}
 
+# How close a runner-up has to be, as a share of the winning score, before he is worth mentioning.
+# WHY A MARGIN AT ALL: the first version named the second name on every single pick, so a man who
+# won by a landslide and a man who won by a rounding error read exactly the same. "The other name
+# in the room" is a claim about how close it was, and printing it unconditionally makes it noise.
+COIN_FLIP = 0.015
+IN_THE_ROOM = 0.07
 
-def reason_for(team, profile_key, detail, runner_up=None):
-    """One sentence, generated from the term that actually decided the pick.
 
-    Everything here is derived from `detail`, which came out of `evaluate` - so tuning a weight
-    changes the sentence too, and the reason cannot drift away from the arithmetic that made the
-    choice. That is the whole contract of this module.
+def _catchphrase_is_honest(profile_key, won):
+    """Whether this profile's line can be said out loud on a pick decided by `won`.
+
+    Three of the four lines are POSITIVE claims - "we draft the ceiling" - and are honest only
+    when the term they advertise is the term that won. `best_available`'s is a NEGATIVE one, "we
+    do not draft for need", which is true on every pick that fit did NOT decide. That is why it
+    maps to None in PROFILE_TERM and needs its own branch rather than never speaking at all.
+    """
+    if profile_key == "best_available":
+        return won != "fit"
+    return PROFILE_TERM.get(profile_key) == won
+
+
+def _stance(team, profile_key, won, detail, ctx):
+    """What the team came in wanting - said honestly, including when they did not get it.
+
+    A `need_first` team taking the highest ceiling on the board used to say NOTHING about its own
+    temperament, because the catchphrase was suppressed and nothing replaced it. The pick that is
+    most worth explaining is exactly the one where a team went against type, so the suppressed
+    case gets a sentence of its own instead of silence.
     """
     profile = PROFILES.get(profile_key) or PROFILES["best_available"]
+    if _catchphrase_is_honest(profile_key, won):
+        return profile["line"].format(team=team)
+    if profile_key != "need_first":
+        return ""
+    need = detail.get("need")
+    if not need:
+        return f"{team} fill the hole first when they have one. Tonight they had none."
+    # They wanted a position and did not take it. WHICH of the two reasons it was has to come out
+    # of the board, not out of a guess: either nobody left plays it, or somebody did and lost.
+    if ctx.get("best_fit"):
+        return f"{team} wanted a {need}, and passed on {ctx['best_fit']} to take him."
+    return f"{team} wanted a {need}. Nobody left on the board plays one."
+
+
+def reason_for(team, profile_key, detail, runner_up=None, ctx=None):
+    """The team's thinking on one pick, generated from the term that actually decided it.
+
+    Everything here is derived from `detail` and `ctx`, both of which came out of the same
+    `evaluate` pass that made the choice - so tuning a weight changes the sentence too, and the
+    reason cannot drift away from the arithmetic behind it. That is the whole contract of this
+    module, and it is why nothing below is allowed to assert anything the board does not show.
+    """
+    ctx = ctx or {}
     terms = detail["terms"]
     won = max(terms, key=terms.get)
-    if won == "fit" and detail["fits"]:
+    left = ctx.get("left")
+    if left == 1:
+        # "Highest ceiling LEFT on the board" is technically true of a board with one man on it
+        # and tells the room nothing. Say what actually happened.
+        why = ("The only name in this draft." if ctx.get("pick") == 1
+               else "The last name on the board.")
+    elif won == "fit" and detail["fits"]:
         why = f"They were thinnest at {detail['need']} and he plays it."
     elif won == "ceiling":
         why = f"Highest ceiling left on the board ({detail['ceiling']:.0f})."
     else:
         why = f"Most ready to play right now ({detail['now']:.0f})."
-    parts = []
-    if PROFILE_TERM.get(profile_key) == won:
-        parts.append(profile["line"].format(team=team))
-    parts.append(why)
-    if runner_up:
+
+    parts = [p for p in (_stance(team, profile_key, won, detail, ctx), why) if p]
+
+    # The runner-up, and only when he was close enough for the word to mean something.
+    margin, score = ctx.get("margin"), ctx.get("score")
+    if runner_up and margin is not None and score:
+        share = margin / score if score > 0 else 1.0
+        if share < COIN_FLIP:
+            parts.append(f"{runner_up} was a coin-flip away.")
+        elif share < IN_THE_ROOM:
+            parts.append(f"{runner_up} was the other name in the room.")
+    elif runner_up and margin is None:
         parts.append(f"{runner_up} was the other name in the room.")
     return " ".join(parts)
 
 
-def build_board(declared, order, needs=None, profiles=None):
+# A man nobody takes is the other half of draft night, and it is the funnier half. These fire only
+# once somebody has genuinely sat through SNUB_AFTER picks, so the joke is always carrying a true
+# number - which is the same rule the reasons follow. A roast built on a made-up premise is just a
+# bug that reads as a joke.
+SNUB_AFTER = 3
+SNUBS = (
+    "{name} was the {ord} best player in this draft and it is pick {n}.",
+    "Somebody is going to have to take {name} eventually. {n} picks, and it has not been any "
+    "of them.",
+    "{n} picks in, and {name} remains available. Extremely available.",
+    "Still on the board: {name}, who most people had {n_back} picks ago.",
+    "{name} has now watched {n_back} men go who were not supposed to go before him.",
+    "The room has had {n} chances at {name} and taken none of them.",
+)
+
+
+def _ordinal(n):
+    if 10 <= n % 100 <= 20:
+        return f"{n}th"
+    return f"{n}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th') }"
+
+
+def talent_rank(board):
+    """{id(prospect): where the flat sheet said he should go}. One ranking, not a team's.
+
+    Deliberately NOT any front office's score. Every team sees the board through its own weights,
+    so "he slid" only means something against a view that does not move - otherwise the sentence
+    is just a restatement of whoever happened to be on the clock.
+    """
+    ordered = sorted(board, key=lambda c: (-sum(sheet(c)), describe(c)))
+    return {id(c): i + 1 for i, c in enumerate(ordered)}
+
+
+def snub_for(rest, expected, pick):
+    """A line about the man sliding furthest, or None while it is not yet funny.
+
+    WHY NOT "how many picks has he sat through". That was the first version, and on a full board
+    it is the same number for everybody still available - so it always landed on whoever happened
+    to be rated second, who was usually taken moments later. Sliding is the difference between
+    where the sheet put a man and where the room actually is, which is the thing worth laughing at.
+    """
+    worst, slid = None, 0
+    for _score, _detail, c in rest or ():
+        gap = pick - expected.get(id(c), pick)
+        if gap > slid:
+            worst, slid = c, gap
+    if worst is None or slid < SNUB_AFTER:
+        return None
+    name = describe(worst).split("  ")[0]
+    digest = hashlib.md5(f"{name}|{pick}".encode("utf-8")).digest()
+    return SNUBS[digest[0] % len(SNUBS)].format(
+        name=name, n=pick, n_back=slid, ord=_ordinal(expected.get(id(worst), pick)))
+
+
+# A man going one or two picks later than a flat average of his ratings predicted is not a story,
+# it is rounding. Only report a real fall.
+MIN_SLIDE = 3
+
+
+def slides(picks):
+    """Who went far later than his own sheet said he should. [(pick, name, slipped_by), …]
+
+    Each pick carries the rank it was given against the WHOLE board, undrafted men included, so
+    this must not recompute one from the drafted alone - that ranking closes the gaps left by
+    everybody who went unpicked and quietly erases the biggest slides in the draft.
+    """
+    out = []
+    for p in picks:
+        want = p.get("expected")
+        if not want:
+            continue
+        slipped = p["pick"] - want
+        if slipped >= MIN_SLIDE:
+            out.append((p["pick"], describe(p.get("character") or {}).split("  ")[0], slipped))
+    out.sort(key=lambda r: -r[2])
+    return out
+
+
+# A real draft is two rounds and then the phone stops ringing. Used only as a FLOOR: the board
+# always runs long enough to take every one of our characters, however far one of them slides,
+# because a character who goes undrafted is never promoted, never placed and never paid - he just
+# quietly stops existing. The field is what absorbs the cut instead.
+DRAFT_ROUNDS = 2
+
+
+def build_board(declared, order, needs=None, profiles=None, field=None, rounds=DRAFT_ROUNDS):
     """The whole draft, in pick order, each with the reason it happened.
 
     `needs` is {team abbrev: position} and `profiles` is {team abbrev: profile key}; both are
@@ -185,11 +327,20 @@ def build_board(declared, order, needs=None, profiles=None):
     """
     needs = needs or {}
     profiles = profiles or {}
-    remaining = list(declared)
+    ours = {id(c) for c in declared}
+    remaining = list(declared) + [c for c in (field or []) if id(c) not in ours]
     picks = []
     n = max(1, len(order))
     slot = 0
+    # Fixed for the whole night, over the whole board: where a flat reading of the sheet said
+    # each man should go. Recomputing it per pick would make "he slid" drift as the board emptied.
+    expected = talent_rank(remaining)
     while remaining:
+        # Stop once the rounds are used up AND every one of ours is off the board. Either
+        # condition alone is wrong: cutting at the rounds can strand a character, and ignoring
+        # them makes an eighty-man field into an eighty-pick draft.
+        if slot >= rounds * n and not any(id(c) in ours for c in remaining):
+            break
         team = order[slot % n]
         profile_key = profiles.get(team) or team_profile(team)
         need = needs.get(team)
@@ -203,6 +354,17 @@ def build_board(declared, order, needs=None, profiles=None):
         scored.sort(key=lambda row: (-row[0], describe(row[2])))
         score, detail, best = scored[0]
         runner_up = describe(scored[1][2]).split("  ")[0] if len(scored) > 1 else None
+        # The best man left who plays the position they said they needed - named only when he is
+        # NOT the pick, because that is the one case worth a sentence.
+        best_fit = next((describe(c).split("  ")[0] for _s, d, c in scored
+                         if d["fits"] and c is not best), None)
+        ctx = {
+            "left": len(scored),
+            "pick": slot + 1,
+            "score": score,
+            "margin": score - scored[1][0] if len(scored) > 1 else None,
+            "best_fit": best_fit,
+        }
         picks.append({
             "round": slot // n + 1,
             "pick": slot + 1,
@@ -211,12 +373,69 @@ def build_board(declared, order, needs=None, profiles=None):
             "score": round(score, 2),
             "profile": profile_key,
             "need": need,
-            "reason": reason_for(team, profile_key, detail, runner_up),
+            "reason": reason_for(team, profile_key, detail, runner_up, ctx),
             "runner_up": runner_up,
+            "snub": snub_for(scored[1:], expected, slot + 1),
+            "expected": expected.get(id(best)),
+            # The one flag the write path turns on. A field prospect is announced and then
+            # forgotten; only OUR people are promoted, stamped onto a roster and paid.
+            "is_character": id(best) in ours,
         })
-        remaining.remove(best)
+        # By identity, not by value: two prospects off the same blank pool can compare equal and
+        # list.remove() would drop whichever one it found first, leaving the drafted man on the
+        # board to be taken again.
+        remaining = [c for c in remaining if c is not best]
         slot += 1
     return picks
+
+
+def undrafted_from(declared, field, picks):
+    """Everyone who was on the board when it ran out of picks. Ours are never in it."""
+    taken = {id(p.get("character")) for p in picks}
+    return [c for c in list(declared or ()) + list(field or ()) if id(c) not in taken]
+
+
+# FBPB3's own draft pool sits at team -2 with Exp 0 - 80 records in CV_Pro, born across six
+# years. It is a STANDING pool of blank records for most of the year: the game fills in a class
+# during its own offseason, and until it does every one of them reads ~9 overall with every
+# potential pinned at 5. Drafting that field would put eighty identical nobodies on the board and
+# rank our characters against noise, so a pool that has not been generated is treated as no pool.
+POOL_TEAM = -2
+POOL_MIN_CEILING = 20.0
+
+
+def field_from_save(league_dat, limit=None):
+    """The game's own prospects, in character shape, so draft night is not a seven-man event.
+
+    These are NOT ours and must never be promoted, stamped or paid - `build_board` marks every
+    pick with `is_character` for exactly that reason. They are here to give our characters a real
+    field to be measured against, somebody to slide behind, and somebody to leave undrafted.
+
+    Returns [] when the class has not been generated yet, which is most of the calendar.
+    """
+    from .codec.league_dat import POSITIONS
+    out = []
+    for pl in league_dat.players:
+        if pl.values.get("Team") != POOL_TEAM:
+            continue
+        first, _, last = str(pl.name).partition(" ")
+        out.append({
+            "id": f"pool-{pl.id or len(out)}",
+            "first_name": first, "last_name": last,
+            "role": "field", "position": POSITIONS.get(pl.values.get("Position"), ""),
+            "height_inches": pl.values.get("Height"),
+            "ratings": {f: pl.values.get(f, 0) for f in RATINGS},
+            "potentials": {f: pl.values.get(f, 0) for f in POTENTIALS},
+        })
+    # READ THE RAW POTENTIALS, not sheet()'s ceiling. sheet() deliberately falls back to what a
+    # man already is when it cannot read a ceiling, so a pool carrying ordinary ratings and
+    # pinned potentials scores as a perfectly good draft class through that fallback. The pinned
+    # potential IS the signal that the game has not filled the class in.
+    if not out or max(_mean((c["potentials"] or {}).values()) for c in out) < POOL_MIN_CEILING:
+        return []
+    # Best first, so a `limit` keeps the prospects worth announcing rather than an arbitrary slice.
+    out.sort(key=lambda c: (-sum(sheet(c)), describe(c)))
+    return out[:limit] if limit else out
 
 
 def needs_from_save(key, league_dat):
