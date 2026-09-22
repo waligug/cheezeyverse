@@ -690,6 +690,18 @@ def _offseason_view(result):
                                       projected=not conv),
             "slot": pick.get("slot") or None,
             "error": str(pick.get("error") or ""),
+            # WHY the pick happened, not just that it did. This view is a whitelist, so every
+            # one of these was being dropped on the floor: the panel showed a name and a team
+            # and none of the reasoning that draft night is actually made of - which is the same
+            # way promotion_grants went missing from a preview somebody reads before an
+            # irreversible rollover.
+            "reason": str(pick.get("reason") or ""),
+            "profile": str(pick.get("profile") or ""),
+            "need": str(pick.get("need") or ""),
+            "snub": str(pick.get("snub") or ""),
+            "expected": pick.get("expected"),
+            "is_character": bool(pick.get("is_character", True)),
+            "contract": pick.get("contract") or None,
         })
     # `run_draft` returns the failures last; the board reads in pick order, failures in place.
     out["drafted"].sort(key=lambda p: (p.get("pick") is None, p.get("pick") or 0))

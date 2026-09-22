@@ -808,6 +808,24 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
     # the tiebreak inside `draft.sheet` for anybody with no ratings at all.
     picks = draft.build_board(declared, order, needs=needs, field=field)
     undrafted = draft.undrafted_from(declared, field, picks)
+    # PRE-FLIGHT, BEFORE A SINGLE WRITE. Draft night has never run on the live universe, and by
+    # the time a pick is announced a character has already been promoted between leagues, stamped
+    # onto a pro roster and had his old slot handed back - none of which comes back easily. The
+    # board is pure and cheap to check, so it is checked here rather than trusted: a character
+    # who is missing from it, or on it twice, means nobody is moved at all.
+    mine_on_board = [p["character"] for p in picks if p.get("is_character", True)]
+    seen = {id(c) for c in mine_on_board}
+    if len(mine_on_board) != len(seen):
+        raise OffseasonError("the draft board holds the same character twice; nobody was moved")
+    missing = [c for c in declared if id(c) not in seen]
+    if missing:
+        names = ", ".join(f'{c["first_name"]} {c["last_name"]}' for c in missing)
+        raise OffseasonError(
+            f"the draft board left {len(missing)} declared character(s) undrafted ({names}); "
+            "a character who is not picked is never promoted, placed or paid, so nobody was "
+            "moved")
+    if any(not p.get("reason") for p in picks):
+        raise OffseasonError("a pick came off the board with no reason attached; nobody was moved")
     log(f"   draft order starts {', '.join(order[:4])}")
     # ONE TALLY ACROSS THE WHOLE DRAFT, per promote()'s own contract. Left to itself promote
     # re-reads the store on every call: correct, because activate_character has written the
@@ -1281,6 +1299,29 @@ def _offseason_report(result, store=None):
     return "\n".join(lines)
 
 
+def _moved_up(result):
+    """Everybody who actually changed level this offseason, by character id.
+
+    BOTH LISTS, and that is the whole point of the function. `promoted` holds the prep->college
+    intake; a character reaching the pros is in `drafted` instead - and the draft is the ONLY way
+    into pro. Reading `promoted` alone meant the promotion grant, which is the largest payment an
+    offseason makes, was computed for every drafted character and then paid to none of them. It
+    did not appear in the report either, so nothing said it was missing.
+
+    A pick carrying an `error` did not move: run_draft records the failure and leaves him where
+    he was, and paying him for a promotion that did not happen is the opposite mistake.
+    """
+    ids = set()
+    for key in ("promoted", "drafted"):
+        for row in result.get(key) or []:
+            if not isinstance(row, dict) or row.get("error"):
+                continue
+            who = row.get("character") or {}
+            if who.get("id"):
+                ids.add(who["id"])
+    return ids
+
+
 def _season_bonuses(characters, settings, log):
     """{character id: [(reason, points)]} for the season just played.
 
@@ -1295,7 +1336,14 @@ def _season_bonuses(characters, settings, log):
     """
     out, grants, caches = {}, {}, {}
     for c in characters:
-        if c.get("status") != "active":
+        # "declared" COUNTS, and leaving it out was expensive. Declaring for the draft is what
+        # sets that status, so the one character this function most needs to price - the man
+        # about to be promoted - was the one it skipped. He lost the season bonus for a year he
+        # actually played AND the promotion grant computed further down, which for the first man
+        # through was 34 points against a 15-point offseason lump. Nothing in the log said so:
+        # he simply did not appear in a list of names, which is the hardest kind of missing to
+        # notice. Retired and pending are still out; they did not play this season.
+        if c.get("status") not in ("active", "declared"):
             continue
         key = c.get("league")
         if not key:
@@ -1566,11 +1614,9 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
     # irreversible rollover - showed the lump and the development bonus and stayed silent about
     # what is now the largest payment of the offseason. The real run narrows this to what was
     # actually paid once the writes have landed.
-    result["promotion_grants"] = {
-        r["character"]["id"]: promotion_grants[r["character"]["id"]]
-        for r in result.get("promoted", [])
-        if isinstance(r, dict) and r.get("character")
-        and promotion_grants.get(r["character"].get("id"))}
+    result["promotion_grants"] = {cid: promotion_grants[cid]
+                                  for cid in _moved_up(result)
+                                  if promotion_grants.get(cid)}
 
     # The offseason lump sum: every active character is a year older and gets paid for it,
     # and a college season that was seen through pays a development bonus on top.
@@ -1612,8 +1658,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
     if not dry_run:
         paid = developed = earned = granted = 0
         stayed = {c["id"] for c in moving["stay"]}
-        promoted_ids = {r["character"]["id"] for r in result.get("promoted", [])
-                        if isinstance(r, dict) and r.get("character")}
+        promoted_ids = _moved_up(result)
         # Who was actually PAID, not who moved. promotion_grant returns nothing for a character
         # with no line in the export, and counting him as paid would overstate the report.
         granted_to = set()
