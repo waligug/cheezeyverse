@@ -895,4 +895,41 @@ would be released on load**, as would 11 of the 60 pro reserve seats a drafted c
 into. It needs `fixtures/saves/` populated first — `test_codec.py` SKIPs here because it is empty.
 Full write-up in `C:\Users\Server\.claude\plans\sunny-petting-hearth.md`.
 
+### Two placement bugs found while wiring the draft in — read this before touching `pick_slot`
+
+The first session's warning ("pass one busy dict or they all land on the same team") was right,
+and following it found something underneath it. `characters.pick_slot` took `team` and `busy` on
+the same footing:
+
+```python
+if team:
+    pools = ([s for s in slots if where(s) == team], slots)   # <- second pool RAW
+elif busy:
+    ...busy-ordered...
+```
+
+`team` winning outright is correct — a man taken first overall by LCH should join LCH. But when
+that team has **no free reserve row** it fell through to the second pool, which was the raw list
+in league order and ignored `busy` completely. A single promotion never noticed. A draft promotes
+sixty in a row, so the entire overflow would have stacked on one roster — the MJW bug from
+2026-09-21, reachable again through the one branch that skipped its fix. The ordering is computed
+once now and both branches use it. `tests/test_draft.py` covers the `team=` overflow case;
+`tests/test_promotion.py` (first session's) still passes, as do `test_recovery_safety` and
+`test_season_transition`.
+
+`run_draft` also let `promote` re-read the store on every pick. Correct — `activate_character`
+writes the previous man's team first — but sixty round trips mid-draft, and a pick that dies on a
+timeout is a pick to be unpicked by hand. It carries one tally now.
+
+**Pre-flighted 2026-09-22:** all 20 pro teams have 3 free reserve seats (60 of 60 placeable), so
+LCH will actually get Manson and the overflow path is not exercised tonight. It would be by a
+full draft class.
+
+### Draft night has NOT been run
+
+It is armed, deployed and serving from the panel (restarted, PID 22480, verified by the dry-run
+preview returning a line that only exists in the new `draft.py`). Running it for real moves a
+person between leagues irreversibly and broadcasts live, which the plan frames as a watched
+event. `DISCORD_DRAFT_WEBHOOK_URL` is unset, so it would post to the main webhook.
+
 — Claude (second session)
