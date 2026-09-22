@@ -1455,6 +1455,39 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
     # and a college season that was seen through pays a development bonus on top.
     lump = int(settings.get("offseason_points", 15))
     bonus = int(settings.get("college_development_bonus", COLLEGE_DEVELOPMENT_BONUS))
+    # WHAT THE GAME THINKS A PRO IS WORTH. Read once, from the pro save, before anybody is paid:
+    # the band a man falls into is his place among his OWN league's salaries, so it cannot be
+    # computed one character at a time. Never fatal - a league whose contracts cannot be read
+    # falls through to `None`, and annual_payout then pays the floor to everybody, which is the
+    # honest answer rather than a guess.
+    pro_salaries, pro_bounds = {}, None
+    try:
+        from .codec.league_dat import LeagueDat
+        pro = LeagueDat(ch.save_path("pro"))
+        rostered = [pl for pl in pro.players if pl.values.get("Team", 0) >= 1]
+        for pl in rostered:
+            pro_salaries[(pl.name, pl.dob)] = (pro.contract_of(pl) or [0])[0]
+        pro_bounds = points.salary_distribution(pro_salaries.values())
+        log(f"pro salary bands: {pro_bounds}" if pro_bounds else
+            "pro has no salary scale yet (Finances off); the payout pays its floor")
+    except Exception as exc:                                        # noqa: BLE001
+        log(f"could not read pro contracts ({exc}); the payout pays its floor")
+
+    def _annual(c):
+        """(points, reason) for one character's yearly payment.
+
+        Pro is paid for his contract INSTEAD of the flat lump - that is the whole change. Prep
+        and college are untouched and keep the lump, because neither has real contracts and prep
+        cannot be given them: 164 of its 240 rostered players have none, and Finances would
+        release every one of them on load.
+        """
+        if c.get("league") != "pro":
+            return lump, "offseason"
+        salary = pro_salaries.get((f'{c["first_name"]} {c["last_name"]}',
+                                   ch.codec_dob(c.get("game_dob"))), 0)
+        amount = points.annual_payout(salary, pro_bounds)
+        return amount, points.payout_reason(salary, amount, pro_bounds)
+
     if not dry_run:
         paid = developed = earned = granted = 0
         stayed = {c["id"] for c in moving["stay"]}
@@ -1466,9 +1499,12 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         for c in store.characters():
             if c.get("status") != "active":
                 continue
-            if lump:
-                store.grant_points(c["id"], lump, "offseason")
+            amount, why = _annual(c)
+            if amount:
+                store.grant_points(c["id"], amount, why)
                 paid += 1
+                if c.get("league") == "pro":
+                    result.setdefault("contract_payouts", {})[c["id"]] = [(why, amount)]
             if bonus and c.get("league") == "college" and c["id"] in stayed:
                 store.grant_points(c["id"], bonus, "college development")
                 developed += 1

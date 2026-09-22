@@ -649,6 +649,9 @@ def _offseason_view(result):
         # seven promotions and say nothing about the points they came with - which is the one
         # number somebody checks before an irreversible rollover.
         "promotion_grants": result.get("promotion_grants") or {},
+        # The pro contract payout, which REPLACES the flat lump for that league - so without it
+        # the panel would show "paid N the offseason lump" and be wrong about every pro.
+        "contract_payouts": result.get("contract_payouts") or {},
         "retired": [],
         "promoted": [],
         "drafted": [],

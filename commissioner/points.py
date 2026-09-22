@@ -33,6 +33,73 @@ ROOKIE_SCALE = ((1, 6), (3, 5), (8, 4), (20, 3))
 ROOKIE_FLOOR = 3
 
 
+# ---- the yearly contract payout ---------------------------------------------------------------
+# A pro character is paid once a season for what the GAME thinks he is worth, and that payment
+# replaces the flat offseason lump for his level. This is a different thing from ROOKIE_SCALE
+# above: that is a weekly rate the commissioner assigns for where he was DRAFTED, this is an
+# annual one read from the salary FBPB3 itself gave him. Both exist, deliberately.
+#
+# BANDED BY PERCENTILE, NOT BY DOLLARS. A literal "a million is a point" sounds right and is not:
+# on any realistic scale it pays a minimum earner about one point a year against the fifteen he
+# gets today, and hands a max player fifty - a 25-50x spread where Nate asked for 3-4x. And an
+# absolute threshold rots, because a salary cap inflates every season while the bands would not.
+# Where he sits among his own league is the durable question.
+#
+# The values are here and NOT in the settings table: a stale settings row silently overrides a
+# changed default, which is exactly how college_development_bonus sat at 12 while the code said
+# 20. These are meant to be edited and diffed.
+PAYOUT_BANDS = ((0.50, 10), (0.75, 17), (0.90, 26), (1.01, 36))
+PAYOUT_FLOOR = 10          # a rostered man with no contract still gets the bottom band, because
+                           # grant_points refuses an amount of 0 and would raise mid-offseason
+
+
+def salary_distribution(salaries):
+    """The band boundaries for one league, from its OWN rostered salaries this season.
+
+    Recomputed every time rather than stored: the point of a percentile is that it moves with the
+    league, and a boundary frozen in a settings row would quietly stop meaning what it says the
+    first time the cap rises.
+
+    Returns the salary at each band's upper edge, or None when there is nothing to rank - one
+    league-wide salary, or none at all, is what Finances-off looks like and it must not be read
+    as "everybody is a star".
+    """
+    live = sorted(int(s) for s in salaries if s and int(s) > 0)
+    if len(set(live)) < 2:
+        return None
+    return [live[min(len(live) - 1, int(round(pct * (len(live) - 1))))] for pct, _pts in PAYOUT_BANDS]
+
+
+def annual_payout(salary, boundaries):
+    """Points for one man's yearly salary. `boundaries` is what salary_distribution returned.
+
+    No distribution - Finances off, or a league where everyone earns the same - pays the floor to
+    everybody, which is the honest answer: the game is not yet saying anyone is worth more.
+    """
+    try:
+        salary = int(salary or 0)
+    except (TypeError, ValueError):
+        salary = 0
+    if not boundaries or salary <= 0:
+        return PAYOUT_FLOOR
+    for edge, points in zip(boundaries, (pts for _pct, pts in PAYOUT_BANDS)):
+        if salary <= edge:
+            return points
+    return PAYOUT_BANDS[-1][1]
+
+
+def payout_reason(salary, points, boundaries):
+    """The ledger line. It names the money AND the band, because a number with no explanation in
+    somebody's history is the thing the one-row-per-component rule exists to prevent."""
+    if not boundaries:
+        return f"contract payout ({points}, no salary scale yet)"
+    labels = ("league minimum", "rotation", "starter", "star")
+    for edge, (label, (_pct, pts)) in zip(boundaries, zip(labels, PAYOUT_BANDS)):
+        if salary and int(salary) <= edge:
+            return f"contract payout: {label}, ${int(salary):,} a year"
+    return f"contract payout: {labels[-1]}, ${int(salary):,} a year"
+
+
 def rookie_rate(pick):
     """Points per week for the man taken at `pick`. Undrafted or unknown pays the floor."""
     try:

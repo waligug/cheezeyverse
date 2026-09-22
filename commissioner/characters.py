@@ -31,6 +31,10 @@ POSITION_CODES = {"C": 1, "PF": 2, "SF": 3, "SG": 4, "PG": 5}
 # Fouling is a tendency, not a skill, and we have not confirmed which direction the engine
 # treats as good, so nobody is allowed to spend on it.
 LOCKED = {"Fouling"}
+# What the game's own CSV import writes for a one-year deal (universe/generate.py:88). Imported
+# rather than re-typed would be circular - generate imports this module - so it is stated here
+# and the two are pinned together by tests/test_contract_payout.py.
+IMPORT_CONTRACT = 1_000_000
 
 
 class ApplyError(Exception):
@@ -255,6 +259,21 @@ def stamp_character(L, slot, character):
     # did before he took it. The engine reads Exp for development and evaluation, so a freshman
     # billed as a fourth-year is a different player to it.
     L.set(pl, "Exp", 0)
+    # AND A CONTRACT, FOR THE SAME REASON EXP IS RESET: it belongs to the row, not to him.
+    #
+    # Eleven of pro's sixty reserve seats carry no contract at all, and a seat is exactly where a
+    # drafted character is stamped. Under Full Finances the game RELEASES a player with no
+    # contract the moment the league loads - so a character could be drafted, placed, announced in
+    # Discord, and be a free agent by the next Sim Week with nothing anywhere saying why.
+    #
+    # This does not wait for Finances to be switched on: a seat that is bare today is a landmine
+    # today. An existing deal is left exactly alone - he keeps what the seat was paying, and only
+    # a bare row gets the token the game's own import path uses.
+    try:
+        if not any(L.contract_of(pl)):
+            L.set_contract(pl, [IMPORT_CONTRACT])
+    except AttributeError:
+        pass          # an older codec without contract support; the stamp itself still stands
     if character.get("position"):
         L.set(pl, "Position", POSITION_CODES[character["position"]])
 
