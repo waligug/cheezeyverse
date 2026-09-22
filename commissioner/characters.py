@@ -236,6 +236,21 @@ def stamp_character(L, slot, character):
     # moves it with his height and his age - see offseason.apply_growth, which writes both
     # together and verifies them together.
     L.set(pl, "Weight", weight_for(character))
+    # EXPERIENCE BELONGS TO THE ROW, NOT TO HIM, AND IT HAS TO BE RESET.
+    #
+    # A character does not get a new player; he is stamped onto a reserve row that already
+    # exists, and everything on that row which nothing overwrites stays his. Exp was one of
+    # those: after the 2029 promotions the college page for Chris Zimmer, seventeen years old
+    # and one day into the league, read "Experience: 3 years". All seven arrived carrying 2 to 4
+    # years of somebody else's career.
+    #
+    # Zero is the honest number and it is what the rest of the code already says: generate.py
+    # builds a body with `max(0, age - age_range[0])`, which is 0 for anybody entering at the
+    # bottom of a band, and ageout's intake sets 0 outright on a recycled body. A promotion is
+    # the same event from the character's side - his first year at this level - whatever the row
+    # did before he took it. The engine reads Exp for development and evaluation, so a freshman
+    # billed as a fourth-year is a different player to it.
+    L.set(pl, "Exp", 0)
     if character.get("position"):
         L.set(pl, "Position", POSITION_CODES[character["position"]])
 
