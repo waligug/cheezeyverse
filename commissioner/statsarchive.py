@@ -261,8 +261,34 @@ def capture(key, mdb, log=print, overwrite_current=None, force=False, kinds=("st
                 raise
             log(f"  {key}: cannot read {KINDS.get(kind, kind)} ({exc}); skipped")
             continue
+        # A SEASON OLDER THAN ONE WE ALREADY HOLD CANNOT BE RECOVERED FROM TODAY'S MDB.
+        #
+        # FBPB3 keeps a player's season history on his ROW, and a row changes hands. A character
+        # is stamped onto a reserve row when he is promoted - `characters.stamp_character` renames
+        # it and rewrites its birthday - and the row's past seasons follow the new name. After the
+        # 2029 rollover the live college MDB credited Chris Zimmer with 32 games in 2028, a season
+        # he spent in prep, while the prep slot he vacated carried HIS 2029 scoring under the
+        # filler's name. Both directions, every promotion, for as long as the universe runs.
+        #
+        # The archives escaped it because each season was written while the rows still had the
+        # right names, and `save()` refuses to rewrite a finished season. This keeps that true in
+        # the one case that guard does not cover: a season the MDB still holds that we have NO
+        # archive for - a restored backup, a machine rebuilt, an archive that failed to write. On
+        # that path `save()` sees no file, writes happily, and bakes in the wrong attribution
+        # forever. The right answer there is that the season is simply not recoverable, and
+        # keeping the gap is better than filling it with a name that was not there at the time.
+        #
+        # `force` still overrides, because repairing a season written wrong is a real need, and
+        # the current season is always rewritten - the rows are correct while it is being played.
+        held = {int(s) for s, _ in archived_seasons(key, kind)}
+        newest = max(held) if held else None
         for season, rows in seasons:
             current = overwrite_current is not None and int(season) == int(overwrite_current)
+            if (newest is not None and int(season) < newest and int(season) not in held
+                    and not current and not force):
+                log(f"  {key} {season} {kind}: no archive, and older than {newest} - refusing to "
+                    "rebuild it from a save whose rows have changed hands since")
+                continue
             # `force` is for repairing a season written wrong - the first capture archived 390
             # player seasons with every name blank, because the query was silently returning
             # nothing. Rewriting history is otherwise refused, so this is a flag and not a default.
