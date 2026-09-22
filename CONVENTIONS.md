@@ -44,6 +44,41 @@ Duplicate names exist (Tony Thompson ×2, Charles Taylor ×2); disambiguate by D
 | Per-season archive rows | 42 bytes each immediately before R once a season has been played | confirmed on the aged save |
 | Player id, uniform | a few bytes before S (S-24 / S-4 most common) | **not fixed**; needs more work |
 
+## The post-R history region (mapping started 2026-09-22, INCOMPLETE)
+
+WHY THIS IS BEING MAPPED. `characters.stamp_character` renames an EXISTING reserve row, and the
+row's past follows the new name: one day into college Johnny Gartholomew's page listed 19 games
+in 2028 and two championships he did not win. `publish.strip_foreign_history` cuts that off the
+published page, which is the honest thing a page can do, but the SAVE still says it. Correcting
+that needs this region understood, and it is the one part of `league.dat` the codec has never
+modelled.
+
+**Nothing here is written. Read-only, and stay that way until far more of it is known.**
+
+A player record runs from his S to the next player's S and is 5.9-9.2 KB, of which **5.0-7.9 KB
+sits after R**. That is where a career lives.
+
+| Structure | Where | Confidence |
+|---|---|---|
+| Per-season archive row (int16 season, 18 ratings, height, weight = 42 bytes) | walking back from R in 42-byte steps while the season reads 1900..2100 | confirmed: a 16-year veteran has one per season played (2026-29), a rookie has none, height/weight track his growth |
+| Per-season STATS row, int32 fields on a 4-byte stride | in the post-R region; rows appear on a ~342-byte stride | field ORDER confirmed below against the MDB; row START and how rows are keyed to a season NOT yet confirmed |
+
+Stats field order, verified against `SeasonStats` for one pro's 2029 (ID 138, Josiah Meehan -
+58 games, 1785 points), offsets relative to that row's Minutes field:
+
+| +0 | +4 | +8 | +28 | +32 | +36 | +40 | +44 | +52 | +56 | +60 | +64 | +68 | +72 | +76 | +88 | +92 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Minutes | FGM | FGA | FTM | FTA | 3PM | 3PA | OReb | Rebounds | Assists | Steals | Blocks | Turnovers | Points | Fouls | DoubleDoubles | TripleDoubles |
+
+Games and GamesStarted sit just before Minutes as int16 rather than int32. Several int32 slots in
+the same row are still unidentified, and PlusMinus was not matched.
+
+**STILL UNMAPPED, and it is the part that matters: the AWARDS.** Championships, All-Star and
+All-League selections appear on the player page and are not in either structure above - the
+42-byte archive row has no room and the stats row's unmatched slots do not carry them. Finding
+them needs a champion and a non-champion of the same age diffed across the region, which is the
+next step.
+
 ## Team membership (all must agree, or FBPB3 releases the player to FA on load)
 - Player fields: E+40 `Team`, `Team1`, `Team2` (above).
 - Roster: VB6 dynamic array in the team record before the first player record: `01 00 | int32 n | int32 0` then
