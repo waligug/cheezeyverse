@@ -186,6 +186,13 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
 
 .cv-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 
+/* The glance and the MVP race, side by side. The race is the narrower of the two: it is five
+   rows of three short columns, where the glance carries a nine-column table. `minmax(0, ...)`
+   on both tracks rather than plain fractions, because a grid child defaults to min-content
+   width and the glance's table would otherwise push the whole row wider than the page. */
+.cv-split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); align-items: start; }
+@media (max-width: 860px) { .cv-split { grid-template-columns: minmax(0, 1fr); } }
+
 /* ------------------------------------------------------------------------------- hero */
 .cv-hero {
   border: 1px solid var(--crust);

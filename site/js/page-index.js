@@ -112,7 +112,7 @@ async function renderGlance() {
   for (const l of LEAGUES) {
     tabs.append(el('button', {
       class: `cv-tab${l.key === current ? ' is-on' : ''}`, type: 'button',
-      onclick: () => { current = l.key; renderGlance(); },
+      onclick: () => { current = l.key; renderGlance(); renderMvp(); },
     }, LEAGUE_LABELS[l.key] || l.key));
   }
   box.append(tabs);
@@ -180,6 +180,92 @@ async function renderGlance() {
     + (stats.export_date ? `From the league export of ${stats.export_date}.` : '')));
 }
 
+
+/* ---------------------------------------------------------------------------- MVP race
+
+   WHERE THE FORMULA COMES FROM. FBPB3 hands out its own awards, but only at the end of a
+   season and only in the HTML - there is no in-progress MVP anywhere in the export, and no
+   published formula to copy. So this is the plain box-score EFFICIENCY every basketball
+   reference has used for decades:
+
+       EFF = PTS + REB + AST + STL + BLK - (FGA - FGM) - (FTA - FTM)
+
+   TURNOVERS BELONG IN THAT FORMULA AND ARE NOT HERE, because the league export does not carry
+   them - stats.json's player rows have no TOV column. Everybody is missing the same term, so
+   the ORDER is fair; the numbers are just a little kinder than the real thing. Worth knowing
+   before anybody compares one of these to a figure off a real stats site.
+
+   AND IT IS WEIGHTED BY WINNING, because an MVP race always is: nobody votes a 30-point night
+   on a last-place team above the same night on a contender. A winless team's man keeps three
+   quarters of his number and an undefeated team's man gets a quarter more.
+
+   THE GAMES QUALIFIER IS THE PART THAT MATTERS MOST. Without it the leader is whoever had one
+   huge game in November, which is not a race, it is a rounding error - so a player has to have
+   played 60% of his team's games, the same shape of rule the real awards use. Early in a
+   season that can leave the board short, and saying so is better than quietly listing nobody. */
+
+const MVP_MIN_SHARE = 0.6;
+
+function efficiency(row) {
+  const n = (v) => Number(v) || 0;
+  return n(row.PTS) + n(row.REB) + n(row.AST) + n(row.STL) + n(row.BLK)
+    - (n(row.FGA) - n(row.FGM)) - (n(row.FTA) - n(row.FTM));
+}
+
+function mvpBoard(stats) {
+  const played = stats.teams || {};                    // team -> games the team has played
+  const pct = new Map((stats.table || []).map((r) => [r.name, Number(r.pct) || 0]));
+  const board = [];
+  for (const row of stats.players || []) {
+    const games = Number(row.G) || 0;
+    const teamGames = Number(played[row.team]) || 0;
+    if (!games || !teamGames || games < teamGames * MVP_MIN_SHARE) continue;
+    const per = efficiency(row) / games;
+    board.push({
+      name: row.name, team: row.team, games, per,
+      score: per * (0.75 + 0.5 * (pct.get(row.team) || 0)),
+    });
+  }
+  board.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  return board;
+}
+
+async function renderMvp() {
+  const box = $('#mvp');
+  if (!box) return;
+  const stats = await glanceStats(current);
+  clear(box);
+  box.append(el('p', { class: 'cv-muted' }, LEAGUE_LABELS[current] || current));
+
+  if (!stats) {
+    box.append(note(null, 'This league has not published its numbers yet.'));
+    return;
+  }
+  const board = mvpBoard(stats);
+  if (!board.length) {
+    box.append(note(null, `Nobody has played ${Math.round(MVP_MIN_SHARE * 100)}% of his team’s `
+      + 'games yet, so there is no race to call.'));
+    return;
+  }
+
+  const rows = board.slice(0, 5).map((p, i) => el('tr', {},
+    el('th', {}, String(i + 1)),
+    el('td', {}, p.name),
+    el('td', { class: 'cv-muted' }, p.team),
+    el('td', { title: 'efficiency per game' }, p.per.toFixed(1)),
+    el('td', { title: 'weighted by the team’s record' }, p.score.toFixed(1))));
+
+  box.append(el('div', { class: 'cv-scroll' },
+    el('table', { class: 'cv-table' },
+      el('thead', {}, el('tr', {}, el('th', {}, '#'), el('th', {}, 'Player'),
+        el('th', {}, 'Team'), el('th', {}, 'EFF'), el('th', {}, 'Score'))),
+      el('tbody', {}, ...rows))));
+  box.append(el('p', { class: 'cv-hint' },
+    'EFF is points, rebounds, assists, steals and blocks, less missed shots and free throws, '
+    + 'per game. Score weights it by the team’s record. Turnovers are not in the league export, '
+    + 'so they are missing for everybody alike.'));
+}
+
 let current = 'prep';
 
 async function boot() {
@@ -188,6 +274,14 @@ async function boot() {
   chrome.refresh(user, profile);
 
   // Its own try: a panel that cannot load must not cost the page its roll call.
+  // Its own try as well: the race is the least important thing on the page and must not be
+  // able to take the rest of it down.
+  renderMvp().catch((err) => {
+    console.warn('mvp race failed', err);
+    const box = $('#mvp');
+    if (box) { clear(box); box.append(note(null, 'The MVP race did not load.')); }
+  });
+
   renderGlance().catch((err) => {
     console.warn('at-a-glance failed', err);
     const box = $('#glance');
