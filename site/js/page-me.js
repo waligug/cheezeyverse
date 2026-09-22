@@ -564,7 +564,7 @@ function moneyPanel(character) {
     notes.push(el('p', { class: 'cv-hint' },
       'Paid once a season, on top of the points he earns every week. It is worked out from '
       + 'where his salary sits among everyone else in his league, not from a fixed amount - so '
-      + 'it moves as the league's money moves.'));
+      + "it moves as the league's money moves."));
     if (f.league_median) {
       notes.push(el('p', { class: 'cv-muted' },
         'The middle of his league earns ' + money(f.league_median) + ' a year.'));
