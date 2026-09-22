@@ -75,14 +75,58 @@ DEFAULTS = {
     "bonus_cap": 10,            # the most the bonus can add on top of the flat offseason lump
 }
 
+# THE CAP IS PER LEVEL, and the reason is not "college is worth more". Both statistical
+# components are ranked WITHIN a league, so a character who moves up arrives at the bottom of a
+# stronger field and his EARNED bonus falls - at exactly the moment the price bands start to
+# bite, because his ratings are finally crossing 50 and 70 where a step costs 2 and 3 instead
+# of 1. A single cap therefore tightens as he climbs, which is backwards.
+#
+# These live here and NOT in the settings table, deliberately. A stale bonus_* row silently
+# overrides a changed default, and this is a number that gets tuned by editing and diffing. An
+# explicit settings row still wins, for deliberate live tuning, and cap_for says so.
+BONUS_CAP_BY_LEVEL = {"prep": 10, "college": 15, "pro": 20}
+
+# THE PROMOTION GRANT, paid once when a character moves up a level.
+#
+# It replaces the conversion haircut rather than repaying it. Moving to college used to cost 3%
+# of every rating - 22 to 27 points for the first seven, about 41 points to buy back, which is
+# two thirds of a college season's entire income spent standing still. That is gone. This is
+# paid instead, and it is scaled to the season he is LEAVING, because a flat sum pays the same
+# to the man who won prep and the man who never dressed.
+#
+# NOT subject to bonus_cap. The cap exists so one enormous season cannot dwarf an ordinary one
+# in a career of them; a promotion happens once, and capping it would flatten the thing this is
+# deliberately trying to make uneven.
+GRANT = {
+    "grant_base": 20,
+    "grant_playoffs": 5,
+    "grant_title": 5,
+    "grant_top": 3,             # per category placed inside stat_bonus_top_n
+    "grant_top_max": 9,
+    "grant_elite": 5,
+    "grant_catchup": 5,         # played under catchup_share of his team's games
+}
+
 
 def setting(settings, key):
     """A tuned number, or the default. Never raises on a junk value - it falls back."""
+    table = DEFAULTS if key in DEFAULTS else GRANT
     try:
         value = (settings or {})[key]
-        return type(DEFAULTS[key])(value)
+        return type(table[key])(value)
     except (KeyError, TypeError, ValueError):
-        return DEFAULTS[key]
+        return table[key]
+
+
+def cap_for(level, settings=None):
+    """The most the season bonus may add, which depends on the level he played at.
+
+    An explicit `bonus_cap` setting still wins, so live tuning is possible; otherwise the
+    per-level table decides. See BONUS_CAP_BY_LEVEL for why one number does not work.
+    """
+    if settings and "bonus_cap" in settings:
+        return setting(settings, "bonus_cap")
+    return BONUS_CAP_BY_LEVEL.get(level, DEFAULTS["bonus_cap"])
 
 
 def _text(path):
@@ -579,7 +623,7 @@ def champion(html_dir, teams=None, season=None, rounds=None):
 
 
 # ---- the bonus ---------------------------------------------------------------------------
-def for_character(name, html_dir, settings=None, cache=None, rounds=None):
+def for_character(name, html_dir, settings=None, cache=None, rounds=None, league=None):
     """[(reason, points)] for one character, already capped. Empty list means nothing earned.
 
     `cache` is a dict the caller may reuse across characters in the same league: parsing 425
@@ -672,7 +716,52 @@ def for_character(name, html_dir, settings=None, cache=None, rounds=None):
         rows.append((f'season bonus: development ({line.get("G", 0)} of {played} games)',
                      setting(s, "bonus_catchup")))
 
-    return _capped(rows, setting(s, "bonus_cap"))
+    return _capped(rows, cap_for(league, s))
+
+
+def promotion_grant(name, html_dir, settings=None, cache=None, rounds=None):
+    """What a character is paid for the season he is leaving, when he moves up a level.
+
+    Reads the SAME cache `for_character` builds, at the same moment and against the same export,
+    so the grant and the season bonus can never disagree about who made the playoffs. Returns
+    ledger rows, uncapped - see GRANT for why.
+
+    Empty when he has no line in this league's totals, which is the same "never played here"
+    guard the season bonus uses. That is not a character who earns nothing; it is a character
+    this export cannot speak about, and paying a base for him would invent a season.
+    """
+    s = settings or {}
+    c = cache if cache is not None else {}
+    if "teams" not in c:
+        for_character(name, html_dir, settings, c, rounds)     # fills the cache, result unused
+    line = (c.get("totals") or {}).get(name)
+    if not line:
+        return []
+
+    rows = [("promotion: a prep career", setting(s, "grant_base"))]
+    team = line["team"]
+    if c.get("playoffs") and team in c["playoffs"]:
+        rows.append(("promotion: made the playoffs", setting(s, "grant_playoffs")))
+    if c.get("champion") and team == c["champion"]:
+        rows.append(("promotion: won the league", setting(s, "grant_title")))
+
+    top_n = setting(s, "stat_bonus_top_n")
+    placed = [cat for cat in CATEGORIES
+              if rank_in(c["totals"], cat, line.get(cat, 0)) <= top_n]
+    if placed:
+        earned = min(len(placed) * setting(s, "grant_top"), setting(s, "grant_top_max"))
+        rows.append((f'promotion: top {top_n} in {", ".join(placed)}', earned))
+
+    if any(line.get(cat, 0) // c["elite"][cat] for cat in CATEGORIES if c["elite"].get(cat)):
+        rows.append(("promotion: elite-line production", setting(s, "grant_elite")))
+
+    # The same rule the season bonus uses, and for the same reason: a character the coach froze
+    # out did not choose that, and he is the one who most needs points to earn the minutes back.
+    played = c["teams"].get(team, 0)
+    if played and line.get("G", 0) < played * setting(s, "catchup_share"):
+        rows.append((f'promotion: development ({line.get("G", 0)} of {played} games)',
+                     setting(s, "grant_catchup")))
+    return rows
 
 
 def _capped(rows, cap):

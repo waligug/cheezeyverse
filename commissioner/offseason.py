@@ -70,7 +70,14 @@ NEXT_LEVEL = {"prep": "college", "college": "pro"}
 #
 # Nobody was mid-flight when this changed: the oldest prep character was 16 in the 2027 season,
 # so no promotion that would have happened under 17 fails to happen under 18.
-PREP_LAST_AGE = 18
+# The last age a character plays in prep. He is promoted after the season in which he reaches
+# it, so 17 means four prep seasons: 14, 15, 16, 17.
+#
+# This was 17 by design, raised to 18 in a0e0b0d84 as a side effect of giving the AI population
+# an age ladder, which silently pushed every character's promotion back a full season. It is
+# NOT the same rule as the filler age-out: ageout.AGE_CAPS["prep"] = 19 releases AI bodies and
+# is deliberately independent, so this can move without touching the population maths.
+PREP_LAST_AGE = 17
 COLLEGE_MAX_YEARS = 4
 
 # ---- when a career ends ---------------------------------------------------------------------
@@ -98,13 +105,19 @@ DECLINE_DROP = 0.10
 # start earning pro points three years sooner, but you arrive rawer than you left. Potentials are
 # never touched - the ceiling is who he can still become, and leaving early must not close it.
 # The lost points are earnable again; the lost years are not.
-LEVEL_CONVERSION = {"college": 0.97, "pro": 0.94}
+# MOVING UP NO LONGER COSTS RATINGS AT COLLEGE. The 3% haircut took 22-27 rating points off each
+# of the first seven, which cost about 41 points to buy back - two thirds of a whole college
+# season's income spent returning to the player he already was, at exactly the moment the price
+# bands start to bite. seasonbonus.promotion_grant pays him for the prep season instead, so the
+# move is rewarded rather than taxed. The pro step keeps its cost: that one is a real jump, and
+# a character arriving there has a college career's worth of points behind him.
+LEVEL_CONVERSION = {"college": 1.00, "pro": 0.94}
 EARLY_PENALTY_PER_YEAR = 0.07     # each year skipped takes another 7% off
 EARLY_PENALTY_MAX = 0.24          # never worse than a 24% haircut
 # Staying pays in points, leaving pays in time. Without this the maths made declaring after one
 # year strictly best by about 34 points over a career, which is not a choice, it is an answer.
 # A completed college season is worth this on top of the usual offseason lump.
-COLLEGE_DEVELOPMENT_BONUS = 12
+COLLEGE_DEVELOPMENT_BONUS = 20
 # Below this a rating is too low for a percentage to mean anything; leave it alone.
 CONVERSION_FLOOR = 8
 
@@ -1026,7 +1039,7 @@ def _season_bonuses(characters, settings, log):
     Never raises. Six HTML pages per league are parsed here, and a bonus that fails takes down
     an offseason that has already aged, grown, promoted and drafted everybody.
     """
-    out, caches = {}, {}
+    out, grants, caches = {}, {}, {}
     for c in characters:
         if c.get("status") != "active":
             continue
@@ -1043,13 +1056,28 @@ def _season_bonuses(characters, settings, log):
             rows = seasonbonus.for_character(
                 f'{c["first_name"]} {c["last_name"]}', html, settings,
                 caches.setdefault(key, {}),
-                rounds=cfg.BY_KEY[key].playoff_rounds if key in cfg.BY_KEY else None)
+                rounds=cfg.BY_KEY[key].playoff_rounds if key in cfg.BY_KEY else None,
+                league=key)
         except Exception as exc:
             log(f'no season bonus for {c["first_name"]} {c["last_name"]}: {exc}')
             continue
         if rows:
             out[c["id"]] = rows
-    return out
+        # THE PROMOTION GRANT IS WORKED OUT HERE TOO, for everybody, off the cache that has just
+        # been built - not later for the movers only. `movers` runs after this, so asking then
+        # would mean re-parsing six pages per league at the one moment the character's own
+        # `league` field has already been changed to where he is GOING. Computed for all and
+        # paid only to those who actually moved.
+        try:
+            grant = seasonbonus.promotion_grant(
+                f'{c["first_name"]} {c["last_name"]}', html, settings, caches[key],
+                rounds=cfg.BY_KEY[key].playoff_rounds if key in cfg.BY_KEY else None)
+        except Exception as exc:                                        # noqa: BLE001
+            log(f'no promotion grant for {c["first_name"]} {c["last_name"]}: {exc}')
+            grant = []
+        if grant:
+            grants[c["id"]] = grant
+    return out, grants
 
 
 # Stamina is excluded from the improvement figure, and this is not a fudge for one season.
@@ -1158,7 +1186,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
     except Exception as exc:
         log(f"could not work out who improved most ({exc}); the offseason is unaffected")
     _say(status, 30, "bonus", "Reading the season's honours and leaderboards")
-    season_bonus = _season_bonuses(characters, settings, log)
+    season_bonus, promotion_grants = _season_bonuses(characters, settings, log)
     for c in characters:
         rows = season_bonus.get(c["id"])
         if rows:
@@ -1251,8 +1279,10 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
     lump = int(settings.get("offseason_points", 15))
     bonus = int(settings.get("college_development_bonus", COLLEGE_DEVELOPMENT_BONUS))
     if not dry_run:
-        paid = developed = earned = 0
+        paid = developed = earned = granted = 0
         stayed = {c["id"] for c in moving["stay"]}
+        promoted_ids = {r["character"]["id"] for r in result.get("promoted", [])
+                        if isinstance(r, dict) and r.get("character")}
         for c in store.characters():
             if c.get("status") != "active":
                 continue
@@ -1265,6 +1295,15 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             # One ledger row per component, so a friend's history says WHY he was paid rather
             # than showing one unexplained lump. Wrapped per character: a bonus that fails must
             # not cost somebody the offseason lump he has already earned.
+            # Only the people who actually moved, and only what was computed BEFORE they did.
+            if c["id"] in promoted_ids:
+                for why, amount in promotion_grants.get(c["id"], []):
+                    try:
+                        store.grant_points(c["id"], amount, why)
+                        granted += amount
+                    except Exception as exc:                            # noqa: BLE001
+                        log(f'could not pay "{why}" to '
+                            f'{c["first_name"]} {c["last_name"]}: {exc}')
             for why, amount in season_bonus.get(c["id"], []):
                 try:
                     store.grant_points(c["id"], amount, why)
@@ -1278,6 +1317,8 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         if earned:
             log(f"paid {earned} season-bonus point(s) across "
                 f"{len(season_bonus)} character(s)")
+        if granted:
+            log(f"paid {granted} promotion-grant point(s) to {len(promoted_ids)} who moved up")
         result["paid"] = paid
         result["developed"] = developed
         result["season_bonus"] = earned
