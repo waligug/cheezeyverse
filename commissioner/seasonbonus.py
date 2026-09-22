@@ -124,8 +124,15 @@ def cap_for(level, settings=None):
     An explicit `bonus_cap` setting still wins, so live tuning is possible; otherwise the
     per-level table decides. See BONUS_CAP_BY_LEVEL for why one number does not work.
     """
+    # A junk value is NOT an override. `"bonus_cap" in settings` is true for a malformed row,
+    # and setting() swallows the error and hands back the global default - which would silently
+    # undo the pro cap this table exists to raise. Only a value that actually reads as an int
+    # wins; anything else falls through to the level.
     if settings and "bonus_cap" in settings:
-        return setting(settings, "bonus_cap")
+        try:
+            return int(settings["bonus_cap"])
+        except (TypeError, ValueError):
+            pass
     return BONUS_CAP_BY_LEVEL.get(level, DEFAULTS["bonus_cap"])
 
 
@@ -761,7 +768,11 @@ def promotion_grant(name, html_dir, settings=None, cache=None, rounds=None):
     if played and line.get("G", 0) < played * setting(s, "catchup_share"):
         rows.append((f'promotion: development ({line.get("G", 0)} of {played} games)',
                      setting(s, "grant_catchup")))
-    return rows
+    # Drop the zero rows, the same way _capped does and for the same reason: store.grant_points
+    # refuses an amount of 0 outright, so a component somebody had switched off by setting it to
+    # 0 would raise for every promoted character instead of simply not being paid. Not capped -
+    # see GRANT - but the filter is not about the cap.
+    return [(reason, points) for reason, points in rows if points]
 
 
 def _capped(rows, cap):

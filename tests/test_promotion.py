@@ -184,10 +184,49 @@ def test_the_bonus_cap_rises_with_the_level():
     check("an explicit setting overrides", seasonbonus.cap_for("pro", {"bonus_cap": 4}), 4)
 
 
+def effective_development_bonus(settings):
+    """What _run_offseason will actually pay - the same expression it uses."""
+    return int((settings or {}).get("college_development_bonus",
+                                    offseason.COLLEGE_DEVELOPMENT_BONUS))
+
+
 def test_a_college_season_seen_through_still_pays():
-    """Staying pays in points, leaving pays in time. Raising the grant must not invert that."""
+    """Staying pays in points, leaving pays in time. Raising the grant must not invert that.
+
+    ASSERTED ON THE EFFECTIVE VALUE, not the constant. _run_offseason reads
+    settings.get("college_development_bonus", COLLEGE_DEVELOPMENT_BONUS), so a settings row wins
+    and the constant only applies when none exists - which is how raising it 12 -> 20 was a
+    no-op on a universe that had a row of 12, while a test pinned to the constant passed.
+    """
     print("the college development bonus")
-    check("college development bonus", offseason.COLLEGE_DEVELOPMENT_BONUS, 20)
+    check("the constant", offseason.COLLEGE_DEVELOPMENT_BONUS, 20)
+    check("with no row, that is what is paid", effective_development_bonus({}), 20)
+    check("a row wins, which is the trap", effective_development_bonus(
+        {"college_development_bonus": 12}), 12)
+
+
+def test_the_browser_agrees_with_the_engine():
+    """site/js/rules.js carries its own copy, and it is what a player reads BEFORE he clicks.
+
+    The file's own header says it must stay in step with offseason.py. Nothing checked, so when
+    the college conversion went 0.97 -> 1.00 the browser went on telling people that moving up
+    costs 3% of every rating while the engine charged nothing. Latent today - only declareWarning
+    consumes it, and it passes 'pro' - but the whole reason this table exists in the browser is
+    to price an irreversible choice in advance, which is the worst place to be wrong.
+    """
+    print("the browser's copy of the conversion table")
+    js = (Path(__file__).resolve().parents[1] / "site" / "js" / "rules.js").read_text(
+        encoding="utf-8")
+    import re
+    for league, expected in offseason.LEVEL_CONVERSION.items():
+        m = re.search(rf"{league}:\s*([0-9.]+)", js.split("LEVEL_CONVERSION", 1)[1][:120])
+        check(f"rules.js {league}", float(m.group(1)) if m else None, float(expected))
+    for name, value in (("EARLY_PENALTY_PER_YEAR", offseason.EARLY_PENALTY_PER_YEAR),
+                        ("EARLY_PENALTY_MAX", offseason.EARLY_PENALTY_MAX),
+                        ("COLLEGE_MAX_YEARS", offseason.COLLEGE_MAX_YEARS),
+                        ("CONVERSION_FLOOR", offseason.CONVERSION_FLOOR)):
+        m = re.search(rf"export const {name} = ([0-9.]+)", js)
+        check(f"rules.js {name}", float(m.group(1)) if m else None, float(value))
 
 
 def main():
@@ -199,6 +238,7 @@ def main():
         test_the_grant_is_not_squeezed_by_the_season_bonus_cap(Path(root) / "b")
         test_the_bonus_cap_rises_with_the_level()
         test_a_college_season_seen_through_still_pays()
+        test_the_browser_agrees_with_the_engine()
     print()
     for f in FAILS:
         print("  FAIL ", f)

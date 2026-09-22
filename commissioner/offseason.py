@@ -60,16 +60,15 @@ BACKUPS = ROOT / "backups"
 MANIFEST = ROOT / "universe" / "manifest.json"
 
 NEXT_LEVEL = {"prep": "college", "college": "pro"}
-# A prep player is done after his age-18 season and starts college at 19; college eligibility
-# runs four years, so 19-22.
+# College eligibility runs four years, so 19-22.
 #
-# 18, not 17, since 2026-09-20. This has to agree with ageout.AGE_CAPS or the universe has two
-# different ladders in it: the AI population now plays prep through 18, and a character promoted
-# at 17 would arrive in a 19-22 college league as its youngest and weakest player - the same
-# age-mismatch problem the age-out exists to remove, pointed the other way.
-#
-# Nobody was mid-flight when this changed: the oldest prep character was 16 in the 2027 season,
-# so no promotion that would have happened under 17 fails to happen under 18.
+# THE ARGUMENT THAT USED TO SIT HERE - that this must agree with ageout.AGE_CAPS "or the
+# universe has two different ladders in it" - is what raised this to 18 and silently cost every
+# character a season. It is deliberately not repeated: two ladders is the correct answer,
+# because the rules are answering different questions. AGE_CAPS releases an AI body that has
+# outgrown its league; this promotes a character who has finished his time in one. A character
+# arriving in college young is the intended shape of a career, not the age mismatch the age-out
+# exists to remove.
 # The last age a character plays in prep. He is promoted after the season in which he reaches
 # it, so 17 means four prep seasons: 14, 15, 16, 17.
 #
@@ -519,8 +518,9 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
     store.activate_character(character["id"], to_league, slot.team, slot.as_json(),
                              ch.codec_dob(character.get("game_dob")))
 
-    # Write the CONVERTED sheet back. The save now holds the reduced ratings - moving up costs
-    # 3% to college and 6% to the pros - while characters.ratings still held what he had at the
+    # Write the sheet back. Moving up to the pros costs 6% and the save now holds the reduced
+    # ratings; college costs nothing, so there this simply re-states what he already had. Either
+    # way the store must not be left behind - characters.ratings still held what he had at the
     # old level until the next Sim Week happened to overwrite it from the save.
     #
     # That gap is not cosmetic. The website reads characters.ratings, so his page showed
@@ -1283,6 +1283,9 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         stayed = {c["id"] for c in moving["stay"]}
         promoted_ids = {r["character"]["id"] for r in result.get("promoted", [])
                         if isinstance(r, dict) and r.get("character")}
+        # Who was actually PAID, not who moved. promotion_grant returns nothing for a character
+        # with no line in the export, and counting him as paid would overstate the report.
+        granted_to = set()
         for c in store.characters():
             if c.get("status") != "active":
                 continue
@@ -1296,7 +1299,8 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             # than showing one unexplained lump. Wrapped per character: a bonus that fails must
             # not cost somebody the offseason lump he has already earned.
             # Only the people who actually moved, and only what was computed BEFORE they did.
-            if c["id"] in promoted_ids:
+            if c["id"] in promoted_ids and promotion_grants.get(c["id"]):
+                granted_to.add(c["id"])
                 for why, amount in promotion_grants.get(c["id"], []):
                     try:
                         store.grant_points(c["id"], amount, why)
@@ -1318,7 +1322,11 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             log(f"paid {earned} season-bonus point(s) across "
                 f"{len(season_bonus)} character(s)")
         if granted:
-            log(f"paid {granted} promotion-grant point(s) to {len(promoted_ids)} who moved up")
+            log(f"paid {granted} promotion-grant point(s) to {len(granted_to)} who moved up")
+        # The grant is about to be the biggest single payout of an offseason, so it belongs in
+        # the report beside the lump and the development bonus rather than only in the log.
+        result["promotion_grants"] = {cid: rows for cid, rows in promotion_grants.items()
+                                      if cid in granted_to}
         result["paid"] = paid
         result["developed"] = developed
         result["season_bonus"] = earned
