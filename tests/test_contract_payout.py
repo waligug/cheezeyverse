@@ -76,6 +76,27 @@ def test_finances_off_pays_everybody_the_same():
     """One distinct salary across the league is not a ranking. It is Finances being off."""
     print("no salary scale yet")
     check("no distribution from one value", points.salary_distribution([1_000_000] * 300), None)
+    # AND THE SHAPE THAT ACTUALLY BIT. "Every salary identical" is the obvious face of
+    # Finances-off; "300 of 301 identical" is the same absent market wearing two values, and it
+    # passed the distinct-count test while ranking catastrophically. Measured before the guard:
+    # a $5,000,000 rookie among 300 men on the $1,000,000 import token scored the 100th
+    # percentile and 36 points - the STAR band - for a salary worth 17 once the league actually
+    # pays people.
+    one_real_contract = [1_000_000] * 300 + [5_000_000]
+    check("two values is still not a market",
+          points.salary_distribution(one_real_contract), None)
+    check("so the lone rookie is paid the floor, not the star band",
+          points.annual_payout(5_000_000, points.salary_distribution(one_real_contract)),
+          points.PAYOUT_FLOOR)
+    # A POOR LEAGUE IS NOT A BROKEN ONE, and the guard must not confuse them. Most of a league
+    # earning the minimum is an ordinary shape; what is broken is every band below the top
+    # sharing one edge, which is one outlier and a flat line rather than a ranking.
+    check("a poor league still ranks",
+          points.salary_distribution([1_000_000] * 10 + [2_000_000] * 5 + [4_000_000])
+          is not None, True)
+    check("and so does the same shape a decade of cap inflation later",
+          points.salary_distribution([10_000_000] * 10 + [20_000_000] * 5 + [40_000_000])
+          is not None, True)
     check("no distribution from nothing", points.salary_distribution([]), None)
     check("no distribution from zeros", points.salary_distribution([0, 0, 0]), None)
     everybody = {points.annual_payout(1_000_000, None) for _ in range(5)}

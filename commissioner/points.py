@@ -67,7 +67,24 @@ def salary_distribution(salaries):
     live = sorted(int(s) for s in salaries if s and int(s) > 0)
     if len(set(live)) < 2:
         return None
-    return [live[min(len(live) - 1, int(round(pct * (len(live) - 1))))] for pct, _pts in PAYOUT_BANDS]
+    edges = [live[min(len(live) - 1, int(round(pct * (len(live) - 1))))]
+             for pct, _pts in PAYOUT_BANDS]
+    # AND REFUSE WHEN THE EDGES CANNOT TELL ANYONE APART, which the distinct-count test above
+    # does not catch. "Every salary identical" is the obvious face of Finances-off; "300 of 301
+    # identical" is the same absent market wearing two values, and it ranks catastrophically.
+    # Measured on the live pro league at the moment a drafted character is first paid, 300 men
+    # on the $1,000,000 import token plus one $5,000,000 rookie deal gave edges of
+    # [1M, 1M, 1M, 5M] - so that rookie scored the 100th percentile and 36 points, the STAR
+    # band, for a salary worth 17 once the league actually pays people. More than double, for
+    # being the only man in it with a real contract.
+    #
+    # The test is on the OUTPUT rather than on a share of the input, because "most of the league
+    # earns the minimum" is a real and common shape - a league of [1M x10, 2M x5, 4M] is poor,
+    # not broken, and its edges still separate three tiers. What is broken is every band below
+    # the top sharing one edge: that is not a ranking, it is one outlier and a flat line.
+    if len(set(edges[:-1])) < 2:
+        return None
+    return edges
 
 
 def annual_payout(salary, boundaries):
