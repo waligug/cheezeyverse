@@ -431,6 +431,15 @@ export const QUIZ = [
     id: 'role_change',
     prompt: 'The coach moves you out of the role you wanted.',
     measures: 'coachability, which mostly buys potential rather than present ability',
+    // FLAGGED ON THE CREATE PAGE, and this is the only question that is. The trait behind it
+    // buys CEILING rather than present ability, so this answer sets how far he can ever be
+    // developed - and unlike a rating, a ceiling can never be bought back later. Measured on
+    // the first seven characters: the man who answered highest carries an average ceiling of
+    // 84.6 and a best of 110; the man who answered lowest carries 61.7 and a best of 78, and
+    // by his fourth season three of his defining skills were already maxed out with points he
+    // could not spend. The page deliberately does NOT say which trait it is or what it does -
+    // working that out is what the quiz is for - only that this one is worth thinking about.
+    important: true,
     answers: [
       { id: 'whatever', text: 'Whatever wins. Tell me what you need and it is done.',
         weights: { coachability: 9, discipline: 4, confidence: -5 } },

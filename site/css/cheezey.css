@@ -184,6 +184,9 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
 .cv-story-controls .cv-fields { align-items: end; }
 .cv-story-controls select { margin-top: 4px; }
 
+/* The one quiz question that sets a ceiling rather than a rating. */
+.cv-important { color: var(--gold, #C8860D); font-weight: 700; }
+
 .cv-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 
 /* The glance and the MVP race, side by side. The race is the narrower of the two: it is five

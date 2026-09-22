@@ -304,8 +304,14 @@ function renderQuiz() {
   const box = $('#quiz');
   clear(box);
   QUIZ.forEach((q, i) => {
+    // One question carries a marker. Every answer shapes him, but this is the only one that
+    // sets a CEILING, and a ceiling cannot be bought back the way a rating can. What it
+    // measures is deliberately not spelled out - that is what the quiz is for.
     const section = el('section', { class: 'cv-question' },
-      el('h3', {}, `${i + 1}. ${q.prompt}`));
+      el('h3', {}, `${i + 1}. ${q.prompt}`,
+        q.important ? el('span', { class: 'cv-important', title: 'Worth thinking about - this '
+          + 'one shapes how far he can be developed, and you cannot undo it later.' }, ' *') : null),
+      q.important ? el('p', { class: 'cv-hint' }, '* important question') : null);
     const choices = el('div', { class: 'cv-choices' });
     for (const a of q.answers) {
       choices.append(choiceCard(`q-${q.id}`, a.id, state.answers[q.id] === a.id, a.text, null,

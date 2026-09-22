@@ -393,14 +393,25 @@ def movers(characters, season):
     """Characters who have outgrown their level, split by where they are going."""
     out = {"college": [], "draft": [], "stay": []}
     for c in characters:
-        if c.get("status") != "active":
+        # "declared" IS A LIVE STATUS, and this was the only place in the codebase that read it
+        # as though it were not. `declare_for_draft` sets status='declared' and leaves the
+        # `declared` flag alone, so Dodger Manson - declared, on a college roster, wearing the
+        # badge on the site - fell straight through this loop into no bucket at all: not the
+        # draft, not staying, nothing. An offseason would have moved everybody except him, for
+        # ever, and the only symptom is a man who never comes up again.
+        #
+        # Everywhere else already pairs them: publish, seasonflow (four times), simweek and
+        # promote all test `in ("active", "declared")`. This now matches them.
+        if c.get("status") not in ("active", "declared"):
             continue
         age = age_of(c, season)
         if c.get("league") == "prep":
             (out["college"] if age >= PREP_LAST_AGE else out["stay"]).append(c)
         elif c.get("league") == "college":
             years = int(c.get("college_years") or 0) + 1
-            if c.get("declared") or years >= COLLEGE_MAX_YEARS:
+            # The status is the declaration the site actually makes; the flag is the older way
+            # of saying it. Either counts, so neither route can strand somebody.
+            if c.get("declared") or c.get("status") == "declared" or years >= COLLEGE_MAX_YEARS:
                 out["draft"].append(c)
             else:
                 out["stay"].append(c)
