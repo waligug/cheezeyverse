@@ -29,6 +29,8 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from contextlib import contextmanager  # noqa: E402
+
 from commissioner.driver import fbpb3  # noqa: E402
 from commissioner.driver.fbpb3 import (  # noqa: E402
     FBPB3, DriverError, EDITOR_EXPORT, PLAYER_FILE_SAVE, EDITOR_EXIT, SAVE_NAME_OK,
@@ -81,7 +83,8 @@ class FakeGame(FBPB3):
         self._writes = writes if writes is not None else ["full"]
         self._left_editor = False
         self._attempt = -1
-        self.main = SimpleNamespace(type_keys=lambda *a, **k: None,
+        # `handle` because the SAVE-enable nudge runs inside _foreground(), which reads it.
+        self.main = SimpleNamespace(type_keys=lambda *a, **k: None, handle=1,
                                     descendants=lambda **k: [FakeCombo(self._sticky)])
         self.app = SimpleNamespace(windows=lambda **k: [])
 
@@ -115,6 +118,11 @@ class FakeGame(FBPB3):
     def _set_export_text(self, box, value):
         return value
 
+    @contextmanager
+    def _foreground(self):
+        """Real one raises the window; there is nothing to raise here."""
+        yield
+
 
 def run(target, **kw):
     """Call the real export_players against a fake game. Returns (result, error, game)."""
@@ -125,8 +133,11 @@ def run(target, **kw):
     (target.parent).mkdir(parents=True, exist_ok=True)
     # The name box lives on a real window scan, which a fake has none of. `windows` returning a
     # single form with a visible text box is the shape export_players looks for.
+    # The nudge that makes VB6 enable SAVE types into the box; the fake has to accept it, and
+    # window_text must keep reading back the name so the re-verification passes.
     box = SimpleNamespace(window_text=lambda: "fix", set_edit_text=lambda v: None,
-                          is_visible=lambda: True)
+                          is_visible=lambda: True, set_focus=lambda: None,
+                          type_keys=lambda *a, **k: None)
     form = SimpleNamespace(class_name=lambda: "ThunderRT6FormDC",
                            descendants=lambda **k: [box])
     game.app = SimpleNamespace(windows=lambda **k: [form])
