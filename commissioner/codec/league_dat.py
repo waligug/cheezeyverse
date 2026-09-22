@@ -1,4 +1,6 @@
-"""Read/write player records in an FBPB3 league.dat (in-place int16 edits only; file layout never changes).
+"""Read/write player records in an FBPB3 league.dat (in-place edits only; file layout never changes).
+
+Every field is int16 EXCEPT the seven contract salaries, which are int32 - see CONTRACT_FROM_T1.
 
 Layout notes and how each offset was confirmed live in CONVENTIONS.md. Anchors per player record:
   S  start of the name triple:  str Full, str First, str Last, str Nickname
@@ -26,6 +28,27 @@ POTENTIALS = ["PotInside", "PotJumpShot", "PotFtShot", "Pot3pShot", "PotHandling
               "PotDReb", "PotPostDefense", "PotPerimeterDefense", "PotStealing", "PotBlocking"]
 POT_OFFSET = 168
 RATING_MAX = 150  # the game stores ratings above 100 (a real player file reaches 139)
+
+# ---- money ---------------------------------------------------------------------------------
+# Contract1..Contract7: seven consecutive int32 SALARIES, one per remaining year, at a fixed
+# offset from T1. THIS IS THE ONLY 32-BIT FIELD IN THE RECORD - everything else here is int16,
+# which is why it gets its own accessors instead of a `_slots` entry. Routing it through `set()`
+# would pack it as int16 and silently truncate: 1000000 would land as 16960.
+#
+# HOW THE OFFSET WAS FOUND, since it cannot be re-derived from the game's docs (there are none).
+# 255 of the 530 pro players carried exactly 1000000 (`generate.IMPORT_CONTRACT`) and 275 carried
+# nothing, so the value itself was the probe: every occurrence of int32 1000000 in the file - all
+# 255 of them - fell inside a player record. There is NO fixed offset from S, E or R, because a
+# variable-length block sits in front of it (E+252 holds for only 44% of players). It is fixed
+# from T1, which `_find_team_fields` already locates between two VB6 count-2 array headers.
+#
+# Verified by reading all seven years for all 530 players and diffing against the game's own
+# League Editor export: 530/530 exact, including the 275 all-zero ones. The first attempt read
+# T1+113 and returned 256000000 - the same bytes off by one - which is exactly the kind of error
+# that looks plausible without ground truth to check it against.
+CONTRACT_YEARS = 7
+CONTRACT_FROM_T1 = 114
+CONTRACT_MAX = 2_000_000_000   # int32 headroom; the game's own imports use 1_000_000
 BIO_INTS = ["Height", "Weight", "_zero", "BirthMonth", "BirthDay", "BirthYear"]
 E_FIELDS = {"Position": 18, "Team": 40, "Inactive": 46, "Exp": 82}  # Inactive: -1 = dressed out
 POSITIONS = {1: "C", 2: "PF", 3: "SF", 4: "SG", 5: "PG"}
@@ -68,6 +91,7 @@ class Player:
     first: str
     last: str
     values: dict = field(default_factory=dict)
+    contract: list = field(default_factory=list)   # seven int32 salaries; see CONTRACT_FROM_T1
     id: int = 0
     T1: int = 0
 
@@ -677,6 +701,43 @@ class LeagueDat:
 
     def _read_values(self, pl):
         pl.values = {k: self._i16(off) for k, off in self._slots(pl).items()}
+        pl.contract = self.contract_of(pl)
+
+    # ---- money -----------------------------------------------------------------------------
+    def _contract_at(self, pl):
+        at = pl.T1 + CONTRACT_FROM_T1
+        if at < 0 or at + 4 * CONTRACT_YEARS > len(self.data):
+            raise CodecError(f"contract block for {pl.name} falls outside the file")
+        return at
+
+    def contract_of(self, pl):
+        """The seven yearly salaries. All zeros means NO CONTRACT, which is not the same as a
+        contract worth nothing: with Full Finances the game RELEASES a player with no contract
+        the moment the league loads (CONVENTIONS.md), which is why this is worth reading."""
+        return list(struct.unpack_from(f"<{CONTRACT_YEARS}i", self.data, self._contract_at(pl)))
+
+    def set_contract(self, pl, salaries):
+        """Write the contract years. Shorter input is zero-filled, so `[1000000]` is a one-year deal.
+
+        Values are ints and are range-checked rather than truncated: this is the one field in the
+        record wide enough to be silently mangled by a careless write, and it decides whether a
+        player survives the next load."""
+        vals = list(salaries or [])
+        if len(vals) > CONTRACT_YEARS:
+            raise CodecError(f"a contract runs at most {CONTRACT_YEARS} years, got {len(vals)}")
+        vals += [0] * (CONTRACT_YEARS - len(vals))
+        out = []
+        for i, v in enumerate(vals):
+            try:
+                v = int(v)
+            except (TypeError, ValueError):
+                raise CodecError(f"contract year {i + 1} is not a number: {v!r}") from None
+            if not 0 <= v <= CONTRACT_MAX:
+                raise CodecError(f"contract year {i + 1} = {v} out of range 0..{CONTRACT_MAX}")
+            out.append(v)
+        struct.pack_into(f"<{CONTRACT_YEARS}i", self.data, self._contract_at(pl), *out)
+        pl.contract = out
+        return out
 
     # ---- public API ------------------------------------------------------------------------
     def find(self, name, dob=None):
@@ -688,6 +749,9 @@ class LeagueDat:
     def set(self, pl, field_name, value):
         slots = self._slots(pl)
         if field_name not in slots:
+            if str(field_name).startswith("Contract"):
+                raise CodecError(f"{field_name} is a 32-bit salary; use set_contract(), because "
+                                 "this writes int16 and would truncate it")
             raise CodecError(f"unknown field {field_name}")
         if field_name in RATINGS or field_name in POTENTIALS:
             if not 0 <= value <= RATING_MAX:
@@ -719,6 +783,13 @@ class LeagueDat:
             if (a.S, a.R, a.id) != (b.S, b.R, b.id) or a.values != b.values:
                 tmp.unlink()
                 raise CodecError(f"verification failed for {a.name}")
+            # Money is verified on the same footing as everything else. A truncated or
+            # misplaced salary does not look wrong in the file; it looks wrong weeks later,
+            # when the player is quietly released on a load.
+            if a.contract != b.contract:
+                tmp.unlink()
+                raise CodecError(f"contract verification failed for {a.name}: "
+                                 f"wrote {a.contract}, read back {b.contract}")
         try:
             check.teams()  # rosters, lineups and depth charts must agree with every player's team field
         except CodecError:
