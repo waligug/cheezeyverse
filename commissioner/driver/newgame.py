@@ -68,9 +68,9 @@ class NewGame:
         first New Game of a session and failed on the third, which is how a rebuild deleted the
         Prep save and then could not recreate it. Poll instead of assuming.
         """
-        end = time.time() + timeout
+        end = time.monotonic() + timeout
         last = None
-        while time.time() < end:
+        while time.monotonic() < end:
             try:
                 r0 = self.g.main.rectangle()
                 for c in self.g.main.descendants():

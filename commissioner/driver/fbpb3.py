@@ -61,6 +61,11 @@ CLICK_EXTENT = (960, 670)
 # both finish when the game says so - but how long the driver will hold on before calling the
 # step failed. A slow disk on a 6 MB save has never come near either. Named so the tests can
 # shrink them; nothing else should.
+# EVERY DEADLINE IN THIS FILE IS time.monotonic(), never time.time(). This machine runs
+# unattended and logs itself back in, so an NTP correction lands whenever it lands: a forward
+# step makes a wait expire early and report a save that never finished, a backward one makes it
+# hang past its limit. Elapsed time is what all of these actually mean, and monotonic is the
+# only clock that measures it.
 LOAD_LIMIT_FLOOR = 30
 SAVE_LIMIT_FLOOR = 30
 # The player export. EXPORT_GRID_LIMIT is how long the League Editor's list may take to fill on
@@ -278,7 +283,7 @@ class FBPB3:
         took reports the final entry, and on these dialogs the final entry is frequently exactly
         the "Yes" being asked for. Compare the index instead.
         """
-        end = time.time() + timeout
+        end = time.monotonic() + timeout
         last = ""
         while True:
             c = self._control_at(rel, timeout=min(10, timeout))
@@ -297,15 +302,15 @@ class FBPB3:
                 last = f"it stayed on index {c.selected_index()} of {options!r}"
             elif options:
                 last = f"its options are {options!r}"
-            if time.time() >= end:
+            if time.monotonic() >= end:
                 raise DriverError(f"could not set the dropdown at {rel} to {value!r}: "
                                   f"{last or 'it never offered any options'}")
             time.sleep(0.5)
 
     def dismiss_message(self, title=None, button="OK", timeout=30):
         """Wait for a standard message box, return its text, and press a button."""
-        end = time.time() + timeout
-        while time.time() < end:
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
             for w in self.app.windows(class_name="#32770", visible_only=True):
                 # Everything that touches the window goes inside the guard. Reading the caption
                 # and the body happened OUTSIDE it, and message boxes are transient - the game
@@ -467,10 +472,10 @@ class FBPB3:
         # so "nothing is moving" is exactly what the middle of a load looks like. The button
         # only vanishes once the game has actually navigated off the Load screen.
         limit = max(LOAD_LIMIT_FLOOR, wait * 3)
-        deadline = time.time() + limit
+        deadline = time.monotonic() + limit
         self.click(LOAD_BUTTON, 0)
         while self._load_screen_open(unknown=True):
-            if time.time() > deadline:
+            if time.monotonic() > deadline:
                 raise DriverError(f"row {row} was still on the Load screen {limit}s after "
                                   "LOAD was clicked")
             time.sleep(0.25)
@@ -488,8 +493,8 @@ class FBPB3:
         thing to see mid-transition, not a reason to abandon the run. The timeout is what makes
         this safe: a condition that never becomes true still ends, and ends as a refusal.
         """
-        end = time.time() + timeout
-        while time.time() < end:
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
             try:
                 if cond():
                     return True
@@ -687,9 +692,9 @@ class FBPB3:
         confirmed_steps = 0
         next_read = 0.0
         self.click(HOTSEAT_SIM_TO_GAME, 0)
-        deadline = time.time() + (timeout or max(60, n * 5))
+        deadline = time.monotonic() + (timeout or max(60, n * 5))
         seen_busy = False
-        while time.time() < deadline:
+        while time.monotonic() < deadline:
             boxes = self._message_boxes()
             if boxes:
                 if "Schedule Warning" in boxes and not seen_busy:
@@ -713,7 +718,7 @@ class FBPB3:
                     # what made this number untrustworthy. The heading is the truth, but OCR is
                     # far too slow to run every pass, so it runs on a timer and only when the
                     # cheap signature says something changed.
-                    now = time.time()
+                    now = time.monotonic()
                     if now >= next_read:
                         next_read = now + 0.6
                         shown = self._calendar_date()
@@ -836,16 +841,16 @@ class FBPB3:
         The upshot: exactly the same captures decide the outcome as before. Only the waiting in
         between got cheap.
         """
-        end = time.time() + timeout
+        end = time.monotonic() + timeout
         # The cheap read is believed until it is caught being wrong. `quiet_until` is set ONLY
         # by a confirmation that failed - so in the ordinary case a changed date is confirmed
         # the instant it is seen, with no rate limit standing in front of it, and only a screen
         # that has already lied once gets asked more slowly. Rate-limiting every confirmation
         # instead would put up to half a second back onto every single day.
         quiet_until = 0.0
-        next_periodic = time.time() + 1.0
-        while time.time() < end:
-            now = time.time()
+        next_periodic = time.monotonic() + 1.0
+        while time.monotonic() < end:
+            now = time.monotonic()
             suspect = self._date_signature(cheap=True) != before and now >= quiet_until
             if suspect or now >= next_periodic:
                 next_periodic = now + 1.0
@@ -1082,16 +1087,16 @@ class FBPB3:
         # Two conditions, and the second is the one that matters: the file has been touched AND
         # it has stopped growing. mtime alone moves when the write BEGINS, so waiting only for
         # that would hand a half-written league.dat to the export that comes next.
-        end, last, quiet_since = time.time() + limit, before, None
-        while time.time() < end:
+        end, last, quiet_since = time.monotonic() + limit, before, None
+        while time.monotonic() < end:
             mark = self._file_mark(path)
             if mark != last:
-                last, quiet_since = mark, time.time()
+                last, quiet_since = mark, time.monotonic()
             # A full second of quiet, not less. The other waits here can be shaved because the
             # thing they watch is a screen; this one is a 6 MB file being written by a process
             # that owes us no promises about its pauses, and being wrong costs a half-written
             # league.dat handed to the export.
-            elif mark is not None and mark[1] > 0 and quiet_since is not None and time.time() - quiet_since >= 1.0:
+            elif mark is not None and mark[1] > 0 and quiet_since is not None and time.monotonic() - quiet_since >= 1.0:
                 if not self._wait_until_still(settle=0.4, timeout=30, poll=0.1):
                     raise DriverError("save window did not settle after writing")
                 if self._file_mark(path) == mark:
@@ -1124,12 +1129,12 @@ class FBPB3:
         lands early - and sim_days already clicks a second time and re-confirms the date when
         one is swallowed. The checks that decide anything stay on PrintWindow.
         """
-        end, last, still_since = time.time() + timeout, None, None
-        while time.time() < end:
+        end, last, still_since = time.monotonic() + timeout, None, None
+        while time.monotonic() < end:
             now = self._grab(cheap=cheap).tobytes()
             if now != last:
-                last, still_since = now, time.time()
-            elif time.time() - still_since >= settle:
+                last, still_since = now, time.monotonic()
+            elif time.monotonic() - still_since >= settle:
                 return True
             time.sleep(poll)
         return False
@@ -1155,8 +1160,8 @@ class FBPB3:
             if save:
                 raise
             self.dismiss_all()
-        end = time.time() + 30
-        while self.is_running() and time.time() < end:
+        end = time.monotonic() + 30
+        while self.is_running() and time.monotonic() < end:
             time.sleep(0.5)
         if self.is_running():
             self.kill()
@@ -1240,16 +1245,16 @@ class FBPB3:
         of this, since the one that broke a week arrived after the work it announced had already
         finished. Raises rather than returning with a dialog still up.
         """
-        end, quiet_since = time.time() + timeout, None
-        while time.time() < end:
+        end, quiet_since = time.monotonic() + timeout, None
+        while time.monotonic() < end:
             if self._message_boxes():
                 self.dismiss_all()
                 quiet_since = None
                 time.sleep(0.5)
                 continue
             if quiet_since is None:
-                quiet_since = time.time()
-            elif time.time() - quiet_since >= grace:
+                quiet_since = time.monotonic()
+            elif time.monotonic() - quiet_since >= grace:
                 return True
             time.sleep(0.5)
         raise DriverError(f"a message box would not close: {self._message_boxes()}")
@@ -1289,7 +1294,7 @@ class FBPB3:
         first two passed - and html_output() is driven three times in a row, once per league.
         Poll instead of assuming.
         """
-        end = time.time() + timeout
+        end = time.monotonic() + timeout
         last = None
         while True:
             try:
@@ -1303,7 +1308,7 @@ class FBPB3:
                         continue
             except Exception as exc:
                 last = exc
-            if time.time() >= end:
+            if time.monotonic() >= end:
                 break
             time.sleep(0.5)
         raise DriverError(f"no control at window-relative {rel} after {timeout}s"
@@ -1420,10 +1425,10 @@ class FBPB3:
             self._set_export_text(box, value)
 
         self.click(self.HTML_OUTPUT_BTN, 3)
-        end = time.time() + timeout
+        end = time.monotonic() + timeout
         index = out / "index.htm"
         answered = []
-        while time.time() < end:
+        while time.monotonic() < end:
             # Affirmative buttons only: No and Cancel are how you abort the export being
             # waited on. Whatever it answers is remembered, because the timeout below is
             # otherwise unable to tell "the export was slow" from "a box was in the way" - and

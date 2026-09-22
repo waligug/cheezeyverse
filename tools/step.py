@@ -11,8 +11,8 @@ if x >= 0:
         g.click((x, y), 0.5)
     except Exception as e:
         print("CLICK FAILED:", type(e).__name__)
-end = time.time() + wait
-while time.time() < end:
+end = time.monotonic() + wait
+while time.monotonic() < end:
     time.sleep(1)
     if g.app.windows(class_name="#32770", visible_only=True):
         break

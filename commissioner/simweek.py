@@ -72,8 +72,8 @@ def _manifest():
 # ---- status ----------------------------------------------------------------------------------
 def _wait_for_game_to_exit(timeout=30):
     """True once no FBPB3 process is left, or False if one is still there after `timeout`."""
-    end = time.time() + timeout
-    while time.time() < end:
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
         try:
             out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq FBPB3.exe"],
                                  capture_output=True, text=True, timeout=10)
@@ -1029,7 +1029,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     if not _SIM_LOCK.acquire(blocking=False):
         raise SimBusy("a sim is already running")
     keys = list(leagues or [s.key for s in cfg.LEAGUES])
-    started = time.time()
+    started = time.monotonic()
     steps = []
     progress, status = None, None
     failure_summary = None
@@ -1049,7 +1049,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
     def emit(step, message, league=None, pct=None):
         row = {"step": step, "league": league, "message": message,
                "pct": pct if pct is not None else (progress.percent if progress else 0),
-               "t": round(time.time() - started, 1)}
+               "t": round(time.monotonic() - started, 1)}
         steps.append(row)
         _RUNNING["steps"] = steps[-40:]
         if status is not None:
@@ -1649,7 +1649,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # call, since the lock is still held.
         # Failed runs retain evidence even when some local cleanup succeeded.
         try:
-            phases = phase_totals(steps, time.time() - started)
+            phases = phase_totals(steps, time.monotonic() - started)
             if phases and not dry_run:
                 emit("done", "where the time went: " + ", ".join(
                     f"{name} {secs:.0f}s" for name, secs in phases[:6]))
@@ -1657,7 +1657,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 result["summary"]["changes"] = [r["message"] for r in steps
                     if r.get("step") == "apply" and ("->" in r.get("message", "") or "→" in r.get("message", ""))]
                 result["summary"]["publishing"] = [r["message"] for r in steps if r.get("step") == "publish"][-1:]
-            recorded = st.record_run({**result, "seconds": round(time.time() - started),
+            recorded = st.record_run({**result, "seconds": round(time.monotonic() - started),
                            "started_at": datetime.fromtimestamp(started, timezone.utc)
                            .isoformat(timespec="seconds"),
                            "season": season_now,
@@ -1667,7 +1667,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                     raise OSError("run history was not recorded; recovery journal retained")
                 _clear_marker()
             if result["ok"] and not dry_run:
-                emit("done", f"done in {round(time.time() - started)}s", pct=100)
+                emit("done", f"done in {round(time.monotonic() - started)}s", pct=100)
         except Exception:
             result["ok"] = False
             failure_summary = (failure_summary or
@@ -1682,7 +1682,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             try:
                 if status is not None:
                     status.finish(result["ok"], failure_summary or
-                                  _discord_report(steps, result, time.time() - started))
+                                  _discord_report(steps, result, time.monotonic() - started))
             except Exception as exc:
                 print(f"Discord final status failed ({type(exc).__name__}); run is unaffected")
             finally:
