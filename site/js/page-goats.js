@@ -25,6 +25,7 @@ const LEAGUES = [['prep', 'Prep'], ['college', 'College'], ['pro', 'Pro']];
 const BOARDS = [
   ['Points', 'Points'], ['efficiency', 'Efficiency'], ['Rebounds', 'Rebounds'],
   ['Assists', 'Assists'], ['Blocks', 'Blocks'], ['Steals', 'Steals'],
+  ['DoubleDoubles', 'Double-doubles'], ['TripleDoubles', 'Triple-doubles'],
   ['3PM', 'Threes'], ['Minutes', 'Minutes'],
 ];
 
@@ -44,6 +45,8 @@ const COLUMNS = [
   ['apg', 'APG', true, 'assists per game'],
   ['Steals', 'STL', false, 'total steals'],
   ['Blocks', 'BLK', false, 'total blocks'],
+  ['DoubleDoubles', 'DD', false, 'double-doubles: ten or more in two categories in one game'],
+  ['TripleDoubles', 'TD', false, 'triple-doubles: ten or more in three categories in one game'],
   ['efficiency', 'EFF', false, 'efficiency: points + rebounds + assists + steals + blocks, '
     + 'minus missed shots and turnovers'],
   ['fg_pct', 'FG%', true, 'field goal percentage'],
@@ -163,6 +166,9 @@ function renderLeaders(data) {
   for (const [key, label] of BOARDS) {
     const rows = ranked(active.careers, key, 10);
     if (!rows.length) continue;
+    // A board nobody is on is not a board. Prep has never seen a triple-double, and ten rows of
+    // zero reads as a broken page rather than as an honest "it has not happened here yet".
+    if (!num(rows[0].value)) continue;
     grid.append(el('div', { class: 'cv-card cv-sub' },
       el('h3', {}, PER_GAME ? `${label} per game` : `Most ${label.toLowerCase()}`),
       el('table', { class: 'cv-table cv-tight' },
