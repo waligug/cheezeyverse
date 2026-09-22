@@ -13,6 +13,7 @@ import json
 import re
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -103,6 +104,7 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
     # is exactly what happened to games.json: run_sim wrote it before publish(), a publish then
     # removed it from the site, and the comment on that call claimed the opposite.
     stats = _write_stats(src, dst, key)
+    cap = _write_cap(src, dst, key)
     # AFTER restyle, which rebuilds the folder from the game's export and would undo this.
     try:
         current = int(str(season or season_label(key)).split()[-1])
@@ -117,7 +119,8 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
             (dst / name).write_bytes(payload)
         games = careers = {"deferred": True, "retained": sorted(retained)}
     return {"league": key, "name": spec.name, "pages": pages, "path": str(dst),
-            "stats": stats, "games": games, "careers": careers, "repaired": repaired}
+            "stats": stats, "games": games, "careers": careers, "cap": cap,
+            "repaired": repaired}
 
 
 _YEAR_ROW = re.compile(r"^(20\d\d)$")
@@ -427,6 +430,131 @@ def _career_line(row, stat):
             "games": row.get("Games", 0), "team": row.get("team", ""),
             "from": row.get("first_season"), "to": row.get("last_season"),
             "ppg": row.get("ppg"), "rpg": row.get("rpg"), "apg": row.get("apg")}
+
+
+_MONEY = re.compile(r"^\(?\$?([\d,]+)\)?$")
+
+
+def _money(cell):
+    """A dollar cell from the game's own report, or None. Parenthesised means negative."""
+    text = (cell or "").strip().replace("&nbsp;", " ").strip()
+    m = _MONEY.match(text)
+    if not m:
+        return None
+    value = int(m.group(1).replace(",", ""))
+    return -value if text.startswith("(") else value
+
+
+def _cap_report(src):
+    """(cap, mle, lle) off `capreport.htm`, the game's own Salary Cap Report.
+
+    The cap is not printed as such - every row shows Salary and Cap Room, and their SUM is the
+    cap, identical on every row. The exceptions are printed parenthesised, which is this report's
+    way of saying "room you have not used", so their magnitude is what we want.
+
+    Parsed in PYTHON, deliberately. `page-index.js` states the rule the other way round: the
+    browser must never parse the game's HTML, because a second implementation in JavaScript is
+    how the two start disagreeing.
+    """
+    text = (Path(src) / "capreport.htm").read_text(encoding="latin-1", errors="replace")
+    flat = re.sub(r"&nbsp;?", " ", re.sub(r"<[^>]+>", "|", text))
+    cells = [c.strip() for c in flat.split("|") if c.strip()]
+    head = cells.index("Low Exception")
+    row = cells[head + 1:head + 8]              # #, Team, Salary, Cap Room, Budget, Mid, Low
+    salary, room = _money(row[2]), _money(row[3])
+    if salary is None or room is None:
+        raise ValueError("capreport.htm has no readable Salary / Cap Room")
+    mid, low = _money(row[5]), _money(row[6])
+    return salary + room, abs(mid or 0), abs(low or 0)
+
+
+def _luxury_tax(dat, cap, mle, lle):
+    """The luxury tax, which the cap report does not print. None when it cannot be pinned down.
+
+    It is not exposed anywhere readable, so it is found in the binary - but NOT at a fixed
+    offset, because the finance block moves as the file grows (measured: 78632 in the live pro
+    save, nowhere near it in a clone one season on). Instead the CAP, whose value the report just
+    gave us, is located and confirmed by its neighbours - MLE at +28 and LLE at +32 - and the tax
+    is the int32 immediately BEFORE it. Two independent sources have to agree before a number is
+    believed, and if they do not this returns None and the chart simply draws no tax line.
+    """
+    needle = struct.pack("<i", cap)
+    data, at, hits = dat, dat.find(needle), []
+    while at != -1:
+        try:
+            if (struct.unpack_from("<i", data, at + 28)[0] == mle
+                    and struct.unpack_from("<i", data, at + 32)[0] == lle):
+                hits.append(at)
+        except struct.error:
+            pass
+        at = data.find(needle, at + 1)
+    if len(hits) != 1 or hits[0] < 4:
+        return None                            # ambiguous or absent: say nothing rather than guess
+    tax = struct.unpack_from("<i", data, hits[0] - 4)[0]
+    return tax if 0 < tax < 2_000_000_000 else None
+
+
+def _write_cap(src, dst, key):
+    """Emit `cap.json`: what every team is paying, and the lines that money is read against.
+
+    The site has never shown team money. The two places money appears are both per-character and
+    both read `level_history.finances` out of Supabase; nothing anywhere adds a roster up.
+
+    Salaries come from the SAVE rather than from the export, because the export does not carry
+    them - `capreport.htm` totals a team but never breaks it down by player.
+
+    Never fatal, like every other writer here. A publish that produced every page is a good
+    publish even if this file is missing.
+    """
+    try:
+        from ..codec.league_dat import LeagueDat, POSITIONS
+        from .. import characters as ch
+        spec = cfg.BY_KEY[key]
+        league = LeagueDat(ch.save_path(key))
+        ours = _our_players(key)
+
+        ids = sorted(league.teams())
+        abbrev_of = {tid: spec.teams[i].abbrev for i, tid in enumerate(ids) if i < len(spec.teams)}
+        rosters = {}
+        for pl in league.players:
+            abbrev = abbrev_of.get(pl.values["Team"])
+            if not abbrev:
+                continue                       # free agents and the draft pool are not a payroll
+            rosters.setdefault(abbrev, []).append({
+                "name": pl.name,
+                "salary": pl.contract[0] if pl.contract else 0,
+                "years": sum(1 for y in pl.contract if y > 0),
+                "position": POSITIONS.get(pl.values["Position"], ""),
+                "ours": pl.id in ours,
+            })
+
+        teams = []
+        for team in spec.teams:
+            men = sorted(rosters.get(team.abbrev, []), key=lambda m: -m["salary"])
+            teams.append({
+                "abbrev": team.abbrev, "city": team.city, "nickname": team.nickname,
+                "color": team.color, "division": team.division,
+                "payroll": sum(m["salary"] for m in men), "players": men,
+            })
+
+        cap, mle, lle = _cap_report(src)
+        data = {
+            "generated": datetime.now().isoformat(timespec="seconds"),
+            "league": key, "season": season_label(key),
+            "cap": cap, "mle": mle, "lle": lle,
+            "luxury_tax": _luxury_tax(bytes(league.data), cap, mle, lle),
+            # THE SAME FLAG simweek.py uses for a character's Money tab. False means every
+            # contract is still the league's setup token, so the page can say so rather than
+            # drawing a distribution that does not exist yet.
+            "scale": len({m["salary"] for t in teams for m in t["players"]}) > 1,
+            "teams": teams,
+        }
+        (dst / "cap.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+        return {"teams": len(teams), "payroll": sum(t["payroll"] for t in teams),
+                "tax": data["luxury_tax"]}
+    except Exception as exc:                                            # noqa: BLE001
+        print(f"  no cap.json for {key} ({exc}); the pages themselves are fine")
+        return None
 
 
 def _write_stats(src, dst, key):

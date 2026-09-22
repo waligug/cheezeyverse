@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The cap &middot; The Cheezeyverse</title>
+<meta name="description" content="What every pro team is paying, stacked contract by contract against the salary cap and the luxury tax.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F2B705'/%3E%3Ccircle cx='10' cy='11' r='3' fill='%238A5A00'/%3E%3Ccircle cx='21' cy='17' r='4' fill='%238A5A00'/%3E%3Ccircle cx='12' cy='23' r='2.5' fill='%238A5A00'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<main class="cv-page">
+
+  <h1>The cap</h1>
+  <p class="cv-muted" id="intro">Every contract on a pro roster, stacked from the floor. The
+    dashed lines are the salary cap and the luxury tax.</p>
+
+  <div id="notices"></div>
+  <div id="teamtabs" class="cv-tabs"></div>
+
+  <section class="cv-card">
+    <div class="cv-card-head">
+      <h2 id="team-name">Payroll</h2>
+      <span class="cv-muted" id="team-total"></span>
+    </div>
+    <div id="board"><p class="cv-spinner">Loading every contract...</p></div>
+  </section>
+
+  <section class="cv-card">
+    <div class="cv-card-head">
+      <h2>Every team</h2>
+      <span class="cv-muted" id="league-total"></span>
+    </div>
+    <div id="table"></div>
+  </section>
+
+</main>
+
+<script type="module" src="js/page-cap.js"></script>
+</body>
+</html>

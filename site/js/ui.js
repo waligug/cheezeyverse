@@ -65,6 +65,33 @@ export function fmtDate(value) {
 
 export function plural(n, one, many) { return `${n} ${n === 1 ? one : many || `${one}s`}`; }
 
+/** A dollar figure the way this site writes them. `--` for nothing, never `$NaN`. */
+export function money(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return '--';
+  return `$${Math.round(Number(n)).toLocaleString('en-US')}`;
+}
+
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+/**
+ * el() for SVG. It exists because el() builds with document.createElement, which cannot make an
+ * SVG node - it returns an HTMLUnknownElement that lays out as an empty box and renders nothing
+ * at all. Lives here rather than in a page module because two pages now draw charts, and the
+ * second copy of a builder is where two charts start behaving differently.
+ */
+export function svg(tag, attrs, ...kids) {
+  const node = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    node.setAttribute(k, v === true ? '' : String(v));
+  }
+  for (const kid of kids.flat()) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    node.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  }
+  return node;
+}
+
 /* -------------------------------------------------------------------------- notices */
 
 export function note(kind, message, items) {
@@ -100,6 +127,7 @@ const NAV = [
   { href: 'stories.html', label: 'Stories' },
   { href: 'h2h.html', label: 'Head to head' },
   { href: 'goats.html', label: 'All time' },
+  { href: 'cap.html', label: 'The cap' },
   { href: 'me.html', label: 'My players' },
 ];
 

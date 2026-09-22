@@ -17,11 +17,7 @@ import {
   declareForDraft, deletePendingCharacter, LEAGUE_LABELS, errorText,
   oauthErrorFromUrl, pointsPerWeek,
 } from './supabase.js';
-import {
-  $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
-  statusPill, renderSheet, renderMeter, describeCharacter, fmtDate,
-  renderTraitBars, classLine, positionLine, goalLine, tabs, freshJSON,
-} from './ui.js';
+import { $, classLine, clear, describeCharacter, el, fmtDate, freshJSON, goalLine, money, note, positionLine, renderChrome, renderFooter, renderMeter, renderSheet, renderTraitBars, setupNeededNote, showNote, statusPill, tabs } from './ui.js';
 
 const chrome = renderChrome({
   active: 'me.html',
@@ -527,10 +523,6 @@ function financesOf(character) {
   return null;
 }
 
-function money(n) {
-  if (n == null) return '--';
-  return '$' + Math.round(n).toLocaleString('en-US');
-}
 
 function moneyPanel(character) {
   const f = financesOf(character);

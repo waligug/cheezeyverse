@@ -458,6 +458,25 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .cv-chart-label { fill: var(--crust); font: 600 10px var(--font); }
 .cv-chart-note { fill: var(--crust); font: 700 11px var(--font); letter-spacing: 1px; text-transform: uppercase; }
 
+/* the cap board: one contract per block, stacked from the floor. The block's own colour is set
+   inline per player (fifteen adjacent bands have to be told apart), so these rules carry only
+   the two states that mean something. */
+.cv-chart-bar { stroke: #fff; stroke-width: 1; }
+.cv-chart-bar.is-over { stroke: var(--bad); stroke-width: 2; }
+.cv-chart-bar.is-ours { stroke: var(--human); stroke-width: 2.5; }
+.cv-chart-boxlabel { fill: #fff; font: 700 11px var(--font); paint-order: stroke;
+  stroke: rgba(0,0,0,.35); stroke-width: 2.5px; }
+/* The cap and tax lines cross the blocks rather than sitting in a margin, so both the line and
+   its label need a halo - without one, a dark label on a dark contract is unreadable, which is
+   the one thing a reference line cannot be. */
+.cv-chart-refline { stroke: var(--ink); stroke-width: 1.6; stroke-dasharray: 6 4; }
+.cv-chart-refline-halo { stroke: var(--cream); stroke-width: 4; opacity: .8; }
+.cv-chart-reflabel { fill: var(--ink); font: 700 11px var(--font); paint-order: stroke;
+  stroke: var(--cream); stroke-width: 3.5px; stroke-linejoin: round; }
+
+/* money in a column reads as money only when the digits line up */
+.cv-num { font-variant-numeric: tabular-nums; }
+
 /* then-and-now table: one column layout for all five groups, so the numbers line up down the
    page instead of each little table choosing its own widths */
 table.cv-then { table-layout: fixed; min-width: 560px; }

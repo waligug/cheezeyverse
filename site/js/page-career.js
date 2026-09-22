@@ -45,11 +45,7 @@ import {
   isConfigured, leagueSites, signIn, signOut, currentUser, ensureProfile, settings,
   characterById, requestsFor, ledgerFor, LEAGUE_LABELS, errorText,
 } from './supabase.js';
-import {
-  $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
-  statusPill, describeCharacter, heightNow, fmtDate, renderTraitBars,
-  classLine, goalLine, positionLine, freshJSON,
-} from './ui.js';
+import { $, classLine, clear, describeCharacter, el, fmtDate, freshJSON, goalLine, heightNow, money, note, positionLine, renderChrome, renderFooter, renderTraitBars, setupNeededNote, showNote, statusPill, svg } from './ui.js';
 import { storyCard } from './story-ui.js';
 
 /* ------------------------------------------------------------------------------ chrome */
@@ -80,7 +76,6 @@ const LEVEL_INDEX = { prep: 0, college: 1, pro: 2 };
 const EXAMPLE_ID = 'example-0000-0000-0000-cheezeyverse';
 
 /** For svg() at the bottom of the file: SVG nodes need a namespace, HTML nodes do not. */
-const SVGNS = 'http://www.w3.org/2000/svg';
 
 /* --------------------------------------------------------------------------- the boot */
 
@@ -424,7 +419,7 @@ function levelRow(t) {
        `points.payout_band` is the only implementation of that rule. */
     const f = t.row.finances;
     if (f && f.salary) {
-      const cash = '$' + Math.round(f.salary).toLocaleString('en-US');
+      const cash = money(f.salary);
       lines.push(f.band ? `Earned ${cash} a year - ${f.band} money.`
         : `Earned ${cash} a year.`);
       if (f.payout != null) lines.push(`That paid him ${f.payout} skill points a season.`);
@@ -953,25 +948,6 @@ function pillFor(status) {
     || 'pending';
 }
 
-/* ================================================================================ SVG */
-
-/**
- * ui.js's el() builds with document.createElement, which cannot make an SVG node - it would
- * return an HTMLUnknownElement that lays out as an empty box and renders nothing at all. So SVG
- * gets its own two-line builder rather than a reimplementation of anything in ui.js.
- */
-function svg(tag, attrs, ...kids) {
-  const node = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs || {})) {
-    if (v === null || v === undefined || v === false) continue;
-    node.setAttribute(k, v === true ? '' : String(v));
-  }
-  for (const kid of kids.flat()) {
-    if (kid === null || kid === undefined || kid === false) continue;
-    node.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
-  }
-  return node;
-}
 
 /** A plain x/y line chart. Used by the two sections that have dated history to draw. */
 function lineChart(points, label, fmtX, { zeroBased = true } = {}) {
