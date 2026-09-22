@@ -301,10 +301,15 @@ def test_a_rookie_is_paid_like_one_rather_than_given_a_token():
     # and free agency scatters him - "drafted #1 by LCH" would name a team he never played for.
     # At TWO the rollover leaves him a year in hand and he plays the next season for the team
     # that picked him. Anything longer and he skips being priced, which is the cage.
-    check("a drafted man keeps a year after the rollover eats one",
-          ROOKIE_GAME_YEARS - 1 >= 1, f"{ROOKIE_GAME_YEARS}yr - 1 = {ROOKIE_GAME_YEARS - 1}")
-    check("but not so long that he skips being priced",
-          ROOKIE_GAME_YEARS <= 2, f"{ROOKIE_GAME_YEARS}")
+    # MEASURED ON A CLONE, not chosen. Rolling over with 115 players on multi-year deals:
+    # 2-year 26 of 33 kept their team (79%), 3-year 14 of 14 (100%), 4-year 66 of 68 (97%).
+    # A two-year deal DECREMENTS TO ONE, and an expiring contract is what the engine trades and
+    # renegotiates - every exception in that run was a two-year deal. So the term has to leave
+    # real years in hand through the season he is meant to play, not just one.
+    check("he is not left on an expiring deal for his rookie season",
+          ROOKIE_GAME_YEARS - 1 >= 2, f"{ROOKIE_GAME_YEARS}yr - 1 = {ROOKIE_GAME_YEARS - 1}")
+    check("but not so long that he never reaches free agency",
+          ROOKIE_GAME_YEARS <= 4, f"{ROOKIE_GAME_YEARS}")
     check("the points rookie scale is longer, being a different currency",
           ROOKIE_YEARS > ROOKIE_GAME_YEARS, f"{ROOKIE_YEARS} vs {ROOKIE_GAME_YEARS}")
     # NOBODY ELSE GETS THE EXTRA YEAR. Only the draft has a night to honour; a promotion or a

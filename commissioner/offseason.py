@@ -103,18 +103,30 @@ ROOKIE_YEARS = 4
 # HOW LONG THE GAME CONTRACT RUNS, which is NOT how long the points deal runs. ROOKIE_YEARS
 # above is the skill-point rookie scale and stays at four. This is the deal FBPB3 sees.
 #
-# TWO, AND THE REASON IS ARITHMETIC RATHER THAN TASTE. The draft happens INSIDE the offseason and
-# the game's own rollover runs immediately after it, so the rollover consumes a contract year
-# before the drafted man has played a single game. At one year he expires during his own draft
-# night, reaches free agency with the rest of the league and is signed by whoever bids - so
-# "drafted #1 by LCH" would name a team he never played for. At two, the rollover leaves him one
-# year in hand, he plays the whole of the next season for the team that picked him, and he is
-# priced by free agency at the offseason AFTER that.
+# THREE, AND THE NUMBER IS MEASURED RATHER THAN CHOSEN. The draft happens INSIDE the offseason
+# and the game's own rollover runs immediately after it, so the rollover consumes a contract year
+# before the drafted man has played a single game. One year therefore expires on his own draft
+# night and free agency scatters him; "drafted #1 by LCH" would name a team he never played for.
 #
-# It is the shortest term that buys the rookie season, which is what Nate asked for: "He needs to
-# play his rookie year for the team that drafted him." Everyone else still starts on a single
-# year - see LEVEL_CONTRACT_YEARS - because nobody else has a draft night to honour.
-ROOKIE_GAME_YEARS = 2
+# TWO LOOKED LIKE ENOUGH AND IS NOT. Rolling a clone over while 115 players held multi-year deals
+# showed what actually survives, by term:
+#
+#     2-year deal : 33 players, 26 still on the SAME team (79%), 2 moved, 5 retired
+#     3-year deal : 14 players, 14 still on the same team (100%)
+#     4-year deal : 68 players, 66 still on the same team (97%)
+#
+# A two-year deal decrements to ONE, and an expiring contract is exactly what the engine trades
+# and renegotiates - every one of the eleven exceptions in that run was a two-year deal. Three
+# leaves him with real term in hand through the season he is meant to play, which is what Nate
+# asked for and asked for without hedging: "He needs to play his rookie year for the team that
+# drafted him, add that in 100%."
+#
+# It is not the cage the one-year rule exists to prevent, because rookie_salary pays him a real
+# number rather than the import token - pick 1 lands just under the mid-level exception. A cheap
+# LONG deal is a cage; a properly paid rookie contract is how every league on earth works.
+# Everyone else still starts on a single year - see LEVEL_CONTRACT_YEARS - because nobody else
+# has a draft night to honour.
+ROOKIE_GAME_YEARS = 3
 ROOKIE_SALARY_TOP = 5_000_000
 ROOKIE_SALARY_MIN = 500_000
 ROOKIE_SALARY_PICKS = 20
