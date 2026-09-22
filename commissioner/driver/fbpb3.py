@@ -1478,18 +1478,63 @@ class FBPB3:
                 pass
 
     def export_players(self, name):
-        """Current League Editor → Players → Export → Save as PlayerFiles/<name>.csv. Returns the path."""
+        """Current League Editor -> Players -> Export -> Save as PlayerFiles/<name>.csv.
+
+        Returns the path. Nothing else in the commissioner calls this, so it had quietly stopped
+        working: the first real use on SERVERPC failed twice, and the screenshots said why.
+
+        SELECTING "Players" REPOPULATES THE GRID from the whole league, and on a five-hundred
+        player save that takes longer than the flat two seconds that used to sit here. An EXPORT
+        click landing mid-load is SWALLOWED - the button takes focus and nothing opens, which is
+        exactly what the capture showed: six rows at the moment of the click, a full list an
+        instant later, and no dialog ever. So the grid is watched until it stops changing, and
+        the open is retried: each attempt is cheap and idempotent, since EXPORT either opens the
+        Player File screen or does nothing at all.
+        """
         target = DOCS / "PlayerFiles" / f"{name}.csv"
         if target.exists():
             target.unlink()
+
+        def _name_box():
+            """The save-as dialog exists. Watched for, never slept past."""
+            return self.app.window(class_name="ThunderRT6FormDC").child_window(
+                class_name="ThunderRT6TextBox").exists()
+
         self.click(TOP_TOOLS)
         self.click(TOOLS_LEAGUE_EDITOR, 3)
         combos = [c for c in self.main.descendants(class_name="ThunderRT6ComboBox") if c.is_visible()]
         sort_by = next(c for c in combos if "Draft Pool" in c.item_texts())
         sort_by.select("Players")
-        time.sleep(2)
-        self.click(EDITOR_EXPORT, 3)
-        self.click(PLAYER_FILE_SAVE, 2)
+
+        # The grid has finished filling when two grabs a second apart are identical.
+        last, stable_since = None, None
+        end = time.time() + 30
+        while time.time() < end:
+            try:
+                shot = self._grab(cheap=True).tobytes()
+            except Exception:                                       # noqa: BLE001
+                shot = None
+            if shot is not None and shot == last:
+                if stable_since is None:
+                    stable_since = time.time()
+                elif time.time() - stable_since >= 1.0:
+                    break
+            else:
+                stable_since = None
+            last = shot
+            time.sleep(0.25)
+
+        for attempt in range(3):
+            self.click(EDITOR_EXPORT, 3)
+            self.click(PLAYER_FILE_SAVE, 2)
+            if self._wait_for(_name_box, 8):
+                break
+            if attempt == 2:
+                raise DriverError(
+                    "the player-export name dialog never appeared after three attempts. The "
+                    "League Editor was on Players and its list had settled, so EXPORT itself is "
+                    "not opening - check EDITOR_EXPORT and PLAYER_FILE_SAVE against the screen.")
+
         box = self.app.window(class_name="ThunderRT6FormDC").child_window(class_name="ThunderRT6TextBox")
         box.set_focus()
         box.type_keys(name, with_spaces=True, set_foreground=False)
