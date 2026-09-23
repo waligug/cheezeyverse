@@ -395,11 +395,19 @@ def undrafted_from(declared, field, picks):
     return [c for c in list(declared or ()) + list(field or ()) if id(c) not in taken]
 
 
-# FBPB3's own draft pool sits at team -2 with Exp 0 - 80 records in CV_Pro, born across six
-# years. It is a STANDING pool of blank records for most of the year: the game fills in a class
-# during its own offseason, and until it does every one of them reads ~9 overall with every
-# potential pinned at 5. Drafting that field would put eighty identical nobodies on the board and
-# rank our characters against noise, so a pool that has not been generated is treated as no pool.
+# The draft pool sits at team -2 with Exp 0 - 80 records in CV_Pro, born across six years.
+#
+# WHY THE GUARD, and the first version of this comment got the reason WRONG. When this was
+# written every pool record read ~9 overall with every potential pinned at 5, and I wrote that
+# down as "the game has not generated its class yet". It was not. The ROSTER GUARD had floored
+# the entire draft pool in all three leagues - 65/65 prep, 70/70 college, 80/80 pro - which is
+# also why rollovers kept dropping 3-overall players onto pro rosters. It was our own bug
+# wearing the shape of a game behaviour, and it is fixed at source now (ecd7eee8d).
+#
+# The guard is still right, but for the honest reason: a pool where nobody has a readable
+# ceiling cannot be ranked. Whether that is because the class is not generated, or because
+# something of ours flattened it, drafting it would put eighty identical nobodies on the board
+# and rank our characters against noise. Refusing says "there is no class here" either way.
 POOL_TEAM = -2
 POOL_MIN_CEILING = 20.0
 
