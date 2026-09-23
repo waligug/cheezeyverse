@@ -37,7 +37,9 @@ from . import localstore, recovery
 from .saveguard import SAVE_LOCK
 from .simstatus import FINAL_BUDGET, RunProgress, SimStatus
 from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
-from .driver.fbpb3 import DOCS, FBPB3
+from .driver.fbpb3 import DOCS, FBPB3, OffseasonReached
+# Bound at IMPORT, not looked up at call time: see _played_day for why it must not follow a patch.
+from .codec.league_dat import find_season_day as _season_day_at_import
 from .publish.publish import publish
 from .universe import config as cfg
 
@@ -190,6 +192,17 @@ MDB_BUDGET = {
     "college": (120, 480),
     "pro": (120, 600),
 }
+
+
+def _played_day(path):
+    """(day, season) read straight off a save, for counting what a league actually PLAYED.
+
+    Its own name on purpose. The boundary checks in run_sim also read find_season_day, and the
+    tests that pin them feed it a fixed sequence of answers; measuring through the same function
+    would eat that sequence and break them. Bound here to the function itself, so each can be
+    tested - and patched - without the other.
+    """
+    return _season_day_at_import(Path(path).read_bytes())
 
 
 def describe_interruption(state):
@@ -1165,6 +1178,12 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         if not dry_run and interrupted_run():
             raise RuntimeError(describe_interruption(interrupted_run()))
         day_counts = {key: int((days_by_league or {}).get(key, days)) for key in keys}
+        # WHAT EACH LEAGUE ACTUALLY PLAYED, read off its own save. Points used to be paid on
+        # day_counts - the days ASKED FOR - which is only the same thing when a league plays every
+        # one of them. A run into the playoffs does not: a league stops when its postseason ends.
+        # 2031's one-shot playoff run asked for 55 days and paid every character eight weeks for
+        # a postseason that is about a week long in college. Filled in per league below.
+        played_days = {}
         if days_by_league is not None and any(n < 1 or n > 400 for n in day_counts.values()):
             raise ValueError("Calendar day counts must be between 1 and 400")
         if days_by_league:
@@ -1370,6 +1389,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             at("load", key)
             emit("sim", f"loading {spec.save_name}", key)
             game.load_save(spec.save_name, wait=30)
+            try:
+                _before_day = _played_day(ch.save_path(key))
+            except Exception:                                           # noqa: BLE001
+                _before_day = None
             at("sim", key)
             emit("sim", f"simming {day_counts[key]} days of {spec.name}", key)
 
@@ -1394,13 +1417,37 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                     emit("sim", f"{spec.name}: calendar jump reaches the playoffs; "
                           "finishing with verified daily steps", key)
             if not used_calendar:
-                game.sim_days(day_counts[key], on_day=day_finished)
+                try:
+                    game.sim_days(day_counts[key], on_day=day_finished)
+                except OffseasonReached:
+                    # A FINISHED POSTSEASON IS THE STOP, NOT A FAILURE - when the run was asked to
+                    # go into the playoffs. "Play the whole playoffs" is one run of seventy days so
+                    # that each league plays until its own champion is decided; the league whose
+                    # bracket ends first then shows END SEASON where SIM DAY was, and sim_days
+                    # raises. That used to kill the whole run on the FIRST league to finish -
+                    # prep, on 2026-09-23 - so pro never played a game. The days are simply not
+                    # needed: save this league, export it, and go on to the next.
+                    #
+                    # Without allow_season_end this is still an error. The season-end guard
+                    # refuses any run that would cross the boundary, so reaching it means the
+                    # guard's own count was wrong, and that must not pass silently.
+                    if not allow_season_end:
+                        raise
+                    emit("sim", f"{spec.name}: its postseason is finished - END SEASON is up, so "
+                         "it stops here and the run goes on", key)
             at("save", key)
             emit("sim", "saving", key)
             # The path lets the driver watch the file finish instead of sleeping a fixed 15 s,
             # and turns a save that silently did not happen into an error rather than an export
             # of yesterday's league.
             game.save_game(path=ch.save_path(key))
+            try:
+                _after_day = _played_day(ch.save_path(key))
+                if (_before_day and _after_day and _before_day[1] == _after_day[1]
+                        and _after_day[0] >= _before_day[0]):
+                    played_days[key] = _after_day[0] - _before_day[0]
+            except Exception:                                           # noqa: BLE001
+                pass
             expected = (expected_states or {}).get(key, expected_state)
             boundary_export = None
             if expected is not None:
@@ -1645,7 +1692,9 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         # After the game has closed, never while it is open: CONVENTIONS forbids reading
         # league.dat under a running FBPB3, which rewrites it whenever it saves. Wrapped per
         # league because a missing snapshot is cosmetic and a missing publish is not.
-        weeks = max(1, round(days / 7))
+        # The week counter follows what was PLAYED as well, for the same reason the points do: a
+        # seventy-day playoff run that stopped after nine days is one week, not ten.
+        weeks = max(1, round(max(played_days.values(), default=days) / 7))
         season = season_now
         # The week just completed, i.e. what current_week will read once this run finishes -
         # it is bumped at the end, so the stale value would date every snapshot a week early.
@@ -1692,7 +1741,13 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         for key in keys:
             at("points", key)
             emit("points", f"awarding weekly points in {cfg.BY_KEY[key].name}", key)
-            league_weeks = max(1, round(day_counts[key] / 7))
+            # PAID FOR WHAT WAS PLAYED. Falls back to the days asked for only when the save could
+            # not be read, which is the old behaviour and the right one for an ordinary week.
+            played = played_days.get(key, day_counts[key])
+            if played != day_counts[key]:
+                emit("points", f"{cfg.BY_KEY[key].name} played {played} of the {day_counts[key]} "
+                     "day(s) asked for; paying for the days played", key)
+            league_weeks = max(1, round(played / 7))
             n = st.grant_week_points(league=key, weeks=league_weeks)
             result["summary"]["points"].append({"league": key, "per_player": league_weeks, "players": n})
             if n:

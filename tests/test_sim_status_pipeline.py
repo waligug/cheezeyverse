@@ -48,6 +48,8 @@ class Store:
         return []
 
     def grant_week_points(self, **kw):
+        self.paid = getattr(self, "paid", [])
+        self.paid.append((kw.get("league"), kw.get("weeks")))
         return 0
 
     def set_setting(self, *args):
@@ -101,6 +103,9 @@ class PipelineTests(unittest.TestCase):
                     on_day(day, days)
                     if owner.day_failure:
                         raise RuntimeError("the game stopped")
+                    if getattr(owner, "season_ends_after", None) == day:
+                        from commissioner.driver.fbpb3 import OffseasonReached
+                        raise OffseasonReached("END SEASON is visible; SIM DAY has ended")
 
             def sim_to_date(self, days, start_date, on_day=None):
                 owner.fast.append((days, start_date))
@@ -136,6 +141,40 @@ class PipelineTests(unittest.TestCase):
         self.stack.enter_context(patch.object(protect_rosters, "protect", lambda *a, **k: {}))
         self.push = self.stack.enter_context(patch.object(publishing, "git_push"))
         self.stack.enter_context(patch.object(simweek.notify, "post", side_effect=AssertionError("duplicate Discord post")))
+
+    def test_a_finished_postseason_moves_on_to_the_next_league(self):
+        # 2026-09-23: "Play the whole playoffs" asked for seventy days so each league plays to its
+        # own champion. Prep's bracket ended first, END SEASON replaced SIM DAY, sim_days raised,
+        # and the whole run died there - pro never played a game. It is the stop, not a failure.
+        self.season_ends_after = 4
+        result = simweek.run_sim(days=70, allow_season_end=True, on_step=lambda e: None)
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(self.simulated), 3, "every league must get its turn")
+        self.assertFalse(simweek._SIM_LOCK.locked())
+
+    def test_a_finished_postseason_is_still_an_error_without_season_end(self):
+        # The guard refuses any run that would cross the season boundary, so reaching it on an
+        # ordinary week means that guard miscounted - which must not pass silently.
+        from commissioner.driver.fbpb3 import OffseasonReached
+        self.season_ends_after = 2
+        with self.assertRaises(OffseasonReached):
+            simweek.run_sim(days=7, on_step=lambda e: None)
+        self.assertFalse(simweek._SIM_LOCK.locked())
+
+    def test_points_pay_for_the_days_played_not_the_days_asked(self):
+        # 2031's one-shot playoff run asked for 55 days and paid every character EIGHT weeks,
+        # for a postseason that is about a week long in college. Nine days played is one week.
+        calls = {"n": 0}
+
+        def season_day(_data):
+            calls["n"] += 1
+            return (200, 2027) if calls["n"] % 2 else (209, 2027)   # before, then after
+        with patch.object(simweek, "_played_day", side_effect=season_day):
+            result = simweek.run_sim(days=70, allow_season_end=True, on_step=lambda e: None)
+        self.assertTrue(result["ok"])
+        weeks = {league: n for league, n in self.store.paid}
+        self.assertEqual(weeks, {"prep": 1, "college": 1, "pro": 1},
+                         f"paid {weeks} for nine days played out of seventy asked")
 
     def test_success_one_card_actual_days_monotonic_progress(self):
         events = []
