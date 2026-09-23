@@ -726,7 +726,7 @@ def for_character(name, html_dir, settings=None, cache=None, rounds=None, league
     return _capped(rows, cap_for(league, s))
 
 
-def promotion_grant(name, html_dir, settings=None, cache=None, rounds=None):
+def promotion_grant(name, html_dir, settings=None, cache=None, rounds=None, league=None):
     """What a character is paid for the season he is leaving, when he moves up a level.
 
     Reads the SAME cache `for_character` builds, at the same moment and against the same export,
@@ -745,7 +745,14 @@ def promotion_grant(name, html_dir, settings=None, cache=None, rounds=None):
     if not line:
         return []
 
-    rows = [("promotion: a prep career", setting(s, "grant_base"))]
+    # NAME THE LEVEL HE ACTUALLY PLAYED. This row said "a prep career" for every promotion
+    # there has ever been, including college -> pro - so a drafted character's ledger carries a
+    # permanent, false sentence about a prep season that had nothing to do with the payment.
+    # `league` is the level he is LEAVING, which is what the grant is for; unknown falls back to
+    # a phrasing that claims nothing.
+    career = {"prep": "a prep career", "college": "a college career"}.get(
+        league, "the season he is leaving")
+    rows = [(f"promotion: {career}", setting(s, "grant_base"))]
     team = line["team"]
     if c.get("playoffs") and team in c["playoffs"]:
         rows.append(("promotion: made the playoffs", setting(s, "grant_playoffs")))

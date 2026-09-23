@@ -1485,7 +1485,8 @@ def _season_bonuses(characters, settings, log):
         try:
             grant = seasonbonus.promotion_grant(
                 f'{c["first_name"]} {c["last_name"]}', html, settings, caches[key],
-                rounds=cfg.BY_KEY[key].playoff_rounds if key in cfg.BY_KEY else None)
+                rounds=cfg.BY_KEY[key].playoff_rounds if key in cfg.BY_KEY else None,
+                league=key)
         except Exception as exc:                                        # noqa: BLE001
             log(f'no promotion grant for {c["first_name"]} {c["last_name"]}: {exc}')
             grant = []
