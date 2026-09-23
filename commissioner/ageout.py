@@ -132,9 +132,18 @@ FLOOR_MOSTLY = 0.6
 
 
 def _RESTORABLE_TEAMS(pl):
-    """Rosters and free agency, never the draft pool (-2) and never a retired/unused row."""
+    """Rosters, free agency and the DRAFT POOL (-2); never a retired or unused row.
+
+    The draft pool used to be excluded, on the reasoning that regenerating a draft record would
+    rewrite the class our characters are drafted against and the pool is where college's outgoing
+    seniors are carried. Both are true of a REAL prospect, and neither is true of a floored one:
+    the roster guard had already rewritten every one of them to rating 2 (65/65 prep, 70/70
+    college, 80/80 pro on 2026-09-23), so the class being protected was a class of 3-overalls.
+    The carried seniors keep their real ratings because `is_defanged` never flags a real player -
+    the restore only ever touches what the guard ruined.
+    """
     t = pl.values["Team"]
-    return {t} if (t >= 1 or t == -1) else set()
+    return {t} if (t >= 1 or t in (-1, -2)) else set()
 
 
 def generated_floor(spec, samples=300, margin=0.92, seed=11):
@@ -158,6 +167,18 @@ def generated_floor(spec, samples=300, margin=0.92, seed=11):
         mean = sum(vals) / len(vals)
         lowest = mean if lowest is None else min(lowest, mean)
     return (lowest or 0) * margin
+
+
+# WHERE A DRAFT POOL'S PROSPECTS COME FROM. A league's draft class is the league below it, so a
+# floored prospect is rebuilt at THAT level, not this one. Rebuilding pro's pool on pro's own band
+# made the 2032 class a set of finished professionals - median 39.7, best 69.2, a #1 pick already
+# better than most of the league - which is exactly what Nate asked not to get: "just decent, not
+# god tier new stuff". It would also push every character down the draft, since a college
+# graduate cannot compete with a class generated as pros.
+#
+# AND IT HAS TO BE JUDGED AT THAT LEVEL TOO. Against pro's floor (~30) a genuine college-calibre
+# prospect reads as floored, so a repair pass would re-roll the whole class every time it ran.
+FEEDER = {"pro": "college", "college": "prep", "prep": "prep"}
 
 
 def is_defanged(values, skill, floor_mean=None):
@@ -506,6 +527,8 @@ def reconcile(key, save_path=None, store=None, log=print, restore_ratings=True, 
         towns = gen.hometowns()
         skill = [f for f in RATINGS if f not in _LEAVE_ALONE]
         floor_mean = generated_floor(spec)
+        pool_spec = cfg.BY_KEY[FEEDER.get(key, key)]
+        pool_floor = generated_floor(pool_spec)
         people = {f'{c["first_name"]} {c["last_name"]}'
                   for c in (store.characters(league=key) if store is not None else [])}
         ratings_keep = people if reserves else keep
@@ -517,18 +540,21 @@ def reconcile(key, save_path=None, store=None, log=print, restore_ratings=True, 
             # prep bodies were already in the manifest and still rated 2 - defanged by some
             # earlier pass and never given back - and skipping them would leave rating-2 players
             # in the rotation for exactly the reason this function exists to fix.
-            # Team >= 1 is a roster, Team == -1 is free agency. NOT `< 1`, which also catches
-            # -2, the game's own DRAFT POOL - regenerating a draft record would rewrite the class
-            # our characters are drafted against, and the pool is where college's outgoing
-            # seniors are carried. Free agents are included because the next roster gap is filled
-            # from them, so leaving them floored puts the problem straight back on a roster.
+            # Rosters (Team >= 1), free agency (-1) and the DRAFT POOL (-2) - see
+            # _RESTORABLE_TEAMS for why the pool is now included. Free agents are included because
+            # the next roster gap is filled from them; the pool because the next DRAFT is, and a
+            # floored class is what put 3-overalls on pro rosters after every rollover. Only
+            # bodies `is_defanged` flags are touched, so a real prospect - including college's
+            # carried seniors - is never regenerated.
             if pl.name in ratings_keep or pl.values["Team"] not in _RESTORABLE_TEAMS(pl):
                 continue
-            if not is_defanged(pl.values, skill, floor_mean):
+            in_pool = pl.values["Team"] == -2
+            band = pool_spec if in_pool else spec
+            if not is_defanged(pl.values, skill, pool_floor if in_pool else floor_mean):
                 continue                   # he kept his ratings; leave him alone
-            row = gen.make_player(rng, spec, spec.teams[0],
+            row = gen.make_player(rng, band, band.teams[0],
                                   POSITION_NAME.get(pl.values["Position"], "C"),
-                                  max(spec.age_range[0], min(spec.age_range[1],
+                                  max(band.age_range[0], min(band.age_range[1],
                                                              age_of(pl, season))),
                                   first_pool, last_pool, towns)
             for field in RATINGS:

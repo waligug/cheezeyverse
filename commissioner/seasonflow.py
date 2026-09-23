@@ -284,6 +284,89 @@ def _team_abbrev(key, dat, team_id):
     return None
 
 
+def _replace_character(key, path, character, name, dob, season, store, log):
+    """Put a character the rollover left without a team back on the right one. Returns the abbrev.
+
+    WHY. With Finances on, the game's own rollover runs free agency, and it RELEASES people:
+    Gravy Jones was drafted #3 by THP on a three-year rookie deal in the 2031 offseason and came
+    out of the rollover with Team -1 and his contract gone - not shortened, erased. Traced through
+    the offseason's own save backups: he was on THP with the deal going in and a free agent with
+    nothing coming out. Dodger Manson made the identical trip a year earlier and kept both, so it
+    is not the draft path; the likeliest difference is the luxury tax, switched on between the two,
+    since an AI releasing a player to get under it voids his deal. The cause does not change the
+    fix, which is the same belt-and-braces idea as the weekly re-dress: a real person must come
+    out of a rollover on a roster, so the rollover checks and puts him there.
+
+    Nate's rule, stated 2026-09-22: "He needs to play his rookie year for the team that drafted
+    him, add that in 100%." Where he goes:
+      * an ACTIVE rookie deal -> the team on that deal, for the years it has left, at its salary
+      * otherwise              -> the team the store last had him on
+      * otherwise              -> the team with the fewest of our characters on it
+    A full roster makes room by releasing its weakest body that is not one of ours.
+
+    The team is resolved with `_team_abbrev`'s mapping - ascending save ids zipped with config -
+    and NEVER by counting from 1: pro's ids run 5..24, and counting from 1 put Gravy on the Curds
+    when he was meant for the Threshers, which is how this function's manual predecessor went
+    wrong the first time.
+    """
+    from .codec.league_dat import LeagueDat, RATINGS
+    spec = cfg.BY_KEY[key]
+    L = LeagueDat(path)
+    ids = sorted(L.teams())
+    abbrev_of = {tid: spec.teams[i].abbrev for i, tid in enumerate(ids) if i < len(spec.teams)}
+    id_of = {a: t for t, a in abbrev_of.items()}
+
+    deal = None
+    for entry in reversed(list(character.get("level_history") or [])):
+        if isinstance(entry, dict) and entry.get("level") == key and entry.get("to_season") is None:
+            deal = entry.get("contract") or None
+            break
+    years_left, salary, target = 0, None, None
+    if deal and deal.get("game_years") and deal.get("season_from") is not None:
+        years_left = int(deal["game_years"]) - (int(season) + 1 - int(deal["season_from"]))
+        if years_left > 0 and deal.get("team") in id_of:
+            target, salary = deal["team"], deal.get("salary")
+    if target is None and character.get("team_abbrev") in id_of:
+        target = character["team_abbrev"]
+    if target is None:
+        ours = {}
+        for other in store.characters(league=key):
+            if other.get("team_abbrev"):
+                ours[other["team_abbrev"]] = ours.get(other["team_abbrev"], 0) + 1
+        target = min(id_of, key=lambda a: (ours.get(a, 0), a))
+    team_id = id_of[target]
+
+    protected = {f'{c["first_name"]} {c["last_name"]}' for c in store.characters()}
+    pl = L.find(name, dob)
+    if pl.values["Team"] == team_id:
+        return target
+    if pl.values["Team"] >= 1:
+        L.release(pl)
+        L.save()
+        L = LeagueDat(path)
+    roster = [p for p in L.players if p.values["Team"] == team_id]
+    if len(roster) >= spec.roster_size:
+        skill = [f for f in RATINGS if f not in ("3pUsage", "Fouling", "Stamina")]
+        spare = [p for p in roster if p.name not in protected]
+        if not spare:
+            raise RuntimeError(f"{target} is full of characters; nowhere to put {name}")
+        worst = min(spare, key=lambda p: sum(p.values[f] for f in skill))
+        log(f"   {target} is full: releasing {worst.name} to make room for {name}")
+        L.release(worst)
+        L.save()
+        L = LeagueDat(path)
+    L.sign(L.find(name, dob), team_id)
+    if salary:
+        # The years the deal has LEFT, not the years it was written for: the rollover that just
+        # ran consumed one. Writing the full term would pay him a year he is not owed.
+        L.set_contract(L.find(name, dob), [int(salary)] * max(1, years_left))
+    L.save()
+    L = LeagueDat(path)
+    if L.dress(L.find(name, dob)):
+        L.save()
+    return target
+
+
 def rollover_saves(store, season, journal, log):
     """Only mark the season complete after every saved league reports the next year."""
     out = []
@@ -363,18 +446,45 @@ def rollover_saves(store, season, journal, log):
             # whole season and the career page keeps that season wrong for ever.
             try:
                 abbrev = _team_abbrev(key, league, pl.values["Team"])
+                # A ROOKIE DEAL OUTRANKS WHEREVER FREE AGENCY PUT HIM. Released-then-re-signed
+                # elsewhere is the other shape of the same failure, and "rookie year for the team
+                # that drafted him, 100%" covers both.
+                open_deal = None
+                for entry in reversed(list(character.get("level_history") or [])):
+                    if (isinstance(entry, dict) and entry.get("level") == key
+                            and entry.get("to_season") is None):
+                        open_deal = entry.get("contract") or None
+                        break
+                if (abbrev and open_deal and open_deal.get("team")
+                        and open_deal.get("season_from") is not None
+                        and int(open_deal.get("game_years") or 0)
+                        - (int(season) + 1 - int(open_deal["season_from"])) > 0
+                        and abbrev != open_deal["team"]):
+                    placed = _replace_character(key, path, character, name, dob, season, store, log)
+                    log(f"   {name}: free agency moved him to {abbrev} mid-rookie-deal - put back "
+                        f"on {placed}, the team that drafted him")
+                    store.set_character_field(character["id"], "team_abbrev", placed)
+                    league = LeagueDat(path)
+                    abbrev = placed
                 if abbrev and abbrev != character.get("team_abbrev"):
                     log(f'   {name}: now on {abbrev} (was {character.get("team_abbrev")})')
                     store.set_character_field(character["id"], "team_abbrev", abbrev)
                 elif not abbrev:
-                    # A REAL PERSON CAME OUT OF THE ROLLOVER WITH NO TEAM. With Finances on this
-                    # is what an expired contract looks like after free agency declined to
-                    # re-sign him, and it is the one outcome nobody would notice: he is still in
-                    # the save, still in the store, and simply never plays again. Said loudly
-                    # rather than raised, because the rollover has already happened and stopping
-                    # here would strand the universe rather than undo it.
-                    log(f"   !! {name} is NOT ON A ROSTER after the rollover - he went through "
-                        "free agency and no team signed him. He needs placing by hand.")
+                    # A REAL PERSON CAME OUT OF THE ROLLOVER WITH NO TEAM. This used to be logged
+                    # with "he needs placing by hand" and left there - and Gravy Jones, a #3 pick
+                    # on a live rookie deal, was placed by hand, onto the wrong team the first
+                    # time. The rollover knows the drafting team, the deal and the years left, so
+                    # it puts him back itself. Only if THAT fails does a human hear about it.
+                    try:
+                        placed = _replace_character(key, path, character, name, dob, season,
+                                                    store, log)
+                        log(f"   {name} came out of the rollover with no team - put back on "
+                            f"{placed}")
+                        store.set_character_field(character["id"], "team_abbrev", placed)
+                        league = LeagueDat(path)
+                    except Exception as exc:                            # noqa: BLE001
+                        log(f"   !! {name} is NOT ON A ROSTER after the rollover and could not "
+                            f"be put back automatically ({exc}). He needs placing by hand.")
             except Exception as exc:                                    # noqa: BLE001
                 # Never fatal. A wrong team name on the site is a bad day; a rollover that
                 # raises here is a universe stranded mid-offseason with the game holding it.
@@ -391,6 +501,15 @@ def rollover_saves(store, season, journal, log):
                 raise RuntimeError(f"{key}: post-rollover age-out did not hold "
                                    f"({len(checked['over_age'])} over-age, "
                                    f"roster sizes {checked['sizes']})")
+        # NOTHING FLOORED OPENS A SEASON. The rollover's own draft and free agency put the
+        # game's bodies onto rosters, and anything the roster guard ever floored comes with them.
+        # This used to need two hand-run repair passes after every offseason - 117 floored
+        # players sat on pro rosters after 2031's. Characters are never touched.
+        try:
+            from . import ageout
+            ageout.reconcile(key, store=store, log=log, reserves=True)
+        except Exception as exc:                                        # noqa: BLE001
+            log(f"   ! {key}: could not restore floored bodies after the rollover ({exc})")
         # Export the verified next-season save; pages and MDB must describe the same year.
         game = FBPB3()
         try:

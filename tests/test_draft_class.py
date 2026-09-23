@@ -140,14 +140,25 @@ def run():
         again = LeagueDat(pro_p)
         field = draft.field_from_save(again, limit=None)
         check("the pool now reads as a generated class", len(field) > 0, True)
-        check("the best man is the one we put at the top",
-              f'{field[0]["first_name"]} {field[0]["last_name"]}',
-              f'{top["first_name"]} {top["last_name"]}')
+        # NOT "HE IS FIRST OUTRIGHT". That held only while the game's own pool was floored to
+        # rating 2 - which it was, by the roster guard, until 2026-09-23 - so anything real beat
+        # it. With the pool rebuilt at college level a genuinely better AI prospect can outrank a
+        # carried senior, and should: a board that ranked our man first regardless would be lying
+        # about the class. What must hold is that he is IN the field, carried intact, and ranked
+        # by the same sheet as everybody else. (Caught by the other Claude session.)
+        top_name = f'{top["first_name"]} {top["last_name"]}'
+        mine = next((f for f in field
+                     if f'{f["first_name"]} {f["last_name"]}' == top_name), None)
+        check("the best man we carried is in the field", mine is not None, True)
+        sheets = [sum(draft.sheet(f)) for f in field]
+        check("and the field is ranked best first, him included",
+              sheets == sorted(sheets, reverse=True), True)
+        mine = mine or field[0]
         check("his ratings crossed the league boundary intact",
-              {f: field[0]["ratings"][f] for f in RATINGS},
+              {f: mine["ratings"][f] for f in RATINGS},
               {f: want_ratings[f] for f in RATINGS})
         check("and so did his potentials",
-              _mean(field[0]["potentials"].values()) >= draft.POOL_MIN_CEILING, True)
+              _mean(mine["potentials"].values()) >= draft.POOL_MIN_CEILING, True)
 
         print("\nnobody carried is one of ours, so nothing can be promoted by mistake")
         check("every carried record is flagged as field, not character",

@@ -165,9 +165,18 @@ def protect(key, dry_run=False, store_characters=None):
     if dry_run:
         return {"defanged": len(theirs), "released": len(intruders), "signed": len(exiled)}
 
-    # 1. defang everyone who is not ours
+    # 1. defang everyone who is not ours - EXCEPT THE DRAFT POOL.
+    #
+    # Team -2 is the game's draft class. Nobody in it holds a roster spot, so flooring him stops
+    # nothing - but it does ruin him, and he does not stay in the pool: the next draft puts him on
+    # a roster. Measured 2026-09-23, every draft-pool body in all three leagues was floored (65 of
+    # 65 prep, 70 of 70 college, 80 of 80 pro), so the whole incoming class was rating-3 and every
+    # rollover delivered a fresh batch of 3-overalls onto pro rosters. It also poisoned OUR draft
+    # board, which reads the same pool. The pool is left exactly as the game made it.
     defanged = 0
     for p in theirs:
+        if p.values["Team"] == -2:
+            continue
         touched = False
         for field in RATINGS:
             if field in LEAVE_ALONE:

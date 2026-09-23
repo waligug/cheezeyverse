@@ -123,9 +123,26 @@ def run():
     check("reconcile uses the drift-aware test", "is_defanged(" in src)
     check("and no longer compares against FLOOR_RATING alone",
           "> FLOOR_RATING" not in src)
-    # THE DRAFT POOL IS NOT FILLER. Team -2 is the game's own draft class and carries college's
-    # outgoing seniors; regenerating one rewrites the board our characters are drafted against.
-    check("the draft pool is explicitly excluded", "-2" in src and "DRAFT POOL" in src.upper())
+    # THE DRAFT POOL IS NOW INCLUDED - it used to be excluded, and that was the bug. The roster
+    # guard had floored every body in it (65/65 prep, 70/70 college, 80/80 pro), so each draft
+    # delivered a fresh class of 3-overalls onto pro rosters. A real prospect is still never
+    # touched, because only what `is_defanged` flags is regenerated.
+    class P:
+        def __init__(self, team): self.values = {"Team": team}
+    check("a floored draft-pool body is restorable", bool(ageout._RESTORABLE_TEAMS(P(-2))))
+    check("so is a free agent", bool(ageout._RESTORABLE_TEAMS(P(-1))))
+    check("and a rostered body", bool(ageout._RESTORABLE_TEAMS(P(7))))
+    check("but never a retired or unused row", not ageout._RESTORABLE_TEAMS(P(0)))
+    check("a REAL prospect in the pool is still left alone",
+          not ageout.is_defanged(body(40, 55, 31, 62), SKILL, 30.5))
+
+    print("")
+    print("the roster guard no longer floors the draft pool")
+    import sys as _s
+    _s.path.insert(0, str(ROOT / "tools"))
+    import protect_rosters
+    guard = inspect.getsource(protect_rosters.protect)
+    check("the defang loop skips Team -2", 'p.values["Team"] == -2' in guard)
 
     print()
     if FAILS:
