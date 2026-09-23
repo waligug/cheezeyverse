@@ -400,8 +400,20 @@ class LeagueDat:
         # Score the candidates rather than demanding a perfect match. A depth block can hold a
         # stale id - somebody released or retired since the chart was last rebuilt - and on a save
         # that has actually been played exactly one such id used to disqualify the whole region,
-        # so teams() failed on every aged save. An id belonging to ANOTHER team is still fatal; an
-        # id belonging to nobody is not.
+        # so teams() failed on every aged save.
+        #
+        # AN ID NOW ON ANOTHER TEAM IS ALSO NOT FATAL, and used to be. That rule assumed a stale
+        # entry means a player who left the league, but FREE AGENCY moves players BETWEEN teams -
+        # so once Full Finances was turned on in pro, a depth chart written before free agency was
+        # full of men who had since signed elsewhere. Measured on the live 2031 pro save: 104 of
+        # 4721 entries (2.2%) pointed at another team, and each one alone was enough to reject the
+        # real region. `teams()` then failed on pro and only pro, scoring 0.000 on a garbage match,
+        # and the post-sim tidy could not put a benched character back in the lineup. Prep and
+        # college, which have no free agency, never saw it.
+        #
+        # So a wrong-team id now COSTS a point instead of disqualifying, and the 0.95 threshold is
+        # what keeps the region honest - it has to be right about 19 entries in 20. That margin is
+        # not close: on the same save the true region scores 0.978 and the best impostor 0.000.
         span = self.DEPTH_BLOCK * n_blocks
         best = None
         for p0 in range(max(self.players[-1].R, len(d) - span - 262144), len(d) - span + 1):
@@ -419,16 +431,9 @@ class LeagueDat:
                 for v in vals:
                     if not v:
                         continue
+                    total += 1
                     if owner.get(v) == want:
                         hits += 1
-                        total += 1
-                    elif owner.get(v) is None:
-                        total += 1
-                    else:
-                        total = -1
-                        break
-                if total < 0:
-                    break
             if total > 0 and (best is None or hits / total > best[0]):
                 best = (hits / total, p0)
         if best is None or best[0] < 0.95:
