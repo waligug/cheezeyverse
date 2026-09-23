@@ -93,8 +93,10 @@ def test_a_clean_universe_gets_one_week():
     check("it succeeded", code, 0)
     check("it simmed exactly once", len(rig.sims), 1)
     check("seven days by default", rig.sims[0]["days"], autopilot.DEFAULT_DAYS)
-    check("it reported", len(rig.posted), 1)
-    check("and the report names the work", "simmed 7 day" in rig.posted[0], True)
+    # NO DISCORD POST ON SUCCESS. run_sim already opens and closes its own SimStatus card for
+    # this event; a second one said the same thing in weaker words, and quoted a `seconds` the
+    # dict run_sim returns has never carried, so it always read "?".
+    check("it does not post a second time about one week", rig.posted, [])
     check("it never previewed an offseason", rig.previews, 0)
 
 

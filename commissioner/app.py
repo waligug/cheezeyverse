@@ -61,7 +61,7 @@ class OffseasonUnavailable(RuntimeError):
 # ---------------------------------------------------------------------------------------
 # the simweek contract - the only thing this app is allowed to call
 # ---------------------------------------------------------------------------------------
-# Exactly these seven names, nothing else. A failure here is a banner, never a traceback:
+# Exactly these eight names, nothing else. A failure here is a banner, never a traceback:
 # the panel still starts so the owner can see *why* it is broken.
 SIMWEEK_OK = True
 SIMWEEK_ERROR = ""
@@ -1283,24 +1283,42 @@ def api_offseason_start():
         return jsonify({"ok": False, "error": (
             "The offseason writes to all three saves and pays every character. Send "
             '{"confirm": true} to mean it.')}), 400
-    # THE POSTSEASON GATE, and it is only on the REAL run. `seasonbonus.playoff_bracket` already
-    # declines to hand last year's bracket to this year's settlement, but the decline was silent:
-    # the playoff and title rows simply never appeared, so a rollover before the postseason was
-    # simmed and published paid nobody for either, in every league, with nothing saying so.
-    # The PREVIEW is deliberately left through - it writes nothing, and it is exactly what
-    # somebody should be able to run to find out they are not ready yet.
-    try:
-        rows = readiness.check("offseason", store=offseason_store())
-    except Exception as exc:                                            # noqa: BLE001
-        app.logger.warning("readiness check failed (%s); the offseason is not gated on it", exc)
-        rows = []
-    if rows and not readiness.ready(rows):
-        return jsonify({"ok": False, "refused": True, "error": (
-            "The universe is not ready to roll over: " + readiness.refusal(rows)),
-            "readiness": [r.__dict__ for r in rows]}), 409
     season = _season_arg(body.get("season"))
     if season is False:
         return jsonify({"ok": False, "error": "season must be a year, e.g. 2047"}), 400
+    # THE POSTSEASON GATE, and it sits here on purpose - AFTER the cheap validation above, so a
+    # malformed request is rejected without paying for three playoffs.htm parses, and after the
+    # season is known, so it is checked against the season actually asked for.
+    #
+    # It is only on the REAL run. The PREVIEW is deliberately left through: it writes nothing,
+    # and it is exactly what somebody should be able to run to find out they are not ready.
+    #
+    # IT FAILS CLOSED. The first version set `rows = []` on any exception and tested
+    # `if rows and not ready(rows)` - but `all([])` is True, so a readiness check that itself
+    # threw let the request straight through to the one irreversible path in the app, answering
+    # 202 with nothing but a log line behind it. A gate that opens when it breaks is worse than
+    # no gate, because it is trusted. `run_offseason` raises in the same situation.
+    if not SIMWEEK_OK:
+        return jsonify({"ok": False, "error": (
+            "The readiness gate is unavailable because simweek did not import, so the offseason "
+            "cannot be checked - and it will not run unchecked. " + SIMWEEK_ERROR)}), 503
+    try:
+        rows = readiness.check("offseason", season=season, store=offseason_store())
+    except Exception as exc:                                            # noqa: BLE001
+        app.logger.exception("readiness check failed")
+        return jsonify({"ok": False, "refused": True, "error": (
+            f"The universe could not be checked for readiness ({type(exc).__name__}: {exc}), "
+            "so the rollover was refused rather than run unchecked.")}), 409
+    if not readiness.ready(rows):
+        # `busy` and `run` are carried so the panel can still re-attach to a live run's log;
+        # without them app.js drops the stream for the whole of any running sim.
+        existing = busy_run()
+        return jsonify({"ok": False, "refused": True, "error": (
+            "The universe is not ready to roll over: " + readiness.refusal(rows)),
+            "busy": bool(existing and existing.finished_at is None),
+            "run": existing.summary() if existing else None,
+            "readiness": [r.__dict__ for r in rows]}), 409
+
     # A season the store has not reached yet is always a typo, and it is a dangerous one: the
     # already-run guard only refuses seasons that *have* run, so "2407" would sail past it,
     # age everybody and leave current_season at 2408. The store decides what is next; this can

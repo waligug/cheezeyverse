@@ -75,6 +75,11 @@ def row(rows, fragment):
 
 def clean_shared():
     """A universe with nothing in the way, so a test can isolate one check."""
+    # FBPB3.is_running() shells out to tasklist, so without stubbing it the suite's verdict
+    # depends on whether the game happens to be open on the machine running it - which on
+    # SERVERPC it often is.
+    from commissioner.driver import fbpb3 as _fbpb3
+    _fbpb3.FBPB3.is_running = staticmethod(lambda: False)
     return {
         "readiness_ATTR__lock_is_free": lambda: True,
         "simweek_ATTR_interrupted_run": lambda: None,
@@ -97,7 +102,7 @@ def test_each_shared_check_refuses_on_its_own():
         rows = readiness.check("sim", keys=[])
         r = row(rows, "nothing else is running")
         check("a held lock refuses", r.ok, False)
-        check("and says who has it", "lock" in r.detail, True)
+        check("and says who has it", "using the saves" in r.detail, True)
         check("the whole gate is closed", readiness.ready(rows), False)
 
     busy = {"kind": "offseason", "started_at": "2026-09-23T10:00:00Z", "phase": "draft"}
@@ -273,8 +278,13 @@ def test_the_refusal_sentence_names_everything_wrong():
 def test_nothing_here_holds_the_lock_it_is_reporting_on():
     """A readiness check that kept the lock would block the run it was asked about."""
     print("the check does not take what it is measuring")
-    check("the lock is free before", simweek._SIM_LOCK.acquire(blocking=False), True)
-    simweek._SIM_LOCK.release()
+    # SaveLock.release() raises when it is not held, so releasing an acquire that FAILED turns
+    # "the suite found a problem" into "the suite died". Running the tests during a live sim is
+    # exactly when that happens.
+    first = simweek._SIM_LOCK.acquire(blocking=False)
+    check("the lock is free before", first, True)
+    if first:
+        simweek._SIM_LOCK.release()
     readiness.check("sim", keys=[])
     got = simweek._SIM_LOCK.acquire(blocking=False)
     check("and still free after", got, True)

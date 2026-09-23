@@ -79,7 +79,10 @@ def _say(message, quiet=False, log=print):
     if quiet:
         return
     try:
-        notify.post(message, log=lambda m: None)
+        # notify.post NEVER RAISES - it catches and logs. Swallowing its log with a no-op meant
+        # a deleted webhook was 100% silent: nothing posted, nothing printed, exit 0, green in
+        # Task Scheduler. The real log is the only evidence that a post failed.
+        notify.post(message, log=log)
     except Exception as exc:                                           # noqa: BLE001
         log(f"   (could not post to Discord: {exc})")
 
@@ -114,15 +117,33 @@ def preview_offseason(log=print):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--days", type=int, default=DEFAULT_DAYS)
+    ap.add_argument("--days", type=int, default=DEFAULT_DAYS,
+                    help=f"days to sim, 1-400 (default {DEFAULT_DAYS})")
     ap.add_argument("--dry-run", action="store_true",
                     help="say what it would do; take no lock, write nothing, post nothing")
     ap.add_argument("--quiet", action="store_true", help="terminal only, no Discord")
     a = ap.parse_args(argv)
     quiet = a.quiet or a.dry_run
 
+    # THE SAME RANGE THE PANEL ENFORCES (app.py:1121), and it was missing here. `--days 0` is
+    # not a no-op: run_sim backs up all three saves, applies pending work, opens the game,
+    # exports, publishes, and then pays everybody, because `league_weeks = max(1, round(0/7))`
+    # is 1. A full week's points for no basketball, and points are cumulative.
+    if not 1 <= a.days <= 400:
+        print(f"--days must be between 1 and 400; got {a.days}")
+        return 2
+
     # ---- the gate -------------------------------------------------------------------------
-    rows = readiness.check("sim")
+    # WRAPPED, because this ran before any _say and was the only statement in main() with no
+    # handler: a half-written journal produced a traceback to a detached console and not one
+    # word anywhere a person looks.
+    try:
+        rows = readiness.check("sim")
+    except Exception as exc:                                           # noqa: BLE001
+        traceback.print_exc()
+        _say(f"**Autopilot could not check whether it was safe to run** "
+             f"({type(exc).__name__}: {exc}). Nothing was attempted.", quiet=quiet)
+        return 1
     readiness.report(rows)
     if not readiness.ready(rows):
         _say(f"Autopilot did not run a week: {readiness.refusal(rows)}", quiet=quiet)
@@ -189,15 +210,21 @@ def main(argv=None):
              quiet=quiet)
         return 1
 
+    # BELT AND BRACES. `run_sim` currently raises rather than returning ok=False, so this is
+    # unreachable today - kept because the contract is not written down anywhere, and a week
+    # that quietly reported failure by return value must not be announced as a success.
     if not result.get("ok"):
         errors = "; ".join(str(e) for e in (result.get("errors") or [])[:3]) or "no reason given"
         _say(f"**Autopilot ran a week and it did not finish clean.** {errors}", quiet=quiet)
         return 1
 
-    _say(f"Autopilot simmed {result.get('days')} day(s) across "
-         f"{len(result.get('leagues') or [])} leagues in {result.get('seconds', '?')}s. "
-         f"{result.get('applied', 0)} change(s) applied, "
-         f"{result.get('activated', 0)} character(s) activated.", quiet=quiet)
+    # TO THE TERMINAL ONLY. `run_sim` already opens and closes its own SimStatus card in
+    # Discord for this exact event; a second post said the same thing in weaker words - and
+    # quoted a `seconds` that run_sim never puts on the dict it returns, so it always read "?".
+    print(f"Autopilot simmed {result.get('days')} day(s) across "
+          f"{len(result.get('leagues') or [])} leagues. "
+          f"{result.get('applied', 0)} change(s) applied, "
+          f"{result.get('activated', 0)} character(s) activated.")
     return 0
 
 

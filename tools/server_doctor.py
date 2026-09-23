@@ -368,6 +368,28 @@ def main():
           "-LocalPort 5095 -Protocol TCP -RemoteAddress LocalSubnet -Action Allow  "
           "(as administrator), and set the Ethernet profile to Private")
 
+    # THE ONE TASK THAT DRIVES THE GAME WITH NOBODY WATCHING, and the health check could not
+    # see it. Reported either way on purpose: absent is not a failure (it is opt-in), but
+    # "something is going to open FBPB3 at 04:00 on Sunday" is the single most useful fact this
+    # script can tell somebody who is about to use the machine.
+    autopilot_task = tasks.get("cheezeyverse autopilot")
+    if autopilot_task:
+        log = Path(os.environ.get("LOCALAPPDATA", "")) / "Cheezeyverse" / "autopilot.log"
+        when = ""
+        try:
+            if log.exists():
+                from datetime import datetime
+                age = (datetime.now() - datetime.fromtimestamp(log.stat().st_mtime))
+                when = f", log {age.days}d old" if age.days else ", log written today"
+        except Exception:                                        # noqa: BLE001
+            pass
+        check("a scheduled Sim Week is armed (it will drive the desktop)", True,
+              f"{autopilot_task}{when}",
+              "to stop it: powershell -File tools\\install_serverpc_tasks.ps1 (no -Autopilot)")
+    else:
+        check("no unattended sim is scheduled", True,
+              "autopilot is not registered; sims only run when you start one")
+
     backup_task = tasks.get("cheezeyverse offsite backup")
     check("the saves are copied off this drive, daily", bool(backup_task),
           backup_task or "not registered",

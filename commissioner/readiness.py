@@ -35,7 +35,6 @@ import sys
 from dataclasses import dataclass
 
 from . import characters as ch
-from . import seasonbonus
 from . import simweek
 from .universe import config as cfg
 
@@ -70,19 +69,36 @@ def _season_of(settings):
         return None
 
 
-def _shared(rows):
-    """The three that stop any run, whatever kind it is."""
+def _shared(rows, kind):
+    """What stops any run - plus the two that depend on which kind it is."""
     # ONE read, not two. Calling it twice meant the verdict and the reason came from separate
     # moments, so a refusal could print with no reason attached - or worse, a pass with one.
     free = _lock_is_free()
     rows.append(Row(free, "nothing else is running",
-                    "" if free else "another sim or offseason holds the save lock",
-                    "wait for it, or check the panel for a run that never finished"))
+                    "" if free else "a sim or offseason is using the saves right now",
+                    "wait for it to finish"))
 
+    # A LIVE RUN IS NOT AN INTERRUPTED ONE, and telling them apart matters more than it looks.
+    # `interrupted_run()` is file presence and nothing else - no pid, no heartbeat - and
+    # `_mark_running` writes that file at the START of a healthy run, clearing it only on
+    # success. Every previous caller read it before it was written, or under the lock. This is
+    # the first to read it at an arbitrary moment, so during an ordinary panel Sim Week it saw
+    # the marker and reported "A sim started at <time> never finished ... before clearing
+    # universe/run_in_progress.json" - an instruction that, followed, deletes a RUNNING sim's
+    # journal and kills the week at its next _update_marker.
+    #
+    # The save lock is the discriminator and it is OS-backed (saveguard: msvcrt.locking /
+    # flock on a permanent file), so the operating system drops it when the holder exits,
+    # crash included. Marker plus a held lock is a run in flight; marker plus a free lock is a
+    # run whose process is gone.
     state = simweek.interrupted_run()
-    rows.append(Row(not state, "no interrupted run to reconcile",
-                    simweek.describe_interruption(state) if state else "",
-                    "reconcile the saves, then clear universe/run_in_progress.json"))
+    if state and not free:
+        rows.append(Row(True, "no interrupted run to reconcile",
+                        "a run is in flight right now - its journal is supposed to be there"))
+    else:
+        rows.append(Row(not state, "no interrupted run to reconcile",
+                        simweek.describe_interruption(state) if state else "",
+                        "reconcile the saves, then clear universe/run_in_progress.json"))
 
     try:
         from .driver.fbpb3 import FBPB3
@@ -90,9 +106,17 @@ def _shared(rows):
     except Exception as exc:                                            # noqa: BLE001
         rows.append(Row(True, "FBPB3 is closed", f"could not tell ({exc}); assuming it is"))
         return
-    rows.append(Row(not running, "FBPB3 is closed",
-                    "the game is open; it holds league.dat and a run would fight it" if running
-                    else "", "close FBPB3"))
+    # A STRAY GAME STOPS AN OFFSEASON AND NOT A SIM, because `run_sim` already closes one
+    # itself ("closing a stray FBPB3 first", simweek.py:1216). Refusing a sim on it meant one
+    # leftover process - the 0xC000013A kill the panel's own supervisor exists for - would make
+    # every unattended run refuse for ever, since nothing unattended will ever close the game.
+    if kind == "sim":
+        rows.append(Row(True, "FBPB3 is closed",
+                        "the game is open; the run will close it first" if running else ""))
+    else:
+        rows.append(Row(not running, "FBPB3 is closed",
+                        "the game is open; it holds league.dat" if running else "",
+                        "close FBPB3"))
 
 
 def _sim_rows(rows, keys):
@@ -133,6 +157,11 @@ def _offseason_rows(rows, keys, season):
             continue
         rounds = cfg.BY_KEY[key].playoff_rounds
         try:
+            # LAZY, and deliberately. app.py imports this beside simweek inside one try/except;
+            # at module level a syntax error in seasonbonus would take Sim Week, approvals,
+            # character creation and run history down together under a banner blaming simweek.
+            # simweek imports it lazily for the same reason.
+            from . import seasonbonus
             bracket, champion = seasonbonus.playoff_bracket(html, season, rounds)
         except Exception as exc:                                        # noqa: BLE001
             rows.append(Row(False, f"{key}: {season} postseason is finished",
@@ -161,7 +190,7 @@ def _offseason_rows(rows, keys, season):
                             f"{len(bracket)} team(s) qualified, {champion} won it"))
 
 
-def check(kind, keys=None, settings=None, store=None):
+def check(kind, keys=None, settings=None, store=None, season=None):
     """[Row] for `kind`, in the order a person would want to read them.
 
     `store` is only read for the season; pass `settings` instead to check without touching
@@ -183,7 +212,7 @@ def check(kind, keys=None, settings=None, store=None):
                         f"no such league: {', '.join(unknown)}",
                         f"one of {', '.join(sorted(cfg.BY_KEY))}"))
         keys = [k for k in keys if k in cfg.BY_KEY]
-    _shared(rows)
+    _shared(rows, kind)
     if kind == "sim":
         _sim_rows(rows, keys)
     else:
@@ -193,7 +222,7 @@ def check(kind, keys=None, settings=None, store=None):
             except Exception as exc:                                    # noqa: BLE001
                 rows.append(Row(False, "settings are readable", str(exc)))
                 settings = {}
-        _offseason_rows(rows, keys, _season_of(settings))
+        _offseason_rows(rows, keys, season if season is not None else _season_of(settings))
     return rows
 
 

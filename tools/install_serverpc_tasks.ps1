@@ -1,7 +1,7 @@
 <#
 Make the universe survive a reboot. Run once, on the server, as the user that runs the sims.
 
-WHAT IT REGISTERS, both as ORDINARY USER TASKS - no administrator, no SYSTEM:
+WHAT IT REGISTERS, all as ORDINARY USER TASKS - no administrator, no SYSTEM:
 
   Cheezeyverse panel           at logon, keeps tools\run_panel.ps1 running, which keeps the
                                commissioner panel running.
@@ -110,13 +110,53 @@ Install-Task -name 'Cheezeyverse offsite backup' `
 # It is a SIM WEEK ONLY. autopilot.py refuses to roll a season over; when the regular season
 # runs out it posts the offseason preview and stops. Nothing irreversible happens unattended.
 if ($Autopilot) {
-    Install-Task -name 'Cheezeyverse autopilot' `
-        -action (New-ScheduledTaskAction -Execute $python `
-            -Argument "tools\autopilot.py" -WorkingDirectory $Repo) `
-        -trigger (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $AutopilotDay -At $AutopilotAt) `
-        -description 'Runs one Sim Week unattended and posts the result to Discord. Never rolls a season over - at the season end it posts the offseason preview and stops. See tools\autopilot.py.'
+    if ($AutopilotDay -notin @('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')) {
+        throw "-AutopilotDay must be a day name, got '$AutopilotDay'"
+    }
+    # ITS OWN SETTINGS, not the shared ones, and every difference is deliberate.
+    #
+    #  -RestartCount 0   autopilot.py's whole contract is that it NEVER retries: a week that
+    #                    died halfway leaves a recovery journal, and a second attempt against an
+    #                    unreconciled universe turns one bad night into two. The shared settings
+    #                    say RestartCount 3 / 1 minute, which would have relaunched a failed week
+    #                    three times at one-minute intervals.
+    #  ExecutionTimeLimit  a run parked on a modal would otherwise hold the OS save lock for
+    #                    ever while IgnoreNew silently discarded every following week. Four
+    #                    hours is far longer than the ~11 minutes a week takes, and it ends.
+    #  -StartWhenAvailable is OFF. It exists to run a missed task late - and late here means
+    #                    driving real mouse clicks across somebody's desktop on Monday morning.
+    #                    A missed week is a missed week; it waits for its own slot.
+    $apSettings = New-ScheduledTaskSettingsSet `
+        -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+        -MultipleInstances IgnoreNew -RestartCount 0 `
+        -ExecutionTimeLimit (New-TimeSpan -Hours 4)
+    $apPrincipal = New-ScheduledTaskPrincipal -UserId $me -LogonType Interactive -RunLevel Limited
+    # -u and a log file: readiness rows, every sim step, tracebacks and autopilot's own
+    # "could not post to Discord" all went to a detached console and vanished. On the one night
+    # Discord is also down that left no record anywhere. run_panel.ps1 sets the precedent.
+    $apLog = Join-Path $env:LOCALAPPDATA 'Cheezeyverseutopilot.log'
+    $null = New-Item -ItemType Directory -Force -Path (Split-Path $apLog) -ErrorAction SilentlyContinue
+    $apAction = New-ScheduledTaskAction -Execute $ps `
+        -Argument ("-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command " + `
+                   "`"& '$python' -u toolsutopilot.py *>> '$apLog'`"") `
+        -WorkingDirectory $Repo
+    Register-ScheduledTask -TaskName 'Cheezeyverse autopilot' -Action $apAction `
+        -Trigger (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $AutopilotDay -At $AutopilotAt) `
+        -Settings $apSettings -Principal $apPrincipal -Force `
+        -Description "Runs one Sim Week unattended and posts the result. Never rolls a season over - at the season end it posts the offseason preview and stops. Logs to $apLog. See toolsutopilot.py." | Out-Null
+    Write-Output ("installed: {0}  [{1}]  {2} {3}, log {4}" -f 'Cheezeyverse autopilot',
+        (Get-ScheduledTask -TaskName 'Cheezeyverse autopilot').State, $AutopilotDay, $AutopilotAt, $apLog)
 } else {
-    Write-Output "skipped  : Cheezeyverse autopilot  (pass -Autopilot to install it)"
+    # WITHOUT -Autopilot, REMOVE IT. Register-ScheduledTask -Force only ever adds; re-running
+    # the installer plainly used to print "skipped" while the task stayed registered and kept
+    # firing every Sunday. "Not installed" has to mean not installed.
+    $existing = Get-ScheduledTask -TaskName 'Cheezeyverse autopilot' -ErrorAction SilentlyContinue
+    if ($existing) {
+        Unregister-ScheduledTask -TaskName 'Cheezeyverse autopilot' -Confirm:$false
+        Write-Output "removed  : Cheezeyverse autopilot  (pass -Autopilot to keep it)"
+    } else {
+        Write-Output "skipped  : Cheezeyverse autopilot  (pass -Autopilot to install it)"
+    }
 }
 
 Write-Output ""

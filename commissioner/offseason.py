@@ -1448,6 +1448,19 @@ def _season_bonuses(characters, settings, log):
                         f"this export, so NOBODY here can be paid for making the playoffs or "
                         f"winning the league. Sim the postseason and publish before running "
                         f"this for real.")
+                elif not _champ:
+                    # A NON-EMPTY BRACKET WITH NO CHAMPION is a postseason still being played,
+                    # not a finished one: playoff_bracket returns `qualifiers or None, None` the
+                    # moment any series is undecided. The first version discarded _champ and
+                    # warned only on an empty bracket, so a final sitting at 1-0 previewed a
+                    # settlement paying "made the playoffs" off an in-progress bracket with the
+                    # title silently absent. This is the path deliberately left ungated so
+                    # people can discover they are not ready, and autopilot scrapes exactly
+                    # these "!" lines into its season-end post - so a silence here is a silence
+                    # everywhere.
+                    log(f"   ! {key}: the {settings.get('current_season')} postseason is still "
+                        f"being played, so no champion can be read and no title paid. Finish "
+                        f"the playoffs first.")
             except Exception:                                           # noqa: BLE001
                 pass
         try:
