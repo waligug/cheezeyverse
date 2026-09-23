@@ -233,7 +233,14 @@ class SimStatus:
         self._wake.set()
 
     def wait(self, timeout=None):
-        """For previews/tests only. The simulation must never wait for Discord."""
+        """Join the worker, for previews, tests, and the end of a run.
+
+        The rule this module protects is that Discord never sits in the GAME LOOP - no click,
+        save or publish waits on an HTTP round trip. Waiting once at the very end, after every
+        result is already recorded, is a different thing: `finish()` only flips the card to
+        terminal and wakes this worker, and the worker is a daemon thread, so a caller that
+        exits straight after loses the final PATCH and strands the card at 99% for ever.
+        """
         if self._thread:
             self._thread.join(timeout)
             return not self._thread.is_alive()

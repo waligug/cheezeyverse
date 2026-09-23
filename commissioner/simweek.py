@@ -35,7 +35,7 @@ from . import notify
 from . import settings as cfgenv
 from . import localstore, recovery
 from .saveguard import SAVE_LOCK
-from .simstatus import RunProgress, SimStatus
+from .simstatus import FINAL_BUDGET, RunProgress, SimStatus
 from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
 from .driver.fbpb3 import DOCS, FBPB3
 from .publish.publish import publish
@@ -1767,6 +1767,23 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 if status is not None:
                     status.finish(result["ok"], failure_summary or
                                   _discord_report(steps, result, time.monotonic() - started))
+                    # AND WAIT FOR IT TO ACTUALLY GO OUT. `finish()` only flips the card to
+                    # terminal and wakes the worker; the PATCH happens on that worker, which is a
+                    # DAEMON thread - so a caller that returns from run_sim and exits kills it
+                    # mid-flight and the card is frozen for ever at its last periodic update,
+                    # reading 99% and "Awarding weekly points" on a run that finished perfectly.
+                    #
+                    # The panel never saw this because it is a long-lived process and the thread
+                    # outlives the call. Any one-shot caller - a tool, a test, a recovery script
+                    # run by hand - loses the final update instead, and the message id lives only
+                    # in memory, so nothing can repair that card afterwards.
+                    #
+                    # This does NOT put Discord in the game loop, which is the rule the module
+                    # docstring is protecting: every game click, save and publish is already done
+                    # and recorded by the time this runs. It is bounded by the worker's own
+                    # FINAL_BUDGET and returns as soon as the terminal send lands, which is the
+                    # usual case and costs well under a second.
+                    status.wait(FINAL_BUDGET)
             except Exception as exc:
                 print(f"Discord final status failed ({type(exc).__name__}); run is unaffected")
             finally:
