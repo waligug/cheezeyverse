@@ -447,6 +447,18 @@ class FBPB3:
                     bad[n] = f"it reports the same save time as {', '.join(sorted(set(names) - {n}))}"
         return bad
 
+    def _runtime_error(self):
+        """The text of an FBPB3 'Run-time error' box, if one is up; otherwise None."""
+        try:
+            for w in self.app.windows(class_name="#32770", visible_only=True):
+                body = " ".join(c.window_text() for c in w.children()
+                                if c.class_name() == "Static").strip()
+                if "run-time error" in body.lower():
+                    return " ".join(body.split())
+        except Exception:                                               # noqa: BLE001
+            pass
+        return None
+
     def _window_hung(self):
         """True while the game has stopped pumping messages - which is what a real load looks like.
 
@@ -505,6 +517,12 @@ class FBPB3:
         clicks, retry_at = 1, time.monotonic() + LOAD_RETRY_AFTER
         while self._load_screen_open(unknown=True):
             now = time.monotonic()
+            # A GAME CRASH IS NOT A SLOW LOAD. FBPB3 reports its own VB6 run-time errors in a
+            # message box that sits behind the Load screen; without this the run waited the full
+            # 90s and then blamed a click. Fail at once, with the game's own words.
+            crash = self._runtime_error()
+            if crash:
+                raise DriverError(f"FBPB3 crashed loading row {row}: {crash}")
             if now > deadline:
                 raise DriverError(f"row {row} was still on the Load screen {limit}s after "
                                   f"LOAD was clicked {clicks} time(s)")

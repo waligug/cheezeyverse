@@ -1384,11 +1384,28 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
         at("load", keys[0])
         emit("sim", "starting the basketball game", keys[0])
         game = FBPB3().launch()
+        loaded_teams = None
         for key in keys:
             spec = cfg.BY_KEY[key]
             at("load", key)
+            # A FRESH GAME BEFORE A BIGGER LEAGUE. Loading pro (20 teams) into a game that has
+            # already had prep or college (16) open crashes FBPB3 itself - "Run-time error '9':
+            # Subscript out of range", a VB6 array sized for the last league and never grown.
+            # Its message box sits behind the Load screen, so the driver saw only "still on the
+            # Load screen" and died after 90s: three runs in a row on 2026-09-23, always pro,
+            # always after another league. A fresh process loads pro every time. Restarting
+            # costs one launch; it is only done when the next league has MORE teams.
+            if loaded_teams is not None and len(spec.teams) > loaded_teams:
+                emit("sim", f"restarting the game before {spec.name} - it has more teams than "
+                     "the league just closed, which FBPB3 cannot load in the same session", key)
+                try:
+                    game.exit_game(save=False)
+                except Exception:                                       # noqa: BLE001
+                    FBPB3.kill()
+                game = FBPB3().launch()
             emit("sim", f"loading {spec.save_name}", key)
             game.load_save(spec.save_name, wait=30)
+            loaded_teams = len(spec.teams)
             try:
                 _before_day = _played_day(ch.save_path(key))
             except Exception:                                           # noqa: BLE001
