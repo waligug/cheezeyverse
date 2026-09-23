@@ -165,10 +165,30 @@ def _clear_marker():
 #
 # The numbers do not follow league size (prep and college both hold 240 players, and college takes
 # nearly nine times as long), so these are measurements with headroom, not a formula.
+# RAISED FOR PRO AGAIN, 2026-09-22, and for the same reason as the first time. Pro's export died
+# on the stall budget - "no MDB for pro (Output MDB made no file progress for 120s)" - so its
+# LeagueOutput.mdb sat hours stale at 20 games of a 58-game season while every other step of the
+# run succeeded. Nothing failed loudly: the sim reports it and carries on, head-to-head quietly
+# stops updating, and the damage only surfaced when the OFFSEASON refused to roll over on a stale
+# export, which is the one place it cannot be allowed through.
+#
+# THE CAUSE IS NOT SIZE, and it would have been easy to write down that it was. Re-run on its
+# own straight afterwards - launch, load CV_Pro, Output MDB, nothing else - the same export
+# finished in 24.9s and produced a complete 13.6 MB file. So pro is not too slow for a 120s
+# stall budget by a factor of five; something about the state it was left in by a run that had
+# just simmed into the playoffs made that one export go quiet instead.
+#
+# What that something is has NOT been identified. This is rope, not a fix: the stall budget's job
+# is to catch a DEAD export, so it should exceed the longest quiet stretch a LIVE one can have,
+# and 120s demonstrably did not. Raising it costs nothing on a healthy run because output_mdb
+# returns as soon as the file lands and its "File Created" box is dismissed - which is why the
+# standalone run took 25s and not 300.
+#
+# If pro's MDB goes stale again, the budget is not the answer and this comment is the evidence.
 MDB_BUDGET = {
     "prep": (90, 240),
-    "college": (120, 480),
-    "pro": (120, 600),
+    "college": (180, 600),
+    "pro": (300, 1200),
 }
 
 

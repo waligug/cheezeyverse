@@ -113,6 +113,22 @@ _LEAVE_ALONE = {"3pUsage", "Fouling", "Stamina"}
 #     spread gate is what stops a genuinely poor player being regenerated out from under himself.
 FLOOR_DRIFT = 7
 FLOOR_SPREAD = 6
+# A FLOORED BODY DOES NOT DRIFT EVENLY, which the first version of this assumed. Rudy Schreck sat
+# on a pro roster with thirteen of his fifteen core ratings at 2-4 and Jumping alone at 17: the
+# game's progression moves individual ratings at different rates, so a max-and-spread test let him
+# through while he was plainly filler. Nate found him by looking at a roster.
+#
+# Two tests now, and either is enough:
+#
+#   * BELOW WHAT THE GENERATOR CAN MAKE. `generated_floor` samples `gen.make_player` for the
+#     league and takes the lowest mean it produces, less a little margin. A body under that was
+#     not generated for this league - it was floored. Measured against the live saves this splits
+#     cleanly: in pro the worst body it keeps is 30.3 and the best it catches 13.5; in college
+#     29.7 against 13.0. Nothing sits in between.
+#   * MOSTLY AT THE FLOOR LINE. A body with 60% or more of its core ratings still at or under
+#     FLOOR_DRIFT is filler whatever its mean - the Rudy Schreck case, and the safety net if a
+#     band is ever widened far enough for the first test to go slack.
+FLOOR_MOSTLY = 0.6
 
 
 def _RESTORABLE_TEAMS(pl):
@@ -121,10 +137,38 @@ def _RESTORABLE_TEAMS(pl):
     return {t} if (t >= 1 or t == -1) else set()
 
 
-def is_defanged(values, skill):
+def generated_floor(spec, samples=300, margin=0.92, seed=11):
+    """The lowest mean overall `gen.make_player` produces for this league, less a little margin.
+
+    Sampled rather than written down: the bands live in config, and a number typed in here would
+    silently stop matching the day one of them moved.
+    """
+    from .universe import generate as gen
+    rng = random.Random(seed)
+    first_pool, last_pool = gen.name_pools()
+    towns = gen.hometowns()
+    skill = [f for f in RATINGS if f not in _LEAVE_ALONE]
+    age = (spec.age_range[0] + spec.age_range[1]) // 2
+    lowest = None
+    for _ in range(samples):
+        row = gen.make_player(rng, spec, spec.teams[0], "C", age, first_pool, last_pool, towns)
+        vals = [int(row[f]) for f in skill if f in row]
+        if not vals:
+            continue
+        mean = sum(vals) / len(vals)
+        lowest = mean if lowest is None else min(lowest, mean)
+    return (lowest or 0) * margin
+
+
+def is_defanged(values, skill, floor_mean=None):
     """True when this body was floored by the roster guard, however far it has since drifted."""
     vals = [values[f] for f in skill]
-    return max(vals) <= FLOOR_DRIFT and max(vals) - min(vals) <= FLOOR_SPREAD
+    if sum(1 for v in vals if v <= FLOOR_DRIFT) / len(vals) >= FLOOR_MOSTLY:
+        return True
+    if floor_mean is not None:
+        return sum(vals) / len(vals) < floor_mean
+    # With no league to compare against, only the structural test can be applied.
+    return max(vals) <= FLOOR_DRIFT
 
 
 class AgeOutError(Exception):
@@ -397,7 +441,8 @@ def sync_manifest(L, key, keep, manifest):
     return manifest, registered, dropped
 
 
-def reconcile(key, save_path=None, store=None, log=print, restore_ratings=True, seed=None):
+def reconcile(key, save_path=None, store=None, log=print, restore_ratings=True, seed=None,
+              reserves=False):
     """Register today's rosters, and give back the ratings the guard took off them.
 
     The repair for drift that has already happened. Two halves, and the second is why it writes
@@ -426,10 +471,29 @@ def reconcile(key, save_path=None, store=None, log=print, restore_ratings=True, 
 
     restored = []
     if restore_ratings:
+        # A DORMANT RESERVE SEAT IS STILL A BODY ON A ROSTER. The seats are deliberately floored
+        # so a recycled one cannot come back as a departed character's fully developed player and
+        # take rotation minutes off a real person - that is the bug `reset_reserve` exists to stop
+        # and it stays stopped, because a claimed seat is overwritten by the character's own
+        # ratings the moment he is stamped onto it.
+        #
+        # But floored is not the same as dormant, and they are not sitting quietly: measured on
+        # the live saves, pro carried 58 seats on rosters with 16 of them ON A DEPTH CHART and 54
+        # in the active lineup. Those are rating-3 placeholders taking real minutes, about three
+        # per team, and they are what "half these teams have 3 overall players" actually looked
+        # like once the drifted filler had been repaired.
+        #
+        # So a seat is regenerated into its league's own band like any other filler - decent, not
+        # a star, the same `gen.make_player` draw everyone else gets. CHARACTERS ARE STILL NEVER
+        # TOUCHED; only the reserve rows come out of the keep set.
         rng = random.Random(seed if seed is not None else (hash((key, "reconcile")) & 0xFFFFFFFF))
         first_pool, last_pool = gen.name_pools()
         towns = gen.hometowns()
         skill = [f for f in RATINGS if f not in _LEAVE_ALONE]
+        floor_mean = generated_floor(spec)
+        people = {f'{c["first_name"]} {c["last_name"]}'
+                  for c in (store.characters(league=key) if store is not None else [])}
+        ratings_keep = people if reserves else keep
         # Season only decides the age we regenerate him AT; read it off the save so a repair run
         # outside an offseason still gets it right.
         season = L.season_day()[1]
@@ -443,9 +507,9 @@ def reconcile(key, save_path=None, store=None, log=print, restore_ratings=True, 
             # our characters are drafted against, and the pool is where college's outgoing
             # seniors are carried. Free agents are included because the next roster gap is filled
             # from them, so leaving them floored puts the problem straight back on a roster.
-            if pl.name in keep or pl.values["Team"] not in _RESTORABLE_TEAMS(pl):
+            if pl.name in ratings_keep or pl.values["Team"] not in _RESTORABLE_TEAMS(pl):
                 continue
-            if not is_defanged(pl.values, skill):
+            if not is_defanged(pl.values, skill, floor_mean):
                 continue                   # he kept his ratings; leave him alone
             row = gen.make_player(rng, spec, spec.teams[0],
                                   POSITION_NAME.get(pl.values["Position"], "C"),

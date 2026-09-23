@@ -12,12 +12,20 @@ across 3-7 with 145 of its 300 STARTERS floored and invisible to their own repai
 of 15 on one team against 11 of 15 on another. That is what Nate saw: "half of these teams have 3
 overall players", and lopsided records to go with it.
 
-THE TWO GATES, both measured on the live saves before they were chosen:
+THEN IT WAS WRONG A SECOND TIME. The first fix assumed a floored body drifts EVENLY and tested
+max-and-spread. Rudy Schreck sat on a pro roster with thirteen of fifteen core ratings at 2-4 and
+Jumping alone at 17: progression moves individual ratings at different rates, so he read as a real
+player and went on taking rotation minutes. Nate found him by reading a team sheet, after being
+told twice that it was fixed.
 
-  * Nothing under 8 was ever GENERATED. The filler bands are prep 8-38, college 18-52, pro 28-62,
-    so a body whose best core skill is 7 or less did not come from `gen.make_player`.
-  * A floored body is FLAT. All 378 pro bodies at or under 7 had a max-min spread of 6 or less,
-    while real players from 13 up had a median spread of 21 and a maximum of 79.
+THE TWO GATES NOW, and either is enough:
+
+  * BELOW WHAT THE GENERATOR CAN MAKE. `generated_floor` samples `gen.make_player` for the league
+    and takes the lowest mean it produces. Measured on the live saves this splits cleanly: in pro
+    the worst body it keeps is 30.3 and the best it catches 13.5; in college 29.7 against 13.0.
+    Nothing sits in between. Sampled, never written down, so it survives a band change.
+  * MOSTLY AT THE FLOOR LINE. 60% or more of the core ratings still at or under FLOOR_DRIFT is
+    filler whatever the mean - the Rudy Schreck case.
 
     python tests/test_floor_drift.py
 """
@@ -68,6 +76,40 @@ def run():
     check("low ceiling but real spread is left alone",
           not ageout.is_defanged(body(0, 0, 7, 7), SKILL) or ageout.FLOOR_SPREAD < 7,
           f"spread gate is {ageout.FLOOR_SPREAD}")
+
+    print("")
+    print("A FLOORED BODY DOES NOT DRIFT EVENLY - the case the first version missed")
+    # Rudy Schreck, off a live pro roster: thirteen of fifteen core ratings at 2-4, and Jumping
+    # alone drifted to 17. A max-and-spread test called him a real player and left him taking
+    # rotation minutes. Nate found him by reading a team sheet.
+    rudy = [4, 4, 2, 4, 4, 4, 2, 4, 4, 4, 4, 4, 4, 17, 8]
+    sk15 = [f"r{i}" for i in range(15)]
+    check("caught by the structural test alone",
+          ageout.is_defanged(dict(zip(sk15, rudy)), sk15),
+          f"mean {sum(rudy)/len(rudy):.1f}, max {max(rudy)}, spread {max(rudy)-min(rudy)}")
+    check("and by the mean test against pro's floor",
+          ageout.is_defanged(dict(zip(sk15, rudy)), sk15, 30.5))
+
+    print("")
+    print("below what the generator can make, for the league being repaired")
+    for key, floor in (("prep", 13.6), ("college", 21.0), ("pro", 30.5)):
+        check(f"{key}: a body under {floor:.1f} is filler",
+              ageout.is_defanged(body(*([int(floor) - 4] * 4)), SKILL, floor))
+        check(f"{key}: a body over it is left alone",
+              not ageout.is_defanged(body(*([int(floor) + 12] * 4)), SKILL, floor))
+
+    print("")
+    print("the floor is SAMPLED from the generator, never written down")
+    # A number typed into the module stops matching the day a band moves in config, and nothing
+    # says so. Sampling is what makes the rule survive a band change.
+    import inspect
+    src = inspect.getsource(ageout.generated_floor)
+    check("it calls the real generator", "gen.make_player" in src)
+    check("and takes the lowest it produces", "lowest" in src)
+    for spec in cfg.LEAGUES:
+        floor = ageout.generated_floor(spec)
+        check(f"{spec.key}: sampled floor sits inside its band {spec.ratings}",
+              spec.ratings[0] * 0.5 < floor < spec.ratings[1], f"{floor:.1f}")
 
     print("\nthe gate sits below every league's own generation band")
     for spec in cfg.LEAGUES:
