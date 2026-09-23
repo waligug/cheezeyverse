@@ -7,6 +7,9 @@ WHAT IT REGISTERS, both as ORDINARY USER TASKS - no administrator, no SYSTEM:
                                commissioner panel running.
   Cheezeyverse offsite backup  daily, copies the three league.dat files and the keys to
                                D:\Cheezeyverse-backups and verifies every copy by hash.
+  Cheezeyverse autopilot       ONLY with -Autopilot. Weekly, runs one Sim Week unattended and
+                               posts the result. It never rolls a season over: at the season
+                               end it posts the offseason preview and stops.
 
 WHY AT LOGON AND NOT AT BOOT. The panel drives FBPB3 through real mouse clicks, so it has to
 live in the interactive desktop session - a service or a SYSTEM task has no desktop to click on
@@ -24,7 +27,10 @@ Run as administrator. This script says so at the end if it is missing.
 #>
 param(
     [string]$Repo = 'C:\claude\hoops-universe',
-    [string]$BackupAt = '05:00'
+    [string]$BackupAt = '05:00',
+    [switch]$Autopilot,
+    [string]$AutopilotDay = 'Sunday',
+    [string]$AutopilotAt = '04:00'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -95,6 +101,23 @@ Install-Task -name 'Cheezeyverse offsite backup' `
         -Argument "tools\offsite_backup.py" -WorkingDirectory $Repo) `
     -trigger (New-ScheduledTaskTrigger -Daily -At $BackupAt) `
     -description 'Copies league.dat and the keys to D:\Cheezeyverse-backups, verified by hash. See tools\offsite_backup.py.'
+
+# OFF BY DEFAULT, and that is deliberate. A scheduled Sim Week is the difference between a
+# universe that runs and one that waits for somebody to remember it - but it drives the game
+# through real mouse clicks on the interactive desktop, so it must never start while a person
+# is mid-anything. Install it when you want it, with -Autopilot, and pick the hour.
+#
+# It is a SIM WEEK ONLY. autopilot.py refuses to roll a season over; when the regular season
+# runs out it posts the offseason preview and stops. Nothing irreversible happens unattended.
+if ($Autopilot) {
+    Install-Task -name 'Cheezeyverse autopilot' `
+        -action (New-ScheduledTaskAction -Execute $python `
+            -Argument "tools\autopilot.py" -WorkingDirectory $Repo) `
+        -trigger (New-ScheduledTaskTrigger -Weekly -DaysOfWeek $AutopilotDay -At $AutopilotAt) `
+        -description 'Runs one Sim Week unattended and posts the result to Discord. Never rolls a season over - at the season end it posts the offseason preview and stops. See tools\autopilot.py.'
+} else {
+    Write-Output "skipped  : Cheezeyverse autopilot  (pass -Autopilot to install it)"
+}
 
 Write-Output ""
 $keeper = Get-ScheduledTask | Where-Object { $_.TaskName -match 'session keeper|keep desktop' }

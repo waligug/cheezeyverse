@@ -62,7 +62,6 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKUPS = ROOT / "backups"
 MANIFEST = ROOT / "universe" / "manifest.json"
 
-NEXT_LEVEL = {"prep": "college", "college": "pro"}
 # College eligibility runs four years. A character promoted after his age-17 season plays them
 # at 18-21, which is a year below the AI band of 19-22 that ageout generates - deliberately. He
 # arrives as the youngest man in the league and has to earn his place in it, which is the same

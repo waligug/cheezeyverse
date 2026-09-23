@@ -66,6 +66,9 @@ class OffseasonUnavailable(RuntimeError):
 SIMWEEK_OK = True
 SIMWEEK_ERROR = ""
 try:  # pragma: no cover - the failure path is exercised by starting with simweek absent
+    # readiness rides in the same guard: it imports simweek, so if simweek is broken this is
+    # broken too, and the panel must still start to say so.
+    from . import readiness
     from .simweek import (  # type: ignore
         approve,
         create_character,
@@ -1280,6 +1283,21 @@ def api_offseason_start():
         return jsonify({"ok": False, "error": (
             "The offseason writes to all three saves and pays every character. Send "
             '{"confirm": true} to mean it.')}), 400
+    # THE POSTSEASON GATE, and it is only on the REAL run. `seasonbonus.playoff_bracket` already
+    # declines to hand last year's bracket to this year's settlement, but the decline was silent:
+    # the playoff and title rows simply never appeared, so a rollover before the postseason was
+    # simmed and published paid nobody for either, in every league, with nothing saying so.
+    # The PREVIEW is deliberately left through - it writes nothing, and it is exactly what
+    # somebody should be able to run to find out they are not ready yet.
+    try:
+        rows = readiness.check("offseason", store=offseason_store())
+    except Exception as exc:                                            # noqa: BLE001
+        app.logger.warning("readiness check failed (%s); the offseason is not gated on it", exc)
+        rows = []
+    if rows and not readiness.ready(rows):
+        return jsonify({"ok": False, "refused": True, "error": (
+            "The universe is not ready to roll over: " + readiness.refusal(rows)),
+            "readiness": [r.__dict__ for r in rows]}), 409
     season = _season_arg(body.get("season"))
     if season is False:
         return jsonify({"ok": False, "error": "season must be a year, e.g. 2047"}), 400
