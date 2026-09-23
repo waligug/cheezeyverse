@@ -104,9 +104,27 @@ export const POSITION_LABELS = {
   PF: 'Power Forward', C: 'Center',
 };
 
-/** Ratings are 0-100 here and in the save file. */
+/**
+ * The DISPLAY scale, and the ceiling for the six ratings that have no potential. NOT the
+ * ceiling of the save file: this comment used to say "Ratings are 0-100 here and in the save
+ * file", and the save file disagrees - the codec allows up to 150, a real player file reaches
+ * 139, and on 2026-09-23 Tim Turner held InsideScoring 107 with a DReb potential of 124.
+ */
 export const RATING_MIN = 0;
 export const RATING_MAX = 100;
+
+/**
+ * THE REAL CEILING, for a rating that has a potential and for the potential itself. It is the
+ * codec's own `RATING_MAX` in commissioner/codec/league_dat.py, and has to stay equal to it.
+ *
+ * Measured across the live saves, every rating above 100 belongs to one of the twelve that
+ * carry a potential, and none of the six without one - Quickness, Strength, Jumping, Stamina
+ * and the two habits - ever passes 100. So a potential-bearing rating is capped by its
+ * potential, up to this; the rest stay on RATING_MAX. Capping them all at 100 had frozen Tim
+ * Turner's InsideScoring outright (107 is already over 100, so ANY step was refused) and
+ * stopped Johnny Gartholomew's DReb at 100 under a potential of 123.
+ */
+export const POTENTIAL_MAX = 150;
 
 /** Characters enter at 14 in the Prep league. */
 export const START_AGE = 14;
@@ -1564,12 +1582,12 @@ export function athleticCeiling(rating, traits) {
 export function ratingCeiling(rating, potentials, traits) {
   if (!hasPotential(rating)) return athleticCeiling(rating, traits);
   const pot = Number((potentials || {})[rating]);
-  return Math.min(RATING_MAX, Number.isFinite(pot) ? pot : RATING_MAX);
+  return Math.min(POTENTIAL_MAX, Number.isFinite(pot) ? pot : RATING_MAX);
 }
 
-/** The ceiling a potential can be raised to: 100. Potentials cost double; that is the limit. */
+/** The ceiling a potential can be raised to: the game's own. Potentials cost double. */
 export function potentialCeiling() {
-  return RATING_MAX;
+  return POTENTIAL_MAX;
 }
 
 /* -------------------------------------------------------------------------------------

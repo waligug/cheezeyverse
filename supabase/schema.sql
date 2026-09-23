@@ -574,15 +574,20 @@ begin
 
   if new.kind = 'rating' then
     if has_pot then
-      ceiling := least(100, pot_eff);
+      -- CAPPED BY ITS POTENTIAL, which can pass 100 - up to 150, the codec's own RATING_MAX.
+      -- least(100, ...) froze Tim Turner's InsideScoring outright (107 is already over 100, so
+      -- every step was refused) and stopped Johnny Gartholomew's DReb at 100 under a
+      -- potential of 123. The six ratings with no potential keep `ceiling`'s default of 100:
+      -- across the live saves none of them ever passes it.
+      ceiling := least(150, pot_eff);
     end if;
     if effective + new.delta > ceiling then
       raise exception '% would reach % but is capped at %', new.rating, effective + new.delta, ceiling;
     end if;
     new.cost := public.cv_upgrade_cost(effective, new.delta, 'rating');
   else
-    if pot_eff + new.delta > 100 then
-      raise exception 'potential % would reach %, over the 100 ceiling', new.rating, pot_eff + new.delta;
+    if pot_eff + new.delta > 150 then
+      raise exception 'potential % would reach %, over the 150 ceiling', new.rating, pot_eff + new.delta;
     end if;
     new.cost := public.cv_upgrade_cost(pot_eff, new.delta, 'potential');
   end if;

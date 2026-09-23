@@ -37,7 +37,7 @@
 
 import {
   POSITION_LABELS, RATING_LABELS, RATING_GROUPS, RATINGS, POTENTIAL_RATINGS,
-  START_AGE, GROWTH_END_AGE, RATING_MAX,
+  START_AGE, GROWTH_END_AGE, RATING_MAX, POTENTIAL_MAX,
   classify, playerClass, growthCurve, formatHeight, startingSheet, identitySeed, weightAt,
   expectedAdultHeight, hasPotential, deriveCharacter, buildWeight, buildOption,
 } from './rules.js';
@@ -1053,7 +1053,7 @@ function exampleCharacter() {
     ratings[r] = Math.min(ceiling, from + gain);
   });
   const potentials = {};
-  for (const r of POTENTIAL_RATINGS) potentials[r] = Math.min(RATING_MAX, derived.potentials[r] + 9);
+  for (const r of POTENTIAL_RATINGS) potentials[r] = Math.min(POTENTIAL_MAX, derived.potentials[r] + 9);
 
   const character = {
     id: EXAMPLE_ID,

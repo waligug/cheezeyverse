@@ -7,7 +7,7 @@
  * ===================================================================================== */
 
 import {
-  RATING_LABELS, RATING_GROUPS, POSITION_LABELS, RATING_MAX,
+  RATING_LABELS, RATING_GROUPS, POSITION_LABELS, RATING_MAX, POTENTIAL_MAX,
   TRAITS, TRAIT_LABELS, TRAIT_BLURBS,
   hasPotential, isLocked, nextPointCost, formatHeight, biasFor, classify, careerGoal,
   scoutingWord, certaintyWord, scoutScale, heightAtAge, START_AGE, GROWTH_END_AGE,
@@ -285,13 +285,14 @@ function ratingRow(rating, state, onStep) {
   const locked = isLocked(rating);
   const bias = biasFor(state.bias, rating);
 
-  const ceiling = pot === null ? cap : Math.min(cap, pot);
+  // A potential-bearing rating is capped by its potential, which can pass 100; see POTENTIAL_MAX.
+  const ceiling = pot === null ? cap : Math.min(POTENTIAL_MAX, pot);
   const ratingCost = nextPointCost(value, 'rating', bias);
   const potCost = pot === null ? 0 : nextPointCost(pot, 'potential', bias);
 
   const canRaise = !locked && value < ceiling && ratingCost <= state.budget;
   const canLower = !locked && value > baseValue;
-  const canRaisePot = !locked && pot !== null && pot < cap && potCost <= state.budget;
+  const canRaisePot = !locked && pot !== null && pot < POTENTIAL_MAX && potCost <= state.budget;
   const canLowerPot = !locked && pot !== null && pot > basePot;
 
   const row = el('div', { class: `cv-rating${locked ? ' is-locked' : ''}` });
