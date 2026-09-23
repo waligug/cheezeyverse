@@ -125,5 +125,66 @@ class RehearsedPlacementTests(unittest.TestCase):
             league_dat.LeagueDat._require_exact_depth(L(), "sign a player")
 
 
+class MarketDealTests(unittest.TestCase):
+    """A character with no deal left is priced off real comparables, never the $1M token."""
+
+    def _league(self, rows):
+        from types import SimpleNamespace
+        from commissioner.characters import RATINGS
+        players = []
+        for i, (ovr, team, contract) in enumerate(rows):
+            values = {f: ovr for f in RATINGS}
+            values["Team"] = team
+            players.append(SimpleNamespace(id=i, name=f"P{i}", values=values, contract=contract))
+        return SimpleNamespace(players=players, contract_of=lambda p: p.contract)
+
+    def test_token_deals_are_not_comparables(self):
+        from commissioner import characters as ch
+        rows = [(70, 18, [0] * 7)]                                      # the character
+        rows += [(70, 5, [1_000_000, 0, 0, 0, 0, 0, 0])] * 20           # import tokens, same level
+        rows += [(69 + k % 3, 6, [17_000_000 + k] * 4 + [0] * 3) for k in range(6)]
+        L = self._league(rows)
+        salary, years = ch.market_deal(L, L.players[0])
+        self.assertGreater(salary, 16_000_000)
+        self.assertEqual(years, 4)
+
+    def test_no_market_means_no_price(self):
+        from commissioner import characters as ch
+        L = self._league([(70, 18, [0] * 7)] + [(70, 5, [1_000_000] + [0] * 6)] * 20)
+        self.assertIsNone(ch.market_deal(L, L.players[0]))
+
+    def test_free_agents_are_not_comparables(self):
+        from commissioner import characters as ch
+        rows = [(70, 18, [0] * 7)] + [(70, -1, [30_000_000] * 4 + [0] * 3)] * 10
+        L = self._league(rows)
+        self.assertIsNone(ch.market_deal(L, L.players[0]))
+
+
+class DraftOnProTests(unittest.TestCase):
+    def test_stamp_does_not_dress_on_a_twenty_team_save(self):
+        """Dressing is refused on pro, and refusing here failed every draft pick."""
+        import inspect
+        from commissioner import characters as ch
+        src = inspect.getsource(ch.stamp_character)
+        self.assertIn("len(L.teams()) >= 20", src)
+        self.assertLess(src.index("len(L.teams()) >= 20"), src.rindex("L.dress(pl)"))
+
+    def test_the_draft_dresses_its_pro_class_rehearsed(self):
+        import inspect
+        from commissioner import offseason
+        self.assertIn("dress_rehearsed", inspect.getsource(offseason))
+
+    def test_dress_rehearsed_goes_through_the_clone(self):
+        calls = []
+
+        def fake(path, write, what, log, game_factory=None):
+            calls.append(what)
+            return ["X"]
+        with patch.object(seasonflow, "rehearse", side_effect=fake):
+            got = seasonflow.dress_rehearsed("p/league.dat", [("X", "1/1/2012")], log=lambda m: None)
+        self.assertEqual(got, ["X"])
+        self.assertIn("dressing X", calls[0])
+
+
 if __name__ == "__main__":
     unittest.main()

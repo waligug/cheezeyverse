@@ -973,6 +973,20 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
                 p["error"] = str(exc)
         if cast is not None and loud and "error" not in p:
             cast.pick(p, contract=p.get("contract"))
+    # PRO PICKS ARRIVE UNDRESSED (see stamp_character) and are dressed here, together, on a
+    # rehearsed clone first. Never fatal: a character on a roster but off the depth chart is a
+    # bench player, which the offseason must say out loud but not die over.
+    drafted = [p for p in picks if p.get("is_character", True) and "error" not in p]
+    if not dry_run and drafted and len(LeagueDat(ch.save_path("pro")).teams()) >= 20:
+        from . import seasonflow
+        people = [(f'{p["character"]["first_name"]} {p["character"]["last_name"]}',
+                   ch.codec_dob(p["character"].get("game_dob") or (p.get("slot") or {}).get("dob")))
+                  for p in drafted]
+        try:
+            seasonflow.dress_rehearsed(ch.save_path("pro"), people, log=log)
+        except Exception as exc:                                        # noqa: BLE001
+            log(f"   ! the draft class is on pro rosters but could NOT be dressed ({exc}); "
+                "they will not play until they are")
     if cast is not None:
         cast.close([p for p in picks if "error" not in p], undrafted=undrafted)
     # Only OUR picks are returned. The field is scenery: it is scored, announced and roasted, but

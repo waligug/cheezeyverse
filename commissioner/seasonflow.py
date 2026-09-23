@@ -305,8 +305,44 @@ REHEARSAL_PREFIX = "ZZ_rehearsal_"
 
 def _place_rehearsed(key, path, character, name, dob, season, store, log, game_factory):
     """`_place_character` on a clone first; FBPB3 must load it and sim a day before the live write."""
+    placed = rehearse(
+        path, lambda p, say: _place_character(key, p, character, name, dob, season, store, say),
+        f"{name}'s placement", log, game_factory)
+    log(f"   {name}: placement rehearsed on a copy of the save first - it loaded and simmed")
+    return placed
+
+
+def dress_rehearsed(path, people, log=print, game_factory=None):
+    """Dress `people` - [(name, codec dob)] - on a 20-team save, rehearsed. Returns who changed.
+
+    The draft stamps a pick onto a reserve seat and dresses him, and dressing is a lineup/depth
+    write the codec refuses on pro. So on pro the draft stamps WITHOUT dressing and hands its
+    picks here once, at the end: one clone, one load and one simmed day for the whole class.
+    """
+    def write(p, say):
+        L = LeagueDat(p)
+        changed = [name for name, dob in people if L.dress(L.find(name, dob))]
+        if changed:
+            L.save()
+        return changed
+    changed = rehearse(path, write, "dressing " + ", ".join(n for n, _ in people), log,
+                       game_factory)
+    if changed:
+        log(f"   dressed {', '.join(changed)} - rehearsed on a copy of the save first")
+    return changed
+
+
+def rehearse(path, write, what, log, game_factory=None):
+    """Run `write(league_dat_path, log)` on a CLONE, prove FBPB3 loads and sims it, then for real.
+
+    For the 20-team pro save, where the codec's lineup/depth writes left the file unloadable twice
+    on 2026-09-23 and are refused outside `rehearsed_writes()`. If the game cannot load the clone
+    or shows a run-time error simming a day on it, this raises and the live save is untouched.
+    Returns whatever the LIVE `write` returned.
+    """
     import struct
     from .codec.league_dat import rehearsed_writes
+    game_factory = game_factory or FBPB3
     folder = Path(path).parent
     clone = folder.parent / f"{REHEARSAL_PREFIX}{folder.name}"
     if clone.exists():
@@ -322,8 +358,7 @@ def _place_rehearsed(key, path, character, name, dob, season, store, log, game_f
     info.write_bytes(bytes(raw))
     try:
         with rehearsed_writes():
-            _place_character(key, clone / "league.dat", character, name, dob, season, store,
-                             lambda m: None)
+            write(clone / "league.dat", lambda m: None)
         game = game_factory()
         try:
             game.launch()
@@ -337,8 +372,8 @@ def _place_rehearsed(key, path, character, name, dob, season, store, log, game_f
                     game.sim_days(1)
                 box = game._runtime_error()
                 if box:
-                    raise RuntimeError(f"FBPB3 failed {stage} the rehearsal of {name}'s "
-                                       f"placement ({box}); the live save was not touched")
+                    raise RuntimeError(f"FBPB3 failed {stage} the rehearsal of {what} ({box}); "
+                                       "the live save was not touched")
         finally:
             if game.app is not None:
                 try:
@@ -348,9 +383,7 @@ def _place_rehearsed(key, path, character, name, dob, season, store, log, game_f
     finally:
         shutil.rmtree(clone, ignore_errors=True)
     with rehearsed_writes():
-        placed = _place_character(key, path, character, name, dob, season, store, log)
-    log(f"   {name}: placement rehearsed on a copy of the save first - it loaded and simmed")
-    return placed
+        return write(path, log)
 
 
 def _place_character(key, path, character, name, dob, season, store, log):
@@ -429,6 +462,14 @@ def _place_character(key, path, character, name, dob, season, store, log):
         # The years the deal has LEFT, not the years it was written for: the rollover that just
         # ran consumed one. Writing the full term would pay him a year he is not owed.
         L.set_contract(L.find(name, dob), [int(salary)] * max(1, years_left))
+    else:
+        # NO DEAL LEFT TO HONOUR, so price him like free agency would have. `sign` just gave him
+        # the $1,000,000 backfill token, which is what Dodger Manson - eighth-best in pro - was
+        # left on after the 2032 rollover. See characters.market_deal.
+        market = ch.market_deal(L, L.find(name, dob))
+        if market:
+            L.set_contract(L.find(name, dob), [market[0]] * market[1])
+            log(f"   {name}: signed at the market rate, ${market[0]:,} x {market[1]}")
     L.save()
     L = LeagueDat(path)
     if L.dress(L.find(name, dob)):

@@ -61,6 +61,50 @@ IMPORT_CONTRACT = 1_000_000
 # answer for one of them cannot silently change it for the other two.
 LEVEL_CONTRACT_YEARS = {"prep": 1, "college": 1, "pro": 1}
 
+# ---- the market price, for when free agency does not do the pricing ----------------------------
+# Free agency prices a man only if somebody SIGNS him. Dodger Manson - eighth-best of 300 rostered
+# pros at 21 - came out of the 2032 rollover unsigned, and the put-back handed him the backfill
+# token, $1,000,000 x 3, while players his level who went through the same free agency got
+# $16-17M. The token is for AI filler; a character is priced off his comparables instead.
+MARKET_COMPARABLES = 10
+MARKET_MIN_COMPARABLES = 5
+MARKET_YEARS = (2, 4)            # clamp on the comparables' median remaining term
+_NOT_SKILL = ("3pUsage", "Fouling", "Stamina")
+
+
+def overall(pl):
+    """The plain skill average the roster tools rank by (tendencies and stamina left out)."""
+    skill = [f for f in RATINGS if f not in _NOT_SKILL]
+    return sum(pl.values[f] for f in skill) / len(skill)
+
+
+def market_deal(L, pl):
+    """(salary, years) the league is paying players rated like `pl`, or None if it cannot say.
+
+    Comparables are rostered players on REAL deals - the $1,000,000 import/backfill token is not a
+    price anybody negotiated, and half of pro still sits on it - taken nearest by overall. Median
+    salary, median remaining term clamped to MARKET_YEARS.
+    """
+    real = []
+    for p in L.players:
+        if p is pl or p.values.get("Team", -1) < 1:
+            continue
+        years = [x for x in L.contract_of(p) if x]
+        if not years or years[0] in (IMPORT_CONTRACT, lg.SIGNING_CONTRACT):
+            continue
+        real.append((abs(overall(p) - overall(pl)), years[0], len(years)))
+    if len(real) < MARKET_MIN_COMPARABLES:
+        return None
+    near = sorted(real)[:MARKET_COMPARABLES]
+
+    def median(xs):
+        xs = sorted(xs)
+        mid = len(xs) // 2
+        return xs[mid] if len(xs) % 2 else (xs[mid - 1] + xs[mid]) / 2
+    salary = int(round(median([s for _, s, _ in near])))
+    years = int(round(median([n for _, _, n in near])))
+    return max(1, min(salary, lg.CONTRACT_MAX)), max(MARKET_YEARS[0], min(MARKET_YEARS[1], years))
+
 
 class ApplyError(Exception):
     pass
@@ -363,6 +407,13 @@ def stamp_character(L, slot, character):
 
     # The slot he just took over was built to be unused. Put him in the lineup and give him a
     # share of the depth chart, or he is a name on a roster who never plays a minute.
+    #
+    # EXCEPT ON THE 20-TEAM PRO SAVE, where the codec refuses lineup/depth writes (they left it
+    # unloadable twice on 2026-09-23). Refusing here failed every draft pick at this line, so on
+    # pro he is stamped undressed and the draft dresses its whole class at the end, rehearsed on
+    # a clone in FBPB3 first - seasonflow.dress_rehearsed.
+    if len(L.teams()) >= 20:
+        return pl
     L.dress(pl)
     return pl
 

@@ -169,7 +169,11 @@ def test_signing_a_free_agent_pays_him():
         # sign_many IS THE PRODUCTION PATH - protect_rosters' backfill and ageout's intake both
         # use it, and nothing outside tests calls sign(). The first version of this test drove
         # sign(), so the guard could be (and was) unreachable while this still passed.
-        L.sign_many([(man, short)])
+        # A file copy that is never loaded, so the 20-team refusal is lifted for it - the
+        # refusal guards the LIVE save's loadability, not the contract arithmetic under test.
+        from commissioner.codec.league_dat import rehearsed_writes
+        with rehearsed_writes():
+            L.sign_many([(man, short)])
         man = L.find(man.name, man.dob)
         check("a signed player leaves with a contract", any(man.contract), f"{man.contract[:2]}")
         check("he is on the team", man.values["Team"] == short, f"{man.values['Team']}")

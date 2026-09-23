@@ -107,10 +107,15 @@ def run():
             if not people:
                 continue
             L = LeagueDat(dst)
-            for c in people:
-                name = f'{c["first_name"]} {c["last_name"]}'
-                pl = L.find(name, ch.codec_dob(c.get("game_dob")))
-                L.dress(pl)
+            # A file copy never loaded by the game: the 20-team refusal protects the LIVE pro
+            # save's loadability, and pro's real path (seasonflow.dress_rehearsed) lifts it the
+            # same way after a clone has loaded and simmed.
+            from commissioner.codec.league_dat import rehearsed_writes
+            with rehearsed_writes():
+                for c in people:
+                    name = f'{c["first_name"]} {c["last_name"]}'
+                    pl = L.find(name, ch.codec_dob(c.get("game_dob")))
+                    L.dress(pl)
             L.save()
             again = LeagueDat(dst)
             teams2 = again.teams()
