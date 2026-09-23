@@ -96,6 +96,36 @@ FLOOR_POTENTIAL = 5
 # cannot be used to tell a defanged body from a real one.
 _LEAVE_ALONE = {"3pUsage", "Fouling", "Stamina"}
 
+# A DEFANGED BODY DOES NOT STAY AT THE FLOOR. The game's own progression nudges him upward every
+# offseason, so asking for exactly FLOOR_RATING finds him only until the first rollover. Pro is
+# the league that rolls over with progression AND free agency, and it came back with its floored
+# bodies smeared across 3, 4, 5, 6 and 7 while the detector still demanded 2 - so 145 of 300 pro
+# STARTERS were floored and invisible to their own repair. Unevenly, too: 4 of 15 on one team and
+# 11 of 15 on another, which is exactly why the records were lopsided.
+#
+# Two gates, measured on the live saves, and both must agree:
+#
+#   * NOTHING UNDER 8 WAS EVER GENERATED. The filler bands are prep 8-38, college 18-52, pro
+#     28-62, so a body whose best core skill is 7 or less did not come out of `gen.make_player`;
+#     he was floored and has drifted. 7 is the largest value that is below every band's floor.
+#   * A FLOORED BODY IS FLAT. All 378 pro bodies at or under 7 have a max-min spread of 6 or
+#     less, while a real player from 13 up has a median spread of 21 and a maximum of 79. The
+#     spread gate is what stops a genuinely poor player being regenerated out from under himself.
+FLOOR_DRIFT = 7
+FLOOR_SPREAD = 6
+
+
+def _RESTORABLE_TEAMS(pl):
+    """Rosters and free agency, never the draft pool (-2) and never a retired/unused row."""
+    t = pl.values["Team"]
+    return {t} if (t >= 1 or t == -1) else set()
+
+
+def is_defanged(values, skill):
+    """True when this body was floored by the roster guard, however far it has since drifted."""
+    vals = [values[f] for f in skill]
+    return max(vals) <= FLOOR_DRIFT and max(vals) - min(vals) <= FLOOR_SPREAD
+
 
 class AgeOutError(Exception):
     pass
@@ -408,9 +438,14 @@ def reconcile(key, save_path=None, store=None, log=print, restore_ratings=True, 
             # prep bodies were already in the manifest and still rated 2 - defanged by some
             # earlier pass and never given back - and skipping them would leave rating-2 players
             # in the rotation for exactly the reason this function exists to fix.
-            if pl.values["Team"] < 1 or pl.name in keep:
+            # Team >= 1 is a roster, Team == -1 is free agency. NOT `< 1`, which also catches
+            # -2, the game's own DRAFT POOL - regenerating a draft record would rewrite the class
+            # our characters are drafted against, and the pool is where college's outgoing
+            # seniors are carried. Free agents are included because the next roster gap is filled
+            # from them, so leaving them floored puts the problem straight back on a roster.
+            if pl.name in keep or pl.values["Team"] not in _RESTORABLE_TEAMS(pl):
                 continue
-            if max(pl.values[f] for f in skill) > FLOOR_RATING:
+            if not is_defanged(pl.values, skill):
                 continue                   # he kept his ratings; leave him alone
             row = gen.make_player(rng, spec, spec.teams[0],
                                   POSITION_NAME.get(pl.values["Position"], "C"),
