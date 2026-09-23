@@ -117,6 +117,14 @@ next step.
     `LeagueDat.sign`/`sign_many` via `_ensure_paid`, and `characters.stamp_character` via `contract_years`.
   - A ONE-YEAR deal is barely better than none: it expires at the very next rollover's free-agency stage, in the
     same offseason it was signed. `characters.LEVEL_CONTRACT_YEARS` is what a character gets instead.
+  - **A LIVE MULTI-YEAR DEAL DOES NOT GUARANTEE A PLAYER SURVIVES THE ROLLOVER.** Gravy Jones was drafted #3 by
+    THP on a three-year rookie deal in the 2031 offseason; the game's rollover returned him Team -1 with the
+    contract ERASED, not shortened (traced through the offseason's save backups). Dodger Manson made the same trip
+    in 2030 and kept both. The likeliest difference is the luxury tax, switched on at $77M between the two, since
+    an AI releasing a player to get under it voids his deal - **but that cause is NOT confirmed**; nobody replayed
+    it. Treat it as a hypothesis until someone does. What is certain is the defence:
+    `seasonflow._replace_character` puts any character the rollover leaves without a team, or moves mid-rookie-
+    deal, back on the drafting team for the years left (ecd7eee8d). Never rely on the contract alone to hold him.
 - Attribute Style (402,166): **0-100** makes MDB `Player` current ratings numeric (potentials stay letters).
 - Scouting (402,334): set **Off** for the universe; with it On the MDB/UI ratings are fuzzed (Harper Inside 27 shows 24).
 - Autosave (788,214): **Never** (the app controls saves). Cpu offers trades (788,335): **No**.
