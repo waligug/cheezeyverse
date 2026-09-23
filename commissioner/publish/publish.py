@@ -81,6 +81,47 @@ def _our_players(league_key, characters=None):
         return {}
 
 
+def _rookie_ids(key, season=None):
+    """Player ids in their FIRST season in this league. Never fatal.
+
+    FROM THE ARCHIVE, NOT FROM `Exp`. The game keeps an experience counter and it was the obvious
+    source, but it does not survive contact with this universe: Davis Plowden reads Exp 1 having
+    played 2031 AND 2032, while Josiah Meehan reads 10 for seven archived seasons - the counter
+    drifts when a player sits out a rollover, and the stock rosters start with experience already
+    on them. Badging on it would have called a third of the pro league rookies.
+
+    The archive cannot drift, because a finished season is written once and never rewritten. A
+    rookie is simply somebody with no archived season in this league BEFORE the one being played.
+    Identity is name plus birthday, the same as everywhere else in statsarchive - two players can
+    share a name.
+    """
+    try:
+        from ..codec.league_dat import LeagueDat
+        from .. import characters as ch, statsarchive
+        path = ch.save_path(key)
+        if not path.exists():
+            return set()
+        if season is None:
+            try:
+                from ..simweek import store
+                season = int(store().get_settings().get("current_season", 0)) or None
+            except Exception:                                       # noqa: BLE001
+                season = None
+        seen = set()
+        for year, payload in statsarchive.archived_seasons(key):
+            if season is not None and int(year) >= int(season):
+                continue                     # this season is not evidence of a previous one
+            for row in payload.get("players") or []:
+                seen.add((row.get("name"), row.get("dob")))
+        if not seen:
+            return set()                     # no history yet: nobody is a rookie rather than everybody
+        return {p.id for p in LeagueDat(path).players
+                if p.values.get("Team", 0) >= 1 and (p.name, p.dob) not in seen}
+    except Exception as exc:                                        # noqa: BLE001
+        print(f"  no rookie badges for {key} ({exc}); the pages themselves are fine")
+        return set()
+
+
 def publish_league(key, mdb_fresh=True, season=None, ours=None):
     spec = cfg.BY_KEY[key]
     src = DOCS / "leaguedata" / spec.save_name / "html"
@@ -118,7 +159,8 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
     repaired_src = fix_player_pages(key, src, current)
     pages = restyle(src, dst, league=spec.name, season=season or season_label(key), key=key,
                     ours=_our_players(key) if ours is None else ours,
-                    cache_path=ROOT / "tmp" / "restyle-cache" / f"{key}.json")
+                    cache_path=ROOT / "tmp" / "restyle-cache" / f"{key}.json",
+                    rookies=_rookie_ids(key))
     # AFTER restyle, both of them. restyle(clean=True) does an rmtree of the league's folder and
     # rebuilds it from the game's export, so anything written there beforehand is deleted. That
     # is exactly what happened to games.json: run_sim wrote it before publish(), a publish then
@@ -416,8 +458,12 @@ def _write_careers(src, dst, key):
                 "careers": [{k: v for k, v in r.items() if k != "seasons"}
                             for r in sorted(playoff_rows, key=lambda r: -(r.get("Points") or 0))],
             }
+        # A season that happened but cannot be compared with any other travels WITH the data, so
+        # the page never has to know which ones they are. Named, with the reason, never filtered.
+        anomalies = {str(s): statsarchive.anomaly(key, s) for s in seasons
+                     if statsarchive.anomaly(key, s)}
         payload = {
-            "league": key, "seasons": seasons,
+            "league": key, "seasons": seasons, "anomalies": anomalies,
             "generated": datetime.now().isoformat(timespec="seconds"),
             "leaders": boards,
             # TOTALS ONLY, not the year-by-year lines. Published whole this was 297 KB for pro,

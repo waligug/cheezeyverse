@@ -868,3 +868,18 @@ a.cv-rollname:hover { text-decoration: underline; }
   #signed h3, #signed .cv-table, #signed .cv-traits,
   #signed .cv-actions { animation: none !important; }
 }
+
+/* A SEASON THAT HAPPENED BUT DOES NOT MEAN WHAT IT SAYS - see renderAnomalies in page-goats.js.
+   Warning-coloured rather than error-coloured on purpose: nothing here is broken now, and the
+   records it produced are real results of real games. The reader just needs to know why one
+   season's numbers sit so far outside every other. */
+.cv-anomaly {
+  border-left: 4px solid var(--crust);
+  background: var(--cream2);
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.cv-anomaly strong { color: var(--crust); }

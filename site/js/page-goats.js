@@ -88,6 +88,32 @@ function renderCoverage(data) {
       ? 'Postseason totals only, across every playoff run in the archive.'
       : 'Regular-season totals across every season, including players the game invented.')
     : '';
+  renderAnomalies(data, seasons);
+}
+
+/* A SEASON THAT HAPPENED BUT DOES NOT MEAN WHAT IT SAYS.
+ *
+ * Nothing is filtered out - the games were played, and quietly dropping a season a man really
+ * played would be a worse lie than showing it. But a season played in a broken league sits at
+ * the top of an all-time board for ever and reads as a real achievement, so it is named here
+ * with the reason it cannot be compared.
+ *
+ * The reasons travel in the data (`anomalies` in careers.json), so this page never has to know
+ * which seasons they are. */
+function renderAnomalies(data, seasons) {
+  const box = $('#anomalies');
+  if (!box) return;
+  clear(box);
+  const flagged = (data && data.anomalies) || {};
+  const shown = seasons.filter((s) => flagged[String(s)]);
+  if (!shown.length) return;
+  for (const season of shown) {
+    box.append(el('div', { class: 'cv-note cv-anomaly' }, [
+      el('strong', {}, [`Season ${season} is not comparable.`]),
+      ' ',
+      flagged[String(season)],
+    ]));
+  }
 }
 
 function isOurs(row) {

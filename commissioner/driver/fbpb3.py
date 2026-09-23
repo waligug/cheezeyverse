@@ -1370,6 +1370,27 @@ class FBPB3:
         before = self._file_mark(target)
         failure = "did not start"
         for attempt in range(attempts):
+            # CLEAR THE WAY FIRST, exactly as `_open_html_screen` does and for the reason its
+            # docstring gives: "a click lands on whatever window is topmost, so a leftover message
+            # box from the previous league swallows it and the game simply stays where it was".
+            #
+            # This step had no such guard, and that asymmetry is the whole fault. Inside a Sim
+            # Week the MDB export follows html_output, which ends by dismissing its own completion
+            # box - and whatever arrives after that swallowed the Tools click. The export never
+            # started, so the file never moved, so the no-progress budget ran to the end and the
+            # run reported "no MDB for pro". Measured 2026-09-22, twice in the same evening:
+            #
+            #   inside a Sim Week, straight after html_output ....... no file progress at all
+            #   standalone - launch, load, Output MDB, nothing else .. 24.9s, then 23.8s, complete
+            #
+            # A standalone run has no leftover box, which is exactly why it never reproduced. The
+            # budget was raised to 300s chasing this and made it worse: same failure, three more
+            # minutes of waiting. It has been put back.
+            #
+            # DISMISSING HERE IS SAFE, and the warning below is about a different moment. That one
+            # says never to dismiss while OUR export is running, because dismiss_all() presses the
+            # first of OK/No/Cancel and would cancel it. Nothing of ours is running yet.
+            self.dismiss_all()
             self.click(TOP_TOOLS, 2)
             self.click(TOOLS_OUTPUT_MDB, 2)
             # THE BUDGET HAS TO EXCEED THE SLOWEST LEAGUE, and 180s did not. Measured on

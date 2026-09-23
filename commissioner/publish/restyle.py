@@ -137,6 +137,16 @@ a.cv-ours {{
   text-decoration: none !important;
 }}
 a.cv-ours:hover {{ background: {deep} !important; }}
+/* ROOKIES, in the human blue FBPB3 already uses for a played team - a colour the eye already
+   reads as "not ordinary filler" on these pages. Underlined rather than filled, so a leaderboard
+   of thirty names does not turn into a block of colour and so it can never be confused with the
+   gold badge that means the player is YOURS. */
+a.cv-rookie {{
+  color: {human} !important;
+  font-weight: 700 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}}
 /* No ::before glyph here on purpose. The obvious cheese-emoji escape is a trap twice
    over: STYLESHEET is an ordinary Python string, so a CSS escape beginning with a digit
    is read as an OCTAL escape and the generated CSS ends up holding a real 0x01 byte; and
@@ -587,6 +597,27 @@ def _mark_ours(html, ours):
     return PLAYER_LINK.sub(swap, html)
 
 
+def _mark_rookies(html, rookies):
+    """Badge every link to a first-year player, so a leaderboard says who is new.
+
+    Runs AFTER `_mark_ours` and cannot fight with it: that pass rewrites a character's anchor to
+    `class="linkmain cv-ours"`, which no longer matches PLAYER_LINK, so one of ours who is also a
+    rookie keeps his gold badge. Gold means "yours" and outranks "new".
+
+    Matched on FBPB3's own player id, like `_mark_ours`, because two players can share a name.
+    """
+    if not rookies:
+        return html
+
+    def swap(m):
+        href, pid, name = m.group(1), int(m.group(2)), m.group(3)
+        if pid not in rookies:
+            return m.group(0)
+        return f'<a class="linkmain cv-rookie" href={href} title="Rookie">{name}</a>'
+
+    return PLAYER_LINK.sub(swap, html)
+
+
 BOX_LINK = re.compile(r'<a\s+class=linkmain\s+href=([^>\s]*?boxes/box[\w-]+\.htm)>([^<]*)</a>',
                       re.I)
 
@@ -787,10 +818,11 @@ def _drop_repeated_stl(html):
 
 
 def _skin_page(html, league, season, prefix, current, key=None, ours=None,
-               page_dir=None, src_root=None, player_id=None):
+               page_dir=None, src_root=None, player_id=None, rookies=None):
     """Put the nav bar just inside <body> so the page reads the same wherever it was opened."""
     html = _drop_repeated_stl(html)
     html = _mark_ours(html, ours)
+    html = _mark_rookies(html, rookies)
     if player_id is not None and ours and player_id in ours:
         html = _live_attributes(html, ours[player_id])
     elif current.startswith("roster"):
@@ -838,7 +870,7 @@ def _skin_index(html, league, season):
 
 
 def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ours=None,
-            cache_path=None):
+            cache_path=None, rookies=None):
     """Copy an FBPB3 html output folder to `dst` wearing the Cheezeyverse skin.
 
     Returns the number of pages skinned. `src` is left untouched.
@@ -878,7 +910,8 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
     ours = ours or {}
     membership = json.dumps({str(pid): who.get("name", "") for pid, who in ours.items()},
                             sort_keys=True, separators=(",", ":"))
-    roster_data = json.dumps(ours, sort_keys=True, separators=(",", ":"), default=str)
+    roster_data = json.dumps([ours, sorted(rookies or ())], sort_keys=True,
+                             separators=(",", ":"), default=str)
     for path in sorted(src.rglob("*")):
         rel = path.relative_to(src)
         target = dst / rel
@@ -924,7 +957,8 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
             if m:
                 pid = int(m.group(1))
             html = _skin_page(html, league, season, prefix, name, key or dst.name, ours,
-                              page_dir=path.parent, src_root=src.resolve(), player_id=pid)
+                              page_dir=path.parent, src_root=src.resolve(), player_id=pid,
+                              rookies=rookies)
         # LAST, after every other rewrite. FBPB3 writes its own links - rosters, teams, the 400
         # player pages - and those are the ones somebody follows from a standings page. Stamping
         # only the bar would leave the bar fresh and everything it leads to cacheable, which is

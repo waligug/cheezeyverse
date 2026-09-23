@@ -33,6 +33,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = ROOT / "universe" / "history"
 
+# SEASONS THAT HAPPENED BUT DO NOT MEAN WHAT THEY SAY. An archived season is never rewritten -
+# the games were played and the record is honest - but a season played in a broken league will
+# sit at the top of an all-time board for ever and read as a real achievement. So it is named
+# here, with the reason, and the site shows the reason beside it.
+#
+# NOT a filter. Nothing is excluded from career totals or leaderboards: silently dropping a
+# season a man really played is a worse lie than showing it with a note.
+ANOMALIES = {
+    ("pro", 2031): (
+        "Roughly half of every pro roster was floored to rating 3 by a roster-guard bug that ran "
+        "all season, so the middle of the league collapsed and the few real players feasted. "
+        "League mean 5.79 points a game against 8.9-9.9 in every other season, and a top mark of "
+        "49.0 against a previous best of 32.9. Davis Plowden scored 49.0 a game in 2031 and 25.6 "
+        "in 2032, after the rosters were repaired."
+    ),
+}
+
+
+def anomaly(key, season):
+    """The reason this season's numbers cannot be compared with any other, or None."""
+    try:
+        return ANOMALIES.get((key, int(season)))
+    except (TypeError, ValueError):
+        return None
+
 # The counting stats worth keeping. Rates (PPG, FG%) are deliberately NOT stored: they are
 # derivable, and a stored average is one more thing that can disagree with the totals it came
 # from. Everything here adds up across seasons, which is what a career total is.
