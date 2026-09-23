@@ -243,39 +243,30 @@ function ok(cond, msg) { if (!cond) { fails.push(msg); } }
   ok(SIMS.length && SIMS[0].opts.allowSeasonEnd === true && SIMS[0].opts.dryRun === false,
      'the chain did not state its own intent: ' + JSON.stringify(SIMS[0] && SIMS[0].opts));
 
-  // ---- a round that moved the calendar and left a champion undecided chains on ----------
-  state.lastRunOk = true;
-  await runEnds(CAL_2027_LATER);
-  ok(SIMS.length === 2, 'FINDING: the chain stopped while prep still had no champion, so '
-     + '"play the whole playoffs" played one week and quietly gave up');
+  // ---- ONE RUN FOR THE WHOLE POSTSEASON, not a chain of seven-day ones ------------------
+  // This button used to start a seven-day run, wait, and start another until every champion was
+  // decided, paying the whole fixed cost - backups, loads, exports, publish - every round. Pro's
+  // bracket needed about six. Nate: "Let's change so the pro doesn't have to sim 15 times, just
+  // does the whole thing in 1 go." So it asks for enough days to finish outright, and each league
+  // stops on its own when its calendar does.
+  ok(SIMS.length && SIMS[0].days >= 60,
+     'the whole-playoffs button asked for ' + (SIMS[0] && SIMS[0].days) + ' day(s) - not enough to '
+     + 'finish a best-of-five, -seven, -seven bracket in one run');
 
-  // ---- ...and stops as soon as every champion is decided --------------------------------
-  waitingOn(ALL_DONE);
+  // ---- and it never starts a second run on its own, whatever the first one did -----------
+  // The three chain stop conditions (champion decided, round failed, nothing moved) all reduce
+  // to one guarantee now: nothing is started behind the operator's back.
   state.lastRunOk = true;
-  await runEnds(CAL_2028);
-  ok(SIMS.length === 2, 'FINDING: the chain started another round after every playoff was '
-     + 'finished');
-  ok(TOASTS.some(function (t) { return /finished/i.test(t); }),
-     'finishing the playoffs said nothing: ' + JSON.stringify(TOASTS));
+  await runEnds(CAL_2027_LATER);                 // prep still has no champion
+  ok(SIMS.length === 1, 'FINDING: a second run was started automatically after the whole-playoffs '
+     + 'run ended. It is one run now; a second is the operator\'s call.');
 
-  // ---- a failed round stops it ----------------------------------------------------------
   await reset(PREP_LEFT);
   ANSWER = true;
   $('btn-playoffs-all').fire('click');
-  ok(SIMS.length === 1, 'setup: the chain did not start');
-  state.lastRunOk = false;                       // the run ended with an error, or refused
+  state.lastRunOk = false;                       // the run ended with an error
   await runEnds(CAL_2027_LATER);
-  ok(SIMS.length === 1, 'FINDING: a failed playoff round was chained into another one. Ten '
-     + 'rounds of the same failure is what this guard exists to stop.');
-
-  // ---- a round that moved nothing stops it ----------------------------------------------
-  await reset(PREP_LEFT);
-  ANSWER = true;
-  $('btn-playoffs-all').fire('click');
-  state.lastRunOk = true;
-  await runEnds(CAL_2027);                       // same dates as when the round started
-  ok(SIMS.length === 1, 'FINDING: the chain kept going after a round that advanced no '
-     + 'league. Another seven days will not advance it either.');
+  ok(SIMS.length === 1, 'FINDING: a failed whole-playoffs run was followed by another one');
 
   // ---- the single-round button never chains ---------------------------------------------
   await reset(PREP_LEFT);

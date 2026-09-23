@@ -31,7 +31,7 @@
         ? 'No league is waiting on playoffs right now.'
         : chain.on ? ('Round ' + (chain.rounds + 1) + '. Keeps going until every champion is '
                       + 'decided; stops by itself if a round fails or moves nothing.')
-        : 'Runs seven days at a time until every league has a champion.';
+        : 'One run: every waiting league plays on until its champion is decided.';
     }
   };
   window.renderSeasonReadiness = function (plan) {
@@ -59,7 +59,15 @@
       return l.key + ':' + l.current_date;
     }).join('|');
   }
-  function startPlayoffRound(keys) {
+  // ONE RUN FOR THE WHOLE POSTSEASON. Seventy calendar days is the chain's own cap, "far past
+  // any postseason": pro's best-of-five, -seven, -seven plays at most nineteen games every other
+  // day. The run does not use them all - each league is simmed until its OWN calendar stops
+  // moving, which is what a finished postseason looks like, and a league that already has a
+  // champion is refused before its save is touched. Proven on the 2031 postseason: one run of
+  // fifty-five days crowned all three champions.
+  var WHOLE_PLAYOFFS_DAYS = 70;
+
+  function startPlayoffRound(keys, days) {
     // The checkboxes still move, because somebody watching the panel should see which leagues
     // are going - but they are a REFLECTION of the request, not its source.
     var rows = (state.plan && state.plan.transition && state.plan.transition.leagues) || [];
@@ -69,9 +77,13 @@
       pick.disabled = !!row && !!row.champion;
     });
     chain.before = datePositions();
-    startSim(7, {leagues: keys, dryRun: false, allowSeasonEnd: true});
+    startSim(days || 7, {leagues: keys, dryRun: false, allowSeasonEnd: true});
   }
 
+  // THE CHAIN - no longer used by "Play the whole playoffs", which is one run now (see
+  // WHOLE_PLAYOFFS_DAYS). Kept because it is harmless idle and the stop conditions below are
+  // the record of why a self-starting loop needs three of them.
+  //
   // THE WHOLE PLAYOFFS, one seven-day run at a time.
   //
   // There is no single "sim the playoffs" call to make: FBPB3's schedule export holds regular
@@ -267,11 +279,17 @@
       var eligible=playoffTargets();
       if(!eligible.length) {toast('No league is waiting on playoffs.',true);return;}
       var names=eligible.join(', ');
-      if(!window.confirm('Play the whole playoffs for ' + names + '?\n\nThis runs seven days '
-          + 'at a time and keeps going until every champion is decided. It stops on its own if '
-          + 'a round fails or moves nothing.')) {return;}
-      chain.on=true; chain.rounds=0;
-      startPlayoffRound(eligible);
+      // ONE RUN, NOT A CHAIN OF THEM. This used to start a seven-day run, wait for it, and start
+      // another until every champion was decided - and every one of those runs paid the whole
+      // fixed cost again: back up three saves, apply, load, export, write the game-by-game
+      // table, publish. Pro's bracket needs about six of them. "Let's change so the pro doesn't
+      // have to sim 15 times, just does the whole thing in 1 go." The chain's stop conditions
+      // are the run's own now: a league stops when its calendar does.
+      if(!window.confirm('Play the whole playoffs for ' + names + '?' + String.fromCharCode(10, 10)
+          + 'This is ONE run: each league plays on until its champion is decided and its calendar '
+          + 'stops, then the next league starts. Expect it to take a while.')) {return;}
+      chain.on=false;
+      startPlayoffRound(eligible, WHOLE_PLAYOFFS_DAYS);
     });
     renderSeasonReadiness(state.plan);loadCalendar();
     // SERIALISED, not fired together. Both /api/calendar and the readiness inside /api/state

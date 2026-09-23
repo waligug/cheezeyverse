@@ -67,6 +67,10 @@ CLICK_EXTENT = (960, 670)
 # hang past its limit. Elapsed time is what all of these actually mean, and monotonic is the
 # only clock that measures it.
 LOAD_LIMIT_FLOOR = 30
+# A responsive window that is still on the Load screen this long after LOAD has not started a
+# load; a standalone CV_Pro load measured 17.8-18.8s, all of it with the window hung.
+LOAD_RETRY_AFTER = 8
+LOAD_MAX_CLICKS = 3
 SAVE_LIMIT_FLOOR = 30
 # The player export. EXPORT_GRID_LIMIT is how long the League Editor's list may take to fill on
 # the biggest save; EXPORT_OPEN_LIMIT how long the Player File screen has to replace it once
@@ -443,6 +447,18 @@ class FBPB3:
                     bad[n] = f"it reports the same save time as {', '.join(sorted(set(names) - {n}))}"
         return bad
 
+    def _window_hung(self):
+        """True while the game has stopped pumping messages - which is what a real load looks like.
+
+        IsHungAppWindow is Windows' own verdict (no messages processed for about five seconds).
+        Any failure to ask answers True, so an unanswerable question never licenses a re-click.
+        """
+        try:
+            import ctypes
+            return bool(ctypes.windll.user32.IsHungAppWindow(self.main.handle))
+        except Exception:                                               # noqa: BLE001
+            return True
+
     def load_save_row(self, row, wait=20):
         """Load the save at list row `row` (0-based) on the Load Saved Game screen.
 
@@ -474,10 +490,33 @@ class FBPB3:
         limit = max(LOAD_LIMIT_FLOOR, wait * 3)
         deadline = time.monotonic() + limit
         self.click(LOAD_BUTTON, 0)
+        # A SWALLOWED LOAD CLICK, not a slow load. Caught 2026-09-23 simming into the playoffs:
+        # prep and college loaded, simmed and exported, then CV_Pro sat on the Load screen for
+        # the full 90s and the run died - with the row selected and the LOAD button enabled, so
+        # the one click simply never landed. The same shape as today's other lost clicks
+        # (_open_html_screen, _leave_html_screen): a click is not an arrival.
+        #
+        # Re-clicking blindly would be dangerous, because a click queued behind a REAL load
+        # fires on whatever screen comes next. So it asks the window first. The comment above
+        # says what a real load looks like - VB6 stops pumping messages while it reads
+        # league.dat - and Win32's IsHungAppWindow answers exactly that question. A window that
+        # is responsive, still on the Load screen and still offering an enabled LOAD button
+        # after LOAD_RETRY_AFTER seconds has not started loading, and is clicked again.
+        clicks, retry_at = 1, time.monotonic() + LOAD_RETRY_AFTER
         while self._load_screen_open(unknown=True):
-            if time.monotonic() > deadline:
+            now = time.monotonic()
+            if now > deadline:
                 raise DriverError(f"row {row} was still on the Load screen {limit}s after "
-                                  "LOAD was clicked")
+                                  f"LOAD was clicked {clicks} time(s)")
+            if now > retry_at and clicks < LOAD_MAX_CLICKS and not self._window_hung():
+                try:
+                    enabled = self._load_button().is_enabled()
+                except Exception:                                       # noqa: BLE001
+                    enabled = False
+                if enabled:
+                    self.click(LOAD_BUTTON, 0)
+                    clicks += 1
+                retry_at = now + LOAD_RETRY_AFTER
             time.sleep(0.25)
         # A short settle, not a long one: this only has to outlast the Hot Seat's own repaint so
         # that whatever reads the date label next reads a finished one.
