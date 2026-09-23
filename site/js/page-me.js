@@ -10,6 +10,7 @@ import {
   RATINGS, POTENTIAL_RATINGS, RATING_LABELS, RATING_MAX, START_AGE, GROWTH_END_AGE,
   nextPointCost, hasPotential, isLocked, describeCurve, biasedUpgradeCost, biasFor,
   classify, growthCurve, formatHeight, expectedAdultHeight, declareWarning,
+  ratingCeiling, potentialCeiling,
 } from './rules.js';
 import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
@@ -59,6 +60,28 @@ async function boot() {
   $('#loading').hidden = false;
   await load();
 }
+
+/**
+ * Re-read everything WITHOUT throwing the reader back to the top of the page.
+ *
+ * `load()` clears #characters and rebuilds it, so for a moment the document is short and the
+ * browser clamps the scroll position upward - and filing a spend then also called
+ * window.scrollTo({top: 0}) on purpose, to put the confirmation banner in view. Between them,
+ * every point request bounced you to the top of your own page, which on a phone means scrolling
+ * back down past two other characters to carry on where you were.
+ *
+ * The position is restored AFTER the rebuild rather than held during it, because the new
+ * content has to exist before the page is tall enough to scroll back to. If the page really did
+ * get shorter the browser clamps it, which is the correct outcome.
+ */
+async function loadKeepingPlace() {
+  const y = window.scrollY;
+  await load();
+  // The two-argument form, not {behavior}: it is instant everywhere and cannot be turned into
+  // an animation by a stylesheet's scroll-behavior, which is the whole point of not moving.
+  if (y) window.scrollTo(0, y);
+}
+
 
 async function load() {
   const cfg = await settings(true);
@@ -322,10 +345,11 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
     const floor = Number((kind === 'potential' ? base.potentials : base.ratings)[rating] ?? 0);
     const value = Number(bag[rating] ?? floor);
     if (dir > 0) {
+      // The shared rule, not a second copy of it: a potential-bearing rating is capped by its
+      // potential up to POTENTIAL_MAX, and a potential by POTENTIAL_MAX itself.
       const ceiling = kind === 'potential'
-        ? RATING_MAX
-        : Math.min(RATING_MAX,
-          hasPotential(rating) ? Number(draft.potentials[rating]) : RATING_MAX);
+        ? potentialCeiling()
+        : ratingCeiling(rating, draft.potentials, draft.traits);
       if (value >= ceiling) return;
       if (nextPointCost(value, kind, biasFor(bias, rating)) > freePoints()) return;
       bag[rating] = value + 1;
@@ -618,17 +642,21 @@ async function sendRequests(character, base, draft, button, problems) {
       sent.push(await requestUpgrade({ characterId: character.id, ...w }));
     }
     drafts.delete(character.id);
-    await load();
     showNote($('#notices'), 'good',
       `${sent.length} request${sent.length === 1 ? '' : 's'} filed for `
-      + `${character.first_name} ${character.last_name}. The commissioner applies them at the next Sim Week.`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+      + `${character.first_name} ${character.last_name}. `
+      + 'The commissioner applies them at the next Sim Week.');
+    // The banner goes up BEFORE the rebuild and the reload comes last, because load() replaces
+    // every card - `button` is a detached node afterwards and writing to it shows nobody
+    // anything. What the reader actually sees in place is the card itself coming back with the
+    // points spent and the new rows under Requests, which is the confirmation that matters.
+    await loadKeepingPlace();
   } catch (err) {
     showNote(problems, 'bad', errorText(err)
       + (sent.length ? ` (${sent.length} went through before this one)` : ''));
     button.disabled = false;
     button.textContent = 'Try again';
-    if (sent.length) await load();
+    if (sent.length) await loadKeepingPlace();
   }
 }
 
@@ -636,7 +664,7 @@ async function cancel(request, button) {
   button.disabled = true;
   try {
     await cancelRequest(request.id);
-    await load();
+    await loadKeepingPlace();
   } catch (err) {
     showNote($('#notices'), 'bad', errorText(err));
     button.disabled = false;
