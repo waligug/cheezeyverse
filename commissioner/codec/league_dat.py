@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import contextlib
 import struct
 import time
 from dataclasses import dataclass, field
@@ -105,6 +106,25 @@ class Player:
     @property
     def dob(self):
         return f'{self.values["BirthMonth"]}/{self.values["BirthDay"]}/{self.values["BirthYear"]}'
+
+
+_REHEARSED = False
+
+
+@contextlib.contextmanager
+def rehearsed_writes():
+    """Allow depth/lineup writes on a 20-team save for the length of the block.
+
+    ONLY for a write that has just been proven on a clone in the game itself (see
+    seasonflow._place_rehearsed). It lifts the 20-team refusal and nothing else: the region must
+    still be located exactly.
+    """
+    global _REHEARSED
+    previous, _REHEARSED = _REHEARSED, True
+    try:
+        yield
+    finally:
+        _REHEARSED = previous
 
 
 class LeagueDat:
@@ -453,7 +473,7 @@ class LeagueDat:
         self.depth_score = best[0]
         return teams
 
-    def _require_exact_depth(self, what):
+    def _require_exact_depth(self, what):  # noqa: C901 - see _REHEARSED below
         """Refuse a depth-chart/lineup write unless teams() found the region with certainty."""
         teams = self.teams()
         # AND NEVER ON THE 20-TEAM (PRO) SAVE, for now. Both writes that broke CV_Pro were depth/
@@ -461,7 +481,11 @@ class LeagueDat:
         # of location is not the whole story, and until it is understood the only safe answer is
         # not to write there. Prep and college (16 teams) take the same writes without trouble.
         # A character already on a pro roster keeps playing; only the re-dress is skipped.
-        if len(teams) >= 20:
+        #
+        # The one way through is `rehearsed_writes()`, which seasonflow holds only after the SAME
+        # write has been made on a clone of the save and FBPB3 has loaded that clone and simmed a
+        # day on it. That is how Dodger Manson went back on LCH after the 2032 rollover.
+        if len(teams) >= 20 and not _REHEARSED:
             raise CodecError(f"refusing to {what} on a {len(teams)}-team save: codec writes to "
                              "its depth charts have twice left it unloadable (2026-09-23)")
         if not getattr(self, "depth_exact", False):

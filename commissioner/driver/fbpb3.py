@@ -1332,9 +1332,51 @@ class FBPB3:
         and the next step would export or roll over a league whose work was still only in
         memory.
         """
-        limit = max(SAVE_LIMIT_FLOOR, wait * 6)
         if path is None:
             raise DriverError("save_game requires the target league.dat path")
+        # ONE RETRY, because the caller's `finally` exits WITHOUT saving: a stalled save throws
+        # away everything in memory. On 2026-09-23 pro's whole 2033 rollover (free agency,
+        # camps, preseason) was lost that way - the SAVE click produced no write at all, the file
+        # never moved in 90s - and the identical sequence re-run by hand saved first time. So a
+        # stall is photographed for next time, any dialog is cleared, and SAVE is pressed again.
+        # A VB6 run-time error box is not retried: that game is not coming back.
+        try:
+            return self._save_once(wait, path)
+        except DriverError as exc:
+            if "did not finish writing" not in str(exc):
+                raise
+            note = self._save_stall_evidence(path)
+            if note.get("runtime_error"):
+                raise DriverError(f"{exc}; FBPB3 showed a run-time error: "
+                                  f"{note['runtime_error']}") from exc
+            self.dismiss_all()
+            time.sleep(1)
+            try:
+                return self._save_once(wait, path)
+            except DriverError as again:
+                raise DriverError(f"{again} (second attempt; first stall evidence: "
+                                  f"{note})") from again
+
+    def _save_stall_evidence(self, path):
+        """Screenshot and dialogs at the moment a save stalled, into logs/. Never raises."""
+        note = {}
+        try:
+            logs = Path(__file__).resolve().parents[2] / "logs"
+            logs.mkdir(exist_ok=True)
+            shot = logs / f"save-stall-{time.strftime('%Y%m%d-%H%M%S')}.png"
+            self.screenshot(str(shot))
+            note["screenshot"] = str(shot)
+        except Exception as exc:                                        # noqa: BLE001
+            note["screenshot"] = f"failed: {exc}"
+        for key, read in (("dialogs", self._message_boxes), ("runtime_error", self._runtime_error)):
+            try:
+                note[key] = read()
+            except Exception as exc:                                    # noqa: BLE001
+                note[key] = f"unreadable: {exc}"
+        return note
+
+    def _save_once(self, wait, path):
+        limit = max(SAVE_LIMIT_FLOOR, wait * 6)
         before = self._file_mark(path)
         self.click(TOP_SAVE, 0)
         if not self._wait_until_still(settle=0.4, timeout=15, poll=0.1):

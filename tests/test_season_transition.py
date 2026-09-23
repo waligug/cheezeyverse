@@ -150,7 +150,7 @@ class TransitionTests(unittest.TestCase):
                 return self.players[0]
             def season_day(self): return (15, owner.years[self.key])
             def set(self, pl, field, value): pl.values[field] = value
-        checked = []
+        checked, said = [], []
         def commit(league, checks):
             checked.extend(checks)
             self.assertEqual(league.players[0].values['Height'],74)
@@ -162,7 +162,14 @@ class TransitionTests(unittest.TestCase):
             self.assertTrue(all(league.players[0].values[key] == 80 for key in seasonflow.POTENTIALS[1:]))
             return league
         with patch.object(seasonflow,'LeagueDat',League), patch.object(seasonflow.ch,'commit',side_effect=commit):
-            seasonflow.rollover_saves(self.store,2027,SimpleNamespace(_update_marker=lambda fn:None),lambda m:None)
+            seasonflow.rollover_saves(self.store,2027,SimpleNamespace(_update_marker=lambda fn:None),lambda m:None,
+                                      progress=lambda pct, detail, key: said.append((pct, detail, key)))
+        # The card moves during the game's own rollover: the 2032 offseason sat on "College:
+        # retiring the over-age" for twelve minutes while pro rolled over, and read as frozen.
+        self.assertTrue(said)
+        self.assertEqual(said[0][2], seasonflow.cfg.LEAGUES[0].key)
+        self.assertIn("rollover to 2028", said[0][1])
+        self.assertEqual([pct for pct, _, _ in said], sorted(pct for pct, _, _ in said))
         self.assertEqual(len(checked),1)
         self.assertEqual(fields['league_player_ids'],{'prep':91})
         self.assertEqual(fields['ratings'][seasonflow.RATINGS[0]], 65)

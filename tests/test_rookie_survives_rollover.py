@@ -16,6 +16,10 @@ live pro save: released outright, released into a roster that has since filled, 
 somebody else.
 
     python tests/test_rookie_survives_rollover.py
+
+ON PRO THE LIVE PATH REHEARSES in FBPB3 first (seasonflow._place_rehearsed, pinned in
+test_rollover_recovery). This pins the placement itself, `_place_character`, on file copies
+that are never loaded, so the codec's 20-team refusal is lifted with rehearsed_writes().
 """
 from __future__ import annotations
 
@@ -28,7 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from commissioner import characters as ch, seasonflow  # noqa: E402
-from commissioner.codec.league_dat import LeagueDat  # noqa: E402
+from commissioner.codec.league_dat import LeagueDat, rehearsed_writes  # noqa: E402
 from commissioner.universe import config as cfg  # noqa: E402
 
 FAILS: list[str] = []
@@ -96,7 +100,7 @@ def run():
     path = fresh()
     L = LeagueDat(path); L.release(L.find(name, dob)); L.save()
     L = LeagueDat(path); L.set_contract(L.find(name, dob), [0]); L.save()
-    seasonflow._replace_character("pro", path, rookie, name, dob, season, st, lambda m: None)
+    seasonflow._place_character("pro", path, rookie, name, dob, season, st, lambda m: None)
     team, contract, L = after(path)
     check("back on the team that drafted him", team == deal["team"], str(team))
     check("on the years the deal has LEFT, not its full term", contract == want,
@@ -108,12 +112,16 @@ def run():
     L = LeagueDat(path); _, id_of = _maps(L)
     spare = next(p for p in L.players if p.values["Team"] == -1 and p.name not in protected)
     L.sign(spare, id_of[deal["team"]]); L.save()
-    seasonflow._replace_character("pro", path, rookie, name, dob, season, st, lambda m: None)
+    L = LeagueDat(path)
+    full = sum(1 for p in L.players if p.values["Team"] == id_of[deal["team"]])
+    seasonflow._place_character("pro", path, rookie, name, dob, season, st, lambda m: None)
     team, contract, L = after(path)
     _, id_of = _maps(L)
     size = sum(1 for p in L.players if p.values["Team"] == id_of[deal["team"]])
     check("he still gets his spot", team == deal["team"], str(team))
-    check("the roster is not over the limit", size <= cfg.BY_KEY["pro"].roster_size, str(size))
+    # Not against config's 15: with Finances on the game's own free agency fills pro rosters to
+    # 18-20. What placing him must never do is GROW the roster - somebody makes room.
+    check("the roster did not grow to fit him", size <= full, f"{size} vs {full} before")
     released = [n for n in protected
                 if any(p.name == n and p.values["Team"] < 1 for p in L.players)]
     # THE ONE THING IT MUST NEVER DO to make room.
@@ -125,13 +133,13 @@ def run():
     L = LeagueDat(path); _, id_of = _maps(L)
     other = next(a for a in id_of if a != deal["team"])
     L.sign(L.find(name, dob), id_of[other]); L.save()
-    seasonflow._replace_character("pro", path, rookie, name, dob, season, st, lambda m: None)
+    seasonflow._place_character("pro", path, rookie, name, dob, season, st, lambda m: None)
     team, contract, L = after(path)
     check(f"moved off {other} and back to the drafting team", team == deal["team"], str(team))
 
     print("\nnothing counts team ids from 1")
     import inspect
-    src = inspect.getsource(seasonflow._replace_character)
+    src = inspect.getsource(seasonflow._place_character)
     # Pro's ids run 5..24. `enumerate(spec.teams, start=1)` put Gravy on the Curds.
     check("resolves teams by ascending save id", "sorted(L.teams())" in src)
     check("and not by counting from one", "start=1" not in src)
@@ -148,5 +156,10 @@ def run():
     return 0
 
 
+def main():
+    with rehearsed_writes():
+        return run()
+
+
 if __name__ == "__main__":
-    raise SystemExit(run())
+    raise SystemExit(main())

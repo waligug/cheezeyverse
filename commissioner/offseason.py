@@ -1089,7 +1089,9 @@ def run_offseason(store, season=None, log=print, dry_run=False, force=False, rol
                 raise OffseasonError("a database write failed: " + tracked.failed_write)
             if rollover:
                 tracked.writes_started = True  # engine changes must never trigger a save-only rollback
-                result["rollover"] = seasonflow.rollover_saves(tracked, season, journal, log)
+                result["rollover"] = seasonflow.rollover_saves(
+                    tracked, season, journal, log,
+                    progress=lambda pct, detail, key: _say(status, pct, "rollover", detail, key))
                 tracked.set_setting("last_offseason", season)
                 tracked.set_setting("current_season", season + 1)
                 tracked.set_setting("current_week", 0)

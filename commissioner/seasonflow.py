@@ -284,8 +284,77 @@ def _team_abbrev(key, dat, team_id):
     return None
 
 
-def _replace_character(key, path, character, name, dob, season, store, log):
+def _replace_character(key, path, character, name, dob, season, store, log, game_factory=None):
     """Put a character the rollover left without a team back on the right one. Returns the abbrev.
+
+    A 16-team save takes the codec's release/sign/dress directly. The 20-team pro save does not:
+    those writes left it unloadable twice on 2026-09-23, and the codec refuses them there. So on
+    pro the move is REHEARSED - made on a clone, loaded and simmed a day in FBPB3 - and only then
+    made on the live save. Without this, Dodger Manson came out of the 2032 rollover a free agent
+    (his three game years were up and nobody signed him) and the offseason could only log "he
+    needs placing by hand"; the rehearsal is exactly what was then done by hand.
+    """
+    if len(LeagueDat(path).teams()) >= 20:
+        return _place_rehearsed(key, path, character, name, dob, season, store, log,
+                                game_factory or FBPB3)
+    return _place_character(key, path, character, name, dob, season, store, log)
+
+
+REHEARSAL_PREFIX = "ZZ_rehearsal_"
+
+
+def _place_rehearsed(key, path, character, name, dob, season, store, log, game_factory):
+    """`_place_character` on a clone first; FBPB3 must load it and sim a day before the live write."""
+    import struct
+    from .codec.league_dat import rehearsed_writes
+    folder = Path(path).parent
+    clone = folder.parent / f"{REHEARSAL_PREFIX}{folder.name}"
+    if clone.exists():
+        shutil.rmtree(clone)
+    shutil.copytree(folder, clone)
+    # A copied saveinfo.dat ties with the original's save time, and a tie makes the Load list
+    # order arbitrary - load_save refuses rather than risk loading the live save by mistake.
+    # A month older sorts the clone last and unambiguously.
+    info = clone / "saveinfo.dat"
+    raw = bytearray(info.read_bytes())
+    frac, serial = struct.unpack_from("<2d", raw, 0)
+    struct.pack_into("<2d", raw, 0, frac, serial - 30)
+    info.write_bytes(bytes(raw))
+    try:
+        with rehearsed_writes():
+            _place_character(key, clone / "league.dat", character, name, dob, season, store,
+                             lambda m: None)
+        game = game_factory()
+        try:
+            game.launch()
+            clash = {n: why for n, why in game.ambiguous_saves().items()
+                     if n in (clone.name, folder.name)}
+            if clash:
+                raise RuntimeError(f"rehearsal clone cannot be told apart in the Load list: {clash}")
+            game.load_save(clone.name)
+            for stage in ("loading", "simming a day on"):
+                if stage != "loading":
+                    game.sim_days(1)
+                box = game._runtime_error()
+                if box:
+                    raise RuntimeError(f"FBPB3 failed {stage} the rehearsal of {name}'s "
+                                       f"placement ({box}); the live save was not touched")
+        finally:
+            if game.app is not None:
+                try:
+                    game.exit_game(save=False)
+                except Exception:                                       # noqa: BLE001
+                    FBPB3.kill()
+    finally:
+        shutil.rmtree(clone, ignore_errors=True)
+    with rehearsed_writes():
+        placed = _place_character(key, path, character, name, dob, season, store, log)
+    log(f"   {name}: placement rehearsed on a copy of the save first - it loaded and simmed")
+    return placed
+
+
+def _place_character(key, path, character, name, dob, season, store, log):
+    """The codec half of `_replace_character`. Callers go through that, never here directly.
 
     WHY. With Finances on, the game's own rollover runs free agency, and it RELEASES people:
     Gravy Jones was drafted #3 by THP on a three-year rookie deal in the 2031 offseason and came
@@ -367,10 +436,29 @@ def _replace_character(key, path, character, name, dob, season, store, log):
     return target
 
 
-def rollover_saves(store, season, journal, log):
-    """Only mark the season complete after every saved league reports the next year."""
+def rollover_saves(store, season, journal, log, progress=None):
+    """Only mark the season complete after every saved league reports the next year.
+
+    `progress(percent, detail, league)` moves the status card. THIS IS THE LONGEST STRETCH OF
+    THE OFFSEASON - the game's own rollover, save, verify and export, three leagues, twelve
+    minutes and more - and it used to say nothing, so the card sat on the last thing before it
+    ("College: retiring the over-age...") and the 2032 offseason was reported as frozen on
+    college while pro was the one actually running.
+    """
+    def say(percent, detail, key):
+        if progress is None:
+            return
+        try:
+            progress(percent, detail, key)
+        except Exception:                                               # noqa: BLE001
+            pass
+
     out = []
-    for spec in cfg.LEAGUES:
+    count = len(cfg.LEAGUES)
+    for index, spec in enumerate(cfg.LEAGUES):
+        # 80..92 split across the leagues; publish takes over at 92.
+        base = 80 + 12 * index / max(count, 1)
+        step = 12 / max(count, 1)
         key, path = spec.key, ch.save_path(spec.key)
         before = LeagueDat(path)
         expected = []
@@ -383,6 +471,7 @@ def rollover_saves(store, season, journal, log):
                              {field: pl.values[field] for field in RATINGS + POTENTIALS}))
         journal._update_marker(lambda state: state.update(phase='rollover', league=key))
         log(f'{key}: advancing the game to season {season + 1}')
+        say(base, f"{spec.name}: the game's own season rollover to {season + 1}", key)
         game = FBPB3()
         try:
             game.launch()
@@ -398,6 +487,7 @@ def rollover_saves(store, season, journal, log):
                     FBPB3.kill()
         if FBPB3.is_running():
             raise RuntimeError('Game did not close; refusing to inspect a live save')
+        say(base + step / 2, f"{spec.name}: checking the characters and exporting {season + 1}", key)
         league = LeagueDat(path)
         stamp = league.season_day()
         if not stamp or stamp[1] != season + 1 or not 1 <= stamp[0] <= 40:
