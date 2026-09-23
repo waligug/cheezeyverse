@@ -442,7 +442,32 @@ class LeagueDat:
         starts = [best[1]]
         for k in range(n_blocks):
             teams[order[k // self.DEPTH_PER_TEAM]]["depth_at"].append(starts[0] + self.DEPTH_BLOCK * k)
+        # GOOD ENOUGH TO READ IS NOT GOOD ENOUGH TO WRITE. The 0.95 threshold lets a save whose
+        # depth charts are full of players who have since changed teams be READ - pro after free
+        # agency scores ~0.978 - and that stays. But on 2026-09-23 every codec write into pro's
+        # depth charts at that certainty left a save FBPB3 could not open ("Run-time error '9':
+        # Subscript out of range"): the roster guard's release/sign pass at 10:51, then the
+        # weekly re-dress - 48 bytes, nothing else - and seven sims died loading it. So the
+        # writers below refuse unless the region was located EXACTLY.
+        self.depth_exact = best[0] >= 1.0
+        self.depth_score = best[0]
         return teams
+
+    def _require_exact_depth(self, what):
+        """Refuse a depth-chart/lineup write unless teams() found the region with certainty."""
+        teams = self.teams()
+        # AND NEVER ON THE 20-TEAM (PRO) SAVE, for now. Both writes that broke CV_Pro were depth/
+        # lineup writes, and the second landed in a region located EXACTLY (1.000) - so certainty
+        # of location is not the whole story, and until it is understood the only safe answer is
+        # not to write there. Prep and college (16 teams) take the same writes without trouble.
+        # A character already on a pro roster keeps playing; only the re-dress is skipped.
+        if len(teams) >= 20:
+            raise CodecError(f"refusing to {what} on a {len(teams)}-team save: codec writes to "
+                             "its depth charts have twice left it unloadable (2026-09-23)")
+        if not getattr(self, "depth_exact", False):
+            raise CodecError(f"refusing to {what}: the depth-chart region was located at "
+                             f"{getattr(self, 'depth_score', 0):.3f}, not exactly, and a write "
+                             "there has left saves FBPB3 cannot load")
 
     def _replace_ids(self, start, count, old, new):
         for k in range(count):
@@ -522,6 +547,7 @@ class LeagueDat:
 
     def release(self, pl):
         """Remove a rostered player from his team (he becomes a free agent). Roster array shrinks by one."""
+        self._require_exact_depth("release a player")
         t = pl.values["Team"]
         if t < 1:
             raise CodecError(f"{pl.name} is not on a team ({t})")
@@ -552,6 +578,7 @@ class LeagueDat:
         and then re-parse once. The individual fields are fixed before the splice while all
         player offsets are still valid.
         """
+        self._require_exact_depth("release players")
         players = list(players)
         if not players:
             return
@@ -562,6 +589,7 @@ class LeagueDat:
 
     def release_groups(self, groups):
         """Release batches from several teams and re-parse once."""
+        self._require_exact_depth("release players")
         groups = {int(t): list(players) for t, players in groups.items() if players}
         if not groups:
             return
@@ -623,6 +651,7 @@ class LeagueDat:
 
         A player who is only on the roster never appears in a box score, so by default he also takes over the
         depth-chart minutes of the least-used player at his position (depth block k holds position k+1)."""
+        self._require_exact_depth("sign a player")
         if pl.values["Team"] >= 1:
             raise CodecError(f"{pl.name} is already on team {pl.values['Team']}")
         info = self.teams()[t]
@@ -657,6 +686,7 @@ class LeagueDat:
 
     def sign_many(self, assignments, minutes=True, years=SIGNING_YEARS):
         """Sign ``(player, team)`` assignments and re-parse the save once."""
+        self._require_exact_depth("sign players")
         assignments = list(assignments)
         if not assignments:
             return
@@ -712,6 +742,7 @@ class LeagueDat:
 
         Returns True if anything changed.
         """
+        self._require_exact_depth("dress a player")
         t = pl.values["Team"]
         if t < 1:
             raise CodecError(f"{pl.name} is not on a team")
