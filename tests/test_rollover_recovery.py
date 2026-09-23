@@ -186,5 +186,33 @@ class DraftOnProTests(unittest.TestCase):
         self.assertIn("dressing X", calls[0])
 
 
+class ProWeeklyPassTests(unittest.TestCase):
+    """The weekly pass logged "could not dress" for both pros every sim, while both started
+    every game. On the 20-team save it now leaves lineups and rosters to the game."""
+
+    def _pro(self):
+        from types import SimpleNamespace
+        def dress(pl):
+            raise AssertionError("dress must not be attempted on pro")
+        return SimpleNamespace(teams=lambda: {i: {} for i in range(5, 25)}, dress=dress,
+                               find=lambda *a: None)
+
+    def test_weekly_redress_skips_pro_without_a_word(self):
+        from types import SimpleNamespace
+        from commissioner import simweek
+        said = []
+        st = SimpleNamespace(characters=lambda **kw: [{"status": "active", "first_name": "G",
+                                                         "last_name": "J", "game_dob": "2012-01-01"}])
+        self.assertEqual(simweek._dress_characters("pro", self._pro(), st, said.append), [])
+        self.assertEqual(said, [])
+
+    def test_roster_guard_leaves_pro_alone(self):
+        from tools import protect_rosters
+        with patch.object(protect_rosters, "LeagueDat", lambda path: self._pro()),              patch.object(protect_rosters, "ours", return_value=(set(), {"players": []})):
+            got = protect_rosters.protect("pro")
+        self.assertEqual(got["skipped"], "pro")
+        self.assertEqual((got["released"], got["signed"], got["defanged"]), (0, 0, 0))
+
+
 if __name__ == "__main__":
     unittest.main()

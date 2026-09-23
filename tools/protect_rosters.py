@@ -79,6 +79,17 @@ def protect(key, dry_run=False, store_characters=None):
 
     L = LeagueDat(path)
 
+    # NOT ON THE 20-TEAM PRO SAVE. Pro runs Full Finances, so its rosters are the game's own free
+    # agency and every one of its signings is an "intruder" to the manifest - this pass would
+    # floor them all to rating 3 (the 3-overall teams of 2026-09-23) and then try to release
+    # them, which the codec refuses there. Pro's population is the game's business; characters
+    # are kept on rosters by the rollover's rehearsed put-back, and floored bodies are restored
+    # by ageout.reconcile.
+    if len(L.teams()) >= 20:
+        print("   pro rosters are left to the game's own free agency; nothing to guard")
+        return {"defanged": 0, "released": 0, "signed": 0, "backfilled": 0, "unrostered": 0,
+                "skipped": "pro"}
+
     # Orphaned slots: a reserve row was renamed onto a character, and that character is no longer
     # in the store (deleted, or a store restored from an older backup). The manifest name it used
     # to answer to is missing and nobody claims the row, so the slot is stranded - it can never be

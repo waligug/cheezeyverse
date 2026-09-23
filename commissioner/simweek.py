@@ -696,6 +696,13 @@ def _dress_characters(league_key, L, st, log):
     is the difference between a career and a name on a bench.
     """
     fixed = []
+    # NOT ON PRO. The codec refuses lineup/depth writes on the 20-team save, and its READING of
+    # pro's lineup is not trustworthy either: after the 2032 rollover it had Dodger Manson off
+    # LCH's active list while the box scores had him starting all 36 games. The weekly pass
+    # logged "could not dress" for both pros every sim, about players who were playing every
+    # minute. Pro's coach sets its own lineups; minutes are earned.
+    if len(L.teams()) >= 20:
+        return fixed
     for c in st.characters(league=league_key):
         if c.get("status") != "active":
             continue
