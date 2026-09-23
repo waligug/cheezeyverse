@@ -155,7 +155,7 @@
    "league": "prep",
    "team": "MTL",
    "role": "reserve",
-   "name": "G\u00e9rald Rudloff",
+   "name": "Gerald Rudloff",
    "dob": "11/23/2017",
    "position": "SF",
    "uniform": 26
@@ -236,7 +236,7 @@
    "league": "prep",
    "team": "REN",
    "role": "reserve",
-   "name": "Manual \u00d6zmert",
+   "name": "Manual Ozmert",
    "dob": "1/17/2016",
    "position": "SF",
    "uniform": 26
@@ -983,7 +983,7 @@
    "league": "pro",
    "team": "STL",
    "role": "reserve",
-   "name": "Er\u00e7elik Blue",
+   "name": "Ercelik Blue",
    "dob": "2/16/2004",
    "position": "PG",
    "uniform": 29
@@ -4905,16 +4905,16 @@
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "CHD",
    "role": "filler",
    "name": "Royal Katzman",
    "dob": "11/16/2000",
-   "position": "PF",
+   "position": "C",
    "uniform": 5
   },
   {
    "league": "pro",
-   "team": "FER",
+   "team": "MTY",
    "role": "filler",
    "name": "Nemunas Debow",
    "dob": "8/17/2001",
@@ -4923,7 +4923,7 @@
   },
   {
    "league": "pro",
-   "team": "THP",
+   "team": "GOR",
    "role": "filler",
    "name": "Utz Lovell",
    "dob": "1/12/2003",
@@ -4941,7 +4941,7 @@
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "CHE",
    "role": "filler",
    "name": "Aksin Town",
    "dob": "6/7/1999",
@@ -4954,7 +4954,7 @@
    "role": "filler",
    "name": "Marion Marburger",
    "dob": "6/1/2001",
-   "position": "PG",
+   "position": "SG",
    "uniform": 16
   },
   {
@@ -4963,7 +4963,7 @@
    "role": "filler",
    "name": "Wilford Everhart",
    "dob": "10/26/2002",
-   "position": "PF",
+   "position": "C",
    "uniform": 18
   },
   {
@@ -4981,12 +4981,12 @@
    "role": "filler",
    "name": "Rade Wade",
    "dob": "7/9/2002",
-   "position": "C",
+   "position": "PF",
    "uniform": 34
   },
   {
    "league": "pro",
-   "team": "FER",
+   "team": "CHD",
    "role": "filler",
    "name": "Fidel Guess",
    "dob": "2/3/2002",
@@ -4995,11 +4995,11 @@
   },
   {
    "league": "pro",
-   "team": "EDM",
+   "team": "CHE",
    "role": "filler",
    "name": "Jamison Barnes",
    "dob": "8/2/1997",
-   "position": "SF",
+   "position": "SG",
    "uniform": 50
   },
   {
@@ -5008,12 +5008,12 @@
    "role": "filler",
    "name": "Utz Verduzco",
    "dob": "5/24/1995",
-   "position": "C",
+   "position": "SF",
    "uniform": 38
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "CHD",
    "role": "filler",
    "name": "Melchioras Bilbrey",
    "dob": "12/19/1998",
@@ -5031,11 +5031,11 @@
   },
   {
    "league": "pro",
-   "team": "EDM",
+   "team": "CHD",
    "role": "filler",
    "name": "Royce Reisinger",
    "dob": "4/22/1997",
-   "position": "SG",
+   "position": "PF",
    "uniform": 20
   },
   {
@@ -5058,11 +5058,11 @@
   },
   {
    "league": "pro",
-   "team": "THP",
+   "team": "PET",
    "role": "filler",
    "name": "Alban Pumphrey",
    "dob": "7/27/2004",
-   "position": "PF",
+   "position": "C",
    "uniform": 19
   },
   {
@@ -5071,7 +5071,7 @@
    "role": "filler",
    "name": "Akkurt Casali",
    "dob": "10/22/2004",
-   "position": "C",
+   "position": "PF",
    "uniform": 39
   },
   {
@@ -5085,11 +5085,11 @@
   },
   {
    "league": "pro",
-   "team": "STL",
+   "team": "CHE",
    "role": "filler",
-   "name": "Elliott Sch\u00f6nsmaul",
+   "name": "Elliott Schonsmaul",
    "dob": "10/10/1995",
-   "position": "PG",
+   "position": "C",
    "uniform": 31
   },
   {
@@ -5098,7 +5098,7 @@
    "role": "filler",
    "name": "Craig Monk",
    "dob": "8/10/2002",
-   "position": "PG",
+   "position": "SG",
    "uniform": 54
   },
   {
@@ -5107,12 +5107,12 @@
    "role": "filler",
    "name": "Biaggio Valignano",
    "dob": "3/22/2008",
-   "position": "C",
+   "position": "PG",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "STL",
+   "team": "THP",
    "role": "filler",
    "name": "Nazario Reynold",
    "dob": "10/4/2001",
@@ -5130,7 +5130,7 @@
   },
   {
    "league": "pro",
-   "team": "PET",
+   "team": "MTY",
    "role": "filler",
    "name": "Isaias Stejskal",
    "dob": "9/23/1995",
@@ -5139,11 +5139,11 @@
   },
   {
    "league": "pro",
-   "team": "THP",
+   "team": "PLY",
    "role": "filler",
    "name": "Bennett Voorhees",
    "dob": "6/18/2004",
-   "position": "SG",
+   "position": "PG",
    "uniform": 24
   },
   {
@@ -5152,7 +5152,7 @@
    "role": "filler",
    "name": "Severino Mullinix",
    "dob": "9/24/2004",
-   "position": "C",
+   "position": "PF",
    "uniform": 3
   },
   {
@@ -5166,11 +5166,11 @@
   },
   {
    "league": "pro",
-   "team": "CHD",
+   "team": "PET",
    "role": "filler",
    "name": "Weston Dye",
    "dob": "4/4/1997",
-   "position": "C",
+   "position": "SG",
    "uniform": 49
   },
   {
@@ -5184,29 +5184,29 @@
   },
   {
    "league": "pro",
-   "team": "MTY",
+   "team": "CHD",
    "role": "filler",
    "name": "Candelario Pride",
    "dob": "6/28/2004",
-   "position": "C",
+   "position": "SF",
    "uniform": 7
   },
   {
    "league": "pro",
-   "team": "CHE",
+   "team": "TIL",
    "role": "filler",
    "name": "Gisbert Wold",
    "dob": "2/17/2000",
-   "position": "PF",
+   "position": "SG",
    "uniform": 15
   },
   {
    "league": "pro",
-   "team": "SON",
+   "team": "EDM",
    "role": "filler",
    "name": "Maximo Kubala",
    "dob": "4/10/2004",
-   "position": "SF",
+   "position": "PF",
    "uniform": 25
   },
   {
@@ -5224,16 +5224,16 @@
    "role": "filler",
    "name": "Leandro Tesar",
    "dob": "12/26/2011",
-   "position": "PG",
+   "position": "SF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "ROQ",
+   "team": "MNS",
    "role": "filler",
    "name": "Virmantas Wingham",
    "dob": "10/22/1994",
-   "position": "PG",
+   "position": "SG",
    "uniform": 29
   },
   {
@@ -5247,7 +5247,7 @@
   },
   {
    "league": "pro",
-   "team": "SON",
+   "team": "GOR",
    "role": "filler",
    "name": "Ferruccio Loveday",
    "dob": "7/20/1998",
@@ -5260,21 +5260,21 @@
    "role": "filler",
    "name": "Homer Stronach",
    "dob": "4/22/2000",
-   "position": "PF",
+   "position": "C",
    "uniform": 38
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "MNR",
    "role": "filler",
    "name": "Noble Cornett",
    "dob": "3/8/2010",
-   "position": "C",
+   "position": "SG",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "MNR",
+   "team": "ROQ",
    "role": "filler",
    "name": "Cedric Garcia",
    "dob": "2/16/2007",
@@ -5292,11 +5292,11 @@
   },
   {
    "league": "pro",
-   "team": "PET",
+   "team": "FER",
    "role": "filler",
    "name": "Luis Lopes",
    "dob": "12/3/2003",
-   "position": "SG",
+   "position": "SF",
    "uniform": 27
   },
   {
@@ -5314,7 +5314,7 @@
    "role": "filler",
    "name": "Evrim Hubley",
    "dob": "6/28/2013",
-   "position": "SG",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -5323,48 +5323,48 @@
    "role": "filler",
    "name": "Loyd Groner",
    "dob": "7/18/1995",
-   "position": "PG",
+   "position": "SF",
    "uniform": 51
   },
   {
    "league": "pro",
-   "team": "EDM",
+   "team": "COL",
    "role": "filler",
    "name": "Bruno Herrera",
    "dob": "9/25/2001",
-   "position": "PG",
+   "position": "SF",
    "uniform": 1
   },
   {
    "league": "pro",
-   "team": "TIL",
+   "team": "PLY",
    "role": "filler",
    "name": "Josiah Meehan",
    "dob": "1/1/2000",
-   "position": "SG",
+   "position": "PG",
    "uniform": 49
   },
   {
    "league": "pro",
-   "team": "CHE",
+   "team": "THP",
    "role": "filler",
    "name": "Bradly Ehrenberg",
    "dob": "12/27/1997",
-   "position": "PG",
+   "position": "SG",
    "uniform": 19
   },
   {
    "league": "pro",
-   "team": "PET",
+   "team": "FER",
    "role": "filler",
    "name": "Harvey McMillan",
    "dob": "5/4/2008",
-   "position": "PG",
+   "position": "PF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "STL",
+   "team": "TIL",
    "role": "filler",
    "name": "Les Baba",
    "dob": "8/10/1994",
@@ -5373,7 +5373,7 @@
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "MTY",
    "role": "filler",
    "name": "Milo Dahmer",
    "dob": "10/20/1998",
@@ -5382,7 +5382,7 @@
   },
   {
    "league": "pro",
-   "team": "SON",
+   "team": "MNR",
    "role": "filler",
    "name": "Reno Ogara",
    "dob": "12/5/2002",
@@ -5391,16 +5391,16 @@
   },
   {
    "league": "pro",
-   "team": "THP",
+   "team": "TIL",
    "role": "filler",
    "name": "Baptist Grammer",
    "dob": "3/10/2004",
-   "position": "SG",
+   "position": "PG",
    "uniform": 35
   },
   {
    "league": "pro",
-   "team": "LCH",
+   "team": "SON",
    "role": "filler",
    "name": "Ibeonukara Allsup",
    "dob": "1/17/2000",
@@ -5413,12 +5413,12 @@
    "role": "filler",
    "name": "Brad Dames",
    "dob": "3/14/2009",
-   "position": "PF",
+   "position": "SF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "STL",
+   "team": "MNS",
    "role": "filler",
    "name": "Trey Jesus",
    "dob": "9/5/1996",
@@ -5431,7 +5431,7 @@
    "role": "filler",
    "name": "Odion Kimberling",
    "dob": "4/19/2003",
-   "position": "PF",
+   "position": "SG",
    "uniform": 19
   },
   {
@@ -5440,7 +5440,7 @@
    "role": "filler",
    "name": "Waldo Lattin",
    "dob": "11/6/1998",
-   "position": "C",
+   "position": "PF",
    "uniform": 6
   },
   {
@@ -5463,7 +5463,7 @@
   },
   {
    "league": "pro",
-   "team": "MNR",
+   "team": "SON",
    "role": "filler",
    "name": "Bora Medel",
    "dob": "9/11/2001",
@@ -5472,7 +5472,7 @@
   },
   {
    "league": "pro",
-   "team": "FER",
+   "team": "PET",
    "role": "filler",
    "name": "Herbertas Demaria",
    "dob": "3/14/2002",
@@ -5503,21 +5503,21 @@
    "role": "filler",
    "name": "Jamar Penrose",
    "dob": "11/29/2011",
-   "position": "SG",
+   "position": "PF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "SON",
+   "team": "LCH",
    "role": "filler",
    "name": "Jesus Alberson",
    "dob": "4/27/2002",
-   "position": "PF",
+   "position": "C",
    "uniform": 13
   },
   {
    "league": "pro",
-   "team": "TIL",
+   "team": "ROQ",
    "role": "filler",
    "name": "Harland Ochsner",
    "dob": "10/4/2003",
@@ -5526,11 +5526,11 @@
   },
   {
    "league": "pro",
-   "team": "PAR",
+   "team": "ASI",
    "role": "filler",
    "name": "Cenk Hollmaier",
    "dob": "2/19/1998",
-   "position": "C",
+   "position": "PF",
    "uniform": 47
   },
   {
@@ -5539,16 +5539,16 @@
    "role": "filler",
    "name": "Dele Kvratijus",
    "dob": "3/23/2002",
-   "position": "SG",
+   "position": "SF",
    "uniform": 39
   },
   {
    "league": "pro",
-   "team": "MNS",
+   "team": "CHE",
    "role": "filler",
    "name": "Milo Giunta",
    "dob": "6/5/2000",
-   "position": "PG",
+   "position": "SF",
    "uniform": 1
   },
   {
@@ -5571,7 +5571,7 @@
   },
   {
    "league": "pro",
-   "team": "GOR",
+   "team": "EDM",
    "role": "filler",
    "name": "Lonnie Comer",
    "dob": "4/19/2004",
@@ -5580,9 +5580,9 @@
   },
   {
    "league": "pro",
-   "team": "PET",
+   "team": "PAR",
    "role": "filler",
-   "name": "K\u00e2mil Bold",
+   "name": "Kamil Bold",
    "dob": "5/15/1998",
    "position": "PF",
    "uniform": 48
@@ -5593,7 +5593,7 @@
    "role": "filler",
    "name": "Graham Bartolotta",
    "dob": "4/23/2004",
-   "position": "PF",
+   "position": "C",
    "uniform": 52
   },
   {
@@ -5602,12 +5602,12 @@
    "role": "filler",
    "name": "Robin Duet",
    "dob": "12/26/2011",
-   "position": "PG",
+   "position": "SF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "PET",
+   "team": "PAR",
    "role": "filler",
    "name": "Benedetto Kealey",
    "dob": "5/14/2004",
@@ -5616,11 +5616,11 @@
   },
   {
    "league": "pro",
-   "team": "TIL",
+   "team": "COL",
    "role": "filler",
    "name": "Weldon Thiessen",
    "dob": "9/12/1996",
-   "position": "PG",
+   "position": "SG",
    "uniform": 1
   },
   {
@@ -5643,11 +5643,11 @@
   },
   {
    "league": "pro",
-   "team": "PLY",
+   "team": "MNR",
    "role": "filler",
    "name": "Zackary Giordano",
    "dob": "11/8/2000",
-   "position": "PF",
+   "position": "C",
    "uniform": 6
   },
   {
@@ -5656,7 +5656,7 @@
    "role": "filler",
    "name": "Domenic Ellender",
    "dob": "3/10/1998",
-   "position": "SF",
+   "position": "PF",
    "uniform": 4
   },
   {
@@ -5674,16 +5674,16 @@
    "role": "filler",
    "name": "Wilson Kerstetter",
    "dob": "7/19/2009",
-   "position": "SF",
+   "position": "PG",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "ASI",
+   "team": "PET",
    "role": "filler",
    "name": "Franklin Schultz",
    "dob": "2/16/2008",
-   "position": "PF",
+   "position": "C",
    "uniform": 0
   },
   {
@@ -5692,7 +5692,7 @@
    "role": "filler",
    "name": "Arlie Lippincott",
    "dob": "12/7/2001",
-   "position": "SF",
+   "position": "PF",
    "uniform": 9
   },
   {
@@ -5701,16 +5701,16 @@
    "role": "filler",
    "name": "Jewell Kijowski",
    "dob": "10/23/1997",
-   "position": "SG",
+   "position": "C",
    "uniform": 52
   },
   {
    "league": "pro",
-   "team": "THP",
+   "team": "EDM",
    "role": "filler",
    "name": "Carlo Ralls",
    "dob": "5/9/2004",
-   "position": "SF",
+   "position": "SG",
    "uniform": 20
   },
   {
@@ -5719,30 +5719,30 @@
    "role": "filler",
    "name": "Boyce Plantz",
    "dob": "8/29/2010",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "ROQ",
    "role": "filler",
    "name": "Remigio Steib",
    "dob": "12/3/1997",
-   "position": "PF",
+   "position": "C",
    "uniform": 1
   },
   {
    "league": "pro",
-   "team": "MNR",
+   "team": "LCH",
    "role": "filler",
    "name": "Broderick Alfieri",
    "dob": "10/22/2000",
-   "position": "PF",
+   "position": "C",
    "uniform": 46
   },
   {
    "league": "pro",
-   "team": "CHD",
+   "team": "GOR",
    "role": "filler",
    "name": "Jospeh Kelson",
    "dob": "12/28/2001",
@@ -5751,18 +5751,18 @@
   },
   {
    "league": "pro",
-   "team": "MTY",
+   "team": "COL",
    "role": "filler",
    "name": "Kristopher Whitner",
    "dob": "10/18/1997",
-   "position": "C",
+   "position": "PG",
    "uniform": 12
   },
   {
    "league": "pro",
-   "team": "MNR",
+   "team": "GOR",
    "role": "filler",
-   "name": "G\u00f6k\u00e7ek Pallas",
+   "name": "Gokcek Pallas",
    "dob": "7/15/2000",
    "position": "SG",
    "uniform": 18
@@ -5778,7 +5778,7 @@
   },
   {
    "league": "pro",
-   "team": "MTY",
+   "team": "CHE",
    "role": "filler",
    "name": "Irvin Wright",
    "dob": "10/17/2010",
@@ -5805,7 +5805,7 @@
   },
   {
    "league": "pro",
-   "team": "LCH",
+   "team": "MNR",
    "role": "filler",
    "name": "Ernest Newby",
    "dob": "2/15/2008",
@@ -5814,16 +5814,16 @@
   },
   {
    "league": "pro",
-   "team": "LCH",
+   "team": "PAR",
    "role": "filler",
    "name": "Herschel Kaba",
    "dob": "11/1/2001",
-   "position": "PG",
+   "position": "SG",
    "uniform": 55
   },
   {
    "league": "pro",
-   "team": "EDM",
+   "team": "PAR",
    "role": "filler",
    "name": "Morgan Slaton",
    "dob": "9/25/2001",
@@ -5836,34 +5836,34 @@
    "role": "filler",
    "name": "Darrell Gluck",
    "dob": "8/17/2003",
-   "position": "C",
+   "position": "PF",
    "uniform": 39
   },
   {
    "league": "pro",
-   "team": "EDM",
+   "team": "PLY",
    "role": "filler",
    "name": "Damian Cassidy",
    "dob": "4/20/2000",
-   "position": "SG",
+   "position": "PF",
    "uniform": 36
   },
   {
    "league": "pro",
-   "team": "SON",
+   "team": "MNS",
    "role": "filler",
    "name": "Wilfried Torrence",
    "dob": "10/11/2002",
-   "position": "SG",
+   "position": "SF",
    "uniform": 50
   },
   {
    "league": "pro",
-   "team": "MTY",
+   "team": "MNS",
    "role": "filler",
    "name": "Yalim Hudspeth",
    "dob": "3/23/1997",
-   "position": "SG",
+   "position": "SF",
    "uniform": 5
   },
   {
@@ -5872,30 +5872,30 @@
    "role": "filler",
    "name": "Kazimieras Pleasant",
    "dob": "10/26/2001",
-   "position": "PG",
+   "position": "SG",
    "uniform": 26
   },
   {
    "league": "pro",
-   "team": "CHD",
+   "team": "PET",
    "role": "filler",
    "name": "Weldon Ritzer",
    "dob": "7/6/2000",
-   "position": "SF",
+   "position": "SG",
    "uniform": 7
   },
   {
    "league": "pro",
-   "team": "FER",
+   "team": "PAR",
    "role": "filler",
    "name": "Jay Stegner",
    "dob": "6/9/2002",
-   "position": "PF",
+   "position": "C",
    "uniform": 30
   },
   {
    "league": "pro",
-   "team": "PET",
+   "team": "GOU",
    "role": "filler",
    "name": "Rubin Degen",
    "dob": "4/1/2001",
@@ -5904,16 +5904,16 @@
   },
   {
    "league": "pro",
-   "team": "PAR",
+   "team": "FER",
    "role": "filler",
    "name": "Jarred Pelchat",
    "dob": "7/28/1997",
-   "position": "PF",
+   "position": "SF",
    "uniform": 15
   },
   {
    "league": "pro",
-   "team": "STL",
+   "team": "COL",
    "role": "filler",
    "name": "Bruno Protsman",
    "dob": "9/25/1996",
@@ -5926,7 +5926,7 @@
    "role": "filler",
    "name": "Hami Poydras",
    "dob": "8/21/2010",
-   "position": "SG",
+   "position": "PG",
    "uniform": 0
   },
   {
@@ -5935,7 +5935,7 @@
    "role": "filler",
    "name": "Achilas Dilullo",
    "dob": "6/17/1999",
-   "position": "PG",
+   "position": "SG",
    "uniform": 52
   },
   {
@@ -5949,7 +5949,7 @@
   },
   {
    "league": "pro",
-   "team": "CHE",
+   "team": "ASI",
    "role": "filler",
    "name": "Burton Darland",
    "dob": "10/10/1998",
@@ -5962,7 +5962,7 @@
    "role": "filler",
    "name": "Eddy Overmyer",
    "dob": "6/24/2001",
-   "position": "PF",
+   "position": "C",
    "uniform": 18
   },
   {
@@ -5985,11 +5985,11 @@
   },
   {
    "league": "pro",
-   "team": "CHD",
+   "team": "SON",
    "role": "filler",
    "name": "Gary Schwartz",
    "dob": "1/1/2007",
-   "position": "C",
+   "position": "PG",
    "uniform": 0
   },
   {
@@ -6012,15 +6012,6 @@
   },
   {
    "league": "pro",
-   "team": "PAR",
-   "role": "filler",
-   "name": "Ricardo Obermiller",
-   "dob": "1/14/1998",
-   "position": "PF",
-   "uniform": 30
-  },
-  {
-   "league": "pro",
    "team": "THP",
    "role": "filler",
    "name": "Celestinas Clauss",
@@ -6039,16 +6030,7 @@
   },
   {
    "league": "pro",
-   "team": "ASI",
-   "role": "filler",
-   "name": "Harold Murphey",
-   "dob": "7/11/2001",
-   "position": "PF",
-   "uniform": 8
-  },
-  {
-   "league": "pro",
-   "team": "GOR",
+   "team": "FER",
    "role": "filler",
    "name": "Ronny Paddock",
    "dob": "3/24/1999",
@@ -6057,11 +6039,11 @@
   },
   {
    "league": "pro",
-   "team": "ROQ",
+   "team": "GOU",
    "role": "filler",
    "name": "Clyde Corea",
    "dob": "5/26/2000",
-   "position": "SF",
+   "position": "SG",
    "uniform": 28
   },
   {
@@ -6079,7 +6061,7 @@
    "role": "filler",
    "name": "Dong Champagne",
    "dob": "12/14/2004",
-   "position": "SF",
+   "position": "PF",
    "uniform": 25
   },
   {
@@ -6088,7 +6070,7 @@
    "role": "filler",
    "name": "Jake Buckland",
    "dob": "1/31/2010",
-   "position": "SG",
+   "position": "SF",
    "uniform": 0
   },
   {
@@ -6115,14 +6097,14 @@
    "role": "filler",
    "name": "Monte Wasielewski",
    "dob": "5/6/2003",
-   "position": "C",
+   "position": "PF",
    "uniform": 29
   },
   {
    "league": "pro",
-   "team": "FER",
+   "team": "SON",
    "role": "filler",
-   "name": "Th\u00e9odore Brocquart",
+   "name": "Theodore Brocquart",
    "dob": "10/9/2010",
    "position": "C",
    "uniform": 0
@@ -6133,34 +6115,7 @@
    "role": "filler",
    "name": "Earle McFerron",
    "dob": "4/4/2009",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "COL",
-   "role": "filler",
-   "name": "V\u00edctor Bogart",
-   "dob": "6/18/2002",
-   "position": "PG",
-   "uniform": 2
-  },
-  {
-   "league": "pro",
-   "team": "MTY",
-   "role": "filler",
-   "name": "Yigitcan Vievesys",
-   "dob": "8/5/1998",
-   "position": "SG",
-   "uniform": 6
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
-   "role": "filler",
-   "name": "Tony Royston",
-   "dob": "12/11/2003",
-   "position": "PF",
+   "position": "SF",
    "uniform": 0
   },
   {
@@ -6174,7 +6129,7 @@
   },
   {
    "league": "pro",
-   "team": "SON",
+   "team": "MTY",
    "role": "filler",
    "name": "Tuan Solis",
    "dob": "11/25/2004",
@@ -6192,20 +6147,11 @@
   },
   {
    "league": "pro",
-   "team": "GOR",
-   "role": "filler",
-   "name": "Michael Taylor",
-   "dob": "9/25/2000",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
    "team": "ROQ",
    "role": "filler",
    "name": "Dudley Frank",
    "dob": "9/24/2009",
-   "position": "SG",
+   "position": "SF",
    "uniform": 0
   },
   {
@@ -6214,7 +6160,7 @@
    "role": "filler",
    "name": "Trinidad Guertin",
    "dob": "3/16/2011",
-   "position": "PF",
+   "position": "C",
    "uniform": 0
   },
   {
@@ -6223,7 +6169,7 @@
    "role": "filler",
    "name": "Elvin Lee",
    "dob": "3/12/2010",
-   "position": "SF",
+   "position": "C",
    "uniform": 0
   },
   {
@@ -6232,7 +6178,7 @@
    "role": "filler",
    "name": "Titus Brendle",
    "dob": "7/18/2009",
-   "position": "SG",
+   "position": "SF",
    "uniform": 0
   },
   {
@@ -6255,38 +6201,29 @@
   },
   {
    "league": "pro",
-   "team": "CHD",
-   "role": "filler",
-   "name": "Loren Weiler",
-   "dob": "1/2/2003",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
    "team": "SON",
    "role": "filler",
    "name": "Frankie Goebel",
    "dob": "12/27/2011",
-   "position": "PG",
+   "position": "SF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "EDM",
+   "team": "MNR",
    "role": "filler",
    "name": "Timothy Brooks",
    "dob": "7/3/2006",
-   "position": "C",
+   "position": "SG",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "CHE",
+   "team": "THP",
    "role": "filler",
    "name": "Donte Long",
    "dob": "3/14/2009",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -6300,7 +6237,7 @@
   },
   {
    "league": "pro",
-   "team": "COL",
+   "team": "GOU",
    "role": "filler",
    "name": "Lindsay Williams",
    "dob": "5/18/2008",
@@ -6331,7 +6268,7 @@
    "role": "filler",
    "name": "Leroy Jamerson",
    "dob": "4/18/2011",
-   "position": "PF",
+   "position": "C",
    "uniform": 0
   },
   {
@@ -6363,11 +6300,11 @@
   },
   {
    "league": "pro",
-   "team": "CHD",
+   "team": "EDM",
    "role": "filler",
    "name": "Thomas Majewski",
    "dob": "12/2/2008",
-   "position": "PF",
+   "position": "SG",
    "uniform": 0
   },
   {
@@ -6381,16 +6318,16 @@
   },
   {
    "league": "pro",
-   "team": "STL",
+   "team": "ROQ",
    "role": "filler",
    "name": "Edward McKie",
    "dob": "9/15/2009",
-   "position": "C",
+   "position": "SG",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "GOR",
+   "team": "STL",
    "role": "filler",
    "name": "Colby Nelson",
    "dob": "3/14/2007",
@@ -6403,7 +6340,7 @@
    "role": "filler",
    "name": "Chase McCoy",
    "dob": "3/6/2010",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -6413,33 +6350,6 @@
    "name": "Solomon Tibbets",
    "dob": "12/30/2011",
    "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PLY",
-   "role": "filler",
-   "name": "Johnny Weber",
-   "dob": "1/8/2011",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "CHE",
-   "role": "filler",
-   "name": "Ronald Whitfield",
-   "dob": "10/11/2008",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "CHE",
-   "role": "filler",
-   "name": "Eric Aitken",
-   "dob": "4/18/2006",
-   "position": "PF",
    "uniform": 0
   },
   {
@@ -6457,7 +6367,7 @@
    "role": "filler",
    "name": "Clarence Emecheta",
    "dob": "9/22/2011",
-   "position": "SG",
+   "position": "SF",
    "uniform": 0
   },
   {
@@ -6480,20 +6390,11 @@
   },
   {
    "league": "pro",
-   "team": "LCH",
+   "team": "FER",
    "role": "filler",
    "name": "John Miles",
    "dob": "4/3/2007",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PLY",
-   "role": "filler",
-   "name": "George Brannan",
-   "dob": "4/20/2011",
-   "position": "PF",
+   "position": "SG",
    "uniform": 0
   },
   {
@@ -6502,7 +6403,7 @@
    "role": "filler",
    "name": "Joe Bogart",
    "dob": "1/24/2008",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -6520,7 +6421,7 @@
    "role": "filler",
    "name": "Chris Jones",
    "dob": "9/20/2009",
-   "position": "SG",
+   "position": "SF",
    "uniform": 0
   },
   {
@@ -6529,7 +6430,7 @@
    "role": "filler",
    "name": "Wesley Dole",
    "dob": "7/14/2009",
-   "position": "SG",
+   "position": "SF",
    "uniform": 0
   },
   {
@@ -6538,25 +6439,7 @@
    "role": "filler",
    "name": "Donny Dudas",
    "dob": "2/26/2010",
-   "position": "C",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNS",
-   "role": "filler",
-   "name": "Daryl Underwood",
-   "dob": "2/23/2009",
    "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PAR",
-   "role": "filler",
-   "name": "Stanley Jones",
-   "dob": "2/5/2007",
-   "position": "C",
    "uniform": 0
   },
   {
@@ -6565,7 +6448,7 @@
    "role": "filler",
    "name": "Paul Fischetti",
    "dob": "1/23/2009",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -6574,7 +6457,7 @@
    "role": "filler",
    "name": "Zakhar Khvostov",
    "dob": "8/4/2009",
-   "position": "PF",
+   "position": "C",
    "uniform": 0
   },
   {
@@ -6583,7 +6466,7 @@
    "role": "filler",
    "name": "Rodrigo Unger",
    "dob": "2/20/2010",
-   "position": "SF",
+   "position": "SG",
    "uniform": 0
   },
   {
@@ -6592,15 +6475,6 @@
    "role": "filler",
    "name": "Randall Berry",
    "dob": "6/5/2008",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNS",
-   "role": "filler",
-   "name": "Chris Whitley",
-   "dob": "4/24/2008",
    "position": "PF",
    "uniform": 0
   },
@@ -6610,34 +6484,25 @@
    "role": "filler",
    "name": "Carl Sandy",
    "dob": "8/15/2008",
-   "position": "SF",
+   "position": "C",
+   "uniform": 0
+  },
+  {
+   "league": "pro",
+   "team": "LCH",
+   "role": "filler",
+   "name": "Harrison Luis",
+   "dob": "2/13/2007",
+   "position": "PF",
    "uniform": 0
   },
   {
    "league": "pro",
    "team": "CHD",
    "role": "filler",
-   "name": "Harrison Luis",
-   "dob": "2/13/2007",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "filler",
-   "name": "Brian Wong",
-   "dob": "8/19/2007",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
-   "role": "filler",
    "name": "Jules Martinez",
    "dob": "7/21/2010",
-   "position": "SF",
+   "position": "SG",
    "uniform": 0
   },
   {
@@ -6655,7 +6520,7 @@
    "role": "filler",
    "name": "Emmett Miller",
    "dob": "11/2/2008",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -6671,27 +6536,9 @@
    "league": "pro",
    "team": "ROQ",
    "role": "filler",
-   "name": "Raymond Parrish",
-   "dob": "2/15/2006",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "filler",
-   "name": "Li Ch\u00e9n",
+   "name": "Li Chen",
    "dob": "3/10/2008",
    "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PLY",
-   "role": "filler",
-   "name": "Russ Allen",
-   "dob": "6/27/2011",
-   "position": "SG",
    "uniform": 0
   },
   {
@@ -6714,47 +6561,20 @@
   },
   {
    "league": "pro",
-   "team": "PLY",
-   "role": "filler",
-   "name": "Tod Tyler",
-   "dob": "8/4/2006",
-   "position": "C",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
    "team": "MNS",
    "role": "filler",
    "name": "Korey Smith",
    "dob": "6/7/2006",
-   "position": "PF",
+   "position": "PG",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "TIL",
-   "role": "filler",
-   "name": "Gerald Fountain",
-   "dob": "6/2/2008",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "FER",
+   "team": "MNR",
    "role": "filler",
    "name": "Josef Spehar",
    "dob": "2/23/2007",
    "position": "C",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "TIL",
-   "role": "filler",
-   "name": "Elroy Loehr",
-   "dob": "1/13/2006",
-   "position": "PF",
    "uniform": 0
   },
   {
@@ -6777,25 +6597,7 @@
   },
   {
    "league": "pro",
-   "team": "COL",
-   "role": "filler",
-   "name": "Cesar Buckley",
-   "dob": "1/16/2007",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "LCH",
-   "role": "filler",
-   "name": "Don Jennings",
-   "dob": "8/15/2010",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "STL",
+   "team": "CHD",
    "role": "filler",
    "name": "Benito Peck",
    "dob": "9/16/2008",
@@ -6808,12 +6610,12 @@
    "role": "filler",
    "name": "Bryon Sawyer",
    "dob": "9/10/2008",
-   "position": "SG",
+   "position": "SF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "CHE",
+   "team": "GOU",
    "role": "filler",
    "name": "Harold Clark",
    "dob": "2/20/2012",
@@ -6835,12 +6637,12 @@
    "role": "filler",
    "name": "Brian Allen",
    "dob": "7/30/2008",
-   "position": "PF",
+   "position": "C",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "CHD",
+   "team": "MNR",
    "role": "filler",
    "name": "Lynn Wiggins",
    "dob": "7/4/2008",
@@ -6853,34 +6655,16 @@
    "role": "filler",
    "name": "Reuben Wilson",
    "dob": "4/16/2009",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "THP",
-   "role": "filler",
-   "name": "Justin Macgregor",
-   "dob": "5/19/2006",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "filler",
-   "name": "Darwin Hysell",
-   "dob": "7/12/2009",
    "position": "PG",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "ROQ",
+   "team": "STL",
    "role": "filler",
-   "name": "Bret Yang",
-   "dob": "11/9/2009",
-   "position": "SG",
+   "name": "Justin Macgregor",
+   "dob": "5/19/2006",
+   "position": "SF",
    "uniform": 0
   },
   {
@@ -6894,7 +6678,7 @@
   },
   {
    "league": "pro",
-   "team": "COL",
+   "team": "EDM",
    "role": "filler",
    "name": "Vladislav Varga",
    "dob": "11/18/2012",
@@ -6921,61 +6705,16 @@
   },
   {
    "league": "pro",
-   "team": "LCH",
+   "team": "COL",
    "role": "filler",
-   "name": "Herman Taylor",
-   "dob": "9/11/2010",
-   "position": "C",
+   "name": "Carmelo Wright",
+   "dob": "6/7/2007",
+   "position": "PG",
    "uniform": 0
   },
   {
    "league": "pro",
    "team": "GOR",
-   "role": "filler",
-   "name": "Doyle Whitfield",
-   "dob": "4/11/2012",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PLY",
-   "role": "filler",
-   "name": "Sanford Bolton",
-   "dob": "7/6/2011",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "filler",
-   "name": "Jamison Thomas",
-   "dob": "9/18/2010",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "filler",
-   "name": "Ross Cohen",
-   "dob": "3/3/2003",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "COL",
-   "role": "filler",
-   "name": "Carmelo Wright",
-   "dob": "6/7/2007",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
    "role": "filler",
    "name": "Mack Craighead",
    "dob": "9/9/2009",
@@ -6984,25 +6723,16 @@
   },
   {
    "league": "pro",
-   "team": "COL",
+   "team": "ROQ",
    "role": "filler",
    "name": "Jerry Smith",
    "dob": "8/11/2011",
-   "position": "SG",
+   "position": "SF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "FER",
-   "role": "filler",
-   "name": "Cameron Bettencourt",
-   "dob": "10/18/2010",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "THP",
+   "team": "MNR",
    "role": "filler",
    "name": "Jesus Bishop",
    "dob": "7/26/2009",
@@ -7011,128 +6741,11 @@
   },
   {
    "league": "pro",
-   "team": "FER",
-   "role": "filler",
-   "name": "Kenneth Atkinson",
-   "dob": "6/18/2010",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "filler",
-   "name": "Jess Johnson",
-   "dob": "9/11/2010",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "LCH",
-   "role": "filler",
-   "name": "Neville Jackson",
-   "dob": "1/17/2012",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
    "team": "GOU",
    "role": "filler",
    "name": "Dennis Gross",
    "dob": "6/9/2010",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PET",
-   "role": "filler",
-   "name": "Jerry Thai",
-   "dob": "12/3/2008",
    "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "filler",
-   "name": "Rene Rodgers",
-   "dob": "4/19/2007",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "filler",
-   "name": "Chris Harbison",
-   "dob": "5/30/2009",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "COL",
-   "role": "filler",
-   "name": "Don Ortega",
-   "dob": "4/3/2006",
-   "position": "C",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PAR",
-   "role": "filler",
-   "name": "Douglas Lemon",
-   "dob": "9/29/2008",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
-   "role": "filler",
-   "name": "Troy Bennett",
-   "dob": "12/16/2006",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PAR",
-   "role": "filler",
-   "name": "Fabian Collins",
-   "dob": "12/6/2007",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "GOR",
-   "role": "filler",
-   "name": "Dirk Hartung",
-   "dob": "7/30/2009",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MTY",
-   "role": "filler",
-   "name": "Darryl McArthur",
-   "dob": "1/2/2011",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "COL",
-   "role": "filler",
-   "name": "Rob Hightower",
-   "dob": "4/17/2012",
-   "position": "PG",
    "uniform": 0
   },
   {
@@ -7141,7 +6754,7 @@
    "role": "filler",
    "name": "Damion Anderson",
    "dob": "9/4/2012",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -7159,7 +6772,7 @@
    "role": "filler",
    "name": "Jeffry Brown",
    "dob": "12/20/2007",
-   "position": "PF",
+   "position": "SF",
    "uniform": 0
   },
   {
@@ -7168,15 +6781,6 @@
    "role": "filler",
    "name": "Demetrius Turner",
    "dob": "12/16/2006",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "CHD",
-   "role": "filler",
-   "name": "Trey Keller",
-   "dob": "2/19/2001",
    "position": "SG",
    "uniform": 0
   },
@@ -7191,7 +6795,7 @@
   },
   {
    "league": "pro",
-   "team": "CHD",
+   "team": "ASI",
    "role": "filler",
    "name": "Jason Hyde",
    "dob": "3/21/2008",
@@ -7204,7 +6808,7 @@
    "role": "filler",
    "name": "Ryan Trotter",
    "dob": "7/23/2010",
-   "position": "SG",
+   "position": "PG",
    "uniform": 0
   },
   {
@@ -7213,12 +6817,12 @@
    "role": "filler",
    "name": "Marc Pomeroy",
    "dob": "1/27/2006",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "CHE",
+   "team": "TIL",
    "role": "filler",
    "name": "Archie Pollard",
    "dob": "9/27/2013",
@@ -7227,19 +6831,10 @@
   },
   {
    "league": "pro",
-   "team": "EDM",
+   "team": "STL",
    "role": "filler",
    "name": "Douglas Gant",
    "dob": "5/25/2005",
-   "position": "C",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNS",
-   "role": "filler",
-   "name": "Morgan Perez",
-   "dob": "11/6/2005",
    "position": "C",
    "uniform": 0
   },
@@ -7263,16 +6858,7 @@
   },
   {
    "league": "pro",
-   "team": "COL",
-   "role": "filler",
-   "name": "G\u00f6k\u00e7e \u00c7etinkaya",
-   "dob": "7/17/2005",
-   "position": "C",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
+   "team": "CHE",
    "role": "filler",
    "name": "Antoine Thomas",
    "dob": "11/27/2005",
@@ -7290,28 +6876,10 @@
   },
   {
    "league": "pro",
-   "team": "PET",
-   "role": "filler",
-   "name": "Joe Nicholson",
-   "dob": "10/6/2007",
-   "position": "C",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
    "team": "COL",
    "role": "filler",
    "name": "Rudy Schreck",
    "dob": "3/2/2011",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
-   "role": "filler",
-   "name": "Edward Thielen",
-   "dob": "12/7/2005",
    "position": "C",
    "uniform": 0
   },
@@ -7321,43 +6889,7 @@
    "role": "filler",
    "name": "Marion Lovato",
    "dob": "11/2/2008",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "filler",
-   "name": "Raphael Essary",
-   "dob": "7/8/2005",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PET",
-   "role": "filler",
-   "name": "Michael Puma",
-   "dob": "3/30/2006",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "FER",
-   "role": "filler",
-   "name": "Jackie Jackson",
-   "dob": "12/22/2009",
    "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "THP",
-   "role": "filler",
-   "name": "William Stricklin",
-   "dob": "4/28/2008",
-   "position": "PF",
    "uniform": 0
   },
   {
@@ -7371,11 +6903,11 @@
   },
   {
    "league": "pro",
-   "team": "FER",
+   "team": "EDM",
    "role": "filler",
    "name": "Stanley Johnson",
    "dob": "8/28/2006",
-   "position": "PF",
+   "position": "C",
    "uniform": 0
   },
   {
@@ -7384,33 +6916,6 @@
    "role": "filler",
    "name": "Dane Allen",
    "dob": "1/13/2005",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "GOR",
-   "role": "filler",
-   "name": "Joel Jackson",
-   "dob": "3/1/2005",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "FER",
-   "role": "filler",
-   "name": "Francisco Andr\u00e9s",
-   "dob": "1/27/2010",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ASI",
-   "role": "filler",
-   "name": "Ivo Soeiro",
-   "dob": "5/23/2008",
    "position": "SG",
    "uniform": 0
   },
@@ -7425,29 +6930,20 @@
   },
   {
    "league": "pro",
-   "team": "GOU",
+   "team": "ASI",
    "role": "filler",
    "name": "Shelton Garcia",
    "dob": "1/3/2010",
-   "position": "SF",
+   "position": "PG",
    "uniform": 0
   },
   {
    "league": "pro",
    "team": "FER",
    "role": "filler",
-   "name": "Kendall Blackford",
-   "dob": "6/5/2005",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "EDM",
-   "role": "filler",
    "name": "Antony Fletcher",
    "dob": "6/16/2006",
-   "position": "PF",
+   "position": "C",
    "uniform": 0
   },
   {
@@ -7456,16 +6952,16 @@
    "role": "filler",
    "name": "Gerald Lough",
    "dob": "9/13/2006",
-   "position": "SF",
+   "position": "SG",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "ASI",
+   "team": "CHE",
    "role": "filler",
    "name": "Gaston Nichols",
    "dob": "7/23/2005",
-   "position": "SF",
+   "position": "SG",
    "uniform": 0
   },
   {
@@ -7474,7 +6970,7 @@
    "role": "filler",
    "name": "Claude Jackson",
    "dob": "5/12/2006",
-   "position": "SF",
+   "position": "SG",
    "uniform": 0
   },
   {
@@ -7483,7 +6979,7 @@
    "role": "filler",
    "name": "Keenan Johnston",
    "dob": "4/7/2007",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -7492,7 +6988,7 @@
    "role": "filler",
    "name": "John Gilroy",
    "dob": "10/7/2005",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -7501,7 +6997,7 @@
    "role": "filler",
    "name": "Timothy Ortiz",
    "dob": "8/23/2005",
-   "position": "SF",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -7517,18 +7013,9 @@
    "league": "pro",
    "team": "MNS",
    "role": "filler",
-   "name": "Jay Hickok",
-   "dob": "10/27/2009",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNS",
-   "role": "filler",
    "name": "Alfredo Johnson",
    "dob": "10/31/2006",
-   "position": "SF",
+   "position": "PG",
    "uniform": 0
   },
   {
@@ -7537,7 +7024,7 @@
    "role": "filler",
    "name": "Charles Alex",
    "dob": "10/11/2011",
-   "position": "SF",
+   "position": "PG",
    "uniform": 0
   },
   {
@@ -7546,16 +7033,7 @@
    "role": "filler",
    "name": "Roderick Fowler",
    "dob": "5/13/2007",
-   "position": "SF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "STL",
-   "role": "filler",
-   "name": "Benito Brugera",
-   "dob": "3/21/2005",
-   "position": "PG",
+   "position": "SG",
    "uniform": 0
   },
   {
@@ -7564,7 +7042,7 @@
    "role": "filler",
    "name": "Darell Holland",
    "dob": "11/21/2007",
-   "position": "SG",
+   "position": "PF",
    "uniform": 0
   },
   {
@@ -7578,47 +7056,20 @@
   },
   {
    "league": "pro",
-   "team": "MNS",
-   "role": "filler",
-   "name": "Melchor Minoza",
-   "dob": "1/30/2008",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "ROQ",
-   "role": "filler",
-   "name": "Robert Francisco",
-   "dob": "6/23/2008",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "PAR",
-   "role": "filler",
-   "name": "Larry Gasaway",
-   "dob": "1/1/2007",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
    "team": "MNR",
    "role": "filler",
    "name": "Gary Harris",
    "dob": "7/27/2007",
-   "position": "SG",
+   "position": "PG",
    "uniform": 0
   },
   {
    "league": "pro",
-   "team": "GOR",
+   "team": "FER",
    "role": "filler",
    "name": "Eldon Johnson",
    "dob": "1/29/2005",
-   "position": "SG",
+   "position": "PG",
    "uniform": 0
   },
   {
@@ -7632,29 +7083,11 @@
   },
   {
    "league": "pro",
-   "team": "EDM",
-   "role": "filler",
-   "name": "Bobby Brown",
-   "dob": "12/14/2009",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "GOU",
-   "role": "filler",
-   "name": "Ivan Suk",
-   "dob": "10/24/2009",
-   "position": "PG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "SON",
+   "team": "MTY",
    "role": "filler",
    "name": "John Millsap",
    "dob": "8/14/2006",
-   "position": "SF",
+   "position": "PG",
    "uniform": 0
   },
   {
@@ -7663,15 +7096,6 @@
    "role": "filler",
    "name": "Clyde Dufour",
    "dob": "6/25/2008",
-   "position": "PF",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "MNR",
-   "role": "filler",
-   "name": "Weldon Saiz",
-   "dob": "4/3/2006",
    "position": "PG",
    "uniform": 0
   },
@@ -7681,16 +7105,7 @@
    "role": "filler",
    "name": "Elisha Urquhart",
    "dob": "11/11/2007",
-   "position": "SG",
-   "uniform": 0
-  },
-  {
-   "league": "pro",
-   "team": "SON",
-   "role": "filler",
-   "name": "Tanner Shea",
-   "dob": "5/8/2006",
-   "position": "PG",
+   "position": "PF",
    "uniform": 0
   }
  ]
