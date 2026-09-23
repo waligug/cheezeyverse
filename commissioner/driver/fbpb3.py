@@ -1390,7 +1390,13 @@ class FBPB3:
             # DISMISSING HERE IS SAFE, and the warning below is about a different moment. That one
             # says never to dismiss while OUR export is running, because dismiss_all() presses the
             # first of OK/No/Cancel and would cancel it. Nothing of ours is running yet.
-            self.dismiss_all()
+            # BEST EFFORT. Clearing the way must never stop the attempt that follows: if there
+            # is nothing to dismiss, or no window to ask, the click is still worth making. The
+            # old behaviour - click blind - is what this falls back to.
+            try:
+                self.dismiss_all()
+            except Exception:                                           # noqa: BLE001
+                pass
             self.click(TOP_TOOLS, 2)
             self.click(TOOLS_OUTPUT_MDB, 2)
             # THE BUDGET HAS TO EXCEED THE SLOWEST LEAGUE, and 180s did not. Measured on
@@ -1537,6 +1543,48 @@ class FBPB3:
         if box.window_text() != value:
             raise DriverError("HTML export style did not accept the requested value")
 
+    def _screen_is_open(self, caption):
+        """True when an MDI child form with this caption is still on screen.
+
+        The arrival check `_open_html_screen` makes has no counterpart for leaving, and leaving is
+        where this bites: see `_leave_html_screen`.
+        """
+        try:
+            for window in self.main.descendants(class_name="ThunderRT6FormDC"):
+                if window.is_visible() and caption.lower() in (window.window_text() or "").lower():
+                    return True
+        except Exception:                                               # noqa: BLE001
+            pass
+        return False
+
+    def _leave_html_screen(self, attempts=3):
+        """Click EXIT on the HTML Output form and CONFIRM it actually closed.
+
+        WHY THIS EXISTS. `_open_html_screen` already says a click is not the same as arriving
+        somewhere. The same is true of leaving, and nothing checked it: html_output clicked EXIT
+        once and returned. When that click was swallowed the game stayed parked on the HTML
+        Output form, and the very next thing a Sim Week does is Tools -> Output MDB - whose click
+        then went into that form instead of the menu. The export never started, the file never
+        moved, and the run reported "no MDB for pro" after burning its whole budget.
+
+        Caught live 2026-09-23 by enumerating the game's windows while it was stuck: no message
+        box anywhere, but a visible ThunderRT6FormDC captioned "Html Output". That also showed
+        the first fix for this was aimed at the wrong thing - dismiss_all() closes message boxes
+        (#32770), and this was never a message box.
+
+        Never fatal: if the screen will not close, the caller has already produced its pages and
+        the MDB step can still be attempted. It just says so.
+        """
+        for _ in range(attempts):
+            if not self._screen_is_open("Html Output"):
+                return True
+            self._dismiss_affirmative()
+            self.click(self.HTML_EXIT, 2)
+        left = not self._screen_is_open("Html Output")
+        if not left:
+            print("   ! the HTML Output screen would not close; the next menu click may be lost")
+        return left
+
     def _open_html_screen(self, attempts=3):
         """Tools -> HTML Output, checked, and retried if the screen did not actually open.
 
@@ -1657,6 +1705,10 @@ class FBPB3:
                 # affirmative-only policy as the wait loop.
                 self._dismiss_affirmative()
                 self.click(self.HTML_EXIT, 2)
+                # AND CONFIRM IT CLOSED. A swallowed EXIT leaves the game on this form, and the
+                # next step's menu click lands in it - which is exactly how pro's MDB export kept
+                # failing while the same export run on its own took 24 seconds.
+                self._leave_html_screen()
                 return out
         # Say what was on screen, and what was answered along the way. A caption alone is
         # useless here - FBPB3 titles its own boxes "Fast Break Pro Basketball 3", so an

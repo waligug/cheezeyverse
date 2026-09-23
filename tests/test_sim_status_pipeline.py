@@ -16,7 +16,7 @@ class Status:
     instances = []
 
     def __init__(self, days, leagues):
-        self.updates, self.result = [], None
+        self.updates, self.result, self.waited = [], None, None
         self.instances.append(self)
 
     def start(self):
@@ -27,6 +27,14 @@ class Status:
 
     def finish(self, ok, text):
         self.result = ok, text
+
+    def wait(self, timeout=None):
+        # run_sim waits for the terminal card to actually go out: finish() only arms it and the
+        # worker that sends it is a daemon thread, so a caller that returns and exits kills it
+        # mid-flight. Without this the stub raised AttributeError on every run - swallowed, but
+        # it meant the wait was never exercised here.
+        self.waited = timeout
+        return True
 
 
 class Store:
@@ -58,6 +66,14 @@ class PipelineTests(unittest.TestCase):
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
         self.temp = Path(self.stack.enter_context(tempfile.TemporaryDirectory()))
+        # AN ISOLATED LOCK, NEVER THE LIVE UNIVERSE'S. `_SIM_LOCK` is a cross-process file lock,
+        # so running this suite while the panel is simming made it fail with "a sim is already
+        # running" - a red test that means nothing is worse than no test, and this one cried wolf
+        # three times in one evening. What it actually checks is that run_sim releases whatever
+        # lock it was given; it does not need the real one. Same trick as test_season_boundary.
+        from commissioner.saveguard import SaveLock
+        self.stack.enter_context(patch.object(
+            simweek, "_SIM_LOCK", SaveLock(self.temp / ".test-sim.lock")))
         self.store, self.day_failure = Store(), False
         self.simulated, self.fast = [], []
         self.paths = {}

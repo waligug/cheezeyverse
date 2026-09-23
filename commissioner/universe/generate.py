@@ -87,6 +87,24 @@ RESERVE_POTENTIALS = (10, 25)
 # and it is why the Stabbyverse rosters show $1,000,000 salaries on their created players.
 IMPORT_CONTRACT = 1000000
 
+# HOW MANY YEARS THAT DEAL RUNS. Only Contract1 was ever written, so every player a universe was
+# created with held a ONE-year deal and the entire league expired on the same rollover. Pro lived
+# through exactly that: 300 players, all $1,000,000 x 1, all free agents at once, and one
+# enormous shuffle before free agency could price anybody. That was accepted deliberately for the
+# conversion - "it's fine if they all start on small 1 years" - but it is a poor way to START a
+# league, because the same cliff arrives again at the end of year one.
+#
+# Staggering the term spreads the expiries over four seasons instead, so free agency has
+# something to do every year and no season is a mass reset.
+#
+# Contract1 KEEPS the money whatever happens: a row with Contract1 = 0 imports as a free agent no
+# matter what its Team column says (proven 2026-09-17), so the first year is what puts a man on a
+# roster at all. The extra years are additive - if FBPB3's importer ignores Contract2..7 the
+# result is exactly today's behaviour, which is what makes this safe to ship unverified against a
+# real import. It has NOT been tested through a live league creation; doing that means building a
+# throwaway universe, and the fallback is the current behaviour rather than a broken one.
+IMPORT_CONTRACT_YEARS = (1, 4)
+
 
 def _lines(path):
     with open(path, encoding="latin-1") as fh:
@@ -172,7 +190,8 @@ def make_player(rng, spec, team, position, age, first_pool, last_pool, towns, re
         "TimeInjured": 0,
         "Team": team.abbrev,
         "Option": "None",
-        "Contract1": IMPORT_CONTRACT,
+        **{f"Contract{n}": IMPORT_CONTRACT
+           for n in range(1, rng.randint(*IMPORT_CONTRACT_YEARS) + 1)},
         "Picname": "",
         "InjuryAvoidance": -1,
         "3pUsage": rng.randint(*USAGE_3P[position]),

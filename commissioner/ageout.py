@@ -247,9 +247,24 @@ def _codec_safe(part):
 
 
 def _fresh_name(rng, first_pool, last_pool, taken):
+    """An unused name the CODEC CAN WRITE.
+
+    The name pools carry real-world names with accents - Hurriyet, Sepulveda, Ercelik - and
+    `LeagueDat.rename` refuses any byte outside 32..126, so handing one straight back raises
+    "unusable name part" and kills whatever intake or recycle was running. Folded with the same
+    transform the draft uses for the same reason: a name the codec cannot write is folded, not
+    dropped, so the man stays recognisable.
+
+    Uniqueness is checked AFTER folding, because two different accented names can fold to the
+    same ASCII one and the second would silently collide with the first.
+    """
+    from .draft import _ascii_name
     for _ in range(200):
-        first, last = rng.choice(first_pool), rng.choice(last_pool)
-        if f"{first} {last}" not in taken:
+        folded = _ascii_name(f"{rng.choice(first_pool)} {rng.choice(last_pool)}")
+        first, _, last = folded.partition(" ")
+        if not first or not last:
+            continue
+        if folded not in taken:
             return first, last
     raise AgeOutError("could not find an unused name after 200 tries")
 
@@ -536,6 +551,98 @@ def reconcile(key, save_path=None, store=None, log=print, restore_ratings=True, 
             L.save(backup_dir=BACKUPS)     # the copy may be written; the one manifest may not
         log(f"   {key}: copy run - the manifest was left alone")
     return {"league": key, "registered": registered, "dropped": dropped, "restored": restored}
+
+def recycle_retired(key, save_path=None, store=None, log=print, dry_run=False, seed=None):
+    """Turn free agents who are past the league's age cap back into intake-age filler.
+
+    WHY THEY PILE UP. `apply` retires a capped player by releasing him, and the same function
+    recycles a free-agent body into a newcomer - new name, birth year reset to the intake age,
+    fresh ratings - but only when a team is SHORT. Once every roster is full nothing consumes
+    them, so each season leaves another cohort of released players sitting in free agency getting
+    older. Measured 2026-09-23: prep held 98 free agents past its cap of 19, up to age 25, and
+    college 53. They are on the game's own free-agent page, which is how Nate found one - Sid
+    McFate, listed at 21 in an under-19 league. He had in fact played a perfectly legal career,
+    ages 14 to 18, and then simply never went away.
+
+    THEY ARE NOT A HAZARD, THEY ARE A MESS. `protect_rosters` already refuses to sign anyone at or
+    over the cap, and `apply`'s intake overwrites the body's age anyway, so none of them can reach
+    a roster as an old man. This only makes the pool read the way the league actually is.
+
+    The archives are untouched: a finished season is written once and never rewritten, so every
+    game these men played is still theirs under their own names. What is reused is the ROW, which
+    is what FBPB3 gives us and what `apply` has always reused.
+
+    Never touches a character, a reserve seat, or the DRAFT POOL: characters and seats are in
+    `keep`, and the pool is Team -2 while this takes Team -1 only.
+    """
+    if key not in AGE_CAPS:
+        log(f"   {key}: no age cap, nothing to recycle")
+        return []
+    spec = cfg.BY_KEY[key]
+    path = Path(save_path) if save_path else DOCS / "leaguedata" / spec.save_name / "league.dat"
+    L = LeagueDat(path)
+    season = L.season_day()[1]
+    playing = playing_season(season)
+    cap, intake_age = AGE_CAPS[key], INTAKE_AGE[key]
+    keep = protected_names(key, store)
+    rng = random.Random(seed if seed is not None else (hash((key, "recycle")) & 0xFFFFFFFF))
+    first_pool, last_pool = gen.name_pools()
+    towns = gen.hometowns()
+    taken = {p.name for p in L.players}
+
+    # BY NAME, ONE AT A TIME, RE-FOUND EACH PASS. `rename` splices the file and the codec
+    # re-parses, so every Player object captured before it - including the rest of any list built
+    # up front - points at an offset that has moved. `protect_rosters` learned this the hard way:
+    # "this loop renamed the wrong records and then failed to find the name it had just written".
+    # Holding the objects here corrupted the roster arrays outright, on the first try.
+    stale = [p.name for p in L.players
+             if p.values["Team"] == -1 and p.name not in keep and age_of(p, playing) > cap]
+    done = []
+    for old_name in stale:
+        try:
+            # NAME **AND** TEAM. A name is not unique in this file: college held a Dalton Brown in
+            # the DRAFT POOL and another as an over-age free agent, and matching on name alone
+            # took the first - so the run renamed a draft record, which is permanent damage, and
+            # left the free agent it was actually after still sitting there. Team -1 is the only
+            # thing this function ever touches, so it is also the right way to find him.
+            source = next(p for p in L.players
+                          if p.name == old_name and p.values["Team"] == -1)
+        except StopIteration:
+            continue                    # already renamed, or never there
+        old_age = age_of(source, playing)
+        position = POSITION_NAME.get(source.values["Position"], "C")
+        first, last = _fresh_name(rng, first_pool, last_pool, taken)
+        taken.add(f"{first} {last}")
+        row = gen.make_player(rng, spec, spec.teams[0], position, intake_age,
+                              first_pool, last_pool, towns)
+        if not dry_run:
+            # RENAME FIRST, THEN RE-FIND, THEN WRITE THE FIELDS. `rename` splices the file and
+            # re-parses, so `source` is stale the instant it returns and every set() after it
+            # lands at an offset that has moved. Caught by `save()`'s own verification -
+            # "verification failed for Wes Wilds" - which is the only reason this did not reach a
+            # live save. The same hazard as the loop above, one level further in.
+            L.rename(source, first, last)
+            fresh = next(p for p in L.players
+                         if p.name == f"{first} {last}" and p.values["Team"] == -1)
+            L.set(fresh, "BirthYear", int(season) - intake_age)
+            L.set(fresh, "BirthMonth", rng.randint(1, 12))
+            L.set(fresh, "BirthDay", rng.randint(1, 28))
+            L.set(fresh, "Exp", 0)
+            for field_name in RATINGS:
+                if field_name in row:
+                    L.set(fresh, field_name, int(row[field_name]))
+            for field_name in POTENTIALS:
+                if field_name in row:
+                    L.set(fresh, field_name, int(row[field_name]))
+        done.append({"was": old_name, "age": old_age, "now": f"{first} {last}"})
+        if dry_run:
+            taken.discard(f"{first} {last}")   # nothing was written, so the name is free again
+    log(f"   {key}: {len(done)} free agent(s) past {cap} recycled into {intake_age}-year-olds"
+        + (" (dry run)" if dry_run else ""))
+    if done and not dry_run:
+        L.save(backup_dir=BACKUPS if save_path is None else None)
+    return done
+
 
 def apply(key, season, store=None, save_path=None, dry_run=False, log=print, seed=None):
     """Retire the over-age, refill with a new intake, and write the save.
