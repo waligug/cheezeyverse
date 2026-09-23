@@ -743,7 +743,7 @@ def _grant_one_week(league, reason, rate):
 def get_settings():
     """The whole settings table as a plain dict, with the documented defaults filled in."""
     defaults = {
-        "max_characters": 2,
+        "max_characters": 3,
         "starting_points": 20,
         "points_per_week": 1,
         # Per-level income. Absent from the table until somebody sets them, and absent here

@@ -10,7 +10,7 @@
 -- =====================================================================================
 
 insert into public.settings (key, value) values
-  ('max_characters',  '2'::jsonb),      -- live (non-retired) characters per Discord account
+  ('max_characters',  '3'::jsonb),      -- live (non-retired) characters per Discord account
   ('starting_points', '20'::jsonb),     -- points a brand new 14 year old gets to spend
   ('points_per_week', '1'::jsonb),      -- points granted per simmed in-game week
   ('auto_approve',    'false'::jsonb),  -- true = upgrade requests skip the commissioner's queue

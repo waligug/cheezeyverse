@@ -79,7 +79,7 @@ class Rig:
             "ok": True, "days": kw.get("days"), "leagues": ["prep", "college", "pro"],
             "seconds": 604, "applied": 3, "activated": 1}
 
-    def _preview_offseason(self, log=print):
+    def _preview_offseason(self, log=print, lines=None):
         self.previews += 1
         if isinstance(self._preview, Exception):
             raise self._preview
@@ -196,6 +196,23 @@ def test_a_preview_that_will_not_run_is_reported_not_swallowed():
     check("and that nothing changed", "Nothing was changed" in rig.posted[0], True)
 
 
+def test_a_dying_preview_still_reports_what_it_had_said():
+    """The bracket warnings are the only part anybody reads; they must survive the traceback."""
+    print("a preview that dies half way")
+
+    class Talker(Rig):
+        def _preview_offseason(self, log=print, lines=None):
+            if lines is not None:
+                lines.append("   ! pro: no 2032 playoff bracket in this export")
+            raise RuntimeError("the saves went away")
+
+    with Talker(left={"prep": 0, "college": 0, "pro": 0}) as rig:
+        code = autopilot.main(["--quiet"])
+    check("it failed", code, 1)
+    check("the warning came out with the failure",
+          "no 2032 playoff bracket" in rig.posted[0], True)
+
+
 def test_a_failed_week_is_never_retried():
     print("a week that dies")
     with Rig(sim=RuntimeError("the game stopped responding")) as rig:
@@ -262,6 +279,7 @@ def main():
     test_the_season_end_backstop_asserts_nothing()
     test_a_league_that_cannot_be_read_is_left_out_not_called_zero()
     test_a_preview_that_will_not_run_is_reported_not_swallowed()
+    test_a_dying_preview_still_reports_what_it_had_said()
     test_a_failed_week_is_never_retried()
     test_a_week_that_finishes_dirty_is_not_called_a_success()
     test_the_lock_being_taken_is_a_shrug_not_an_alarm()

@@ -1309,6 +1309,12 @@ def api_offseason_start():
         return jsonify({"ok": False, "refused": True, "error": (
             f"The universe could not be checked for readiness ({type(exc).__name__}: {exc}), "
             "so the rollover was refused rather than run unchecked.")}), 409
+    # WORTH KNOWING: this is the THIRD place that answers "can the universe roll over".
+    # offseason_plan() calls seasonflow.readiness, run_offseason calls it again and RAISES, and
+    # this gate is a fourth opinion at the HTTP layer - which is the wrong altitude, because it
+    # guards one endpoint rather than the operation. The real chokepoint is the check inside
+    # run_offseason: lifting its `if rollover:` nesting would gate every entry point, this one
+    # included. Consolidating there is a better job than this patch and has not been done.
     if not readiness.ready(rows):
         # `busy` and `run` are carried so the panel can still re-attach to a live run's log;
         # without them app.js drops the stream for the whole of any running sim.

@@ -87,10 +87,15 @@ def _say(message, quiet=False, log=print):
         log(f"   (could not post to Discord: {exc})")
 
 
-def preview_offseason(log=print):
-    """A dry-run offseason, rendered as a few lines. Writes nothing, opens no save for writing."""
+def preview_offseason(log=print, lines=None):
+    """A dry-run offseason, rendered as a few lines. Writes nothing, opens no save for writing.
+
+    `lines` is accepted so a CALLER can keep the log when this raises. It used to be a local, so
+    an offseason that died half way discarded every line it had already produced - including the
+    "! no playoff bracket" warnings, which are the only part anybody reads.
+    """
     from commissioner.offseason import run_offseason
-    lines = []
+    lines = [] if lines is None else lines
     result = run_offseason(simweek.store(), season=None, log=lines.append, dry_run=True)
     season = result.get("season")
     promoted = result.get("promoted") or []
@@ -164,11 +169,18 @@ def main(argv=None):
     if left and not playing:
         print("")
         print("every league is out of regular season.")
+        said = []
         try:
-            text, _ = preview_offseason()
+            text, _ = preview_offseason(lines=said)
         except Exception as pexc:                                      # noqa: BLE001
+            # Whatever the preview managed to say before it died is the useful part - the
+            # bracket warnings in particular - so it goes out with the failure rather than
+            # being thrown away with the traceback.
+            warnings = [l.strip() for l in said if l.strip().startswith("!")]
             _say(f"The regular season is over everywhere, and the offseason preview would not "
-                 f"run ({type(pexc).__name__}: {pexc}). Nothing was changed.", quiet=quiet)
+                 f"run ({type(pexc).__name__}: {pexc}). Nothing was changed."
+                 + ((chr(10) + chr(10).join(f"- {w}" for w in warnings)) if warnings else ""),
+                 quiet=quiet)
             return 1
         _say(text, quiet=quiet)
         return 0

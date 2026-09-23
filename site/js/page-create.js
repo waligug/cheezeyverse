@@ -109,7 +109,7 @@ async function boot() {
 
   const cfg = await settings();
   startingPoints = Number(cfg.starting_points) || 20;
-  const maxCharacters = Number(cfg.max_characters) || 2;
+  const maxCharacters = Number(cfg.max_characters) || 3;
 
   const mine = await myCharacters();
   const room = canCreateAnother(mine, maxCharacters);

@@ -85,7 +85,7 @@ def main():
     print(f'owner: {owner["display_name"]}')
 
     settings = store.get_settings()
-    limit = int(settings.get("max_characters", 2))
+    limit = int(settings.get("max_characters", 3))
     print(f"max_characters is {limit}; {len(PLAN)} are needed")
 
     rows = []

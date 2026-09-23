@@ -177,7 +177,7 @@ export function displayNameOf(user, profile) {
 /* --------------------------------------------------------------------------- settings */
 
 const SETTING_DEFAULTS = {
-  max_characters: 2,
+  max_characters: 3,
   starting_points: 20,
   points_per_week: 1,
   // Income scales with level because the cost curve does: a step costs 1 under 50, 2 from

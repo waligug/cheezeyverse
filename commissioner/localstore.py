@@ -23,7 +23,7 @@ PATH = ROOT / "universe" / "local_store.json"
 _LOCK = threading.Lock()
 
 DEFAULTS = {
-    "max_characters": 2,
+    "max_characters": 3,
     "auto_approve": True,     # no queue to babysit while it is just the owner
     "current_season": 2026,
     "current_week": 0,
