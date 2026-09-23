@@ -483,9 +483,23 @@ class FBPB3:
         # LOAD button existing, and the row being selected IS that button going enabled, so
         # both are things to watch for rather than to wait out.
         self._load_hwnd = None          # never trust a handle found on an earlier load
-        self.click(TOP_LOAD, 0)
-        if not self._wait_for(lambda: self._load_screen_open(unknown=False), 10):
-            raise DriverError("the Load Saved Game screen never appeared")
+        # RETRIED, like _open_html_screen: a click is not an arrival. On 2026-09-23 the first
+        # load of a freshly launched game - straight after a crashed one had been killed - never
+        # saw the screen open, and the whole run died on one lost click. Re-clicking TOP_LOAD
+        # when the screen has not opened is harmless; it only navigates.
+        for _attempt in range(3):
+            self.click(TOP_LOAD, 0)
+            if self._wait_for(lambda: self._load_screen_open(unknown=False), 10):
+                break
+            crash = self._runtime_error()
+            if crash:
+                raise DriverError(f"FBPB3 crashed opening the Load screen: {crash}")
+            try:
+                self.dismiss_all()
+            except Exception:                                           # noqa: BLE001
+                pass
+        else:
+            raise DriverError("the Load Saved Game screen never appeared after 3 clicks")
         self.click((LOAD_ROW_X, LOAD_FIRST_ROW_Y + row * LOAD_ROW_H), 0, real=True)
         if not self._wait_for(lambda: self._load_button().is_enabled(), 5):
             raise DriverError(f"row {row} did not select a save")
