@@ -65,6 +65,20 @@ def run():
     check("no longer claims the save file is 0-100",
           "Ratings are 0-100 here and in the save file" not in rules)
 
+    print("")
+    print("the upgrade page gives the six athletic ratings 100, as the database does")
+    # REGRESSION, 2026-09-23. The first version of this change swapped the page's stepper onto
+    # ratingCeiling(), which applies athleticCeiling() - a trait-based 35-85 - to the six ratings
+    # with no potential. The page had never enforced that and the guard gives them 100, so it
+    # froze Quickness/Jumping/Strength/Stamina for seven of the eight characters at once.
+    me = (ROOT / "site/js/page-me.js").read_text(encoding="utf-8")
+    # Code only: the page's own comment names ratingCeiling() to explain why it is NOT used.
+    me_code = chr(10).join(line.split("//")[0] for line in me.splitlines())
+    check("the stepper does not call ratingCeiling()", "ratingCeiling(" not in me_code)
+    check("a rating with no potential is capped at RATING_MAX", ": RATING_MAX;" in me)
+    check("a potential-bearing rating is capped by its potential up to POTENTIAL_MAX",
+          "Math.min(POTENTIAL_MAX, Number(draft.potentials[rating]))" in me)
+
     print("\nthe database guard")
     for label, body in (("schema.sql", schema), ("potential_ceiling.sql", migration)):
         check(f"{label}: a rating is capped by its potential up to {CODEC_MAX}",

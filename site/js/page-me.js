@@ -10,7 +10,7 @@ import {
   RATINGS, POTENTIAL_RATINGS, RATING_LABELS, RATING_MAX, START_AGE, GROWTH_END_AGE,
   nextPointCost, hasPotential, isLocked, describeCurve, biasedUpgradeCost, biasFor,
   classify, growthCurve, formatHeight, expectedAdultHeight, declareWarning,
-  ratingCeiling, potentialCeiling,
+  POTENTIAL_MAX,
 } from './rules.js';
 import {
   isConfigured, signIn, signOut, currentUser, ensureProfile, settings,
@@ -345,11 +345,20 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
     const floor = Number((kind === 'potential' ? base.potentials : base.ratings)[rating] ?? 0);
     const value = Number(bag[rating] ?? floor);
     if (dir > 0) {
-      // The shared rule, not a second copy of it: a potential-bearing rating is capped by its
-      // potential up to POTENTIAL_MAX, and a potential by POTENTIAL_MAX itself.
+      // A potential-bearing rating is capped by its own potential, which can pass 100 (up to
+      // POTENTIAL_MAX); a potential by POTENTIAL_MAX; the six with no potential by RATING_MAX.
+      //
+      // NOT ratingCeiling(), and this is the second time that has had to be said. It looks like
+      // the shared rule but it applies athleticCeiling() to the six - a trait-based limit of
+      // roughly 35-85 that this page has never enforced and the database does not either
+      // (cv_upgrade_request_guard gives them 100). Swapping it in on 2026-09-23 froze Quickness,
+      // Jumping, Strength or Stamina for seven of the eight characters, because most were
+      // already above their athletic ceiling - Johnny Gartholomew lost four ratings at once.
       const ceiling = kind === 'potential'
-        ? potentialCeiling()
-        : ratingCeiling(rating, draft.potentials, draft.traits);
+        ? POTENTIAL_MAX
+        : hasPotential(rating)
+          ? Math.min(POTENTIAL_MAX, Number(draft.potentials[rating]))
+          : RATING_MAX;
       if (value >= ceiling) return;
       if (nextPointCost(value, kind, biasFor(bias, rating)) > freePoints()) return;
       bag[rating] = value + 1;
