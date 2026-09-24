@@ -124,14 +124,17 @@ def test_prep_last_age_is_not_the_filler_cap():
 
 
 def test_college_costs_no_ratings_and_the_pros_still_do():
-    """Moving up to college is free; the jump to the pros is not."""
+    """Moving up is free at both steps; only leaving college early costs ratings."""
     print("what moving up costs")
     check("college factor", offseason.LEVEL_CONVERSION["college"], 1.00)
-    check("pro factor", offseason.LEVEL_CONVERSION["pro"], 0.94)
+    check("pro factor", offseason.LEVEL_CONVERSION["pro"], 1.00)
+    # Three completed college years, declaring in the fourth offseason: on schedule, so nothing.
+    check("a four-year man keeps everything",
+          offseason.conversion_for({"college_years": 3}, "pro", 2033)["factor"], 1.00)
     ratings = {"Inside": 70, "JumpShot": 45, "FT": 30, "Handling": 9}
     check("college keeps every rating", offseason.convert(ratings, 1.00), ratings)
     dropped = offseason.convert(ratings, 0.94)
-    check("the pro step still takes some", sum(dropped.values()) < sum(ratings.values()), True)
+    check("an early-exit factor still takes some", sum(dropped.values()) < sum(ratings.values()), True)
     # and nothing is taken below the floor, where a percentage stops meaning anything
     check("nothing drops below the floor",
           min(dropped.values()) >= offseason.CONVERSION_FLOOR, True)
@@ -309,7 +312,7 @@ def main():
     if FAILS:
         return 1
     print("OK  promotion: a character moves up after his age-17 season, independently of the "
-          "filler cap; college costs him no ratings and the pro step still does; the grant is "
+          "filler cap; neither step costs him ratings unless he leaves college early; the grant is "
           "earned rather than flat and is not squeezed by the season-bonus cap, which now rises "
           "with the level")
     return 0

@@ -176,7 +176,11 @@ DECLINE_DROP = 0.10
 # bands start to bite. seasonbonus.promotion_grant pays him for the prep season instead, so the
 # move is rewarded rather than taxed. The pro step keeps its cost: that one is a real jump, and
 # a character arriving there has a college career's worth of points behind him.
-LEVEL_CONVERSION = {"college": 1.00, "pro": 0.94}
+# AND NOW THE PRO STEP IS FREE TOO (Nate, 2026-09-23: "no penalty"). The 0.94 never stuck in
+# practice: the rollover floors every character to his best recorded sheet, college included,
+# so Gravy went 976 -> 982 and Dodger 854 -> 864 across the move. Made official rather than left
+# as an accident. Leaving college EARLY still costs (EARLY_PENALTY_PER_YEAR).
+LEVEL_CONVERSION = {"college": 1.00, "pro": 1.00}
 EARLY_PENALTY_PER_YEAR = 0.07     # each year skipped takes another 7% off
 EARLY_PENALTY_MAX = 0.24          # never worse than a 24% haircut
 # Staying pays in points, leaving pays in time. Without this the maths made declaring after one

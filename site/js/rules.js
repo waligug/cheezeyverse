@@ -1602,7 +1602,7 @@ export function potentialCeiling() {
  * Potentials are never converted. The ceiling is who he can still become, and leaving
  * early must not close it: the points are earnable again, the years are not.
  * ---------------------------------------------------------------------------------- */
-export const LEVEL_CONVERSION = { college: 1.00, pro: 0.94 };
+export const LEVEL_CONVERSION = { college: 1.00, pro: 1.00 };
 export const EARLY_PENALTY_PER_YEAR = 0.07;
 export const EARLY_PENALTY_MAX = 0.24;
 export const COLLEGE_MAX_YEARS = 4;
