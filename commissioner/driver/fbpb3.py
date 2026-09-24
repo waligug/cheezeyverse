@@ -1123,7 +1123,12 @@ class FBPB3:
         question - is there a window the size and shape of a progress form - instead of one of
         them asking merely whether a window exists.
         """
-        for window in self.app.windows(visible_only=True):
+        try:
+            # Same race as the owned-child scan below: listing wraps every handle it found.
+            tops = self.app.windows(visible_only=True)
+        except Exception:                                               # noqa: BLE001
+            return True
+        for window in tops:
             if window.handle == self.main.handle:
                 continue
             try:
@@ -1134,9 +1139,18 @@ class FBPB3:
             if self._looks_like_popup(window):
                 return True
         # Some VB6 progress forms are owned child windows, not enumerated top-level dialogs.
-        for window in self.main.descendants(class_name="ThunderRT6FormDC"):
-            if window.is_visible() and self._looks_like_popup(window):
-                return True
+        #
+        # A WINDOW CAN DIE BETWEEN BEING LISTED AND BEING WRAPPED. pywinauto enumerates the
+        # handles, then builds a wrapper per handle - and a progress form closing in that gap
+        # raised InvalidWindowHandle straight out of the college rollover of the 2033 offseason,
+        # throwing away the rolled-over league. A form vanishing mid-scan is the popup finishing;
+        # answer "still busy" and let the next poll look again.
+        try:
+            for window in self.main.descendants(class_name="ThunderRT6FormDC"):
+                if window.is_visible() and self._looks_like_popup(window):
+                    return True
+        except Exception:                                               # noqa: BLE001
+            return True
         return False
 
     # These buttons are owner-drawn and read by OCR, so a letter comes back wrong from time to

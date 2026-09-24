@@ -246,5 +246,25 @@ class OffseasonStateTests(RehearsedPlacementTests):
             league_dat.LeagueDat._require_exact_depth(L(), "dress a player")
 
 
+class PopupRaceTests(unittest.TestCase):
+    """A progress form closing mid-scan raised InvalidWindowHandle out of a rollover."""
+
+    def _game(self, tops, kids):
+        from types import SimpleNamespace
+        g = FBPB3.__new__(FBPB3)
+        g.main = SimpleNamespace(handle=1, descendants=kids)
+        g.app = SimpleNamespace(windows=tops)
+        return g
+
+    def test_a_window_vanishing_mid_scan_reads_as_still_busy(self):
+        def gone(**kw):
+            raise RuntimeError("Handle 33556746 is not a vaild window handle")
+        self.assertTrue(self._game(lambda **kw: [], gone)._progress_popup_visible())
+        self.assertTrue(self._game(gone, lambda **kw: [])._progress_popup_visible())
+
+    def test_nothing_up_is_nothing_up(self):
+        self.assertFalse(self._game(lambda **kw: [], lambda **kw: [])._progress_popup_visible())
+
+
 if __name__ == "__main__":
     unittest.main()
