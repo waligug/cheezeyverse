@@ -214,5 +214,37 @@ class ProWeeklyPassTests(unittest.TestCase):
         self.assertEqual((got["released"], got["signed"], got["defanged"]), (0, 0, 0))
 
 
+class OffseasonStateTests(RehearsedPlacementTests):
+    """The 2033 offseason stopped twice: the draft-class rehearsal tried to sim a day on a save
+    at END SEASON, and prep's age-out was refused at a 0.986 depth score."""
+
+    def test_a_finished_season_is_rehearsed_by_loading_alone(self):
+        from commissioner.driver.fbpb3 import OffseasonReached
+        Game = self._fake_game()
+
+        def ended(self, n):
+            raise OffseasonReached("END SEASON is visible; SIM DAY has ended")
+        Game.sim_days = ended
+        with patch.object(seasonflow, "_place_character", side_effect=self._place):
+            seasonflow._place_rehearsed("pro", self.live / "league.dat", {}, "D M", "1/1/2013",
+                                        2033, None, lambda m: None, Game)
+        self.assertEqual((self.live / "league.dat").read_bytes(), b"placed")
+
+    def test_sixteen_team_saves_write_at_the_read_threshold(self):
+        class L:
+            def teams(self): return {i: {} for i in range(1, 17)}
+            depth_exact = False
+            depth_score = 0.986
+        league_dat.LeagueDat._require_exact_depth(L(), "release players")
+
+    def test_pro_still_needs_an_exact_region_even_rehearsed(self):
+        class L:
+            def teams(self): return {i: {} for i in range(5, 25)}
+            depth_exact = False
+            depth_score = 0.986
+        with league_dat.rehearsed_writes(), self.assertRaisesRegex(league_dat.CodecError, "0.986"):
+            league_dat.LeagueDat._require_exact_depth(L(), "dress a player")
+
+
 if __name__ == "__main__":
     unittest.main()

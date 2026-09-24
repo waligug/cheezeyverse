@@ -369,7 +369,16 @@ def rehearse(path, write, what, log, game_factory=None):
             game.load_save(clone.name)
             for stage in ("loading", "simming a day on"):
                 if stage != "loading":
-                    game.sim_days(1)
+                    # A save at END SEASON has no day left to sim - the draft dresses its class
+                    # in exactly that state, and the 2033 offseason's rehearsal failed on it.
+                    # The load is the check that matters (the pro breakage was "Run-time error
+                    # '9'" AT LOAD), so a finished season is rehearsed by loading alone.
+                    from .driver.fbpb3 import OffseasonReached
+                    try:
+                        game.sim_days(1)
+                    except OffseasonReached:
+                        log(f"   ({what}: the copy is at END SEASON, so it was load-tested only)")
+                        break
                 box = game._runtime_error()
                 if box:
                     raise RuntimeError(f"FBPB3 failed {stage} the rehearsal of {what} ({box}); "

@@ -488,7 +488,14 @@ class LeagueDat:
         if len(teams) >= 20 and not _REHEARSED:
             raise CodecError(f"refusing to {what} on a {len(teams)}-team save: codec writes to "
                              "its depth charts have twice left it unloadable (2026-09-23)")
-        if not getattr(self, "depth_exact", False):
+        # EXACTNESS IS PRO'S RULE, NOT EVERYONE'S. It was added for every league on 2026-09-23
+        # in answer to the pro breakage alone, and that evening it stopped the 2033 offseason
+        # dead in PREP: the game's own rollover retires and releases players, their ids linger
+        # in the depth charts, and the true region scored 0.986 - so age-out could not release
+        # the over-age class. Prep and college wrote at >= 0.95 (teams() refuses below that) for
+        # their whole history without one unloadable save. On pro, even a rehearsed write must
+        # land in an exactly-located region.
+        if len(teams) >= 20 and not getattr(self, "depth_exact", False):
             raise CodecError(f"refusing to {what}: the depth-chart region was located at "
                              f"{getattr(self, 'depth_score', 0):.3f}, not exactly, and a write "
                              "there has left saves FBPB3 cannot load")
