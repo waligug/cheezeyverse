@@ -38,6 +38,8 @@ def check(name, got, want):
 
 
 PRO = {"points_per_week_prep": 1, "points_per_week_college": 2, "points_per_week_pro": 3}
+# The live rates since the 2026-09-24 cut. PRO above is a fixed fixture for the top-up arithmetic.
+LIVE = {"points_per_week_prep": 1, "points_per_week_college": 1, "points_per_week_pro": 2}
 
 
 def run():
@@ -46,9 +48,11 @@ def run():
     check("it never increases with the pick number", rates == sorted(rates, reverse=True), True)
     check("first overall is the best deal", points.rookie_rate(1), max(rates))
     check("the last man in still beats college",
-          points.rookie_rate(60) > PRO["points_per_week_college"], True)
+          points.rookie_rate(60) > LIVE["points_per_week_college"], True)
     check("and nobody is paid more than double the league rate",
-          points.rookie_rate(1) <= PRO["points_per_week_pro"] * 2, True)
+          points.rookie_rate(1) <= LIVE["points_per_week_pro"] * 2, True)
+    check("and the rookie floor is the pro rate itself",
+          points.ROOKIE_FLOOR, LIVE["points_per_week_pro"])
 
     print("an unknown or nonsense pick is paid the floor, never zero")
     for bad in (None, "x", 0, -4, ""):

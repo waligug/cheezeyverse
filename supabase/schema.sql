@@ -993,8 +993,8 @@ insert into public.settings (key, value) values
   ('starting_points', '20'::jsonb),     -- points a brand new 14 year old gets to spend
   ('points_per_week', '1'::jsonb),      -- points granted per simmed in-game week (fallback)
   ('points_per_week_prep', '1'::jsonb),     -- income scales with level, because the cost curve
-  ('points_per_week_college', '2'::jsonb),  -- does: 1/2/3 a step in the bands each level sits
-  ('points_per_week_pro', '3'::jsonb),      -- in. A flat rate halves a season on every promotion
+  ('points_per_week_college', '1'::jsonb),  -- does: 1/2/3 a step in the bands each level sits
+  ('points_per_week_pro', '2'::jsonb),      -- in. A flat rate halves a season on every promotion
   ('auto_approve',    'false'::jsonb),  -- true = upgrade requests skip the commissioner's queue
   ('current_season',  '2026'::jsonb),   -- must match START_YEAR in commissioner/universe/config.py
   ('current_week',    '0'::jsonb)

@@ -29,8 +29,11 @@ DEFAULT_PER_WEEK = 1
 # The shape is the trade this economy is built on. A high pick goes to a BAD team - the order is
 # reverse standings - so the money and the minutes arrive together, which is what really happens
 # and is what makes a late pick on a contender a genuine choice rather than a consolation.
-ROOKIE_SCALE = ((1, 6), (3, 5), (8, 4), (20, 3))
-ROOKIE_FLOOR = 3
+# CUT HARD ON 2026-09-24 (Nate: "Should not be getting 100 points early ... reduce it a lot for everyone"). 
+# Was ((1, 6), (3, 5), (8, 4), (20, 3)) / floor 3, against a pro rate of 3: a #1 pick earned 6 a
+# week, twice the level, and the draft class sat on 100-300 points within one season.
+ROOKIE_SCALE = ((3, 3), (20, 2))
+ROOKIE_FLOOR = 2
 
 
 # ---- the yearly contract payout ---------------------------------------------------------------
@@ -48,8 +51,9 @@ ROOKIE_FLOOR = 3
 # The values are here and NOT in the settings table: a stale settings row silently overrides a
 # changed default, which is exactly how college_development_bonus sat at 12 while the code said
 # 20. These are meant to be edited and diffed.
-PAYOUT_BANDS = ((0.50, 10), (0.75, 17), (0.90, 26), (1.01, 36))
-PAYOUT_FLOOR = 10          # a rostered man with no contract still gets the bottom band, because
+# CUT HARD ON 2026-09-24 (Nate: "Should not be getting 100 points early ... reduce it a lot for everyone"). Was 10/17/26/36.
+PAYOUT_BANDS = ((0.50, 3), (0.75, 5), (0.90, 8), (1.01, 12))
+PAYOUT_FLOOR = 3           # a rostered man with no contract still gets the bottom band, because
                            # grant_points refuses an amount of 0 and would raise mid-offseason
 
 

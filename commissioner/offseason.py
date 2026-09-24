@@ -186,7 +186,8 @@ EARLY_PENALTY_MAX = 0.24          # never worse than a 24% haircut
 # Staying pays in points, leaving pays in time. Without this the maths made declaring after one
 # year strictly best by about 34 points over a career, which is not a choice, it is an answer.
 # A completed college season is worth this on top of the usual offseason lump.
-COLLEGE_DEVELOPMENT_BONUS = 20
+# CUT HARD ON 2026-09-24 (Nate: "Should not be getting 100 points early ... reduce it a lot for everyone"). Was 20.
+COLLEGE_DEVELOPMENT_BONUS = 5
 # Below this a rating is too low for a percentage to mean anything; leave it alone.
 CONVERSION_FLOOR = 8
 
@@ -1757,7 +1758,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
 
     # The offseason lump sum: every active character is a year older and gets paid for it,
     # and a college season that was seen through pays a development bonus on top.
-    lump = int(settings.get("offseason_points", 15))
+    lump = int(settings.get("offseason_points", 5))
     bonus = int(settings.get("college_development_bonus", COLLEGE_DEVELOPMENT_BONUS))
     # WHAT THE GAME THINKS A PRO IS WORTH. Read once, from the pro save, before anybody is paid:
     # the band a man falls into is his place among his OWN league's salaries, so it cannot be

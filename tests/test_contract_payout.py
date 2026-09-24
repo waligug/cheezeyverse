@@ -53,7 +53,8 @@ def test_the_spread_is_what_was_asked_for():
     print("the spread")
     bands = [pts for _pct, pts in points.PAYOUT_BANDS]
     check("bands rise", bands == sorted(bands), True)
-    check("top over bottom", round(bands[-1] / bands[0], 1), 3.6)
+    # 3/5/8/12 since the 2026-09-24 cut (was 10/17/26/36): still 4x, the top of the brief.
+    check("top over bottom", round(bands[-1] / bands[0], 1), 4.0)
     check("within 3-4x", 3.0 <= bands[-1] / bands[0] <= 4.0, True)
 
 
@@ -299,7 +300,7 @@ def main():
     if FAILS:
         return 1
     print("OK  contract payout: a pro is paid by where his salary sits among his own league, "
-          "3.6x from minimum to max, the bands move as the league's money moves, a league with "
+          "4x from minimum to max, the bands move as the league's money moves, a league with "
           "no salary scale pays everybody the floor rather than inventing a ranking, and nothing "
           "can ever pay zero")
     return 0

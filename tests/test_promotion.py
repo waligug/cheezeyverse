@@ -154,7 +154,8 @@ def test_the_grant_is_earned_not_flat(root):
     g, p = sum(v for _, v in good), sum(v for _, v in poor)
     print(f"        {star}: +{g}   {bench}: +{p}")
     check("the good season pays more", g > p, True)
-    check("and by a margin worth seeing", g - p >= 10, True)
+    # base 5 since the 2026-09-24 cut; the extras on top of it top out at 9
+    check("and by a margin worth seeing", g - p >= 5, True)
     check("the benched man is NOT paid a top-25 line",
           any("top 25" in r for r, _ in poor), False)
     check("the poor season still pays a base", p >= seasonbonus.GRANT["grant_base"], True)
@@ -180,9 +181,9 @@ def test_the_grant_is_not_squeezed_by_the_season_bonus_cap(root):
 def test_the_bonus_cap_rises_with_the_level():
     """Both stat components are ranked WITHIN a league, so a mover's earned bonus falls."""
     print("the season-bonus cap per level")
-    check("prep", seasonbonus.cap_for("prep"), 10)
-    check("college", seasonbonus.cap_for("college"), 15)
-    check("pro", seasonbonus.cap_for("pro"), 20)
+    check("prep", seasonbonus.cap_for("prep"), 5)
+    check("college", seasonbonus.cap_for("college"), 6)
+    check("pro", seasonbonus.cap_for("pro"), 8)
     check("an unknown level falls back", seasonbonus.cap_for(None), 10)
     # Deliberate live tuning still wins, so a universe can be corrected without a deploy.
     check("an explicit setting overrides", seasonbonus.cap_for("pro", {"bonus_cap": 4}), 4)
@@ -203,15 +204,15 @@ def test_a_college_season_seen_through_still_pays():
     no-op on a universe that had a row of 12, while a test pinned to the constant passed.
     """
     print("the college development bonus")
-    check("the constant", offseason.COLLEGE_DEVELOPMENT_BONUS, 20)
-    check("with no row, that is what is paid", effective_development_bonus({}), 20)
+    check("the constant", offseason.COLLEGE_DEVELOPMENT_BONUS, 5)
+    check("with no row, that is what is paid", effective_development_bonus({}), 5)
     check("a row wins, which is the trap", effective_development_bonus(
         {"college_development_bonus": 12}), 12)
     # AND THE ROW THAT ACTUALLY SHIPS. Checking a hypothetical dict is what let the real one sit
     # at 12 while the constant said 20 - so read localstore's own defaults, which is the store
     # the rehearsal and any local universe run on.
     from commissioner import localstore
-    check("localstore's shipped row", effective_development_bonus(localstore.DEFAULTS), 20)
+    check("localstore's shipped row", effective_development_bonus(localstore.DEFAULTS), 5)
     # Staying must still beat the cheapest way of leaving, or the whole thing inverts.
     check("a college season seen through beats nothing",
           effective_development_bonus(localstore.DEFAULTS) > 0, True)

@@ -185,8 +185,8 @@ const SETTING_DEFAULTS = {
   // per-level rates a promotion quietly halves what a season buys. See commissioner/points.py,
   // which is where the rule actually lives; these are only for display.
   points_per_week_prep: 1,
-  points_per_week_college: 2,
-  points_per_week_pro: 3,
+  points_per_week_college: 1,
+  points_per_week_pro: 2,
   auto_approve: false,
   current_season: 2026,
   current_week: 0,

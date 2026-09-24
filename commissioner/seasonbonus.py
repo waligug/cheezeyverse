@@ -84,7 +84,8 @@ DEFAULTS = {
 # These live here and NOT in the settings table, deliberately. A stale bonus_* row silently
 # overrides a changed default, and this is a number that gets tuned by editing and diffing. An
 # explicit settings row still wins, for deliberate live tuning, and cap_for says so.
-BONUS_CAP_BY_LEVEL = {"prep": 10, "college": 15, "pro": 20}
+# CUT HARD ON 2026-09-24 (Nate: "Should not be getting 100 points early ... reduce it a lot for everyone"). Was 10/15/20.
+BONUS_CAP_BY_LEVEL = {"prep": 5, "college": 6, "pro": 8}
 
 # THE PROMOTION GRANT, paid once when a character moves up a level.
 #
@@ -97,14 +98,16 @@ BONUS_CAP_BY_LEVEL = {"prep": 10, "college": 15, "pro": 20}
 # NOT subject to bonus_cap. The cap exists so one enormous season cannot dwarf an ordinary one
 # in a career of them; a promotion happens once, and capping it would flatten the thing this is
 # deliberately trying to make uneven.
+#
+# CUT HARD ON 2026-09-24 (Nate: "Should not be getting 100 points early ... reduce it a lot for everyone"). Was base 20, 5/5/3(max 9)/5/5.
 GRANT = {
-    "grant_base": 20,
-    "grant_playoffs": 5,
-    "grant_title": 5,
-    "grant_top": 3,             # per category placed inside stat_bonus_top_n
-    "grant_top_max": 9,
-    "grant_elite": 5,
-    "grant_catchup": 5,         # played under catchup_share of his team's games
+    "grant_base": 5,
+    "grant_playoffs": 2,
+    "grant_title": 2,
+    "grant_top": 1,             # per category placed inside stat_bonus_top_n
+    "grant_top_max": 3,
+    "grant_elite": 2,
+    "grant_catchup": 2,         # played under catchup_share of his team's games
 }
 
 
