@@ -538,6 +538,7 @@ table.cv-then th:nth-child(5), table.cv-then td:nth-child(5) { width: 14%; }
 
 .cv-rating-name { font-size: 13px; font-weight: 600; }
 .cv-rating-name em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--crust); }
+.cv-rating-name .cv-pending-note { font-size: 10.5px; font-weight: 700; color: var(--human, #1D5C8A); white-space: nowrap; }
 
 .cv-rating-controls { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .cv-step {

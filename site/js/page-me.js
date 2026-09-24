@@ -133,13 +133,39 @@ function reservedCost(requests) {
     .reduce((sum, r) => sum + Number(r.cost || 0), 0);
 }
 
-function draftFor(character) {
+/**
+ * What has been ASKED FOR and not yet written into the game, per rating and potential.
+ *
+ * An approved request only reaches the save at the next Sim Week, so until then the stored
+ * rating is the old one. The sheet used to start from that stored number: Chris Zimmer sent
+ * 3pt Usage 54 -> 91, the sheet snapped back to 54 and the meter dropped by 107, which reads
+ * exactly like points taken for nothing - and a second click would have been priced from 54
+ * while the database prices from 91. The sheet now starts from stored + in flight.
+ */
+function inflightOf(requests) {
+  const out = { ratings: {}, potentials: {} };
+  for (const r of requests || []) {
+    if (r.status !== 'pending' && r.status !== 'approved') continue;
+    const bag = r.kind === 'potential' ? out.potentials : out.ratings;
+    bag[r.rating] = (bag[r.rating] || 0) + Number(r.delta || 0);
+  }
+  return out;
+}
+
+function withInflight(stored, extra) {
+  const out = { ...(stored || {}) };
+  for (const [k, d] of Object.entries(extra || {})) out[k] = Number(out[k] ?? 0) + d;
+  return out;
+}
+
+function draftFor(character, base, inflight) {
   let draft = drafts.get(character.id);
-  if (!draft || draft.stamp !== stampOf(character)) {
+  const stamp = `${stampOf(character)}:${JSON.stringify(inflight || {})}`;
+  if (!draft || draft.stamp !== stamp) {
     draft = {
-      stamp: stampOf(character),
-      ratings: { ...(character.ratings || {}) },
-      potentials: { ...(character.potentials || {}) },
+      stamp,
+      ratings: { ...(base.ratings || {}) },
+      potentials: { ...(base.potentials || {}) },
     };
     drafts.set(character.id, draft);
   }
@@ -319,8 +345,12 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
   const problems = el('div', {});
   const actions = el('div', { class: 'cv-actions' });
 
-  const draft = draftFor(character);
-  const base = { ratings: character.ratings || {}, potentials: character.potentials || {} };
+  const inflight = inflightOf(requests);
+  const base = {
+    ratings: withInflight(character.ratings, inflight.ratings),
+    potentials: withInflight(character.potentials, inflight.potentials),
+  };
+  const draft = draftFor(character, base, inflight);
 
   const queuedCost = () => {
     let total = 0;
@@ -390,6 +420,7 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
     });
     renderSheet(sheet, {
       base,
+      inflight,
       bias,
       ratings: draft.ratings,
       potentials: draft.potentials,

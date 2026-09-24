@@ -284,6 +284,10 @@ function ratingRow(rating, state, onStep) {
   const basePot = hasPotential(rating) ? state.base.potentials[rating] : null;
   const locked = isLocked(rating);
   const bias = biasFor(state.bias, rating);
+  // Asked for, not yet in the game. `base` already includes it (see inflightOf in page-me.js);
+  // this only says so, because otherwise 91 on the sheet and 54 on the stats page disagree.
+  const waiting = (state.inflight && state.inflight.ratings && state.inflight.ratings[rating]) || 0;
+  const waitingPot = (state.inflight && state.inflight.potentials && state.inflight.potentials[rating]) || 0;
 
   // A potential-bearing rating is capped by its potential, which can pass 100; see POTENTIAL_MAX.
   const ceiling = pot === null ? cap : Math.min(POTENTIAL_MAX, pot);
@@ -298,10 +302,14 @@ function ratingRow(rating, state, onStep) {
   const row = el('div', { class: `cv-rating${locked ? ' is-locked' : ''}` });
 
   const knack = bias < 100 ? `comes easy (${bias}%)` : bias > 100 ? `hard work (${bias}%)` : '';
+  const pending = [waiting ? `+${waiting}` : '', waitingPot ? `pot +${waitingPot}` : '']
+    .filter(Boolean).join(', ');
   row.append(el('div', { class: 'cv-rating-name' },
     RATING_LABELS[rating] || rating,
     ' ',
-    el('em', {}, locked ? 'set by the quiz, never bought' : knack)));
+    el('em', {}, locked ? 'set by the quiz, never bought' : knack),
+    pending ? el('span', { class: 'cv-pending-note', title: 'Already asked for. Written into the game at the next sim.' },
+      ` ${pending} at next sim`) : null));
 
   const controls = el('div', { class: 'cv-rating-controls' });
   controls.append(
@@ -314,7 +322,8 @@ function ratingRow(rating, state, onStep) {
     }, '−'),
     el('span', {
       class: `cv-val${value > baseValue ? ' is-up' : ''}`,
-      title: `${RATING_LABELS[rating]} is ${value}, ceiling ${ceiling}`,
+      title: `${RATING_LABELS[rating]} is ${value}, ceiling ${ceiling}`
+        + (waiting ? ` (+${waiting} already asked for, lands at the next sim)` : ''),
     }, String(value)),
     el('button', {
       class: 'cv-step', type: 'button', disabled: !canRaise,
