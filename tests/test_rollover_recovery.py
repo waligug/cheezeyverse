@@ -237,13 +237,16 @@ class OffseasonStateTests(RehearsedPlacementTests):
             depth_score = 0.986
         league_dat.LeagueDat._require_exact_depth(L(), "release players")
 
-    def test_pro_still_needs_an_exact_region_even_rehearsed(self):
+    def test_a_rehearsed_pro_write_goes_through_at_the_read_threshold(self):
+        """Chris Zimmer, #1 pick, came out of the 2033 rollover teamless at a 0.998 score."""
         class L:
             def teams(self): return {i: {} for i in range(5, 25)}
             depth_exact = False
-            depth_score = 0.986
-        with league_dat.rehearsed_writes(), self.assertRaisesRegex(league_dat.CodecError, "0.986"):
-            league_dat.LeagueDat._require_exact_depth(L(), "dress a player")
+            depth_score = 0.998
+        with self.assertRaises(league_dat.CodecError):
+            league_dat.LeagueDat._require_exact_depth(L(), "sign a player")
+        with league_dat.rehearsed_writes():
+            league_dat.LeagueDat._require_exact_depth(L(), "sign a player")
 
 
 class PopupRaceTests(unittest.TestCase):
