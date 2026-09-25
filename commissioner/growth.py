@@ -404,7 +404,15 @@ def weight_at(character, height_now, age) -> int:
 # offseasons and no year looks like anything other than a teenager growing.
 #
 # Set it to None to correct everybody at once.
-WEIGHT_CATCHUP_PER_YEAR = 12
+# ZERO SINCE 2026-09-24, AND IT HAD BECOME A PUMP. weight_offset() measures a man "at fourteen"
+# off `weight_lbs` and `height_inches` - but the offseason rewrites both every year, so the
+# offset is re-measured each summer and swallows the maturation already applied. The gap below
+# then read as "he is under his frame" every single year: +4 a year for a teenager and the full
+# 12 for every adult, for life. Tim Turner went 240 -> 293 at 6'9" and the 2034 offseason died
+# when the database refused him. The historical correction this was for (characters carrying a
+# filler's weight) finished years ago, so from now on only the real change moves a weight: his
+# inches, and filling out until MATURATION_END_AGE.
+WEIGHT_CATCHUP_PER_YEAR = 0
 
 
 def weight_step(character, weight_in_save, height_before, height_now, age) -> int:
@@ -422,6 +430,16 @@ def weight_step(character, weight_in_save, height_before, height_now, age) -> in
     if WEIGHT_CATCHUP_PER_YEAR is not None:
         gap = max(-WEIGHT_CATCHUP_PER_YEAR, min(WEIGHT_CATCHUP_PER_YEAR, gap))
     return max(WEIGHT_MIN, min(WEIGHT_MAX, int(weight_in_save) + natural + gap))
+
+
+def weight_ceiling(height_inches) -> int:
+    """The heaviest weight the database accepts at this height (characters_weight_lbs_sane).
+
+    Mirrors supabase/weight_range.sql: the creation-time weight for this height plus 95. A save
+    write the store will then refuse strands an offseason half-done, so growth never goes past it.
+    """
+    h = int(height_inches or 70)
+    return _js_round((h - 60) * 4.6 + 96) + 95
 
 
 def weight_for_save(character) -> int:

@@ -430,6 +430,14 @@ def apply_growth(league_key, characters, season, log=print, dry_run=False):
         # weight_step, not weight_at: this year's growth lands in full, but an old wrong weight
         # is walked toward the truth rather than snapped to it. See growth.WEIGHT_CATCHUP_PER_YEAR.
         pounds = growth.weight_step(c, pl.values["Weight"], pl.values["Height"], now, age)
+        # Never past what the database will store: the save and the store are written together,
+        # and the 2034 offseason died between the two on Tim Turner at 293 lbs against a 288 net.
+        # Only ever lowers a weight that would otherwise be refused; never raises one.
+        ceiling = growth.weight_ceiling(now)
+        if pounds > ceiling:
+            log(f"   {name}: {pounds} lbs is over the {ceiling} the database allows at "
+                f"{now // 12}'{now % 12}\"; held at {ceiling}")
+            pounds = ceiling
         wants = {}
         if inches > 0:
             wants["Height"] = now
