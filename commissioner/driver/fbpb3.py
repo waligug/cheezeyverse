@@ -500,9 +500,21 @@ class FBPB3:
                 pass
         else:
             raise DriverError("the Load Saved Game screen never appeared after 3 clicks")
-        self.click((LOAD_ROW_X, LOAD_FIRST_ROW_Y + row * LOAD_ROW_H), 0, real=True)
-        if not self._wait_for(lambda: self._load_button().is_enabled(), 5):
-            raise DriverError(f"row {row} did not select a save")
+        # THE ROW CLICK IS RETRIED TOO. It is a real mouse click, and on 2026-09-25 one was lost
+        # while a Remote Desktop session connected - the desktop the game draws on changes
+        # hands at that moment - and a whole three-league sim died before playing a game.
+        # Clicking the same row again only selects it again; the selection itself is what is
+        # checked (LOAD going enabled), never assumed.
+        for _attempt in range(3):
+            self.click((LOAD_ROW_X, LOAD_FIRST_ROW_Y + row * LOAD_ROW_H), 0, real=True)
+            if self._wait_for(lambda: self._load_button().is_enabled(), 5):
+                break
+            crash = self._runtime_error()
+            if crash:
+                raise DriverError(f"FBPB3 crashed selecting row {row}: {crash}")
+            time.sleep(2)
+        else:
+            raise DriverError(f"row {row} did not select a save after 3 clicks")
         # Click, then WAIT FOR THE LOAD TO FINISH rather than sleeping a flat 30 s. A load cost
         # 36 s a league in the three-league run of 2026-09-19 and almost all of it was the
         # sleep; the game is on the Hot Seat long before it ends. `wait` is now a ceiling
