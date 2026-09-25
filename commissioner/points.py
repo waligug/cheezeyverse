@@ -91,22 +91,35 @@ def salary_distribution(salaries):
     return edges
 
 
-def annual_payout(salary, boundaries):
+def _payout_points(settings):
+    """The four band amounts, from the `contract_payout_points` settings row when present."""
+    try:
+        amounts = [int(x) for x in (settings or {}).get("contract_payout_points") or []]
+        if len(amounts) == len(PAYOUT_BANDS):
+            return amounts
+    except (TypeError, ValueError):
+        pass
+    return [pts for _pct, pts in PAYOUT_BANDS]
+
+
+def annual_payout(salary, boundaries, settings=None):
     """Points for one man's yearly salary. `boundaries` is what salary_distribution returned.
 
     No distribution - Finances off, or a league where everyone earns the same - pays the floor to
     everybody, which is the honest answer: the game is not yet saying anyone is worth more.
+    `settings` may carry `contract_payout_points`, the four band amounts; the floor is the first.
     """
+    amounts = _payout_points(settings)
     try:
         salary = int(salary or 0)
     except (TypeError, ValueError):
         salary = 0
     if not boundaries or salary <= 0:
-        return PAYOUT_FLOOR
-    for edge, points in zip(boundaries, (pts for _pct, pts in PAYOUT_BANDS)):
+        return amounts[0] if (settings or {}).get("contract_payout_points") else PAYOUT_FLOOR
+    for edge, points in zip(boundaries, amounts):
         if salary <= edge:
             return points
-    return PAYOUT_BANDS[-1][1]
+    return amounts[-1]
 
 
 # What each band is CALLED, in the same order as PAYOUT_BANDS. A module constant rather than a
@@ -159,18 +172,40 @@ def payout_reason(salary, points, boundaries):
             f"${salary:,} a year")
 
 
-def rookie_rate(pick):
+def _rookie_table(settings):
+    """(scale, floor), from the settings rows `rookie_scale` / `rookie_floor` when present.
+
+    Settings rather than only code so an economy change can be SCHEDULED (see
+    offseason.apply_scheduled_settings) - the 2026-09-24 cut starts at an offseason, not a deploy.
+    """
+    scale, floor = ROOKIE_SCALE, ROOKIE_FLOOR
+    s = settings or {}
+    try:
+        if s.get("rookie_scale"):
+            scale = tuple((int(last), int(rate)) for last, rate in s["rookie_scale"])
+    except (TypeError, ValueError):
+        scale = ROOKIE_SCALE
+    try:
+        if s.get("rookie_floor") is not None:
+            floor = int(s["rookie_floor"])
+    except (TypeError, ValueError):
+        floor = ROOKIE_FLOOR
+    return scale, floor
+
+
+def rookie_rate(pick, settings=None):
     """Points per week for the man taken at `pick`. Undrafted or unknown pays the floor."""
+    scale, floor = _rookie_table(settings)
     try:
         pick = int(pick)
     except (TypeError, ValueError):
-        return ROOKIE_FLOOR
+        return floor
     if pick < 1:
-        return ROOKIE_FLOOR
-    for last, rate in ROOKIE_SCALE:
+        return floor
+    for last, rate in scale:
         if pick <= last:
             return rate
-    return ROOKIE_FLOOR
+    return floor
 
 
 def per_week(league, settings=None, contract=None):

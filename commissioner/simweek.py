@@ -645,10 +645,15 @@ def _sync_contracts(league_key, L, st, log):
     minimum earner. The site reads a null band and says so.
     """
     written = 0
+    pay_settings = None
     try:
         salaries = [s for s in ((L.contract_of(pl) or [0])[0] for pl in L.players
                                 if pl.values.get("Team", 0) >= 1) if s]
         bounds = points.salary_distribution(salaries)
+        try:   # the payout amounts can be a settings row (a scheduled economy change)
+            pay_settings = st.get_settings()
+        except Exception:                                               # noqa: BLE001
+            pay_settings = None
     except Exception as exc:                                            # noqa: BLE001
         log(f"could not read {league_key} salaries: {exc}; contracts not recorded")
         return 0
@@ -666,7 +671,7 @@ def _sync_contracts(league_key, L, st, log):
             "years_left": sum(1 for v in deal if v),
             # What this salary WOULD pay him at the next offseason. Pro only - prep and college
             # keep the flat lump and a band there would be a promise nothing honours.
-            "payout": points.annual_payout(salary, bounds) if league_key == "pro" else None,
+            "payout": points.annual_payout(salary, bounds, pay_settings) if league_key == "pro" else None,
             "band": points.payout_band(salary, bounds) if league_key == "pro" else None,
             "league_median": int(bounds[0]) if bounds else None,
             "scale": bool(bounds),

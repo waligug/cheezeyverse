@@ -136,6 +136,12 @@ def cap_for(level, settings=None):
             return int(settings["bonus_cap"])
         except (TypeError, ValueError):
             pass
+    # A per-level row (`bonus_cap_pro` ...) is how a scheduled economy change reaches this table.
+    if settings and level and f"bonus_cap_{level}" in settings:
+        try:
+            return int(settings[f"bonus_cap_{level}"])
+        except (TypeError, ValueError):
+            pass
     return BONUS_CAP_BY_LEVEL.get(level, DEFAULTS["bonus_cap"])
 
 

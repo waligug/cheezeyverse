@@ -858,7 +858,7 @@ def _worth_announcing(pick, board):
     return expected is not None and expected <= ANNOUNCE_PICKS
 
 
-def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None):
+def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None, settings=None):
     """Assign declared players to pro teams, worst record first. Returns the picks.
 
     `cast` is an optional `draftcast.DraftCast`. It is announced to after each pick has actually
@@ -947,7 +947,7 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None)
                 # Worked out before the move so the number announced is the number stored: the
                 # team comes off the slot he actually lands in, which is not always the team
                 # that picked him when a roster has no free reserve row.
-                deal = {"rate": points.rookie_rate(p["pick"]), "years": ROOKIE_YEARS,
+                deal = {"rate": points.rookie_rate(p["pick"], settings), "years": ROOKIE_YEARS,
                         "season_from": season, "pick": p["pick"],
                         # `rate` is skill points a week; `salary` is what the GAME pays him.
                         # Different currencies answering different questions.
@@ -1563,6 +1563,50 @@ def season_movers(characters, store, season, log=print):
     return out
 
 
+def apply_scheduled_settings(store, settings, season, log=print, dry_run=False):
+    """Settings rows that were scheduled to change at THIS offseason, applied; returns the merged.
+
+    `scheduled_settings` is {"<season>": {key: value, ...}}: every entry whose season is at or
+    before the offseason being run takes effect now, before anything is paid, so this offseason's
+    own payouts are on the new numbers. A dry run only overlays them, so a preview shows what
+    the real run will pay. Once written, applied entries leave the schedule.
+
+    Built for the 2026-09-24 cut (Nate: "reduce it like crazy for next season"): the rest of 2034
+    kept its rates and the 2034 offseason is the first thing paid on the new ones. Open rookie
+    deals are re-rated to the new scale at the same moment.
+    """
+    schedule = dict(settings.get("scheduled_settings") or {})
+    due = sorted((k for k in schedule if str(k).isdigit() and int(k) <= int(season)), key=int)
+    if not due:
+        return settings
+    merged = dict(settings)
+    for key in due:
+        merged.update(schedule[key] or {})
+    if dry_run:
+        log(f"(scheduled settings for {', '.join(due)} would take effect first)")
+        return merged
+    for key in due:
+        for name, value in (schedule[key] or {}).items():
+            store.set_setting(name, value)
+        log(f"scheduled settings for {key} applied: {', '.join(sorted(schedule[key] or {}))}")
+        schedule.pop(key)
+    store.set_setting("scheduled_settings", schedule)
+    if any("rookie" in n for k in due for n in (settings.get("scheduled_settings") or {}).get(k, {})):
+        for c in store.characters(league="pro"):
+            hist, changed = list(c.get("level_history") or []), False
+            for e in hist:
+                deal = e.get("contract") if isinstance(e, dict) else None
+                if e.get("level") == "pro" and e.get("to_season") is None and deal                         and deal.get("rate") is not None:
+                    rate = points.rookie_rate(deal.get("pick"), merged)
+                    if rate != deal["rate"]:
+                        e["contract"] = dict(deal, rate=rate)
+                        changed = True
+            if changed:
+                store.set_character_field(c["id"], "level_history", hist)
+                log(f'   {c["first_name"]} {c["last_name"]}: rookie deal re-rated to the new scale')
+    return merged
+
+
 def _run_offseason(store, season=None, log=print, dry_run=False, force=False, backups=None,
                    status=None,
                    advance_settings=True):
@@ -1573,6 +1617,8 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         raise OffseasonError(
             f"the {season} offseason has already been run (last completed: {done}). "
             "Pass force=True only if you know the first run did not finish.")
+    # After the already-run guard, so a refused run changes nothing; before anything is paid.
+    settings = apply_scheduled_settings(store, settings, season, log=log, dry_run=dry_run)
     result = {"season": season, "grown": 0, "grew": [], "movers": [],
               "promoted": [], "drafted": [], "retired": [], "failed": [], "dry_run": dry_run}
 
@@ -1680,7 +1726,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             log(f"   (no draft broadcast: {exc}; the draft itself is unaffected)")
     try:
         result["drafted"] = run_draft(moving["draft"], store, log=log, dry_run=dry_run,
-                                      season=season, cast=cast)
+                                      season=season, cast=cast, settings=settings)
     finally:
         if cast is not None:
             cast.finish()
@@ -1801,7 +1847,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             return lump, "offseason"
         salary = pro_salaries.get((f'{c["first_name"]} {c["last_name"]}',
                                    ch.codec_dob(c.get("game_dob"))), 0)
-        amount = points.annual_payout(salary, pro_bounds)
+        amount = points.annual_payout(salary, pro_bounds, settings)
         return amount, points.payout_reason(salary, amount, pro_bounds)
 
     if not dry_run:
