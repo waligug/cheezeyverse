@@ -133,7 +133,7 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
     # deleting it from the public site.
     retained = {}
     if not mdb_fresh:
-        for name in ("games.json", "careers.json"):
+        for name in ("games.json", "careers.json", "goat.json"):
             path = dst / name
             if path.exists():
                 retained[name] = path.read_bytes()
@@ -172,6 +172,12 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
     if mdb_fresh:
         games = _write_games(src, dst, key)
         careers = _write_careers(src, dst, key)
+        # AFTER careers, which is what archives this season's lines; the GOAT components are
+        # built from that archive.
+        from . import goat
+        goat_out = goat.write(dst, key)
+        if isinstance(careers, dict):
+            careers["goat"] = goat_out
     else:
         for name, payload in retained.items():
             (dst / name).write_bytes(payload)

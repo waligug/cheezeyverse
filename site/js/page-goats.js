@@ -17,6 +17,7 @@
 
 import { $, el, clear, freshJSON, renderChrome, renderFooter } from './ui.js';
 import { client, isConfigured } from './supabase.js';
+import { renderGoatBoard, loadWeights } from './goat-score.js';
 
 const LEAGUES = [['prep', 'Prep'], ['college', 'College'], ['pro', 'Pro']];
 
@@ -61,6 +62,8 @@ let ONLY_OURS = false;
 let PER_GAME = false;
 let MODE = 'regular';        // 'regular' | 'playoffs'
 let OURS = new Set();        // lower-cased names of the characters, for the marker
+const GOAT_W = loadWeights(); // one set of weights across every league tab
+let GOAT_DATA = null;
 
 /* WHICH ARCHIVE IS ON SCREEN. The postseason is its OWN set of careers, published as its own
    block, because FBPB3 keeps it in its own table and SeasonStats is the regular season alone -
@@ -138,7 +141,7 @@ function renderControls(data) {
   const host = $('#all-time-controls');
   clear(host);
   host.append(el('label', {}, el('input', { type: 'checkbox', checked: ONLY_OURS || null,
-    onchange: e => { ONLY_OURS = e.target.checked; renderLeaders(data); renderTable(data); }
+    onchange: e => { ONLY_OURS = e.target.checked; renderGoat(); renderLeaders(data); renderTable(data); }
   }), 'Real players only'));
   if (data && data.playoffs) {
     host.append(el('label', {}, 'Show: ', el('select', {
@@ -155,6 +158,21 @@ function renderControls(data) {
      el('option', { value: 'per-game', selected: PER_GAME || null }, 'Per game'))));
   host.append(el('span', { class: 'cv-muted cv-small' },
     'Per-game leaders include careers with at least one game. Ranks are across the whole league.'));
+}
+
+const GOAT_CACHE = new Map();
+function goatOf(league) {
+  if (!GOAT_CACHE.has(league)) GOAT_CACHE.set(league, freshJSON(`leagues/${league}/goat.json`));
+  return GOAT_CACHE.get(league);
+}
+
+function renderGoat() {
+  const host = $('#goat');
+  if (!host) return;
+  renderGoatBoard(host, GOAT_DATA, {
+    weights: GOAT_W, onlyOurs: ONLY_OURS,
+    isOurs: (name) => OURS.has(String(name || '').toLowerCase()),
+  });
 }
 
 const CACHE = new Map();
@@ -278,8 +296,10 @@ async function load() {
   clear($('#table'));
   clear($('#all-time-controls'));
   const requestedLeague = LEAGUE;
-  const data = await careersOf(requestedLeague);
+  const [data, goat] = await Promise.all([careersOf(requestedLeague), goatOf(requestedLeague)]);
   if (requestedLeague !== LEAGUE) return;
+  GOAT_DATA = goat;
+  renderGoat();
   // A league with no postseason archive cannot stay on the playoff view when you tab to it.
   if (MODE === 'playoffs' && !(data && data.playoffs)) MODE = 'regular';
   renderCoverage(data);

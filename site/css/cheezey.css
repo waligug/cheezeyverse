@@ -884,3 +884,18 @@ a.cv-rollname:hover { text-decoration: underline; }
   line-height: 1.45;
 }
 .cv-anomaly strong { color: var(--crust); }
+
+/* ---- GOAT score (goats.html) ---------------------------------------------------------- */
+.cv-goat-sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; margin: 8px 0 12px; }
+.cv-goat-sliders label { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12px; font-weight: 600; }
+.cv-goat-sliders input[type=range] { grid-column: 1 / -1; width: 100%; }
+.cv-goat-sliders output { font-variant-numeric: tabular-nums; color: var(--crust); }
+.cv-goat-row { cursor: pointer; }
+.cv-goat-row:hover td { background: rgba(0, 0, 0, 0.03); }
+.cv-goat-tag { margin-left: 6px; }
+.cv-goat-tag.is-carrier { background: var(--human, #1D5C8A); color: #fff; }
+.cv-goat-tag.is-passenger { background: #8a8a8a; color: #fff; }
+.cv-goat-detail { padding: 6px 2px 10px; }
+.cv-goat-parts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 6px; }
+.cv-goat-parts div { display: flex; gap: 6px; font-size: 12px; }
+.cv-goat-parts b { font-variant-numeric: tabular-nums; }
