@@ -14,22 +14,20 @@
 </head>
 <body>
 <main class="cv-page">
-  <section class="cv-hero cv-cheese">
-    <h1>Stories from the universe</h1>
-    <p>Career nights, heaters, slumps, ugly tape, trades, awards, playoff runs and rivalries.
-      Every entry comes from the game&rsquo;s published record.</p>
-  </section>
+  <div class="cv-page-head">
+    <h1>Stories</h1>
+    <label class="cv-inline-select"><span class="cv-sr">Season</span>
+      <select id="season" class="cv-select"><option value="">Every season</option></select></label>
+    <p class="cv-muted" id="intro">Career nights, heaters, slumps, ugly tape, trades, awards, playoff
+      runs and rivalries, newest first. Every one comes from the game&rsquo;s own record.</p>
+  </div>
   <div id="notices"></div>
-  <section class="cv-card cv-story-controls" aria-labelledby="filter-title">
-    <div class="cv-card-head"><h2 id="filter-title">Find a story</h2><span class="cv-muted" id="count"></span></div>
-    <div class="cv-fields">
-      <label><span>Player</span><select id="player" class="cv-select"><option value="">Everybody</option></select></label>
-      <label><span>Story</span><select id="type" class="cv-select"><option value="">Everything</option></select></label>
-      <label><span>Season</span><select id="season" class="cv-select"><option value="">Every season</option></select></label>
-    </div>
-  </section>
+  <div class="cv-chips" id="types" role="group" aria-label="Kind of story"></div>
+  <div class="cv-chips cv-people" id="people" role="group" aria-label="Whose stories"></div>
   <p class="cv-spinner" id="loading">Reading the record...</p>
-  <div id="stories" class="cv-story-list"></div>
+  <div id="featured"></div>
+  <div id="stories" class="cv-story-feed"></div>
+  <div class="cv-more" id="more"></div>
 </main>
 <script type="module" src="js/page-stories.js"></script>
 </body>

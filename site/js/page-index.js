@@ -224,12 +224,14 @@ async function renderHomeStories() {
   const box = $('#home-stories');
   clear(box);
   const events = (data && data.events) || [];
-  // Three of different kinds, newest first: the feed opens with a run of awards at a season's
-  // end, and three awards in a row says less than an award, a trade and a hot streak.
+  // Three of different kinds, newest first, and not the list-shaped ones: the feed opens with a
+  // run of awards and MVP-watch ranks at a season's end, which the Stories page folds into one
+  // card each - three of those in a row says less than a career night, a streak and a trade.
+  const LISTS = new Set(['award', 'award_race']);
   const seen = new Set();
   const picked = [];
   for (const event of events) {
-    if (seen.has(event.type)) continue;
+    if (LISTS.has(event.type) || seen.has(event.type)) continue;
     seen.add(event.type);
     picked.push(event);
     if (picked.length === 3) break;

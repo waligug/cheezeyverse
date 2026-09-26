@@ -129,6 +129,7 @@ const ICONS = {
   user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
   table: 'M3 5h18 M3 12h18 M3 19h18 M8 5v14',
   trophy: 'M8 21h8 M12 17v4 M7 4h10v5a5 5 0 0 1-10 0z M17 5h3v2a3 3 0 0 1-3 3 M7 5H4v2a3 3 0 0 0 3 3',
+  history: 'M3 12a9 9 0 1 0 3-6.7 M3 4v5h5 M12 7v5l3 2',
   book: 'M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 M20 19v2H6',
   plus: 'M12 5v14 M5 12h14',
 };
@@ -137,9 +138,14 @@ const NAV = [
   { href: 'index.html', label: 'Home', icon: ICONS.home },
   { href: 'me.html', label: 'My players', icon: ICONS.user },
   { href: 'leagues.html', label: 'Leagues', icon: ICONS.table },
-  { href: 'goats.html', label: 'All time', icon: ICONS.trophy },
+  { href: 'goat-board.html', label: 'GOAT', icon: ICONS.trophy },
+  { href: 'goats.html', label: 'All time', icon: ICONS.history },
   { href: 'stories.html', label: 'Stories', icon: ICONS.book },
 ];
+
+/* The three league sites, one click from anywhere: under the logo on a desktop, under the top
+   bar on a phone. They go to each site's own front page, the way the old league tiles did. */
+const LEAGUE_SHORT = [['prep', 'Prep'], ['college', 'College'], ['pro', 'Pro']];
 
 const MORE = [
   { href: 'players.html', label: 'Roll call' },
@@ -178,8 +184,14 @@ export function renderChrome({ active, onSignIn, onSignOut }) {
   const whoSide = el('div', { class: 'cv-who' });
   const whoTop = el('div', { class: 'cv-who' });
 
+  const sites = leagueSites();
+  const quick = () => el('nav', { class: 'cv-quick', 'aria-label': 'League sites' },
+    LEAGUE_SHORT.filter(([key]) => sites[key].ready)
+      .map(([key, label]) => el('a', { class: `is-${key}`, href: sites[key].url }, label)));
+
   const side = el('aside', { class: 'cv-side', 'aria-label': 'Site' },
     brand(),
+    quick(),
     el('nav', { class: 'cv-nav', 'aria-label': 'Main' },
       NAV.map((n) => el('a', { href: n.href, 'aria-current': current(n.href) }, icon(n.icon), n.label))),
     el('div', { class: 'cv-nav-more' },
@@ -190,7 +202,7 @@ export function renderChrome({ active, onSignIn, onSignOut }) {
       icon(ICONS.plus), 'Create a player'),
     whoSide);
 
-  const top = el('header', { class: 'cv-mtop' }, brand(), whoTop);
+  const top = el('header', { class: 'cv-mtop' }, el('div', { class: 'cv-mtop-row' }, brand(), whoTop), quick());
 
   const tabbar = el('nav', { class: 'cv-tabbar', 'aria-label': 'Main' },
     NAV.map((n) => el('a', { href: n.href, 'aria-current': current(n.href) }, icon(n.icon, 22), n.label)));
@@ -284,17 +296,21 @@ export function setupNeededNote() {
  * spend sheet has to be in the document before drawSpend() can measure and fill it, and a tab
  * that renders nothing until touched is a much better way to ship a blank panel than a tall one.
  *
- * `sections` is [{ label, node, badge }]. The first is shown.
+ * `sections` is [{ label, node, badge, key }]. The first is shown unless `opts.initial` names
+ * another by its `key` (or index); `opts.onChange(key, index)` hears every switch, so a page
+ * can remember which one was open across a reload. `opts.className` adds to the strip's class.
  */
-export function tabs(sections) {
+export function tabs(sections, opts = {}) {
   const live = sections.filter((s) => s && s.node);
-  const strip = el('div', { class: 'cv-tabs', role: 'tablist' });
+  const strip = el('div', { class: `cv-tabs${opts.className ? ` ${opts.className}` : ''}`, role: 'tablist' });
+  let first = live.findIndex((s, i) => (s.key !== undefined && s.key === opts.initial) || i === opts.initial);
+  if (first < 0) first = 0;
   const buttons = live.map((section, i) => {
     const b = el('button', {
-      class: `cv-tab${i ? '' : ' is-on'}`, type: 'button', role: 'tab',
-      'aria-selected': i ? 'false' : 'true',
+      class: `cv-tab${i === first ? ' is-on' : ''}`, type: 'button', role: 'tab',
+      'aria-selected': i === first ? 'true' : 'false',
     }, section.label, section.badge ? el('span', { class: 'cv-tab-badge' }, section.badge) : null);
-    section.node.hidden = i !== 0;
+    section.node.hidden = i !== first;
     section.node.setAttribute('role', 'tabpanel');
     b.addEventListener('click', () => {
       buttons.forEach((other, j) => {
@@ -303,6 +319,7 @@ export function tabs(sections) {
         other.setAttribute('aria-selected', on ? 'true' : 'false');
         live[j].node.hidden = !on;
       });
+      if (opts.onChange) opts.onChange(section.key !== undefined ? section.key : i, i);
     });
     return b;
   });
@@ -314,10 +331,15 @@ export function renderSheet(container, state, onStep) {
   const focused = document.activeElement && document.activeElement.dataset
     ? document.activeElement.dataset.key : null;
   clear(container);
+  // Two columns of groups on a desktop, one on a phone (see .cv-sheet-grid). Each rating is ONE
+  // line - name, bar, number, minus and plus - where it used to be three: the name row, a second
+  // row of controls for the potential, and the bar underneath. That was most of the page's height.
+  container.classList.add('cv-sheet-grid');
+  const kind = state.mode === 'potential' ? 'potential' : 'rating';
 
   for (const group of RATING_GROUPS) {
     const box = el('section', { class: 'cv-sheet' }, el('h3', {}, group.title));
-    for (const r of group.ratings) box.append(ratingRow(r, state, onStep));
+    for (const r of group.ratings) box.append(ratingRow(r, state, onStep, kind));
     container.append(box);
   }
 
@@ -327,8 +349,14 @@ export function renderSheet(container, state, onStep) {
   }
 }
 
-function ratingRow(rating, state, onStep) {
+/**
+ * One rating, on one line. `kind` says what the minus and plus act on: the rating itself, or its
+ * potential (the "ceilings" view). The bar shows both either way - the fill is the rating, the
+ * lighter end of it is what is queued and not sent, and the dark tick is the potential.
+ */
+function ratingRow(rating, state, onStep, kind = 'rating') {
   const cap = RATING_MAX;
+  const label = RATING_LABELS[rating] || rating;
   const value = state.ratings[rating];
   const baseValue = state.base.ratings[rating];
   const pot = hasPotential(rating) ? state.potentials[rating] : null;
@@ -345,77 +373,73 @@ function ratingRow(rating, state, onStep) {
   const ratingCost = nextPointCost(value, 'rating', bias);
   const potCost = pot === null ? 0 : nextPointCost(pot, 'potential', bias);
 
-  const canRaise = !locked && value < ceiling && ratingCost <= state.budget;
-  const canLower = !locked && value > baseValue;
-  const canRaisePot = !locked && pot !== null && pot < POTENTIAL_MAX && potCost <= state.budget;
-  const canLowerPot = !locked && pot !== null && pot > basePot;
+  const onPot = kind === 'potential';
+  const canRaise = onPot
+    ? !locked && pot !== null && pot < POTENTIAL_MAX && potCost <= state.budget
+    : !locked && value < ceiling && ratingCost <= state.budget;
+  const canLower = onPot
+    ? !locked && pot !== null && pot > basePot
+    : !locked && value > baseValue;
 
-  const row = el('div', { class: `cv-rating${locked ? ' is-locked' : ''}` });
+  const tags = [];
+  if (locked) tags.push(el('span', { class: 'cv-rtag', title: 'Set by the quiz, never bought' }, 'fixed'));
+  else if (bias < 100) tags.push(el('span', { class: 'cv-rtag is-easy', title: `Comes easy: points cost ${bias}% of the usual price` }, 'easy'));
+  else if (bias > 100) tags.push(el('span', { class: 'cv-rtag is-hard', title: `Hard work: points cost ${bias}% of the usual price` }, 'hard'));
+  const pending = [waiting ? `+${waiting}` : '', waitingPot ? `pot +${waitingPot}` : ''].filter(Boolean).join(', ');
+  if (pending) {
+    tags.push(el('span', { class: 'cv-rtag is-waiting', title: 'Already asked for. Written into the game at the next sim.' },
+      `${pending} next sim`));
+  }
 
-  const knack = bias < 100 ? `comes easy (${bias}%)` : bias > 100 ? `hard work (${bias}%)` : '';
-  const pending = [waiting ? `+${waiting}` : '', waitingPot ? `pot +${waitingPot}` : '']
-    .filter(Boolean).join(', ');
-  row.append(el('div', { class: 'cv-rating-name' },
-    RATING_LABELS[rating] || rating,
-    ' ',
-    el('em', {}, locked ? 'set by the quiz, never bought' : knack),
-    pending ? el('span', { class: 'cv-pending-note', title: 'Already asked for. Written into the game at the next sim.' },
-      ` ${pending} at next sim`) : null));
+  const row = el('div', { class: `cv-rate${locked ? ' is-locked' : ''}${onPot && pot === null ? ' is-muted' : ''}` });
+  row.append(el('div', { class: 'cv-rate-name' }, el('span', {}, label), ...tags));
 
-  const controls = el('div', { class: 'cv-rating-controls' });
-  controls.append(
+  // the bar: rating, the queued part of it, and the potential tick
+  const bar = el('div', { class: 'cv-bar', title: `${label} ${value}${pot !== null ? `, potential ${pot}` : ''}` });
+  const clampPct = (n) => Math.max(0, Math.min(100, Number(n) || 0));
+  bar.append(el('i', { style: `width:${clampPct(Math.min(value, baseValue))}%` }));
+  if (value > baseValue) {
+    bar.append(el('b', { style: `left:${clampPct(baseValue)}%;width:${clampPct(value) - clampPct(baseValue)}%` }));
+  }
+  if (pot !== null) bar.append(el('u', { class: onPot ? 'is-live' : null, style: `left:${clampPct(pot)}%` }));
+  row.append(bar);
+
+  // the number: what it is, or "from→to" once something is queued
+  let shown;
+  let up;
+  if (onPot) {
+    shown = pot === null ? '—' : pot > basePot ? `${basePot}→${pot}` : String(pot);
+    up = pot !== null && pot > basePot;
+  } else {
+    shown = value > baseValue ? `${baseValue}→${value}` : String(value);
+    up = value > baseValue;
+  }
+  row.append(el('span', {
+    class: `cv-val${up ? ' is-up' : ''}`,
+    title: onPot
+      ? (pot === null ? `${label} has no potential to raise` : `${label} potential ${pot} of a possible ${POTENTIAL_MAX}`)
+      : `${label} is ${value}, ceiling ${ceiling}` + (waiting ? ` (+${waiting} already asked for, lands at the next sim)` : ''),
+  }, shown));
+
+  const cost = onPot ? potCost : ratingCost;
+  const what = onPot ? `${label} potential` : label;
+  row.append(el('div', { class: 'cv-rating-controls' },
     el('button', {
       class: 'cv-step', type: 'button', disabled: !canLower,
-      title: `Take a point back off ${RATING_LABELS[rating]}`,
-      'aria-label': `Lower ${RATING_LABELS[rating]}`,
-      dataset: { key: `${rating}:rating:-1` },
-      onclick: () => onStep(rating, 'rating', -1),
+      title: `Take a point back off ${what}`,
+      'aria-label': `Lower ${what}`,
+      dataset: { key: `${rating}:${kind}:-1` },
+      onclick: () => onStep(rating, kind, -1),
     }, '−'),
-    el('span', {
-      class: `cv-val${value > baseValue ? ' is-up' : ''}`,
-      title: `${RATING_LABELS[rating]} is ${value}, ceiling ${ceiling}`
-        + (waiting ? ` (+${waiting} already asked for, lands at the next sim)` : ''),
-    }, String(value)),
     el('button', {
       class: 'cv-step', type: 'button', disabled: !canRaise,
       title: locked ? 'This one cannot be bought'
-        : value >= ceiling ? `Capped at ${ceiling}` : `Costs ${ratingCost}`,
-      'aria-label': `Raise ${RATING_LABELS[rating]}, costs ${ratingCost}`,
-      dataset: { key: `${rating}:rating:1` },
-      onclick: () => onStep(rating, 'rating', 1),
-    }, '+'),
-  );
-
-  if (state.showPotentials && pot !== null) {
-    controls.append(
-      el('span', { class: 'cv-cap' }, 'pot'),
-      el('button', {
-        class: 'cv-step', type: 'button', disabled: !canLowerPot,
-        'aria-label': `Lower ${RATING_LABELS[rating]} potential`,
-        dataset: { key: `${rating}:potential:-1` },
-        onclick: () => onStep(rating, 'potential', -1),
-      }, '−'),
-      el('span', {
-        class: `cv-val${pot > basePot ? ' is-up' : ''}`,
-        title: `Potential ${pot} of a possible ${cap}`,
-      }, String(pot)),
-      el('button', {
-        class: 'cv-step', type: 'button', disabled: !canRaisePot,
-        title: pot >= cap ? `Capped at ${cap}` : `Costs ${potCost} (potentials are double)`,
-        'aria-label': `Raise ${RATING_LABELS[rating]} potential, costs ${potCost}`,
-        dataset: { key: `${rating}:potential:1` },
-        onclick: () => onStep(rating, 'potential', 1),
-      }, '+'),
-    );
-  } else if (state.showPotentials) {
-    controls.append(el('span', { class: 'cv-cap' }, 'no potential'));
-  }
-
-  row.append(controls);
-
-  const bar = el('div', { class: 'cv-bar' }, el('i', { style: `width:${Math.max(0, Math.min(100, value))}%` }));
-  if (pot !== null) bar.append(el('u', { style: `left:${Math.max(0, Math.min(100, pot))}%`, title: `potential ${pot}` }));
-  row.append(bar);
+        : onPot ? (pot === null ? 'No potential to raise' : pot >= POTENTIAL_MAX ? `Capped at ${POTENTIAL_MAX}` : `Costs ${cost} (potentials are double)`)
+          : value >= ceiling ? `Capped at ${ceiling} - raise the potential first` : `Costs ${cost}`,
+      'aria-label': `Raise ${what}, costs ${cost}`,
+      dataset: { key: `${rating}:${kind}:1` },
+      onclick: () => onStep(rating, kind, 1),
+    }, '+')));
 
   return row;
 }

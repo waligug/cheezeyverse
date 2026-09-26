@@ -878,7 +878,8 @@ tr.cv-ours td, tr.cv-ours th { background: var(--butter) !important; }
 
   .cv-tabbar {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     position: fixed;
     left: 0; right: 0; bottom: 0;
     z-index: 30;
@@ -1095,3 +1096,346 @@ a.cv-rollname:hover { text-decoration: underline; }
 .cv-goat-parts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .cv-goat-parts div { display: flex; gap: 6px; font-size: 13px; background: var(--card); border-radius: 10px; padding: 6px 10px; }
 .cv-goat-parts b { font-variant-numeric: tabular-nums; }
+
+/* =====================================================================================
+ * CHEESE HOLES (2026-09-26). "Brie" alone read as a plain cream website; the user wanted it to
+ * look like cheese. Every hole is a radial-gradient, so there are no images to fetch and a hole
+ * can never cover a click. Three kinds:
+ *   - bites: half-circles cut into a card's edge in the page colour, as if the hole went
+ *     right through the rind;
+ *   - holes: faint circles inside a surface, placed in its padding where text rarely sits;
+ *   - Swiss bars: every progress and rating bar is a strip of cheese with holes in it.
+ * Colours are custom properties so each surface can set its own (--bite, --hole).
+ * ===================================================================================== */
+
+:root {
+  --bite: var(--ground);
+  --hole: #F3E7D0;
+  --hole-dark: rgba(255, 255, 255, .07);
+}
+
+/* the page itself: a few big, very faint holes that stay put while the cards scroll over them */
+body {
+  background-image:
+    radial-gradient(circle at 18% 12%, #F5ECDA 0 70px, transparent 71px),
+    radial-gradient(circle at 88% 22%, #F5ECDA 0 44px, transparent 45px),
+    radial-gradient(circle at 62% 58%, #F6EEDE 0 110px, transparent 111px),
+    radial-gradient(circle at 30% 84%, #F5ECDA 0 56px, transparent 57px),
+    radial-gradient(circle at 94% 88%, #F6EEDE 0 80px, transparent 81px),
+    radial-gradient(circle at 46% 30%, #F7F0E2 0 26px, transparent 27px);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/* cards: two bites on the right edge, one on the bottom, and a pair of small holes top right */
+.cv-card, .cv-story, .cv-league-card, .cv-hero {
+  background-image:
+    radial-gradient(circle at 100% 34%, var(--bite) 0 14px, transparent 14.6px),
+    radial-gradient(circle at 100% 54%, var(--bite) 0 6px, transparent 6.6px),
+    radial-gradient(circle at 24% 100%, var(--bite) 0 10px, transparent 10.6px),
+    radial-gradient(circle at calc(100% - 22px) 20px, var(--hole) 0 7px, transparent 7.6px),
+    radial-gradient(circle at calc(100% - 42px) 12px, var(--hole) 0 3.5px, transparent 4.1px);
+  background-repeat: no-repeat;
+}
+/* every other card is cut on the other side, so a page of them does not look stamped */
+.cv-card:nth-of-type(even), .cv-story:nth-child(even), .cv-league-card:nth-child(2) {
+  background-image:
+    radial-gradient(circle at 0 62%, var(--bite) 0 13px, transparent 13.6px),
+    radial-gradient(circle at 0 43%, var(--bite) 0 5px, transparent 5.6px),
+    radial-gradient(circle at 78% 100%, var(--bite) 0 11px, transparent 11.6px),
+    radial-gradient(circle at calc(100% - 20px) 20px, var(--hole) 0 5px, transparent 5.6px),
+    radial-gradient(circle at calc(100% - 34px) 36px, var(--hole) 0 3px, transparent 3.6px);
+}
+/* a card on a cream card is bitten in the card's own white */
+.cv-card .cv-card, .cv-card .cv-story { --bite: var(--card); --hole: #EFE4CE; }
+
+/* the hero: a big wedge of cheese in the corner, holes and all */
+.cv-hero { position: relative; overflow: hidden; }
+.cv-hero::after {
+  content: '';
+  position: absolute;
+  right: -34px; bottom: -40px;
+  width: 260px; height: 180px;
+  pointer-events: none;
+  opacity: .16;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 150'%3E%3Cpath d='M10 120 L210 120 L210 40 L10 104 Z' fill='%23D0843A'/%3E%3Ccircle cx='70' cy='104' r='10' fill='%23FFFFFF'/%3E%3Ccircle cx='130' cy='92' r='14' fill='%23FFFFFF'/%3E%3Ccircle cx='180' cy='100' r='7' fill='%23FFFFFF'/%3E%3Ccircle cx='165' cy='66' r='5' fill='%23FFFFFF'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+.cv-hero > * { position: relative; z-index: 1; }
+
+/* dark surfaces: holes a shade lighter than the card */
+.cv-card.is-dark, .cv-readout, .cv-meter, .cv-feature, .cv-spendbar.is-live {
+  --bite: var(--ground);
+  background-image:
+    radial-gradient(circle at 100% 30%, var(--bite) 0 10px, transparent 10.6px),
+    radial-gradient(circle at calc(100% - 30px) 22px, var(--hole-dark) 0 9px, transparent 9.6px),
+    radial-gradient(circle at calc(100% - 58px) 46px, var(--hole-dark) 0 5px, transparent 5.6px),
+    radial-gradient(circle at 18% calc(100% - 14px), var(--hole-dark) 0 6px, transparent 6.6px),
+    radial-gradient(circle at 62% 12px, var(--hole-dark) 0 4px, transparent 4.6px);
+  background-repeat: no-repeat;
+}
+
+/* the sidebar: holes all the way down, and two bites out of its right edge */
+.cv-side {
+  background-image:
+    radial-gradient(circle at 100% 46%, var(--ground) 0 13px, transparent 13.6px),
+    radial-gradient(circle at 100% 72%, var(--ground) 0 7px, transparent 7.6px),
+    radial-gradient(circle at 82% 8%, #E9D6B1 0 7px, transparent 7.6px),
+    radial-gradient(circle at 14% 58%, #E9D6B1 0 12px, transparent 12.6px),
+    radial-gradient(circle at 70% 64%, #EBDAB8 0 5px, transparent 5.6px),
+    radial-gradient(circle at 38% 78%, #E9D6B1 0 18px, transparent 18.6px),
+    radial-gradient(circle at 86% 86%, #EBDAB8 0 9px, transparent 9.6px),
+    radial-gradient(circle at 20% 95%, #EBDAB8 0 6px, transparent 6.6px);
+  background-repeat: no-repeat;
+}
+
+/* the active nav item and every solid button: a couple of holes at the end, clear of the label */
+.cv-nav a[aria-current='page'], .cv-btn:not(.cv-ghost) {
+  background-image:
+    radial-gradient(circle at calc(100% - 11px) 32%, rgba(255, 255, 255, .34) 0 3px, transparent 3.6px),
+    radial-gradient(circle at calc(100% - 20px) 70%, rgba(255, 255, 255, .28) 0 2px, transparent 2.6px),
+    radial-gradient(circle at 8px 72%, rgba(255, 255, 255, .22) 0 1.6px, transparent 2.2px);
+  background-repeat: no-repeat;
+}
+.cv-step[aria-label^='Raise']:not([disabled]) {
+  background-image: radial-gradient(circle at 78% 26%, rgba(255, 255, 255, .12) 0 3px, transparent 3.6px);
+  background-repeat: no-repeat;
+}
+
+/* Swiss bars: the fill of every bar is a strip of cheese with holes punched in it */
+.cv-bar i, .cv-progress i {
+  background-image:
+    radial-gradient(circle at 30% 50%, rgba(255, 255, 255, .30) 0 2px, transparent 2.6px),
+    radial-gradient(circle at 78% 30%, rgba(255, 255, 255, .22) 0 1.4px, transparent 2px);
+  background-size: 17px 10px;
+}
+.cv-progress i { background-size: 24px 12px; }
+
+/* tiles inside cards and the avatars: one small hole each */
+.cv-league-facts div, .cv-pulse-tiles div, .cv-fact {
+  background-image: radial-gradient(circle at calc(100% - 11px) 11px, #EFE2C8 0 4px, transparent 4.6px);
+  background-repeat: no-repeat;
+}
+.cv-avatar {
+  background-image:
+    radial-gradient(circle at 80% 78%, rgba(255, 255, 255, .22) 0 3px, transparent 3.6px),
+    radial-gradient(circle at 22% 22%, rgba(255, 255, 255, .14) 0 2px, transparent 2.6px);
+  background-repeat: no-repeat;
+}
+
+/* ------------------------------------------------------------ league shortcuts (chrome) */
+.cv-quick { display: flex; gap: 6px; margin: -14px 6px 22px; }
+.cv-quick a {
+  flex: 1 1 0;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 34px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .72);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.cv-quick a::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--league, var(--crust)); flex: 0 0 auto; }
+.cv-quick a.is-prep { --league: var(--prep); }
+.cv-quick a.is-college { --league: var(--college); }
+.cv-quick a.is-pro { --league: var(--pro); }
+.cv-quick a:hover { background: #fff; text-decoration: none; }
+.cv-mtop-row { display: flex; align-items: center; gap: 10px; }
+
+/* ------------------------------------------------------------------ utility */
+.cv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.cv-inline-check { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--ink); font-size: 13px; cursor: pointer; }
+.cv-inline-select { margin: 0; }
+.cv-inline-select .cv-select { width: auto; min-width: 170px; }
+
+/* ================================================================ My players, compact */
+.cv-player-tabs { margin-bottom: 18px; }
+.cv-player-tabs .cv-tab { padding: 8px 8px 8px 14px; }
+
+.cv-me-head { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.cv-me-who { flex: 1 1 auto; min-width: 0; }
+.cv-me-who h2 { font-size: 32px; letter-spacing: -.8px; margin: 0 0 4px; }
+.cv-me-who p { margin: 0; font-size: 14px; line-height: 1.6; }
+.cv-me-points { text-align: right; flex: 0 0 auto; max-width: 180px; }
+.cv-me-points b { display: block; font: 800 44px/1 var(--display); color: var(--bark); }
+.cv-me-points span { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.cv-avatar.is-big { width: 60px; height: 60px; border-radius: 18px; font: 800 22px/1 var(--display); }
+.cv-avatar.is-tiny { width: 22px; height: 22px; border-radius: 7px; font-size: 10px; }
+
+.cv-spend-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-bottom: 6px; }
+.cv-seg.cv-seg-small button { min-height: 34px; padding: 0 14px; font-size: 13px; }
+.cv-spend-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.cv-spend-legend > span { display: inline-block; margin-left: 6px; }
+.cv-key-fill { width: 14px; height: 8px; border-radius: 4px; background: var(--bark); }
+.cv-key-queued { width: 14px; height: 8px; border-radius: 4px; background: var(--crust); }
+.cv-key-tick { width: 2px; height: 12px; background: var(--ink); }
+.cv-fold.cv-fold-inline { margin: 0 0 0 auto; background: transparent; }
+.cv-fold.cv-fold-inline > summary { padding: 6px 10px; font-size: 13px; color: var(--bark); }
+.cv-fold.cv-fold-inline[open] { flex-basis: 100%; background: var(--ground); }
+
+.cv-sheet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 36px; align-items: start; }
+.cv-sheet-grid .cv-sheet { margin: 0 0 6px; }
+@media (max-width: 1100px) { .cv-sheet-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.cv-rate {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(40px, 1fr) 4.6em auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+.cv-rate.is-locked, .cv-rate.is-muted { opacity: .55; }
+.cv-rate-name { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: 14px; font-weight: 600; min-width: 0; }
+.cv-rate .cv-bar { grid-column: auto; }
+.cv-rate .cv-val { min-width: 0; font-size: 14px; white-space: nowrap; }
+.cv-rate .cv-step { width: 38px; height: 34px; }
+.cv-rtag { padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--line); color: var(--muted); white-space: nowrap; }
+.cv-rtag.is-easy { background: #E4EFE2; color: var(--good); }
+.cv-rtag.is-hard { background: #F6E3DC; color: #8A3B26; }
+.cv-rtag.is-waiting { background: #E3EEF6; color: var(--human); }
+.cv-bar b { position: absolute; top: 0; bottom: 0; background: var(--crust); border-radius: 0 5px 5px 0; }
+.cv-bar u.is-live { width: 3px; background: var(--crust); box-shadow: 0 0 0 1px var(--ink); }
+
+/* The send bar. Sticky to the bottom of the window, so the button is always one tap away however
+   far down the sheet you are - it used to be under the last rating. Dark once something is
+   staged, so it is obvious there is something to send. */
+.cv-spendbar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 6;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  margin-top: 14px;
+  padding: 12px 14px 12px 18px;
+  border-radius: 16px;
+  background-color: var(--tile);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(42, 33, 24, .12);
+}
+.cv-spendbar.is-live { background-color: var(--dark); color: var(--ground); }
+.cv-spendbar-what { flex: 1 1 260px; min-width: 0; font-size: 14px; }
+.cv-spendbar-count { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--crust); color: var(--ink); font-weight: 800; font-size: 13px; margin-right: 4px; }
+.cv-spendbar .cv-actions { flex: 0 0 auto; }
+.cv-spendbar.is-live .cv-btn.cv-ghost { background: transparent; color: var(--ground); box-shadow: inset 0 0 0 1px var(--dark-line); }
+
+@media (max-width: 860px) {
+  .cv-spendbar { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .cv-me-who h2 { font-size: 24px; }
+  .cv-me-points b { font-size: 34px; }
+  .cv-avatar.is-big { width: 46px; height: 46px; border-radius: 14px; font-size: 17px; }
+}
+@media (max-width: 640px) {
+  .cv-me-head { flex-wrap: wrap; }
+  .cv-me-points { order: -1; margin-left: auto; }
+  .cv-me-who { flex-basis: 100%; }
+  .cv-spend-legend { display: none; }
+  .cv-rate { grid-template-columns: minmax(0, 1fr) minmax(36px, .7fr) 4.4em auto; gap: 8px; }
+}
+
+/* ======================================================================= Stories */
+.cv-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.cv-chips.cv-people { margin-bottom: 20px; }
+.cv-chip-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 36px;
+  padding: 6px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--ink);
+  font: 600 14px/1 var(--font);
+  cursor: pointer;
+}
+.cv-chip-btn:hover { background: var(--tile); }
+.cv-chip-btn.is-on { background: var(--ink); color: var(--ground); box-shadow: none; }
+.cv-chip-count { padding: 2px 7px; border-radius: 999px; background: var(--tint); color: var(--bark); font-size: 12px; font-weight: 700; }
+.cv-chip-btn.is-on .cv-chip-count { background: var(--crust); color: var(--ink); }
+.cv-people .cv-chip-btn { padding-left: 6px; }
+
+.cv-feature {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  margin: 0 0 22px;
+  padding: 28px 32px;
+  border-radius: 24px;
+  background-color: var(--dark);
+  color: var(--ground);
+}
+.cv-feature .cv-kicker { color: #F2C08A; }
+.cv-feature h2 { font-size: 38px; letter-spacing: -1px; margin: 6px 0 8px; color: var(--ground); }
+.cv-feature p { color: #E2D4BE; font-size: 16px; margin: 0 0 6px; }
+.cv-feature .cv-feature-game { font-size: 14px; color: #CDBBA0; }
+.cv-feature-people a { color: #F2C08A; }
+.cv-feature-tiles { display: flex; gap: 8px; }
+.cv-feature-tiles div {
+  width: 72px; padding: 10px 0; border-radius: 14px; background-color: var(--dark-2); text-align: center;
+  background-image: radial-gradient(circle at calc(100% - 9px) 9px, rgba(255, 255, 255, .08) 0 4px, transparent 4.6px);
+  background-repeat: no-repeat;
+}
+.cv-feature-tiles b { display: block; font: 800 28px/1.1 var(--display); color: #F2C08A; }
+.cv-feature-tiles span { font-size: 12px; color: #D9C9B0; }
+@media (max-width: 900px) {
+  .cv-feature { grid-template-columns: minmax(0, 1fr); padding: 22px 20px; }
+  .cv-feature h2 { font-size: 28px; }
+  .cv-feature-tiles { flex-wrap: wrap; }
+  .cv-feature-tiles div { width: 62px; }
+}
+
+.cv-season-head { font-size: 24px; margin: 26px 0 12px; }
+.cv-story-feed > .cv-season-head:first-child { margin-top: 0; }
+.cv-story-list { margin-bottom: 8px; }
+.cv-story-fold { grid-column: span 2; }
+@media (max-width: 760px) { .cv-story-fold { grid-column: auto; } }
+.cv-fold-list { list-style: none; margin: 4px 0 10px; padding: 0; }
+.cv-fold-list li { padding: 7px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.cv-fold-list li:first-child { border-top: 0; }
+.cv-fold-list a { color: var(--ink); font-weight: 600; }
+.cv-more { display: flex; justify-content: center; margin: 18px 0 0; }
+
+/* ======================================================================= GOAT page */
+.cv-goat-layout { grid-template-columns: minmax(0, 1fr) 300px; }
+.cv-formula { position: sticky; top: 20px; }
+.cv-formula .cv-goat-sliders { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 1100px) {
+  .cv-goat-layout { grid-template-columns: minmax(0, 1fr); }
+  .cv-formula { position: static; order: -1; }
+  .cv-formula .cv-goat-sliders { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+}
+
+/* rows, not cards: the stories in Home's side card stay plain */
+.cv-mini-stories .cv-story { background-image: none; }
+
+/* the phone's top bar carries the league shortcuts on a line of their own */
+@media (max-width: 860px) {
+  .cv-mtop { flex-direction: column; align-items: stretch; gap: 10px; }
+  .cv-mtop .cv-quick { margin: 0; }
+  .cv-mtop .cv-quick a { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
+}
+
+/* On a phone the easy/hard tags shrink to a dot, so a rating stays on one line; the words are
+   still in the tag's title. "fixed" and "next sim" keep their words - those change what you can do. */
+@media (max-width: 640px) {
+  .cv-rtag.is-easy, .cv-rtag.is-hard { font-size: 0; padding: 0; width: 8px; height: 8px; border-radius: 50%; }
+  .cv-rtag.is-easy { background: var(--good); }
+  .cv-rtag.is-hard { background: #B4452A; }
+}
+
+/* Range sliders (the GOAT formula): a rind track and a cheese-coloured thumb, not the browser's
+   black-and-blue default. */
+input[type='range'] { -webkit-appearance: none; appearance: none; height: 22px; background: transparent; cursor: pointer; }
+input[type='range']::-webkit-slider-runnable-track { height: 8px; border-radius: 4px; background: var(--rind); }
+input[type='range']::-moz-range-track { height: 8px; border-radius: 4px; background: var(--rind); }
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 20px; height: 20px; margin-top: -6px;
+  border-radius: 50%; background: var(--crust); border: 3px solid var(--card); box-shadow: 0 1px 4px rgba(42, 33, 24, .3);
+}
+input[type='range']::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: var(--crust); border: 3px solid var(--card);
+  box-shadow: 0 1px 4px rgba(42, 33, 24, .3);
+}
+input[type='range']:focus-visible { outline: 3px solid var(--crust); outline-offset: 2px; border-radius: 6px; }
+

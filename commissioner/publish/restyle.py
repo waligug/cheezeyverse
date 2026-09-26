@@ -188,6 +188,15 @@ a.cv-rookie {{
   margin: -8px -8px 12px !important;
   font-family: {font} !important;
 }}
+/* cheese holes in the rind, as on the player site's sidebar */
+.cv-bar {{
+  background-image:
+    radial-gradient(circle at 38% 30%, #E9D6B1 0 5px, transparent 5.6px),
+    radial-gradient(circle at 57% 78%, #E9D6B1 0 8px, transparent 8.6px),
+    radial-gradient(circle at 74% 22%, #EBDAB8 0 4px, transparent 4.6px),
+    radial-gradient(circle at 91% 70%, #E9D6B1 0 6px, transparent 6.6px) !important;
+  background-repeat: no-repeat !important;
+}}
 .cv-bar .cv-home {{
   font-weight: 700 !important;
   font-size: 15px !important;

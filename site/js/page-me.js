@@ -18,7 +18,7 @@ import {
   declareForDraft, deletePendingCharacter, LEAGUE_LABELS, errorText,
   oauthErrorFromUrl, pointsPerWeek,
 } from './supabase.js';
-import { $, classLine, clear, describeCharacter, el, fmtDate, freshJSON, goalLine, money, note, positionLine, renderChrome, renderFooter, renderMeter, renderSheet, renderTraitBars, setupNeededNote, showNote, statusPill, tabs } from './ui.js';
+import { $, classLine, clear, describeCharacter, el, fmtDate, freshJSON, goalLine, money, note, positionLine, renderChrome, renderFooter, renderSheet, renderTraitBars, setupNeededNote, showNote, statusPill, tabs } from './ui.js';
 
 const chrome = renderChrome({
   active: 'me.html',
@@ -32,6 +32,19 @@ $('#signin').addEventListener('click', () => signIn().catch(
 
 /** rendering state, one entry per character id */
 const drafts = new Map();
+
+/* What was open last time: which player, which of his tabs, and whether the sheet was on
+   ratings or ceilings. Kept in this browser only, so a reload - including the one every sent
+   request triggers - lands where you were. Storage can be missing or refuse (a private window,
+   blocked site data), and then the page simply opens on the first of each. */
+const PLACE_KEY = 'cv-me-place';
+const place = (() => {
+  try { return JSON.parse(localStorage.getItem(PLACE_KEY) || 'null') || {}; } catch (err) { return {}; }
+})();
+function remember(key, value) {
+  place[key] = value;
+  try { localStorage.setItem(PLACE_KEY, JSON.stringify(place)); } catch (err) { /* fine */ }
+}
 
 /* An OAuth failure comes back in the URL, not as an exception - see oauthErrorFromUrl().
    Read it before anything else so the page can say what happened instead of just looking
@@ -114,15 +127,28 @@ async function load() {
     return;
   }
 
-  for (const character of characters) {
-    box.append(renderCharacter(
+  const cards = characters.map((character) => ({
+    key: character.id,
+    label: `${character.first_name} ${character.last_name}`,
+    badge: String(Number(character.points_available) || 0),
+    node: renderCharacter(
       character,
       requests.filter((r) => r.character_id === character.id),
       ledger.filter((l) => l.character_id === character.id),
       currentAge(character, cfg.current_season),
       cfg.current_season,
-    ));
+    ),
+  }));
+  /* ONE PLAYER AT A TIME. Every card used to be open, one under the other, so somebody with
+     three players scrolled past two full sheets to reach the third. A strip of names on top
+     switches between them instead, each chip carrying his banked points. */
+  if (cards.length > 1) {
+    box.append(tabs(cards, {
+      initial: place.character, className: 'cv-player-tabs',
+      onChange: (id) => remember('character', id),
+    }));
   }
+  box.append(...cards.map((c) => c.node));
 }
 
 /* ------------------------------------------------------------------------ one player */
@@ -291,24 +317,26 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
   const bias = character.growth_bias || {};
   const reserved = reservedCost(requests);
 
-  card.append(el('div', { class: 'cv-card-head' },
-    el('h2', {},
-      (character.jersey_preference === null || character.jersey_preference === undefined
-        ? '' : `#${character.jersey_preference} `)
-      + `${character.first_name} ${character.last_name}`),
-    statusPill(character.status),
-    el('span', { class: 'cv-pill' }, LEAGUE_LABELS[character.league] || character.league)));
-
-  card.append(el('p', { class: 'cv-muted' },
-    `${describeCharacter(character, currentSeason)}`
-    + (character.hometown ? ` · ${character.hometown}` : '')
-    + (character.game_dob ? ` · born ${fmtDate(character.game_dob)} in game` : '')));
-
-  card.append(el('p', { class: 'cv-actions' },
-    el('a', { class: 'cv-btn cv-small cv-ghost', href: `career.html?id=${encodeURIComponent(character.id)}` },
-      'His whole career'),
-    el('span', { class: 'cv-muted' },
-      'prep, college and pro on one page, with the growth and the spending')));
+  /* The number you spend against, big and on the right, as on the mockup. It is filled in by
+     drawSpend() on every click, because it is the same "free to spend" the old meter showed. */
+  const pointsBig = el('b', {}, String(Number(character.points_available) || 0));
+  const pointsNote = el('span', {}, 'points to spend');
+  const initials = `${(character.first_name || '?')[0]}${(character.last_name || '')[0] || ''}`.toUpperCase();
+  card.append(el('div', { class: 'cv-me-head' },
+    el('span', { class: `cv-avatar is-big is-${character.league}`, 'aria-hidden': 'true' }, initials),
+    el('div', { class: 'cv-me-who' },
+      el('h2', {},
+        (character.jersey_preference === null || character.jersey_preference === undefined
+          ? '' : `#${character.jersey_preference} `)
+        + `${character.first_name} ${character.last_name}`),
+      el('p', { class: 'cv-muted' },
+        statusPill(character.status), ' ',
+        el('span', { class: 'cv-pill' }, LEAGUE_LABELS[character.league] || character.league), ' ',
+        `${describeCharacter(character, currentSeason)}`
+        + (character.hometown ? ` · ${character.hometown}` : '')
+        + (character.game_dob ? ` · born ${fmtDate(character.game_dob)} in game` : '') + ' · ',
+        el('a', { href: `career.html?id=${encodeURIComponent(character.id)}` }, 'His whole career'))),
+    el('div', { class: 'cv-me-points' }, pointsBig, pointsNote)));
 
   /* ---- who he is, folded away ---------------------------------------------------------
      This is the nicest writing on the site and on a phone it was in the way: about 600px of
@@ -340,10 +368,12 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
   card.append(body);
 
   /* ---- spend ---- */
-  const meter = el('div', { class: 'cv-meter cv-cheese' });
   const sheet = el('div', {});
   const problems = el('div', {});
+  const summary = el('span', { class: 'cv-spendbar-what' });
   const actions = el('div', { class: 'cv-actions' });
+  const bar = el('div', { class: 'cv-spendbar' }, summary, actions);
+  let mode = place.mode === 'potential' ? 'potential' : 'rating';
 
   const inflight = inflightOf(requests);
   const base = {
@@ -406,37 +436,55 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
 
   function drawSpend() {
     const queued = queuedCost();
-    // budget/spent/label are the OLD renderMeter's argument names, sent alongside the new
-    // ones on purpose. ui.js is shared by every page and carries its own 10-minute cache
-    // entry, so somebody who was just on the roll call has ui.js cached while me.html and
-    // page-me.js come down fresh - a new caller meeting an old renderMeter, which read
-    // undefined for both numbers and rendered "undefined POINTS LEFT undefined SPENT".
-    // Caught on the live site. Costs three keys; remove them once nobody can still be
-    // holding the September 19 ui.js, which in practice is the next time this file changes.
-    renderMeter(meter, {
-      free: freePoints(), reserved, queued,
-      budget: freePoints(), spent: queued,
-      label: reserved ? `${reserved} already asked for` : klass.label,
-    });
+    const free = freePoints();
+    pointsBig.textContent = String(free);
+    pointsNote.textContent = [
+      free === 1 ? 'point to spend' : 'points to spend',
+      reserved ? `${reserved} already asked for` : '',
+      queued ? `${queued} staged below` : '',
+    ].filter(Boolean).join(' · ');
     renderSheet(sheet, {
       base,
       inflight,
       bias,
       ratings: draft.ratings,
       potentials: draft.potentials,
-      budget: freePoints(),
+      budget: free,
       showPotentials: true,
+      mode,
     }, step);
+
+    // What is staged, in words, so the bar says what the button will send.
+    const changes = [];
+    for (const r of RATINGS) {
+      const from = Number(base.ratings[r] ?? 0);
+      const to = Number(draft.ratings[r] ?? from);
+      if (to > from) changes.push(`${RATING_LABELS[r]} ${from}→${to}`);
+    }
+    for (const r of POTENTIAL_RATINGS) {
+      const from = Number(base.potentials[r] ?? 0);
+      const to = Number(draft.potentials[r] ?? from);
+      if (to > from) changes.push(`${RATING_LABELS[r]} potential ${from}→${to}`);
+    }
+    clear(summary);
+    if (changes.length) {
+      summary.append(el('span', { class: 'cv-spendbar-count' },
+        `${changes.length} change${changes.length === 1 ? '' : 's'}`), ' ', changes.join(' · '));
+    } else {
+      summary.append(`Nothing staged. ${free} point${free === 1 ? '' : 's'} free - press + on a rating.`);
+    }
+    bar.classList.toggle('is-live', queued > 0);
+
     clear(actions);
+    const undo = el('button', {
+      class: 'cv-btn cv-ghost cv-small', type: 'button', disabled: queued === 0,
+      onclick: () => { drafts.delete(character.id); draftFor(character); load(); },
+    }, 'Clear');
     const send = el('button', {
       class: 'cv-btn', type: 'button', disabled: queued === 0,
       onclick: () => sendRequests(character, base, draft, send, problems),
-    }, queued ? `Ask for these ${queued} point${queued === 1 ? '' : 's'}` : 'Nothing queued yet');
-    const undo = el('button', {
-      class: 'cv-btn cv-ghost', type: 'button', disabled: queued === 0,
-      onclick: () => { drafts.delete(character.id); draftFor(character); load(); },
-    }, 'Undo');
-    actions.append(send, undo);
+    }, queued ? `Send ${queued} point${queued === 1 ? '' : 's'}` : 'Send');
+    actions.append(undo, send);
   }
 
   /* ---- the card's sections, behind tabs ----------------------------------------------
@@ -448,14 +496,35 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
   if (character.status === 'retired') {
     body.append(note(null, 'Retired. His sheet is frozen.'));
   } else {
+    /* Ratings or ceilings. The plus and minus act on one or the other, so each rating needs one
+       pair of buttons instead of two - the second pair, for the potential, is what used to push
+       every row onto a second line. */
+    const modes = el('div', { class: 'cv-seg cv-seg-small', role: 'tablist', 'aria-label': 'What the buttons raise' });
+    const drawModes = () => {
+      clear(modes);
+      for (const [key, words] of [['rating', 'Ratings'], ['potential', 'Ceilings']]) {
+        modes.append(el('button', {
+          type: 'button', role: 'tab', 'aria-selected': mode === key ? 'true' : 'false',
+          onclick: () => { if (mode === key) return; mode = key; remember('mode', key); drawModes(); drawSpend(); },
+        }, words));
+      }
+    };
+    drawModes();
     spendPanel = el('div', {},
-      meter,
-      el('p', { class: 'cv-hint' },
-        `What a step costs: ${describeCurve()}.`),
-      el('p', { class: 'cv-hint' },
-        'Nothing changes until the commissioner applies it during a Sim Week. '
-        + 'Queued points are held back so you cannot promise the same point twice.'),
-      sheet, problems, actions);
+      el('div', { class: 'cv-spend-tools' },
+        modes,
+        el('span', { class: 'cv-spend-legend' },
+          el('span', { class: 'cv-key-fill' }), 'rating',
+          el('span', { class: 'cv-key-queued' }), 'staged',
+          el('span', { class: 'cv-key-tick' }), 'potential'),
+        el('details', { class: 'cv-fold cv-fold-inline' },
+          el('summary', {}, 'How pricing works'),
+          el('div', { class: 'cv-fold-body' },
+            el('p', { class: 'cv-hint' }, `What a step costs: ${describeCurve()}. Potentials cost double.`),
+            el('p', { class: 'cv-hint' },
+              'Nothing changes until the commissioner applies it during a Sim Week. '
+              + 'Staged and sent points are held back so you cannot promise the same point twice.')))),
+      sheet, problems, bar);
   }
 
   let traitsPanel = null;
@@ -467,16 +536,17 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
   }
 
   const sections = [
-    { label: 'Spend', node: spendPanel },
-    { label: 'Season', node: character.status === 'pending' ? null : seasonPanel(character) },
-    { label: 'Him', node: traitsPanel },
-    { label: 'Requests', node: el('div', {}, requestTable(requests)),
+    { key: 'spend', label: 'Spend', node: spendPanel },
+    { key: 'season', label: 'Season', node: character.status === 'pending' ? null : seasonPanel(character) },
+    { key: 'him', label: 'Him', node: traitsPanel },
+    { key: 'requests', label: 'Requests', node: el('div', {}, requestTable(requests)),
       badge: requests.filter((r) => r.status === 'pending' || r.status === 'approved').length || null },
-    { label: 'Points', node: el('div', {}, ledgerTable(ledger, character)) },
-    { label: 'Money', node: moneyPanel(character) },
+    { key: 'points', label: 'Points', node: el('div', {}, ledgerTable(ledger, character)) },
+    { key: 'money', label: 'Money', node: moneyPanel(character) },
   ].filter((x) => x.node);
 
-  body.append(tabs(sections), ...sections.map((x) => x.node));
+  body.append(tabs(sections, { initial: place.tab, onChange: (key) => remember('tab', key) }),
+    ...sections.map((x) => x.node));
   // after the sheet is in the document: drawSpend measures what it renders into
   if (spendPanel) drawSpend();
 

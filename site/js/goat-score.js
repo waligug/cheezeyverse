@@ -207,16 +207,28 @@ export function renderGoatBoard(host, data, opts = {}) {
 
   const excluded = (data && data.excluded) || [];
   if (excluded.length) {
+    // The reason lives on the All time page, beside the season's numbers; this page only links it.
     host.append(el('p', { class: 'cv-muted cv-small' },
       `Season${excluded.length > 1 ? 's' : ''} ${excluded.join(', ')} left out completely - stats, `
-      + 'playoffs, awards and titles - because the league was broken that year (see the note above).'));
+      + 'playoffs, awards and titles - because the league was broken that year. ',
+      el('a', { href: 'goats.html' }, 'Why, on the All time page'), '.'));
   }
-  host.append(
-    el('details', { class: 'cv-fold' },
-      el('summary', {}, 'Adjust the formula'),
+  if (opts.formulaHost) {
+    // The GOAT page keeps the formula beside the board, always open, rather than folded above it.
+    clear(opts.formulaHost);
+    opts.formulaHost.append(
       el('p', { class: 'cv-muted cv-small' },
         'Move a slider and the board re-ranks. Your weights are remembered on this device.'),
-      sliders),
-    board);
+      sliders);
+    host.append(board);
+  } else {
+    host.append(
+      el('details', { class: 'cv-fold' },
+        el('summary', {}, 'Adjust the formula'),
+        el('p', { class: 'cv-muted cv-small' },
+          'Move a slider and the board re-ranks. Your weights are remembered on this device.'),
+        sliders),
+      board);
+  }
   draw();
 }
