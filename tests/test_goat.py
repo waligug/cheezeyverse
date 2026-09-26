@@ -39,6 +39,17 @@ class Build(unittest.TestCase):
         self.assertEqual([t["s"] for t in star["titles"]], [2030])
 
 
+class Anomalies(unittest.TestCase):
+    def test_a_broken_season_is_left_out(self):
+        history = [(2031, {"players": [line(f"P{i}", "A") for i in range(12)]}),
+                   (2032, {"players": [line(f"P{i}", "A") for i in range(12)]})]
+        from commissioner import statsarchive
+        with unittest.mock.patch.object(goat, "champions", return_value={}),              unittest.mock.patch.object(statsarchive, "anomaly", side_effect=lambda k, s: "broken" if s == 2031 else None):
+            out = goat.build("pro", history=history, playoff_history=[], honours={})
+        self.assertEqual(out["excluded"], [2031])
+        self.assertTrue(all(x["s"] == 2032 for p in out["players"] for x in p["seasons"]))
+
+
 import unittest.mock  # noqa: E402
 
 if __name__ == "__main__":

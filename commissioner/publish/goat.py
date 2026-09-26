@@ -203,6 +203,13 @@ def build(key, history=None, playoff_history=None, honours=None):
     history = history if history is not None else statsarchive.archived_seasons(key)
     playoff_history = (playoff_history if playoff_history is not None
                        else statsarchive.archived_seasons(key, "playoffs"))
+    # A SEASON FLAGGED AS NOT COMPARABLE IS LEFT OUT ENTIRELY (Nate, 2026-09-25: "exclude the
+    # bugged pro season"). Pro 2031 was played with half of every roster floored to rating 3, so
+    # its lines, its playoffs and anything won in it say nothing about who was great. Its
+    # honours and title drop out with it, because they are only credited in seasons he played.
+    skipped = [s for s, _ in history if statsarchive.anomaly(key, s)]
+    history = [(s, p) for s, p in history if s not in skipped]
+    playoff_history = [(s, p) for s, p in playoff_history if s not in skipped]
     honours = honours if honours is not None else collect_honours(key)
     try:
         champs = champions(key)
@@ -283,7 +290,7 @@ def build(key, history=None, playoff_history=None, honours=None):
     # everybody with a real career, a ring or an honour stays.
     out = [r for r in out if r["career"] >= MIN_CAREER or r["titles"] or r["honours"]]
     return {"league": key, "generated": datetime.now().isoformat(timespec="seconds"),
-            "fair_share": FAIR_SHARE,
+            "fair_share": FAIR_SHARE, "excluded": skipped,
             "seasons": [s for s, _ in history], "players": out}
 
 

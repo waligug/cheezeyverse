@@ -205,6 +205,12 @@ export function renderGoatBoard(host, data, opts = {}) {
   };
   drawSliders();
 
+  const excluded = (data && data.excluded) || [];
+  if (excluded.length) {
+    host.append(el('p', { class: 'cv-muted cv-small' },
+      `Season${excluded.length > 1 ? 's' : ''} ${excluded.join(', ')} left out completely - stats, `
+      + 'playoffs, awards and titles - because the league was broken that year (see the note above).'));
+  }
   host.append(
     el('details', { class: 'cv-fold' },
       el('summary', {}, 'Adjust the formula'),
