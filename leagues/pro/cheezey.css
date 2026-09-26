@@ -1,0 +1,253 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Figtree:wght@400;600;700&display=swap');
+/* Cheezeyverse skin over FBPB3 HTML Output. Every rule is !important because the game
+   writes its own <style> block into each page and we cannot control the order. */
+@font-face { font-family: 'CVFallback'; src: local('Trebuchet MS'), local('Verdana'); }
+
+html, body {
+  background: #FBF7EE !important;
+  color: #2A2118 !important;
+  font-family: 'Figtree', 'Trebuchet MS', Verdana, sans-serif !important;
+}
+
+/* ---- the left menu: a wedge of cheese, holes and all ---- */
+body.cv-menu {
+  background-color: #F1E4CB !important;
+  background-image:
+    radial-gradient(circle at 22% 14%, #8A5A2B22 0 9px, transparent 10px),
+    radial-gradient(circle at 74% 27%, #8A5A2B22 0 6px, transparent 7px),
+    radial-gradient(circle at 34% 46%, #8A5A2B22 0 11px, transparent 12px),
+    radial-gradient(circle at 80% 63%, #8A5A2B22 0 7px, transparent 8px),
+    radial-gradient(circle at 26% 78%, #8A5A2B22 0 8px, transparent 9px),
+    radial-gradient(circle at 66% 90%, #8A5A2B22 0 5px, transparent 6px),
+    linear-gradient(160deg, #F1E4CB 0%, #D0843A 100%) !important;
+  background-repeat: no-repeat !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.cv-wordmark {
+  font: 800 17px/1.05 'Bricolage Grotesque', 'Figtree', 'Trebuchet MS', Verdana, sans-serif !important;
+  color: #2A2118 !important;
+  padding: 12px 10px 10px 12px !important;
+  letter-spacing: .5px !important;
+  text-shadow: 0 1px 0 #FFFFFF80 !important;
+  border-bottom: 2px solid #8A5A2B !important;
+  margin-bottom: 6px !important;
+}
+.cv-wordmark small {
+  display: block !important;
+  font: 600 10px/1.4 'Figtree', 'Trebuchet MS', Verdana, sans-serif !important;
+  letter-spacing: 1.6px !important;
+  text-transform: uppercase !important;
+  color: #8A5A2B !important;
+  text-shadow: none !important;
+}
+body.cv-menu table { width: 100% !important; border-collapse: collapse !important; }
+body.cv-menu td { padding: 0 !important; }
+a.menulink {
+  display: block !important;
+  color: #2A2118 !important;
+  font: 600 11px/1 'Figtree', 'Trebuchet MS', Verdana, sans-serif !important;
+  padding: 6px 10px 6px 12px !important;
+  text-decoration: none !important;
+  border-left: 3px solid transparent !important;
+}
+a.menulink:hover {
+  background: #FFFFFF55 !important;
+  border-left-color: #8A5A2B !important;
+}
+
+/* ---- the nav bar every content page carries ---- */
+/* Inside the frameset, FBPB3's own menu is already down the left-hand side and this bar
+   repeats it - two navigations doing the same job, which is what it looked like. The bar
+   exists for pages opened DIRECTLY: a shared link, a search result, any of the 600-odd
+   player pages, none of which carry a menu of their own. So: show it when the page stands
+   alone, hide it when it is framed. The class is set by the snippet _skin_page injects. */
+html.cv-framed .cv-bar { display: none !important; }
+
+/* Season honours stay beside the game's award winners, with links to every player. */
+.cv-all-stars { max-width: 800px; margin: 12px 0 24px; }
+.cv-all-stars h2 { font-size: 22px; margin: 0 0 8px; color: #2A2118; }
+.cv-all-stars h2 small { font-size: 12px; font-weight: normal; color: #8A5A2B; margin-left: 8px; }
+.cv-award-rewards, .cv-award-empty { font-size: 12px; line-height: 1.7; color: #8A5A2B; }
+.cv-star-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px; list-style: none; padding: 0; margin: 14px 0 0; }
+.cv-star-grid li { padding: 10px 12px; background: #F7F0E1; border: 1px solid #E6D7BA;
+  border-radius: 6px; min-width: 0; }
+.cv-star-grid a { font-size: 13px !important; font-weight: bold; overflow-wrap: anywhere; }
+.cv-star-grid span { display: block; font-size: 11px; margin-top: 5px; color: #8A5A2B; }
+@media (max-width: 600px) { .cv-star-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 360px) { .cv-star-grid { grid-template-columns: 1fr; } }
+
+/* When this copy was published. Pushed to the far end and kept quiet: it is the answer to "am I
+   looking at a stale page?", which matters only when somebody is already asking. */
+.cv-bar .cv-published {
+  margin-left: auto !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  opacity: .7 !important;
+  white-space: nowrap !important;
+}
+
+/* A real person's player, among four hundred the game invented. Without this they are
+   indistinguishable on a roster page, which is the opposite of the point: the whole site
+   exists so somebody can find THEIR guy. */
+a.cv-ours {
+  background: #D0843A !important;
+  color: #2A2118 !important;
+  font-weight: 700 !important;
+  padding: 1px 5px 1px 4px !important;
+  border-radius: 3px !important;
+  border: 1px solid #8A5A2B !important;
+  text-decoration: none !important;
+}
+a.cv-ours:hover { background: #F1E4CB !important; }
+/* ROOKIES, in the human blue FBPB3 already uses for a played team - a colour the eye already
+   reads as "not ordinary filler" on these pages. Underlined rather than filled, so a leaderboard
+   of thirty names does not turn into a block of colour and so it can never be confused with the
+   gold badge that means the player is YOURS. */
+a.cv-rookie {
+  color: #1D5C8A !important;
+  font-weight: 700 !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+}
+/* No ::before glyph here on purpose. The obvious cheese-emoji escape is a trap twice
+   over: STYLESHEET is an ordinary Python string, so a CSS escape beginning with a digit
+   is read as an OCTAL escape and the generated CSS ends up holding a real 0x01 byte; and
+   these pages are served as iso-8859-1, which a linked stylesheet inherits, so a literal
+   emoji would not survive either. The gold pill and border say 'this one is a person'
+   perfectly well on their own. */
+
+.cv-legend {
+  font: 11px 'Figtree', 'Trebuchet MS', Verdana, sans-serif !important;
+  color: #8A5A2B !important;
+  margin: 2px 0 10px 0 !important;
+  display: flex !important; flex-wrap: wrap !important;
+  align-items: center !important; gap: 4px 6px !important;
+}
+.cv-legend i {
+  width: 11px !important; height: 11px !important; display: inline-block !important;
+  border: 1px solid #8A5A2B !important; border-radius: 2px !important;
+}
+.cv-legend b { font-weight: 700 !important; margin-right: 3px !important; }
+
+/* A result with no box score behind it. Left looking like data rather than a broken link. */
+.cv-noscore { color: #2A2118 !important; }
+
+.cv-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  gap: 4px 14px !important;
+  background: #F1E4CB !important;
+  border-bottom: 1px solid #E6D7BA !important;
+  padding: 7px 12px 8px !important;
+  margin: -8px -8px 12px !important;
+  font-family: 'Figtree', 'Trebuchet MS', Verdana, sans-serif !important;
+}
+/* cheese holes in the rind, as on the player site's sidebar */
+.cv-bar {
+  background-image:
+    radial-gradient(circle at 38% 30%, #E9D6B1 0 5px, transparent 5.6px),
+    radial-gradient(circle at 57% 78%, #E9D6B1 0 8px, transparent 8.6px),
+    radial-gradient(circle at 74% 22%, #EBDAB8 0 4px, transparent 4.6px),
+    radial-gradient(circle at 91% 70%, #E9D6B1 0 6px, transparent 6.6px) !important;
+  background-repeat: no-repeat !important;
+}
+.cv-bar .cv-home {
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  color: #2A2118 !important;
+  text-decoration: none !important;
+  margin-right: 6px !important;
+}
+.cv-bar .cv-home small {
+  display: block !important;
+  font-weight: 600 !important;
+  font-size: 9.5px !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: #8A5A2B !important;
+}
+.cv-bar nav { display: flex !important; flex-wrap: wrap !important; gap: 2px 12px !important; }
+.cv-bar nav a {
+  color: #2A2118 !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  padding: 2px 0 !important;
+  border-bottom: 2px solid transparent !important;
+}
+.cv-bar nav a:hover { border-bottom-color: #8A5A2B !important; }
+.cv-bar nav a.on { border-bottom-color: #2A2118 !important; }
+.cv-universe {
+   display: flex !important; flex-wrap: wrap !important; gap: 2px 14px !important;
+   width: 100% !important; margin: 0 0 6px 0 !important; padding: 0 0 5px 0 !important;
+   border-bottom: 1px solid #8A5A2B !important; font-size: 9pt !important;
+}
+.cv-universe a {
+   color: #2A2118 !important; text-decoration: none !important; opacity: .75 !important;
+}
+.cv-universe a:hover { opacity: 1 !important; text-decoration: underline !important; }
+.cv-universe a.on { opacity: 1 !important; font-weight: 700 !important; }
+.cv-universe .cv-up { font-weight: 700 !important; opacity: 1 !important; }
+body.cv-menu .cv-universe {
+   flex-direction: column !important; gap: 3px !important; margin: 0 0 8px 0 !important;
+   padding: 0 8px 8px 8px !important;
+}
+
+/* ---- data pages ---- */
+td.main, td.header, td.plainheader, td.headerbg, td.teamheader, td.teamheader2,
+td.tableheader, td.newheader { font-family: 'Figtree', 'Trebuchet MS', Verdana, sans-serif !important; }
+
+td.plainheader, td.newheader {
+  background: transparent !important;
+  color: #2A2118 !important;
+  font-family: 'Bricolage Grotesque', 'Figtree', 'Trebuchet MS', Verdana, sans-serif !important;
+  font-weight: 800 !important;
+  font-size: 22px !important;
+  letter-spacing: -.4px !important;
+  padding: 10px 0 6px 0 !important;
+}
+td.header, td.headerbg {
+  background: #F7F0E1 !important;
+  color: #2A2118 !important;
+  font-weight: 700 !important;
+  padding: 4px 6px !important;
+  border-bottom: 2px solid #E6D7BA !important;
+}
+td.tableheader { color: #8A5A2B !important; }
+tr.row1 { background: #FBF7EE !important; }
+tr.row2 { background: #F7F0E1 !important; }
+tr.teamcolor { background: #8A5A2B !important; color: #FFF8E6 !important; }
+td.main { padding: 2px 5px !important; }
+a.linkmain { color: #8A5A2B !important; font-weight: 600 !important; }
+a.linkhuman { color: #1D5C8A !important; font-weight: 700 !important; }
+a:hover { text-decoration: underline !important; }
+
+/* Dropping the missing player photos leaves the cell that held them behind; an empty cell with a
+   team-coloured background reads as a rendering fault. */
+/* Empty cells are usually FBPB3 padding and look like holes once the skin is on, so they
+   are flattened - EXCEPT the ones carrying a bgcolor. Those are the ability swatches beside
+   every player (left = what he is now, right = what he could become), and they are empty on
+   purpose: the colour IS the value. Blanking them turned every swatch on every roster page
+   into an empty white box, which is what they looked like until somebody asked. */
+td:empty:not([bgcolor]), td.cv-blank:not([bgcolor]),
+td.teamheader:empty:not([bgcolor]), td.headerbg:empty:not([bgcolor]) {
+  background: transparent !important; padding: 0 !important;
+}
+
+/* The swatches themselves. FBPB3 wraps each in a 1px-bordered table of its own; give them a
+   consistent size and a border that belongs to this skin rather than 1996. */
+td[bgcolor] {
+  padding: 0 !important;
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 2px !important;
+}
+td.main > table { border-collapse: separate !important; }
+td.main > table, td.main > table td { border-color: #8A5A2B !important; }
+
+/* team pages keep their own team colour on the big banner, but the chrome matches the league */
+td.teamheader { color: #FFF8E6 !important; letter-spacing: -.5px !important; }
+td.teamheader2 { color: #FFF8E6 !important; }
