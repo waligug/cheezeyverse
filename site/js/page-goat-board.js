@@ -31,6 +31,15 @@ let ONLY_OURS = false;
 let DATA = null;
 
 $('#only-ours').addEventListener('change', (e) => { ONLY_OURS = e.target.checked; draw(); });
+
+/* On a narrow screen the formula sits above the board, and open it pushed the board a screen
+   down - every slider you moved re-ranked a list you could not see. So there it starts shut
+   behind an Adjust button (the button only shows at that width; see .cv-formula-toggle). */
+$('#formula-toggle').addEventListener('click', (e) => {
+  const open = $('#formula-card').classList.toggle('is-open');
+  e.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
+  e.currentTarget.textContent = open ? 'Hide' : 'Adjust';
+});
 renderSwitch();
 
 if (isConfigured()) {

@@ -1180,8 +1180,8 @@ body {
     radial-gradient(circle at 100% 46%, var(--ground) 0 13px, transparent 13.6px),
     radial-gradient(circle at 100% 72%, var(--ground) 0 7px, transparent 7.6px),
     radial-gradient(circle at 82% 8%, #E9D6B1 0 7px, transparent 7.6px),
-    radial-gradient(circle at 14% 58%, #E9D6B1 0 12px, transparent 12.6px),
-    radial-gradient(circle at 70% 64%, #EBDAB8 0 5px, transparent 5.6px),
+    radial-gradient(circle at 91% 38%, #E9D6B1 0 9px, transparent 9.6px),
+    radial-gradient(circle at 93% 60%, #EBDAB8 0 5px, transparent 5.6px),
     radial-gradient(circle at 38% 78%, #E9D6B1 0 18px, transparent 18.6px),
     radial-gradient(circle at 86% 86%, #EBDAB8 0 9px, transparent 9.6px),
     radial-gradient(circle at 20% 95%, #EBDAB8 0 6px, transparent 6.6px);
@@ -1484,3 +1484,18 @@ input[type='range']:focus-visible { outline: 3px solid var(--crust); outline-off
 }
 @media (max-width: 640px) { .cv-me-aside { display: none; } }
 
+/* ---- the GOAT formula: fits the window, and folds shut where it sits above the board ---- */
+.cv-formula { max-height: calc(100vh - 40px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.cv-formula .cv-goat-sliders { gap: 4px 18px; margin: 4px 0 8px; }
+.cv-formula .cv-goat-sliders label { margin: 0; }
+.cv-formula-awards { grid-column: 1 / -1; margin: 6px 0 4px; }
+.cv-formula-awards > summary { padding: 9px 12px; font-size: 14px; }
+.cv-formula-awards .cv-goat-sliders { padding: 0 12px 8px; margin: 0; }
+.cv-formula .cv-goat-sliders > .cv-btn { grid-column: 1 / -1; justify-self: start; margin-top: 4px; }
+.cv-formula-toggle { display: none; }
+@media (max-width: 1100px) {
+  .cv-formula { max-height: none; overflow: visible; }
+  .cv-formula-toggle { display: inline-flex; }
+  .cv-formula:not(.is-open) #formula { display: none; }
+  .cv-formula:not(.is-open) .cv-card-head { margin-bottom: 0; }
+}

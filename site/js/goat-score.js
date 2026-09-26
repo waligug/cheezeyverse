@@ -187,16 +187,31 @@ export function renderGoatBoard(host, data, opts = {}) {
   };
 
   const sliders = el('div', { class: 'cv-goat-sliders' });
+  const slider = ([key, label, max, step, hint]) => {
+    const out = el('output', {}, String(w[key]));
+    return el('label', { title: hint },
+      el('span', {}, label), out,
+      el('input', {
+        type: 'range', min: '0', max: String(max), step: String(step), value: String(w[key]),
+        oninput: (e) => { w[key] = Number(e.target.value); out.textContent = e.target.value; saveWeights(w); draw(); },
+      }));
+  };
   const drawSliders = () => {
     clear(sliders);
-    for (const [key, label, max, step, hint] of SLIDERS) {
-      const out = el('output', {}, String(w[key]));
-      sliders.append(el('label', { title: hint },
-        el('span', {}, label), out,
-        el('input', {
-          type: 'range', min: '0', max: String(max), step: String(step), value: String(w[key]),
-          oninput: (e) => { w[key] = Number(e.target.value); out.textContent = e.target.value; saveWeights(w); draw(); },
-        })));
+    if (opts.formulaHost) {
+      /* THE FORMULA HAS TO FIT ON ONE SCREEN. All fifteen sliders made a panel about 1,000px
+         tall that sat pinned beside the board, so its bottom half was below the window and
+         never scrolled into view until the end of the board. The six that decide most of a
+         score stay out; the nine award weights fold away, and remember whether they were open. */
+      const host = opts.formulaHost;
+      sliders.append(...SLIDERS.slice(0, 6).map(slider));
+      const awards = el('details', { class: 'cv-fold cv-formula-awards', open: host.dataset.awardsOpen === '1' },
+        el('summary', {}, `Award weights (${SLIDERS.length - 6})`),
+        el('div', { class: 'cv-goat-sliders' }, ...SLIDERS.slice(6).map(slider)));
+      awards.addEventListener('toggle', () => { host.dataset.awardsOpen = awards.open ? '1' : '0'; });
+      sliders.append(awards);
+    } else {
+      sliders.append(...SLIDERS.map(slider));
     }
     sliders.append(el('button', {
       class: 'cv-btn cv-small cv-ghost', type: 'button',
