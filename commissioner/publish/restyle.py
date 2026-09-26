@@ -23,26 +23,33 @@ from .awards import add_all_stars
 
 CSS_NAME = "cheezey.css"
 
+# Brie, the palette the player site switched to on 2026-09-25 (site/css/cheezey.css). The keys are
+# the old cheddar names so the rules below did not all have to be rewritten; the comment on each
+# says what it is now. tests/test_rules.py checks every value is also in the site's stylesheet.
 PALETTE = {
-    "gold": "#F2B705",      # young cheddar, the primary chrome
-    "deep": "#D9901A",      # aged, for header bands
-    "crust": "#8A5A00",     # rind
-    "ink": "#2E2100",       # text on gold
-    "cream": "#FFF8E6",     # page background
-    "cream2": "#F3E4BE",    # zebra stripe
-    "line": "#D9C48A",
-    "link": "#7A4B00",
+    "gold": "#F1E4CB",      # rind: the chrome (the nav bar, the menu)
+    "deep": "#D0843A",      # crust: the accent - a player who is ours
+    "crust": "#8A5A2B",     # bark: borders, secondary text
+    "ink": "#2A2118",       # text
+    "cream": "#FBF7EE",     # page background
+    "cream2": "#F7F0E1",    # zebra stripe, header bands
+    "line": "#E6D7BA",
+    "link": "#8A5A2B",
     "human": "#1D5C8A",     # the "human coach" blue FBPB3 uses for played teams
 }
 
-STYLESHEET = """/* Cheezeyverse skin over FBPB3 HTML Output. Every rule is !important because the game
+FONT = "'Figtree', 'Trebuchet MS', Verdana, sans-serif"
+DISPLAY = "'Bricolage Grotesque', 'Figtree', 'Trebuchet MS', Verdana, sans-serif"
+
+STYLESHEET = """@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Figtree:wght@400;600;700&display=swap');
+/* Cheezeyverse skin over FBPB3 HTML Output. Every rule is !important because the game
    writes its own <style> block into each page and we cannot control the order. */
 @font-face {{ font-family: 'CVFallback'; src: local('Trebuchet MS'), local('Verdana'); }}
 
 html, body {{
   background: {cream} !important;
   color: {ink} !important;
-  font-family: 'Trebuchet MS', Verdana, sans-serif !important;
+  font-family: {font} !important;
 }}
 
 /* ---- the left menu: a wedge of cheese, holes and all ---- */
@@ -61,7 +68,7 @@ body.cv-menu {{
   padding: 0 !important;
 }}
 .cv-wordmark {{
-  font: 700 17px/1.05 'Trebuchet MS', Verdana, sans-serif !important;
+  font: 800 17px/1.05 {display} !important;
   color: {ink} !important;
   padding: 12px 10px 10px 12px !important;
   letter-spacing: .5px !important;
@@ -71,7 +78,7 @@ body.cv-menu {{
 }}
 .cv-wordmark small {{
   display: block !important;
-  font: 600 10px/1.4 'Trebuchet MS', Verdana, sans-serif !important;
+  font: 600 10px/1.4 {font} !important;
   letter-spacing: 1.6px !important;
   text-transform: uppercase !important;
   color: {crust} !important;
@@ -82,7 +89,7 @@ body.cv-menu td {{ padding: 0 !important; }}
 a.menulink {{
   display: block !important;
   color: {ink} !important;
-  font: 600 11px/1 'Trebuchet MS', Verdana, sans-serif !important;
+  font: 600 11px/1 {font} !important;
   padding: 6px 10px 6px 12px !important;
   text-decoration: none !important;
   border-left: 3px solid transparent !important;
@@ -128,7 +135,7 @@ html.cv-framed .cv-bar {{ display: none !important; }}
    indistinguishable on a roster page, which is the opposite of the point: the whole site
    exists so somebody can find THEIR guy. */
 a.cv-ours {{
-  background: {gold} !important;
+  background: {deep} !important;
   color: {ink} !important;
   font-weight: 700 !important;
   padding: 1px 5px 1px 4px !important;
@@ -136,7 +143,7 @@ a.cv-ours {{
   border: 1px solid {crust} !important;
   text-decoration: none !important;
 }}
-a.cv-ours:hover {{ background: {deep} !important; }}
+a.cv-ours:hover {{ background: {gold} !important; }}
 /* ROOKIES, in the human blue FBPB3 already uses for a played team - a colour the eye already
    reads as "not ordinary filler" on these pages. Underlined rather than filled, so a leaderboard
    of thirty names does not turn into a block of colour and so it can never be confused with the
@@ -155,7 +162,7 @@ a.cv-rookie {{
    perfectly well on their own. */
 
 .cv-legend {{
-  font: 11px 'Trebuchet MS', Verdana, sans-serif !important;
+  font: 11px {font} !important;
   color: {crust} !important;
   margin: 2px 0 10px 0 !important;
   display: flex !important; flex-wrap: wrap !important;
@@ -175,11 +182,11 @@ a.cv-rookie {{
   flex-wrap: wrap !important;
   align-items: baseline !important;
   gap: 4px 14px !important;
-  background: linear-gradient(170deg, {gold}, {deep}) !important;
-  border-bottom: 3px solid {crust} !important;
+  background: {gold} !important;
+  border-bottom: 1px solid {line} !important;
   padding: 7px 12px 8px !important;
   margin: -8px -8px 12px !important;
-  font-family: 'Trebuchet MS', Verdana, sans-serif !important;
+  font-family: {font} !important;
 }}
 .cv-bar .cv-home {{
   font-weight: 700 !important;
@@ -225,21 +232,23 @@ body.cv-menu .cv-universe {{
 
 /* ---- data pages ---- */
 td.main, td.header, td.plainheader, td.headerbg, td.teamheader, td.teamheader2,
-td.tableheader, td.newheader {{ font-family: 'Trebuchet MS', Verdana, sans-serif !important; }}
+td.tableheader, td.newheader {{ font-family: {font} !important; }}
 
 td.plainheader, td.newheader {{
   background: transparent !important;
-  color: {crust} !important;
-  font-size: 21px !important;
+  color: {ink} !important;
+  font-family: {display} !important;
+  font-weight: 800 !important;
+  font-size: 22px !important;
   letter-spacing: -.4px !important;
   padding: 10px 0 6px 0 !important;
 }}
 td.header, td.headerbg {{
-  background: {deep} !important;
+  background: {cream2} !important;
   color: {ink} !important;
   font-weight: 700 !important;
-  padding: 3px 5px !important;
-  border-bottom: 2px solid {crust} !important;
+  padding: 4px 6px !important;
+  border-bottom: 2px solid {line} !important;
 }}
 td.tableheader {{ color: {crust} !important; }}
 tr.row1 {{ background: {cream} !important; }}
@@ -416,7 +425,7 @@ def _css_text():
     tracked source and this file is generated at publish time. So it is checked here, where it
     is made, on every single publish.
     """
-    css = STYLESHEET.format(**PALETTE)
+    css = STYLESHEET.format(**PALETTE, font=FONT, display=DISPLAY)
     bad = sorted({ord(c) for c in css if ord(c) < 0x20 and c not in "\t\n\r"})
     if bad:
         raise ValueError(

@@ -312,13 +312,16 @@ def test_pages_wire_up():
 
 
 def test_no_dark_theme():
-    """The brief says warm and cream, explicitly not a dark theme."""
+    """The brief says warm and cream, explicitly not a dark theme - and the player site and the
+    league pages wear one palette (Brie, since 2026-09-25), so every colour restyle.py skins the
+    league pages with has to be in the site's stylesheet too."""
     css = (ROOT / "site/css/cheezey.css").read_text(encoding="utf-8")
     check("no prefers-color-scheme: dark block", "prefers-color-scheme" not in css)
-    for token in ("#F2B705", "#D9901A", "#8A5A00", "#2E2100", "#FFF8E6",
-                  "#F3E4BE", "#D9C48A", "#7A4B00", "#1D5C8A"):
-        if token not in css:
-            check(f"palette keeps {token} from restyle.py", False)
+    sys.path.insert(0, str(ROOT))
+    from commissioner.publish.restyle import PALETTE
+    for name, token in PALETTE.items():
+        if token.upper() not in css.upper():
+            check(f"palette keeps {name} {token} from restyle.py", False)
             return
     check("palette matches restyle.py value for value", True)
 

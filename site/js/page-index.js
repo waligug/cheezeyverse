@@ -10,11 +10,13 @@ import {
   el, $, clear, renderChrome, renderFooter, setupNeededNote, showNote, statusPill,
   describeCharacter, fmtDate, note, freshJSON,
 } from './ui.js';
+import { storyCard } from './story-ui.js';
+import { score, loadWeights } from './goat-score.js';
 
 const LEAGUES = [
-  { key: 'prep', name: 'Cheezeyverse Prep', sub: 'Ages 14 to 17 · 30 games' },
-  { key: 'college', name: 'Cheezeyverse College', sub: 'Ages 18 to 21 · 32 games' },
-  { key: 'pro', name: 'The Cheezeyverse', sub: 'The pros · 58 games' },
+  { key: 'prep', name: 'Cheezeyverse Prep', sub: 'Ages 14 to 17 · 30 games', games: 30 },
+  { key: 'college', name: 'Cheezeyverse College', sub: 'Ages 18 to 21 · 32 games', games: 32 },
+  { key: 'pro', name: 'The Cheezeyverse', sub: 'The pros · 58 games', games: 58 },
 ];
 
 const chrome = renderChrome({
@@ -24,17 +26,41 @@ const chrome = renderChrome({
 });
 
 const cfg = config();
-if (cfg.tagline) $('#tagline').textContent = cfg.tagline;
+if (cfg.tagline) $('#headline').textContent = cfg.tagline;
 document.title = cfg.universeName || 'The Cheezeyverse';
 
-renderLeagues();
 renderFooter();
+
+/* Every character, once. The crew, the league cards and the glance all want the same list, and
+   asking Supabase three times for it is three chances for the page to disagree with itself. */
+const CHARACTERS = isConfigured()
+  ? allCharacters().catch((err) => { console.warn('characters failed', err); return []; })
+  : Promise.resolve([]);
 
 /* An OAuth failure comes back in the URL, not as an exception - see oauthErrorFromUrl().
    Read it before anything else so the page can say what happened instead of just looking
    signed out. This runs even when the Supabase client is never constructed. */
 const cvOauthError = oauthErrorFromUrl();
 if (cvOauthError) showNote($('#notices'), 'bad', `Discord sign-in failed: ${cvOauthError}`);
+
+/* The per-league stats.json, fetched once and shared by every panel. Declared up here, above the
+   panels that start below, because they read it synchronously on their first line. */
+const GLANCE = new Map();
+
+// Each panel on its own: one that cannot load must not take the others down with it.
+for (const [id, render, words] of [
+  ['#leagues', renderLeagueCards, 'The league numbers did not load.'],
+  ['#pulse', renderPulse, null],
+  ['#crew', renderCrew, 'The crew did not load.'],
+  ['#home-stories', renderHomeStories, 'The stories did not load.'],
+  ['#home-goat', renderHomeGoat, 'The GOAT board did not load.'],
+]) {
+  render().catch((err) => {
+    console.warn(`${id} failed`, err);
+    const box = $(id);
+    if (box) { clear(box); if (words) box.append(el('p', { class: 'cv-muted' }, words)); }
+  });
+}
 
 if (!isConfigured()) {
   clear($('#recent'));
@@ -43,32 +69,196 @@ if (!isConfigured()) {
   boot().catch((err) => showNote($('#notices'), 'bad', errorText(err)));
 }
 
-function renderLeagues() {
+/** How far through its regular season a league is: the most games any team has played. */
+function progressOf(stats, league) {
+  const played = Math.max(0, ...Object.values((stats && stats.teams) || {}).map((n) => Number(n) || 0));
+  return { played, total: league.games, share: Math.min(1, played / league.games) };
+}
+
+/** The best points-per-game among players who have played enough of their team's games. */
+function topScorer(stats) {
+  const teamGames = stats.teams || {};
+  let best = null;
+  for (const row of stats.players || []) {
+    const games = Number(row.G) || 0;
+    const team = Number(teamGames[row.team]) || 0;
+    if (!games || !team || games < team * MVP_MIN_SHARE) continue;
+    const ppg = (Number(row.PTS) || 0) / games;
+    if (!best || ppg > best.ppg) best = { name: row.name, team: row.team, ppg };
+  }
+  return best;
+}
+
+/** His row in a league's stats.json - by the game's own id first, then by name. */
+function statRow(character, stats) {
+  if (!stats) return null;
+  const page = pageOf(character, character.league);
+  const name = `${character.first_name} ${character.last_name}`;
+  const players = stats.players || [];
+  return (page && players.find((r) => r.page === page)) || players.find((r) => r.name === name) || null;
+}
+
+const playing = (c) => c.status === 'active' || c.status === 'declared';
+const record = (t) => `${t.w}–${t.l}`;
+
+/* ----------------------------------------------------------------------- the hero pulse */
+
+async function renderPulse() {
+  const pro = LEAGUES.find((l) => l.key === 'pro');
+  const [stats, characters] = await Promise.all([glanceStats('pro'), CHARACTERS]);
+  const box = $('#pulse');
+  clear(box);
+  if (!stats) return;
+
+  const { played, total, share } = progressOf(stats, pro);
+  const pct = Math.round(share * 100);
+  if (stats.season) $('#kicker').textContent = `${stats.season} · ${pct}% played`;
+
+  const scorer = topScorer(stats);
+  const leader = (stats.seeds || [])[0];
+  const line = [];
+  if (scorer) line.push(`${scorer.name} leads the pros at ${scorer.ppg.toFixed(1)} a night`);
+  if (leader) line.push(`the ${leader.name} are ${record(leader)}`);
+
+  const tile = (value, words) => el('div', {}, el('b', {}, String(value)), el('span', {}, words));
+  const left = Math.max(0, total - played);
+  box.append(
+    el('div', { class: 'cv-pulse-head' }, el('span', {}, 'Pro regular season'), el('span', {}, `${pct}%`)),
+    el('div', { class: 'cv-progress', role: 'img', 'aria-label': `${played} of ${total} games played` },
+      el('i', { style: `width:${pct}%` })),
+    el('div', { class: 'cv-pulse-tiles' },
+      tile(left, left === 1 ? 'game left' : 'games left'),
+      tile(characters.filter((c) => c.league === 'pro' && playing(c)).length, 'of ours in pro'),
+      tile(characters.filter((c) => c.status !== 'retired').length, 'characters')),
+    line.length ? el('p', { class: 'cv-hint' }, `${line.join(', and ')}.`) : null);
+}
+
+/* ---------------------------------------------------------------------- league cards */
+
+async function renderLeagueCards() {
   const sites = leagueSites();
+  const [characters, ...all] = await Promise.all([CHARACTERS, ...LEAGUES.map((l) => glanceStats(l.key))]);
   const box = $('#leagues');
   clear(box);
-  for (const league of LEAGUES) {
+  LEAGUES.forEach((league, i) => {
+    const stats = all[i];
     const site = sites[league.key];
-    const tile = site.ready
-      ? el('a', { class: 'cv-league cv-cheese', href: site.url })
-      : el('span', { class: 'cv-league cv-cheese is-placeholder',
-        title: 'Add this URL to site/config.js once the league site is published' });
-    tile.append(el('b', {}, league.name), el('span', {}, site.ready ? league.sub : 'not published yet'));
-    // The bracket link sits BESIDE the tile, not inside it: a tile is itself an <a>, and an <a>
-    // within an <a> is invalid and renders unpredictably. The two go in a wrapper so the grid
-    // still sees one item per league.
-    //
-    // The href is derived from the configured league URL by swapping its last segment, never
-    // assembled from a hardcoded path - config.js's leagueSites is the single place those URLs
-    // are set, and a second opinion about where a league lives is how the two drift apart the
-    // day somebody moves one.
-    const cell = el('div', { class: 'cv-league-cell' }, tile);
-    if (site.ready) {
-      cell.append(el('a', { class: 'cv-league-sub',
-        href: site.url.replace(/[^/]*$/, 'playoffs.htm') }, 'Playoff bracket'));
+    const label = LEAGUE_LABELS[league.key] || league.key;
+    const card = el('article', { class: `cv-league-card is-${league.key}` },
+      el('header', {}, el('h2', {}, label),
+        el('a', { href: `leagues.html?league=${league.key}` }, 'Standings')));
+
+    if (!stats) {
+      card.append(el('p', {}, 'Numbers appear here after the next Sim Week publishes.'));
+    } else {
+      const leader = (stats.seeds || [])[0];
+      const { played, total } = progressOf(stats, league);
+      const scorer = topScorer(stats);
+      const best = leader ? `${leader.name} ${record(leader)}` : '--';
+      card.append(
+        el('div', { class: 'cv-league-facts' },
+          el('div', {}, el('span', {}, 'Best record'), el('b', { title: best }, best)),
+          el('div', {}, el('span', {}, stats.season || 'Season'), el('b', {}, `${played} of ${total} games`))),
+        el('p', {}, 'Top scorer: ', el('b', {}, scorer ? `${scorer.name}, ${scorer.ppg.toFixed(1)}` : 'nobody qualifies yet')));
     }
-    box.append(cell);
+    const ours = characters.filter((c) => c.league === league.key && playing(c)).length;
+    card.append(el('p', {}, `${league.sub} · `, el('b', {}, `${ours} of ours`)));
+
+    const links = el('div', { class: 'cv-league-links' });
+    if (site.ready) {
+      // Derived from the configured league URL by swapping its last segment, never assembled
+      // from a hardcoded path - config.js's leagueSites is the single place those URLs are set.
+      links.append(el('a', { href: site.url }, 'League site'),
+        el('a', { href: site.url.replace(/[^/]*$/, 'playoffs.htm') }, 'Playoff bracket'));
+    } else {
+      links.append(el('span', { class: 'cv-muted' }, 'League site not published yet'));
+    }
+    card.append(links);
+    box.append(card);
+  });
+}
+
+/* ------------------------------------------------------------------------------ the crew */
+
+const CREW_SHOWN = 14;
+
+async function renderCrew() {
+  const characters = await CHARACTERS;
+  const box = $('#crew');
+  const crew = characters.filter((c) => c.status !== 'retired')
+    .sort((a, b) => (Number(b.points_available) || 0) - (Number(a.points_available) || 0)
+      || `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`));
+  if (!crew.length) {
+    clear(box);
+    box.append(el('p', {}, 'Nobody yet. ', el('a', { href: 'create.html' }, 'Be the first.')));
+    return;
   }
+  const stats = new Map(await Promise.all(LEAGUES.map(async (l) => [l.key, await glanceStats(l.key)])));
+  clear(box);
+  const list = el('ul', { class: 'cv-crew' });
+  for (const c of crew.slice(0, CREW_SHOWN)) {
+    const name = `${c.first_name} ${c.last_name}`;
+    const initials = `${(c.first_name || '?')[0]}${(c.last_name || '')[0] || ''}`.toUpperCase();
+    const row = statRow(c, stats.get(c.league));
+    const where = c.status === 'pending' ? 'awaiting a roster spot'
+      : [LEAGUE_LABELS[c.league] || c.league, row ? row.team : c.team_abbrev].filter(Boolean).join(' · ');
+    const points = Number(c.points_available) || 0;
+    list.append(el('li', {},
+      el('span', { class: `cv-avatar is-${c.league}`, 'aria-hidden': 'true' }, initials),
+      el('span', { class: 'cv-crew-who' },
+        el('a', { href: `career.html?id=${encodeURIComponent(c.id)}` }, name),
+        el('span', {}, where)),
+      el('span', { class: 'cv-points', title: `${points} point${points === 1 ? '' : 's'} to spend` }, String(points))));
+  }
+  box.append(list);
+  if (crew.length > CREW_SHOWN) {
+    box.append(el('p', { class: 'cv-hint' }, `And ${crew.length - CREW_SHOWN} more on the `,
+      el('a', { href: 'players.html' }, 'roll call'), '.'));
+  }
+}
+
+/* ------------------------------------------------------------------ stories and the GOAT */
+
+async function renderHomeStories() {
+  const data = await freshJSON('data/stories.json');
+  const box = $('#home-stories');
+  clear(box);
+  const events = (data && data.events) || [];
+  // Three of different kinds, newest first: the feed opens with a run of awards at a season's
+  // end, and three awards in a row says less than an award, a trade and a hot streak.
+  const seen = new Set();
+  const picked = [];
+  for (const event of events) {
+    if (seen.has(event.type)) continue;
+    seen.add(event.type);
+    picked.push(event);
+    if (picked.length === 3) break;
+  }
+  if (!picked.length) {
+    box.append(el('p', { class: 'cv-muted' }, 'No stories yet. They are written from each Sim Week.'));
+    return;
+  }
+  picked.forEach((event) => box.append(storyCard(event, data.players || {}, { compact: true })));
+}
+
+async function renderHomeGoat() {
+  const data = await freshJSON('leagues/pro/goat.json');
+  const box = $('#home-goat');
+  clear(box);
+  const players = (data && data.players) || [];
+  if (!players.length) {
+    box.append(el('p', { class: 'cv-muted' }, 'No GOAT numbers yet.'));
+    return;
+  }
+  // The reader's own weights, if they have moved the sliders on the All time page.
+  const weights = loadWeights();
+  const fair = Number(data.fair_share) || 0.2;
+  const top = players.map((p) => ({ p, total: score(p, weights, fair).total }))
+    .sort((a, b) => b.total - a.total || String(a.p.name).localeCompare(String(b.p.name)))
+    .slice(0, 5);
+  box.append(el('ol', { class: 'cv-goat-mini' }, top.map((r, i) => el('li', {},
+    el('span', {}, String(i + 1)), el('span', {}, r.p.name),
+    el('b', {}, Math.round(r.total).toLocaleString('en-US'))))));
 }
 
 
@@ -82,7 +272,6 @@ function renderLeagues() {
    Only real players, by Nate's decision: the four hundred the game invented are not why
    anybody opens this page. */
 
-const GLANCE = new Map();
 
 function glanceStats(league) {
   if (!GLANCE.has(league)) {
@@ -104,7 +293,7 @@ function glanceRow(label, value) {
 async function renderGlance() {
   const box = $('#glance');
   const [stats, characters] = await Promise.all([
-    glanceStats(current), isConfigured() ? allCharacters() : Promise.resolve([]),
+    glanceStats(current), CHARACTERS,
   ]);
   clear(box);
 

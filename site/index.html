@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Cheezeyverse</title>
 <meta name="description" content="Make a basketball player, start at 14 in the Prep league, and spend a skill point every week until you make it to the pros.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23F2B705'/%3E%3Ccircle cx='10' cy='11' r='3' fill='%238A5A00'/%3E%3Ccircle cx='21' cy='17' r='4' fill='%238A5A00'/%3E%3Ccircle cx='12' cy='23' r='2.5' fill='%238A5A00'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F1E4CB'/%3E%3Cpath d='M4 24 L28 24 L28 13 L4 21 Z' fill='%23D0843A'/%3E%3Ccircle cx='13' cy='21' r='1.8' fill='%23F1E4CB'/%3E%3Ccircle cx='21' cy='19' r='2.2' fill='%23F1E4CB'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Figtree:wght@400;500;600;700;800&amp;display=swap">
 <link rel="stylesheet" href="css/cheezey.css">
 <script src="config.js"></script>
 </head>
@@ -13,18 +16,42 @@
 
 <main class="cv-page">
 
-  <section class="cv-hero cv-cheese">
-    <h1>The Cheezeyverse</h1>
-    <p id="tagline">Everybody starts at 14, in the Prep league, and everybody starts terrible.
-      Every in-game week that gets simulated is one skill point. Spend it, watch the box
-      scores, and declare for the draft whenever you think you are ready.</p>
-    <div class="cv-actions">
-      <a class="cv-btn cv-big" href="create.html">Create your player</a>
-      <a class="cv-btn cv-big cv-ghost" href="me.html">My players</a>
+  <section class="cv-hero has-pulse" aria-labelledby="headline">
+    <div>
+      <div class="cv-kicker" id="kicker">Prep &middot; College &middot; Pro</div>
+      <h1 id="headline">The Cheezeyverse</h1>
+      <p id="tagline">Everybody starts at 14, in the Prep league, and everybody starts terrible.
+        Every in-game week that gets simulated is one skill point. Spend it, watch the box
+        scores, and declare for the draft whenever you think you are ready.</p>
+      <div class="cv-actions">
+        <a class="cv-btn cv-big" href="create.html">Create your player</a>
+        <a class="cv-btn cv-big cv-ghost" href="me.html">My players</a>
+      </div>
     </div>
+    <div id="pulse"></div>
   </section>
 
   <div id="notices"></div>
+
+  <div class="cv-league-cards" id="leagues"></div>
+
+  <div class="cv-split">
+    <section class="cv-card">
+      <div class="cv-card-head">
+        <h2>The crew</h2>
+        <span class="cv-muted">points to spend</span>
+      </div>
+      <div id="crew"><p class="cv-spinner">Rounding everybody up...</p></div>
+    </section>
+
+    <section class="cv-card">
+      <div class="cv-card-head">
+        <h2>Latest stories</h2>
+        <a href="stories.html">All stories</a>
+      </div>
+      <div id="home-stories" class="cv-mini-stories"><p class="cv-spinner">Reading the record...</p></div>
+    </section>
+  </div>
 
   <div class="cv-split">
     <section class="cv-card">
@@ -35,22 +62,24 @@
       <div id="glance"><p class="cv-spinner">Reading the league...</p></div>
     </section>
 
-    <section class="cv-card">
-      <div class="cv-card-head">
-        <h2>MVP race</h2>
-        <span class="cv-muted">who is having the best season</span>
-      </div>
-      <div id="mvp"><p class="cv-spinner">Counting the box scores...</p></div>
-    </section>
-  </div>
+    <div class="cv-column">
+      <section class="cv-card is-dark">
+        <div class="cv-card-head">
+          <h2>All-time GOAT &middot; Pro</h2>
+          <a href="goats.html">The board</a>
+        </div>
+        <div id="home-goat"><p class="cv-spinner">Working out the greats...</p></div>
+      </section>
 
-  <section class="cv-card">
-    <div class="cv-card-head">
-      <h2>The three levels</h2>
-      <span class="cv-muted">standings, stats and box scores live on the league sites</span>
+      <section class="cv-card">
+        <div class="cv-card-head">
+          <h2>MVP race</h2>
+          <span class="cv-muted">who is having the best season</span>
+        </div>
+        <div id="mvp"><p class="cv-spinner">Counting the box scores...</p></div>
+      </section>
     </div>
-    <div class="cv-leagues" id="leagues"></div>
-  </section>
+  </div>
 
   <section class="cv-card">
     <div class="cv-card-head">

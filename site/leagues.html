@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leagues &middot; The Cheezeyverse</title>
+<meta name="description" content="Standings and leaders for Cheezeyverse Prep, College and Pro, with our players marked.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F1E4CB'/%3E%3Cpath d='M4 24 L28 24 L28 13 L4 21 Z' fill='%23D0843A'/%3E%3Ccircle cx='13' cy='21' r='1.8' fill='%23F1E4CB'/%3E%3Ccircle cx='21' cy='19' r='2.2' fill='%23F1E4CB'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<main class="cv-page">
+
+  <div class="cv-page-head">
+    <h1>Leagues</h1>
+    <div class="cv-seg" role="tablist" aria-label="League" id="switch"></div>
+    <p class="cv-muted" id="intro">Three levels, one universe. Ours are marked wherever they turn up.</p>
+  </div>
+
+  <div id="notices"></div>
+
+  <div class="cv-split">
+    <section class="cv-card cv-standings">
+      <div class="cv-card-head">
+        <h2>Standings</h2>
+        <span class="cv-muted" id="standings-note"></span>
+      </div>
+      <div id="standings"><p class="cv-spinner">Reading the table...</p></div>
+    </section>
+
+    <div class="cv-column" id="leaders"><p class="cv-spinner">Counting the box scores...</p></div>
+  </div>
+
+  <section class="cv-card">
+    <div class="cv-card-head">
+      <h2>On the league site</h2>
+      <span class="cv-muted">box scores, rosters, schedules and every page the game writes</span>
+    </div>
+    <div class="cv-sitelinks" id="sitelinks"></div>
+  </section>
+
+</main>
+
+<script type="module" src="js/page-leagues.js"></script>
+</body>
+</html>

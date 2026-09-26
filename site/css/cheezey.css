@@ -1,38 +1,57 @@
 /* =====================================================================================
- * Cheezeyverse - the player-facing skin.
+ * Cheezeyverse - the player-facing skin. Clubhouse layout, Brie palette (chosen 2026-09-25
+ * from the mockups on the design canvas).
  *
- * Deliberately the same universe as the league pages: the palette below is copied value
- * for value from PALETTE in commissioner/publish/restyle.py, which re-skins FBPB3's own
- * HTML Output. Same cheddar-gold chrome, same cream pages, same brown ink, same
- * Trebuchet MS / Verdana stack, same cheese-holes radial gradient that the league sites
- * wear on their left nav.
+ * Clubhouse: a rind-coloured sidebar with five places in it, white rounded cards on a cream
+ * ground, Bricolage Grotesque for headings and big numbers, Figtree for everything else. On a
+ * phone the sidebar becomes a bottom tab bar.
  *
- * The two stylesheets are independent on purpose - restyle.py generates its copy at
- * publish time and every rule in it is !important, because it has to beat the inline
- * <style> block FBPB3 writes into each page. Nothing here needs that, so nothing here
- * uses it. Do not import one from the other; if you retune the palette, change both.
+ * Brie: soft cream, a rind-orange accent, bark brown for links. The league pages wear the same
+ * palette - PALETTE in commissioner/publish/restyle.py uses these values, and
+ * tests/test_rules.py checks that every one of them is still here. The two stylesheets are
+ * independent on purpose (restyle.py's rules are all !important, to beat the inline <style>
+ * FBPB3 writes into each page), so if you retune the palette, change both.
  *
- * Warm, a bit retro, readable, works on a phone. No dark theme, by design.
+ * Light only, by design.
+ *
+ * ACCENT FILLS CARRY INK, NOT WHITE. The mockup put white text on the #D0843A accent, which is
+ * 2.98:1 - under the 4.5:1 any button label needs. Ink on the same orange is 5.3:1, so the
+ * colour stays and the label becomes readable.
  * ===================================================================================== */
 
 :root {
-  --gold:   #F2B705;  /* young cheddar, the primary chrome */
-  --deep:   #D9901A;  /* aged, for header bands */
-  --crust:  #8A5A00;  /* rind */
-  --ink:    #2E2100;  /* text on gold */
-  --cream:  #FFF8E6;  /* page background */
-  --cream2: #F3E4BE;  /* zebra stripe */
-  --line:   #D9C48A;
-  --link:   #7A4B00;
-  --human:  #1D5C8A;  /* the "human coach" blue FBPB3 uses for played teams */
+  --ground: #FBF7EE;      /* the page */
+  --rind:   #F1E4CB;      /* the sidebar */
+  --rind-line: #E3D2B2;
+  --crust:  #D0843A;      /* the accent: active nav, primary buttons, progress */
+  --crust-hover: #DB9450;
+  --bark:   #8A5A2B;      /* links, emphasis, bars */
+  --ink:    #2A2118;
+  --muted:  #6E6152;
+  --card:   #FFFFFF;
+  --tile:   #F7F0E1;      /* a number inside a card */
+  --line:   #F0E8D8;      /* rules between rows */
+  --border: #E6D7BA;      /* control outlines */
+  --tint:   #F7E6D3;      /* a chip's fill */
+  --butter: #FCEFD9;      /* a row that is ours */
+  --dark:   #3B2A1C;      /* the one dark card per page */
+  --dark-2: #4A3726;
+  --dark-line: #54402E;
+  --human:  #1D5C8A;      /* the "human coach" blue FBPB3 uses for played teams */
 
   --good:   #2F6B37;
   --bad:    #96261F;
 
-  --font: 'Trebuchet MS', Verdana, Geneva, sans-serif;
-  --radius: 6px;
+  --prep:    #5C6672;
+  --college: #4F7942;
+  --pro:     #D0843A;
+
+  --display: 'Bricolage Grotesque', 'Figtree', system-ui, sans-serif;
+  --font: 'Figtree', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --radius: 20px;
+  --radius-s: 12px;
   --gutter: 16px;
-  --shadow: 0 1px 0 rgba(255, 255, 255, .6), 0 2px 6px rgba(46, 33, 0, .12);
+  --side: 232px;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -41,307 +60,373 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--cream);
+  background: var(--ground);
   color: var(--ink);
-  font: 14px/1.5 var(--font);
+  font: 15px/1.5 var(--font);
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4 { margin: 0 0 .4em; color: var(--crust); letter-spacing: -.4px; line-height: 1.15; }
-h1 { font-size: 26px; }
-h2 { font-size: 20px; }
-h3 { font-size: 16px; }
+h1, h2, h3, h4 { margin: 0 0 .4em; color: var(--ink); line-height: 1.15; font-family: var(--display); font-weight: 800; }
+h1 { font-size: 40px; letter-spacing: -1px; }
+h2 { font-size: 22px; letter-spacing: -.3px; }
+h3 { font-size: 17px; }
 p  { margin: 0 0 .8em; }
 
-a { color: var(--link); font-weight: 600; text-decoration: none; }
+a { color: var(--bark); font-weight: 600; text-decoration: none; }
 a:hover, a:focus-visible { text-decoration: underline; }
 
 hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
 
-/* ------------------------------------------------------------------ the cheese motif */
-/* The same radial-gradient holes restyle.py puts on the league sites' left nav. */
-.cv-cheese {
-  background-color: var(--gold);
-  background-image:
-    radial-gradient(circle at 12% 22%, rgba(138, 90, 0, .16) 0 11px, transparent 12px),
-    radial-gradient(circle at 34% 68%, rgba(138, 90, 0, .16) 0 7px,  transparent 8px),
-    radial-gradient(circle at 52% 18%, rgba(138, 90, 0, .16) 0 14px, transparent 15px),
-    radial-gradient(circle at 71% 72%, rgba(138, 90, 0, .16) 0 9px,  transparent 10px),
-    radial-gradient(circle at 86% 30%, rgba(138, 90, 0, .16) 0 12px, transparent 13px),
-    radial-gradient(circle at 95% 82%, rgba(138, 90, 0, .16) 0 6px,  transparent 7px),
-    linear-gradient(160deg, var(--gold) 0%, var(--deep) 100%);
-  background-repeat: no-repeat;
-}
+/* The old gold-with-holes band. Kept as a name because pages still carry it; the Brie look has
+   no texture, so it now means nothing on its own and each component styles itself. */
+.cv-cheese { background-image: none; }
 
-/* ------------------------------------------------------------------------- top chrome */
-.cv-top {
-  border-bottom: 3px solid var(--crust);
-  box-shadow: 0 2px 8px rgba(46, 33, 0, .18);
-}
+/* ------------------------------------------------------------------------- the mark */
+.cv-mark { flex: 0 0 auto; display: block; }
+.cv-mark-wedge { fill: var(--crust); }
+.cv-mark-hole { fill: var(--rind); }
 
-.cv-top-inner {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 14px var(--gutter);
+/* ---------------------------------------------------------------------- the sidebar */
+body.cv-shell { padding-left: var(--side); }
+
+.cv-side {
+  position: fixed;
+  top: 0; bottom: 0; left: 0;
+  width: var(--side);
+  z-index: 20;
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px 18px;
-  align-items: center;
-}
-
-.cv-wordmark { display: block; color: var(--ink); text-decoration: none; margin-right: auto; }
-.cv-wordmark:hover { text-decoration: none; }
-.cv-wordmark b {
-  display: block;
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: .3px;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, .5);
-}
-.cv-wordmark small {
-  display: block;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  color: var(--crust);
-}
-
-.cv-nav { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.cv-nav a {
-  display: block;
-  padding: 6px 11px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 28px 18px 20px;
+  background: var(--rind);
   color: var(--ink);
+  overflow-y: auto;
+}
+
+.cv-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 6px 26px;
+  color: var(--ink);
+  font: 800 20px/1 var(--display);
+  letter-spacing: -.3px;
+  text-decoration: none;
+}
+.cv-brand:hover { text-decoration: none; }
+
+.cv-nav { display: flex; flex-direction: column; gap: 4px; }
+.cv-nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.cv-nav a:hover { background: rgba(255, 255, 255, .55); color: var(--ink); text-decoration: none; }
+.cv-nav a[aria-current='page'] { background: var(--crust); color: var(--ink); font-weight: 700; }
+
+.cv-nav-more { display: flex; flex-direction: column; gap: 2px; margin-top: 18px; }
+.cv-nav-label {
+  padding: 0 12px 4px;
   font-size: 12px;
   font-weight: 700;
-  border: 2px solid transparent;
-  border-radius: var(--radius);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
 }
-.cv-nav a:hover { background: rgba(255, 255, 255, .45); text-decoration: none; }
-.cv-nav a[aria-current='page'] { background: rgba(255, 255, 255, .6); border-color: var(--crust); }
+.cv-nav-more a {
+  padding: 7px 12px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.cv-nav-more a:hover { background: rgba(255, 255, 255, .55); color: var(--ink); text-decoration: none; }
+.cv-nav-more a[aria-current='page'] { color: var(--ink); font-weight: 700; background: rgba(255, 255, 255, .7); }
 
-.cv-who { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--ink); }
+.cv-side-fill { flex: 1 1 auto; min-height: 20px; }
+
+.cv-side .cv-create { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+.cv-side .cv-create[aria-current='page'] { box-shadow: 0 0 0 2px var(--ink); }
+
+.cv-who { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.cv-side .cv-who { margin-top: 12px; padding: 12px; border-radius: var(--radius-s); background: rgba(255, 255, 255, .5); }
+.cv-side .cv-who .cv-btn { flex: 1 1 auto; }
+.cv-who-name { flex: 1 1 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The phone's top bar and tab bar: hidden until the sidebar is. */
+.cv-mtop, .cv-tabbar { display: none; }
 
 /* ------------------------------------------------------------------------- page shell */
-.cv-page { max-width: 1000px; margin: 0 auto; padding: 22px var(--gutter) 60px; }
+.cv-page { max-width: 1120px; margin: 0 auto; padding: 32px 36px 64px; }
+.cv-page > h1 + .cv-muted { font-size: 15px; margin-bottom: 22px; max-width: 46em; }
 
 .cv-foot {
-  border-top: 2px solid var(--line);
-  margin-top: 40px;
-  padding: 16px var(--gutter) 30px;
-  font-size: 11px;
-  color: var(--crust);
-  text-align: center;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 18px 36px 40px;
+  font-size: 13px;
+  color: var(--muted);
 }
+.cv-foot p { margin: 0 0 4px; }
 
 /* ------------------------------------------------------------------------------ cards */
 .cv-card {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-top: 4px solid var(--deep);
+  background: var(--card);
   border-radius: var(--radius);
-  padding: 16px;
-  margin: 0 0 18px;
-  box-shadow: var(--shadow);
+  padding: 22px 26px;
+  margin: 0 0 20px;
 }
 .cv-card > :last-child { margin-bottom: 0; }
-.cv-card-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; margin-bottom: 10px; }
+.cv-card-head { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; margin-bottom: 12px; }
 .cv-card-head h2, .cv-card-head h3 { margin: 0; margin-right: auto; }
+.cv-card.cv-sub { background: var(--ground); border-radius: 16px; padding: 16px 18px; margin: 0; }
+.cv-card.cv-sub h3 { font-size: 16px; }
+
+/* The one dark card a page may have: the GOAT board on Home. */
+.cv-card.is-dark { background: var(--dark); color: var(--ground); }
+.cv-card.is-dark h2, .cv-card.is-dark h3 { color: var(--ground); }
+.cv-card.is-dark .cv-muted { color: #D9C9B0; }
+.cv-card.is-dark a { color: #F2C08A; }
+
+.cv-kicker {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--bark);
+}
 
 /* ---------------------------------------------------------------------- story feed */
-.cv-story-list { display: grid; gap: 12px; }
+.cv-story-list { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start; }
 .cv-story {
   position: relative;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-left: 6px solid var(--deep);
+  background: var(--card);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  box-shadow: var(--shadow);
+  padding: 18px 20px;
 }
-.cv-story.is-good { border-left-color: var(--good); }
-.cv-story.is-bad { border-left-color: var(--bad); }
-.cv-story.is-funny { border-left-color: #7b3fa1; }
-.cv-story h3 { margin: 5px 0 4px; }
-.cv-story p { margin-bottom: 5px; }
+.cv-story h3 { margin: 8px 0 6px; font-size: 20px; line-height: 1.2; }
+.cv-story p { margin-bottom: 6px; font-size: 14px; line-height: 1.45; color: #4A3F33; }
 .cv-story-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cv-story-kicker .cv-muted { font-size: 12px; }
 .cv-story-kind {
   display: inline-block;
-  padding: 2px 7px;
+  padding: 3px 10px;
   border-radius: 999px;
-  background: var(--cream2);
-  color: var(--crust);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .45px;
-  text-transform: uppercase;
+  background: var(--tint);
+  color: var(--bark);
+  font-size: 12px;
+  font-weight: 700;
 }
 .cv-story-kind.is-hot_streak, .cv-story-kind.is-career_high,
-.cv-story-kind.is-award, .cv-story-kind.is-playoff { background: #e8f2e6; color: var(--good); }
-.cv-story-kind.is-cold_streak { background: #e5f1f8; color: var(--human); }
-.cv-story-kind.is-disaster { background: #f2e6f8; color: #632681; }
-.cv-story-people { font-size: 12px; padding-top: 3px; }
+.cv-story-kind.is-award, .cv-story-kind.is-playoff { background: #E4EFE2; color: var(--good); }
+.cv-story-kind.is-cold_streak { background: #E3EEF6; color: var(--human); }
+.cv-story-kind.is-disaster { background: #F1E4F4; color: #632681; }
+.cv-story-kind.is-award_race { background: var(--dark); color: #F2C08A; }
+/* a story card inside a white card (the career page) needs a fill of its own */
+.cv-card .cv-story { background: var(--ground); }
+.cv-story-people { font-size: 13px; padding-top: 3px; }
 .cv-story-controls .cv-fields { align-items: end; }
 .cv-story-controls select { margin-top: 4px; }
 
+/* compact stories in a sidebar card: rows, not cards */
+.cv-mini-stories .cv-story { background: transparent; border-radius: 0; padding: 10px 0; border-top: 1px solid var(--line); }
+.cv-mini-stories .cv-story h3 { font-size: 16px; margin: 6px 0 2px; }
+.cv-mini-stories .cv-story p { font-size: 13px; color: var(--muted); margin: 0; }
+.cv-mini-stories .cv-story .cv-hint { display: none; }
+
 /* The one quiz question that sets a ceiling rather than a rating. */
-.cv-important { color: var(--gold, #C8860D); font-weight: 700; }
+.cv-important { color: var(--bark); font-weight: 700; }
 
-.cv-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.cv-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.cv-grid h3 { font-size: 18px; }
+.cv-grid p { color: #4A3F33; font-size: 14px; }
 
-/* The glance and the MVP race, side by side. The race is the narrower of the two: it is five
-   rows of three short columns, where the glance carries a nine-column table. `minmax(0, ...)`
-   on both tracks rather than plain fractions, because a grid child defaults to min-content
-   width and the glance's table would otherwise push the whole row wider than the page. */
-.cv-split { display: grid; gap: 16px; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); align-items: start; }
-@media (max-width: 860px) { .cv-split { grid-template-columns: minmax(0, 1fr); } }
+/* Two columns: the main thing and a narrower side column. `minmax(0, ...)` on both tracks, because
+   a grid child defaults to min-content width and a wide table would otherwise push the row wider
+   than the page. */
+.cv-split { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); align-items: start; }
+.cv-split > .cv-card, .cv-split > div > .cv-card:last-child { margin-bottom: 0; }
+.cv-split + * { margin-top: 20px; }
+.cv-column { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.cv-column > .cv-card { margin: 0; }
+@media (max-width: 1100px) { .cv-split { grid-template-columns: minmax(0, 1fr); } }
 
 /* ------------------------------------------------------------------------------- hero */
 .cv-hero {
-  border: 1px solid var(--crust);
-  border-radius: var(--radius);
-  padding: 26px 20px;
-  margin-bottom: 22px;
-  box-shadow: var(--shadow);
+  background: var(--card);
+  border-radius: 24px;
+  padding: 28px 32px;
+  margin-bottom: 20px;
 }
-.cv-hero h1 { color: var(--ink); font-size: 30px; text-shadow: 0 1px 0 rgba(255, 255, 255, .45); }
-.cv-hero p { color: var(--ink); max-width: 46em; }
+.cv-hero h1 { font-size: 46px; line-height: 1.02; margin: 6px 0 12px; }
+.cv-hero p { color: var(--muted); font-size: 16px; max-width: 40em; }
 .cv-hero p:last-child { margin-bottom: 0; }
+.cv-hero .cv-actions { margin-top: 18px; }
+
+/* Home: words on the left, the season's pulse on the right */
+.cv-hero.has-pulse { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 28px; align-items: center; }
+.cv-pulse-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--muted); }
+.cv-progress { height: 12px; border-radius: 6px; background: var(--rind); margin-top: 8px; overflow: hidden; }
+.cv-progress i { display: block; height: 100%; border-radius: 6px; background: var(--crust); }
+.cv-pulse-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.cv-pulse-tiles div { border-radius: 14px; background: var(--ground); padding: 10px 12px; }
+.cv-pulse-tiles b { display: block; font: 800 26px/1.1 var(--display); }
+.cv-pulse-tiles span { font-size: 12px; color: var(--muted); }
+@media (max-width: 1000px) { .cv-hero.has-pulse { grid-template-columns: minmax(0, 1fr); } }
 
 /* ----------------------------------------------------------------------------- pills */
 .cv-pill {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--cream2);
-  color: var(--crust);
-  font-size: 11px;
+  background: var(--tint);
+  color: var(--bark);
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: .4px;
-  text-transform: uppercase;
   white-space: nowrap;
 }
-.cv-pill.is-active   { background: var(--gold);  color: var(--ink);  border-color: var(--crust); }
-.cv-pill.is-pending  { background: #fff;         color: var(--crust); }
-.cv-pill.is-declared { background: var(--human); color: #fff;         border-color: #123f61; }
-.cv-pill.is-retired  { background: #e7e2d4;      color: #6a6250;      border-color: #cfc7b3; }
+.cv-pill.is-active   { background: #E4EFE2; color: var(--good); }
+.cv-pill.is-pending  { background: var(--card); color: var(--bark); box-shadow: inset 0 0 0 1px var(--border); }
+.cv-pill.is-declared { background: var(--human); color: #fff; }
+.cv-pill.is-retired  { background: var(--line); color: var(--muted); }
+
+.cv-chip {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--tint);
+  color: var(--bark);
+  font-size: 12px;
+  font-weight: 700;
+}
+.cv-chip-mine { background: var(--crust); color: var(--ink); font-weight: 700; }
 
 /* --------------------------------------------------------------------------- buttons */
 .cv-btn {
-  display: inline-block;
-  font: 700 13px/1 var(--font);
-  padding: 9px 15px;
-  border: 2px solid var(--crust);
-  border-radius: var(--radius);
-  background: var(--gold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  font: 700 14px/1.1 var(--font);
+  padding: 9px 16px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: var(--crust);
   color: var(--ink);
   cursor: pointer;
   text-decoration: none;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, .55) inset, 0 2px 0 var(--crust);
 }
-.cv-btn:hover { background: var(--deep); text-decoration: none; }
-.cv-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(255, 255, 255, .4) inset; }
+.cv-btn:hover { background: var(--crust-hover); text-decoration: none; }
+.cv-btn:active { transform: translateY(1px); }
 .cv-btn[disabled], .cv-btn.is-disabled { opacity: .45; cursor: not-allowed; transform: none; }
-.cv-btn.cv-ghost { background: #fff; }
-.cv-btn.cv-ghost:hover { background: var(--cream2); }
-.cv-btn.cv-big { font-size: 15px; padding: 12px 22px; }
-.cv-btn.cv-small { font-size: 11px; padding: 5px 9px; border-width: 1px; box-shadow: none; }
+.cv-btn.cv-ghost { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
+.cv-btn.cv-ghost:hover { background: var(--tile); }
+.cv-btn.cv-big { font-size: 15px; font-weight: 800; min-height: 46px; padding: 12px 20px; }
+.cv-btn.cv-small { font-size: 13px; min-height: 32px; padding: 6px 12px; border-radius: 10px; }
 
 .cv-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
 /* ----------------------------------------------------------------------------- forms */
-label { display: block; font-weight: 700; font-size: 12px; color: var(--crust); margin-bottom: 4px; }
+label { display: block; font-weight: 700; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
 
 input[type='text'], input[type='number'], select, textarea {
   width: 100%;
-  font: 14px/1.4 var(--font);
+  font: 15px/1.4 var(--font);
   color: var(--ink);
-  background: #fff;
-  border: 1px solid var(--crust);
-  border-radius: var(--radius);
-  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  padding: 10px 12px;
 }
+input[type='range'] { accent-color: var(--crust); }
+input[type='checkbox'], input[type='radio'] { accent-color: var(--bark); }
 input:focus-visible, select:focus-visible, textarea:focus-visible,
-.cv-btn:focus-visible, a:focus-visible {
-  outline: 3px solid var(--deep);
-  outline-offset: 1px;
+.cv-btn:focus-visible, a:focus-visible, button:focus-visible {
+  outline: 3px solid var(--crust);
+  outline-offset: 2px;
 }
 
 .cv-field { margin-bottom: 14px; }
 .cv-fields { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-.cv-hint { font-size: 11px; color: var(--crust); font-weight: 400; margin-top: 3px; }
+.cv-hint { font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 4px; }
 
 /* archetype picker */
 .cv-choices { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
 .cv-choice {
   display: block;
   border: 2px solid var(--line);
-  border-radius: var(--radius);
-  background: #fff;
-  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--card);
+  padding: 12px 14px;
   cursor: pointer;
   margin: 0;
 }
-.cv-choice:hover { border-color: var(--deep); }
+.cv-choice:hover { border-color: var(--border); background: var(--ground); }
 .cv-choice input { position: absolute; opacity: 0; width: 0; height: 0; }
-.cv-choice b { display: block; font-size: 14px; color: var(--crust); }
-.cv-choice span { display: block; font-size: 11.5px; font-weight: 400; color: var(--ink); margin-top: 3px; }
-.cv-choice.is-on { border-color: var(--crust); background: var(--cream2); box-shadow: var(--shadow); }
+.cv-choice b { display: block; font-size: 15px; color: var(--ink); }
+.cv-choice span { display: block; font-size: 13px; font-weight: 400; color: var(--muted); margin-top: 3px; }
+.cv-choice.is-on { border-color: var(--crust); background: var(--tint); }
 .cv-choice.is-off { opacity: .4; }
+.cv-choice:focus-within { outline: 3px solid var(--crust); outline-offset: 2px; }
 
 .cv-choices-tight { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 
 /* ------------------------------------------------------------- the creation quiz */
-.cv-question { margin: 0 0 18px; }
+.cv-question { margin: 0 0 22px; }
 .cv-question h3 {
-  font-size: 14px;
-  color: var(--crust);
-  border-bottom: 2px solid var(--line);
-  padding-bottom: 5px;
-  margin-bottom: 8px;
+  font: 700 15px/1.3 var(--font);
+  color: var(--ink);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
 }
-.cv-question .cv-choice b { font-size: 12.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+.cv-question .cv-choice b { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.35; }
 
 /* the live "right now this looks like a Playmaker" strip */
 .cv-readout {
-  border: 2px solid var(--crust);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  margin: 0 0 14px;
-  box-shadow: var(--shadow);
+  background: var(--dark);
+  color: var(--ground);
+  border-radius: 16px;
+  padding: 14px 18px;
+  margin: 0 0 16px;
 }
-.cv-readout b { display: block; font-size: 17px; color: var(--ink); text-shadow: 0 1px 0 rgba(255, 255, 255, .45); }
-.cv-readout span { display: block; font-size: 12px; color: var(--crust); margin-top: 3px; }
+.cv-readout b { display: block; font: 800 19px/1.2 var(--display); color: var(--ground); }
+.cv-readout span { display: block; font-size: 13px; color: #D9C9B0; margin-top: 3px; }
 
 /* the eleven traits */
 .cv-traits { margin: 0 0 14px; }
 .cv-trait {
   display: grid;
   grid-template-columns: 9.5em minmax(60px, 1fr) 2.4em;
-  gap: 4px 10px;
+  gap: 4px 12px;
   align-items: center;
-  padding: 4px 8px;
-  border-radius: var(--radius);
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
 }
-.cv-trait:nth-child(even) { background: var(--cream2); }
-.cv-trait-name { font-size: 12.5px; font-weight: 700; color: var(--crust); }
-.cv-trait-val { font-size: 13px; font-weight: 700; text-align: right; }
-.cv-trait-blurb { grid-column: 1 / -1; font-size: 11px; color: var(--crust); }
+.cv-trait:first-child { border-top: 0; }
+.cv-trait-name { font-size: 14px; font-weight: 600; color: var(--ink); }
+.cv-trait-val { font-size: 14px; font-weight: 700; text-align: right; }
+.cv-trait-blurb { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
 .cv-trait .cv-bar { grid-column: auto; }
 
 /* the height strip on a player's page */
-.cv-growth { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 12px; }
+.cv-growth { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .cv-growth-step {
-  border: 1px solid var(--line);
-  background: var(--cream2);
-  border-radius: var(--radius);
-  padding: 4px 7px;
+  background: var(--tile);
+  border-radius: 10px;
+  padding: 6px 9px;
   text-align: center;
-  min-width: 3.6em;
+  min-width: 3.8em;
 }
-.cv-growth-step b { display: block; font-size: 12px; }
-.cv-growth-step em { display: block; font-style: normal; font-size: 10px; color: var(--crust); }
+.cv-growth-step b { display: block; font-size: 13px; }
+.cv-growth-step em { display: block; font-style: normal; font-size: 11px; color: var(--muted); }
 
 /* ==================================================================== the career page */
 /* career.html follows one character through all three saves. Everything below is only used
@@ -351,154 +436,131 @@ input:focus-visible, select:focus-visible, textarea:focus-visible,
 .cv-facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 8px 14px;
-  margin: 0 0 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--cream2);
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 0;
 }
-.cv-fact { min-width: 0; }
-.cv-facts dt {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: .6px;
-  text-transform: uppercase;
-  color: var(--crust);
-}
-.cv-facts dd { margin: 1px 0 0; font-size: 14px; font-weight: 700; }
+.cv-fact { min-width: 0; background: var(--tile); border-radius: 14px; padding: 12px 14px; }
+.cv-facts dt { font-size: 12px; font-weight: 600; color: var(--muted); }
+.cv-facts dd { margin: 2px 0 0; font: 800 18px/1.2 var(--display); }
 
 /* the shape of the career, at a glance: three segments, sized by seasons when we know them */
 .cv-arc {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   list-style: none;
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   padding: 0;
 }
 .cv-arc-step {
   flex: 1 1 0;
   min-width: 0;
-  border: 2px solid var(--line);
-  border-radius: var(--radius);
-  background: #fff;
-  padding: 9px 10px;
+  border-radius: 14px;
+  background: var(--ground);
+  box-shadow: inset 0 0 0 1px var(--line);
+  padding: 10px 12px;
   text-align: center;
 }
-.cv-arc-step b { display: block; font-size: 15px; color: var(--crust); }
-.cv-arc-step span { display: block; font-size: 11px; font-weight: 700; }
-.cv-arc-step em {
-  display: block;
-  font-style: normal;
-  font-size: 10.5px;
-  color: var(--crust);
-  min-height: 1.2em;
-}
-.cv-arc-step.is-done {
-  background: var(--cream2);
-  border-color: var(--crust);
-}
-.cv-arc-step.is-now {
-  background-color: var(--gold);
-  border-color: var(--crust);
-  box-shadow: var(--shadow);
-}
-.cv-arc-step.is-now b, .cv-arc-step.is-now span { color: var(--ink); }
-.cv-arc-step.is-ahead { border-style: dashed; opacity: .6; }
+.cv-arc-step b { display: block; font: 800 17px/1.2 var(--display); color: var(--ink); }
+.cv-arc-step span { display: block; font-size: 12px; font-weight: 700; }
+.cv-arc-step em { display: block; font-style: normal; font-size: 12px; color: var(--muted); min-height: 1.2em; }
+.cv-arc-step.is-done { background: var(--tint); box-shadow: none; }
+.cv-arc-step.is-now { background: var(--crust); box-shadow: none; }
+.cv-arc-step.is-now b, .cv-arc-step.is-now span, .cv-arc-step.is-now em { color: var(--ink); }
+.cv-arc-step.is-ahead { box-shadow: inset 0 0 0 1px var(--border); background: transparent; opacity: .7; }
 
 /* the same three levels again, in words */
-.cv-timeline { margin: 14px 0 0; }
+.cv-timeline { margin: 16px 0 0; }
 .cv-tl-level {
   border-left: 4px solid var(--line);
-  padding: 8px 0 8px 12px;
+  padding: 8px 0 8px 14px;
   margin: 0;
 }
-.cv-tl-level.is-done { border-left-color: var(--crust); }
-.cv-tl-level.is-now { border-left-color: var(--deep); background: var(--cream2); border-radius: 0 var(--radius) var(--radius) 0; }
+.cv-tl-level.is-done { border-left-color: var(--bark); }
+.cv-tl-level.is-now { border-left-color: var(--crust); background: var(--ground); border-radius: 0 12px 12px 0; }
 .cv-tl-level.is-ahead { border-left-style: dashed; opacity: .75; }
-.cv-tl-level p { margin: 0 0 .25em; font-size: 12.5px; }
+.cv-tl-level p { margin: 0 0 .25em; font-size: 14px; }
 .cv-tl-level p:last-child { margin-bottom: 0; }
 .cv-tl-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 4px; }
-.cv-tl-head b { font-size: 15px; color: var(--crust); }
+.cv-tl-head b { font: 800 17px/1.2 var(--display); color: var(--ink); }
 
 .cv-tl-move {
   display: flex;
   gap: 8px;
   align-items: baseline;
-  padding: 7px 0 7px 10px;
+  padding: 7px 0 7px 12px;
   margin-left: 2px;
   border-left: 2px dashed var(--line);
-  font-size: 12px;
-  color: var(--crust);
+  font-size: 13px;
+  color: var(--muted);
 }
-.cv-tl-move.is-done { border-left-color: var(--crust); color: var(--ink); font-weight: 600; }
-.cv-tl-arrow { font-size: 15px; line-height: 1; color: var(--crust); }
+.cv-tl-move.is-done { border-left-color: var(--bark); color: var(--ink); font-weight: 600; }
+.cv-tl-arrow { font-size: 15px; line-height: 1; color: var(--bark); }
 
 /* links out to the three league sites */
 .cv-links { list-style: none; margin: 0; padding: 0; }
-.cv-links li { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-.cv-links li:last-child { border-bottom: 0; }
-.cv-links b { color: var(--crust); }
+.cv-links li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.cv-links li:first-child { border-top: 0; }
+.cv-links b { color: var(--ink); }
 
 /* inline SVG charts - no library, sized by viewBox so they never overflow a phone */
 .cv-chart-wrap {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: #fff;
-  padding: 6px;
+  border-radius: 14px;
+  background: var(--ground);
+  padding: 8px;
   margin: 0 0 12px;
 }
 .cv-chart { display: block; width: 100%; height: auto; }
-.cv-chart-grid { stroke: var(--line); stroke-width: 1; }
-.cv-chart-axis { stroke: var(--crust); stroke-width: 1.5; }
-.cv-chart-line { fill: none; stroke: var(--deep); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
-.cv-chart-dot { fill: var(--crust); }
-.cv-chart-expected { stroke: var(--link); stroke-width: 1.5; stroke-dasharray: 5 4; }
-.cv-chart-future { fill: var(--cream2); opacity: .65; }
-.cv-chart-label { fill: var(--crust); font: 600 10px var(--font); }
-.cv-chart-note { fill: var(--crust); font: 700 11px var(--font); letter-spacing: 1px; text-transform: uppercase; }
+.cv-chart-grid { stroke: var(--border); stroke-width: 1; }
+.cv-chart-axis { stroke: var(--muted); stroke-width: 1.5; }
+.cv-chart-line { fill: none; stroke: var(--crust); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.cv-chart-dot { fill: var(--bark); }
+.cv-chart-expected { stroke: var(--bark); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.cv-chart-future { fill: var(--rind); opacity: .6; }
+.cv-chart-label { fill: var(--muted); font: 600 10px var(--font); }
+.cv-chart-note { fill: var(--muted); font: 700 11px var(--font); letter-spacing: 1px; text-transform: uppercase; }
 
 /* the cap board: one contract per block, stacked from the floor. The block's own colour is set
    inline per player (fifteen adjacent bands have to be told apart), so these rules carry only
    the two states that mean something. */
 .cv-chart-bar { stroke: #fff; stroke-width: 1; }
 .cv-chart-bar.is-over { stroke: var(--bad); stroke-width: 2; }
-.cv-chart-bar.is-ours { stroke: var(--human); stroke-width: 2.5; }
 .cv-chart-boxlabel { fill: #fff; font: 700 11px var(--font); paint-order: stroke;
   stroke: rgba(0,0,0,.35); stroke-width: 2.5px; }
 /* The cap and tax lines cross the blocks rather than sitting in a margin, so both the line and
    its label need a halo - without one, a dark label on a dark contract is unreadable, which is
    the one thing a reference line cannot be. */
 .cv-chart-refline { stroke: var(--ink); stroke-width: 1.6; stroke-dasharray: 6 4; }
-.cv-chart-refline-halo { stroke: var(--cream); stroke-width: 4; opacity: .8; }
+.cv-chart-refline-halo { stroke: var(--ground); stroke-width: 4; opacity: .8; }
 .cv-chart-reflabel { fill: var(--ink); font: 700 11px var(--font); paint-order: stroke;
-  stroke: var(--cream); stroke-width: 3.5px; stroke-linejoin: round; }
+  stroke: var(--ground); stroke-width: 3.5px; stroke-linejoin: round; }
 
 /* A REAL PERSON'S CONTRACT, and the team he plays for. The fill is a gold gradient defined in
    the SVG; these add the rim and the glow that make him findable in a column of ten colours
    without reading a single name. */
 .cv-chart-bar.is-ours { stroke: #7A5A00; stroke-width: 2; filter: url(#cv-oursglow); }
-.cv-tab.has-ours { box-shadow: 0 0 0 2px var(--gold), 0 0 10px 2px rgba(242,183,5,.75);
-  border-color: var(--gold); }
-.cv-tab.has-ours.is-on { box-shadow: 0 0 0 2px #fff, 0 0 12px 3px rgba(242,183,5,.9); }
+.cv-tab.has-ours { box-shadow: 0 0 0 2px var(--crust), 0 0 10px 2px rgba(208, 132, 58, .6); }
+.cv-tab.has-ours.is-on { box-shadow: 0 0 0 2px var(--crust), 0 0 12px 3px rgba(208, 132, 58, .75); }
 
 /* the hover card: one node, moved to the cursor */
 .cv-capcard { position: fixed; z-index: 60; pointer-events: none; max-width: 260px;
-  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
-  box-shadow: var(--shadow); padding: 8px 10px; font-size: 13px; color: var(--ink); }
+  background: var(--card); border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(42, 33, 24, .18); padding: 10px 12px; font-size: 13px; color: var(--ink); }
 .cv-capcard[hidden] { display: none; }
-.cv-capcard-name { font-weight: 700; color: var(--crust); }
-.cv-capcard-ours { margin-left: 6px; font-size: 11px; font-weight: 700; color: #7A5A00;
-  background: var(--gold); border-radius: 999px; padding: 1px 7px; }
+.cv-capcard-name { font-weight: 700; color: var(--ink); }
+.cv-capcard-ours { margin-left: 6px; font-size: 11px; font-weight: 700; color: var(--ink);
+  background: var(--crust); border-radius: 999px; padding: 1px 7px; }
 .cv-capcard-money { margin-top: 2px; font-variant-numeric: tabular-nums; font-weight: 600; }
 .cv-capcard-stats { display: flex; gap: 10px; margin-top: 6px; }
 .cv-capcard-stats span { display: flex; flex-direction: column; align-items: center; }
 .cv-capcard-stats b { font-variant-numeric: tabular-nums; }
-.cv-capcard-stats i { font-style: normal; font-size: 10px; color: var(--crust); }
-.cv-capcard-foot { margin-top: 6px; font-size: 11px; color: var(--crust); }
+.cv-capcard-stats i { font-style: normal; font-size: 10px; color: var(--muted); }
+.cv-capcard-foot { margin-top: 6px; font-size: 11px; color: var(--muted); }
 
 /* money in a column reads as money only when the digits line up */
 .cv-num { font-variant-numeric: tabular-nums; }
+.cv-strong { font-weight: 800; }
+.cv-small { font-size: 13px; }
 
 /* then-and-now table: one column layout for all five groups, so the numbers line up down the
    page instead of each little table choosing its own widths */
@@ -511,189 +573,250 @@ table.cv-then th:nth-child(5), table.cv-then td:nth-child(5) { width: 14%; }
 .cv-delta { font-weight: 700; }
 .cv-delta.is-up { color: var(--good); }
 .cv-delta.is-down { color: var(--bad); }
-.cv-bar-inline { grid-column: auto; display: block; min-width: 90px; width: 100%; margin-top: 3px; }
+.cv-bar-inline { grid-column: auto; display: block; min-width: 90px; width: 100%; margin-top: 4px; }
 
 /* ------------------------------------------------------------------------ rating rows */
-.cv-sheet { margin: 0 0 14px; }
+.cv-sheet { margin: 0 0 18px; }
 .cv-sheet h3 {
-  font-size: 12px;
+  font: 700 12px/1.2 var(--font);
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--crust);
-  border-bottom: 2px solid var(--line);
-  padding-bottom: 4px;
-  margin-bottom: 6px;
+  color: var(--muted);
+  padding: 8px 0;
+  margin: 0;
 }
 
 .cv-rating {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 10px;
+  gap: 6px 12px;
   align-items: center;
-  padding: 6px 8px;
-  border-radius: var(--radius);
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
 }
-.cv-rating:nth-child(even) { background: var(--cream2); }
-.cv-rating.is-locked { opacity: .62; }
+.cv-rating.is-locked { opacity: .6; }
 
-.cv-rating-name { font-size: 13px; font-weight: 600; }
-.cv-rating-name em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--crust); }
-.cv-rating-name .cv-pending-note { font-size: 10.5px; font-weight: 700; color: var(--human, #1D5C8A); white-space: nowrap; }
+.cv-rating-name { font-size: 15px; font-weight: 600; }
+.cv-rating-name em { font-style: normal; font-size: 12px; font-weight: 600; color: var(--muted); }
+.cv-rating-name .cv-pending-note { font-size: 12px; font-weight: 700; color: var(--human); white-space: nowrap; }
 
 .cv-rating-controls { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .cv-step {
-  font: 700 15px/1 var(--font);
-  width: 30px; height: 28px;
-  border: 1px solid var(--crust);
-  border-radius: var(--radius);
-  background: var(--gold);
-  color: var(--ink);
+  font: 600 18px/1 var(--font);
+  width: 40px; height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted);
   cursor: pointer;
 }
-.cv-step:hover { background: var(--deep); }
-.cv-step[disabled] { opacity: .3; cursor: not-allowed; }
-.cv-val { display: inline-block; min-width: 2.4em; text-align: right; font-weight: 700; font-size: 15px; }
+.cv-step:hover { background: var(--tile); }
+/* The raise button is the one that spends, so it is the one that stands out. */
+.cv-step[aria-label^='Raise'] { background: var(--dark); color: #F2C08A; box-shadow: none; }
+.cv-step[aria-label^='Raise']:hover { background: var(--dark-2); }
+.cv-step[disabled], .cv-step[aria-label^='Raise'][disabled] { background: var(--line); color: var(--muted); box-shadow: none; opacity: .6; cursor: not-allowed; }
+.cv-val { display: inline-block; min-width: 2.4em; text-align: right; font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
 .cv-val.is-up { color: var(--good); }
-.cv-cap { font-size: 10.5px; color: var(--crust); min-width: 5.6em; text-align: right; }
+.cv-cap { font-size: 12px; color: var(--muted); min-width: 5.6em; text-align: right; }
 
 /* the bar underneath a rating, in the full width of the row */
 .cv-bar {
   grid-column: 1 / -1;
-  height: 7px;
-  border-radius: 4px;
-  background: #EFE6CC;
-  border: 1px solid var(--line);
+  height: 10px;
+  border-radius: 5px;
+  background: var(--line);
   overflow: hidden;
   position: relative;
 }
-.cv-bar i { display: block; height: 100%; background: var(--deep); }
+.cv-bar i { display: block; height: 100%; border-radius: 5px; background: var(--bark); }
 .cv-bar u {
-  position: absolute; top: -2px; bottom: -2px; width: 2px;
-  background: var(--crust); text-decoration: none;
+  position: absolute; top: 0; bottom: 0; width: 2px;
+  background: var(--ink); text-decoration: none;
 }
 /* the shaded band on the create page: everywhere the roll could land */
 .cv-bar s {
   position: absolute; top: 0; bottom: 0;
-  background: var(--deep);
-  opacity: .55;
-  border-left: 2px solid var(--crust);
-  border-right: 2px solid var(--crust);
+  background: var(--crust);
+  opacity: .7;
+  border-radius: 5px;
   text-decoration: none;
 }
 .cv-scout-word {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--link);
+  color: var(--bark);
   text-align: right;
   white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------------ point meter */
+/* The dark bar from the mockup's "2 changes / Send upgrades" strip. Sticky, so the number you
+   are spending against stays in sight while you scroll the sheet. */
 .cv-meter {
   position: sticky;
-  top: 0;
+  top: 12px;
   z-index: 5;
-  border: 2px solid var(--crust);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  margin-bottom: 16px;
+  background: var(--dark);
+  color: var(--ground);
+  border-radius: 16px;
+  padding: 12px 18px;
+  margin-bottom: 18px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 18px;
+  gap: 6px 20px;
   align-items: center;
-  box-shadow: var(--shadow);
 }
-.cv-meter b { font-size: 22px; }
-.cv-meter span { font-size: 12px; font-weight: 700; color: var(--crust); text-transform: uppercase; letter-spacing: .6px; }
+.cv-meter b { font: 800 24px/1 var(--display); color: #F2C08A; }
+.cv-meter span { font-size: 13px; font-weight: 600; color: #E8DCC8; }
 .cv-meter .cv-meter-sep { margin-left: auto; }
+.cv-meter-stat { display: inline-flex; align-items: baseline; gap: 7px; }
 
 /* ---------------------------------------------------------------------------- tables */
-table.cv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-/* `table.cv-table th` outranks a bare `.cv-right`, so a right-aligned column used to keep a
-   left-aligned header sitting away from its own numbers. Both pages that use .cv-right on a th
-   wanted this. */
-table.cv-table th.cv-right { text-align: right; }
+table.cv-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
 table.cv-table th {
-  background: var(--deep);
-  color: var(--ink);
+  background: transparent;
+  color: var(--muted);
   text-align: left;
+  font-size: 12px;
   font-weight: 700;
-  padding: 5px 8px;
-  border-bottom: 2px solid var(--crust);
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  padding: 8px 10px;
   white-space: nowrap;
 }
-table.cv-table td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-table.cv-table tr:nth-child(even) td { background: var(--cream2); }
+/* `table.cv-table th` outranks a bare `.cv-right`, so a right-aligned column used to keep a
+   left-aligned header sitting away from its own numbers. */
+table.cv-table th.cv-right { text-align: right; }
+/* a row header (the team or player name in the first column) reads as a name, not a label */
+table.cv-table tbody th { color: var(--ink); font-size: 14px; letter-spacing: 0; text-transform: none; font-weight: 700; }
+table.cv-table td { padding: 9px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+table.cv-table tbody th { border-top: 1px solid var(--line); }
+table.cv-table.cv-tight td, table.cv-table.cv-tight th { padding: 6px 8px; }
+table.cv-table tr > :first-child { padding-left: 0; }
+table.cv-table tr > :last-child { padding-right: 0; }
+td.cv-rank { font: 800 16px/1.3 var(--display); color: var(--bark); }
 
 /* ---- sortable headers ----
    A column you can sort has to LOOK like one before it is clicked, or nobody discovers it.
    The arrow is always there - faint when the column is idle, solid on the one in use - so the
    header reads as a control rather than as a label that happens to respond. */
-table.cv-table th.cv-sortable { cursor: pointer; user-select: none; }
+table.cv-table th.cv-sortable { cursor: pointer; user-select: none; border-radius: 6px; }
 table.cv-table th.cv-sortable::after {
   content: "\2195";                 /* up-down arrow: "this sorts" */
   margin-left: 5px;
   opacity: .35;
   font-weight: 400;
 }
-table.cv-table th.cv-sortable:hover { background: var(--crust); }
+table.cv-table th.cv-sortable:hover { color: var(--ink); }
 table.cv-table th.cv-sortable:hover::after { opacity: .8; }
-table.cv-table th.cv-sortable:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+table.cv-table th.cv-sortable:focus-visible { outline: 2px solid var(--crust); outline-offset: -2px; }
 table.cv-table th.cv-sortable[aria-sort="descending"]::after { content: "\25BC"; opacity: 1; }
 table.cv-table th.cv-sortable[aria-sort="ascending"]::after { content: "\25B2"; opacity: 1; }
-table.cv-table th.cv-sortable[aria-sort] { background: var(--crust); }
+table.cv-table th.cv-sortable[aria-sort] { color: var(--bark); }
 
 /* ---- the "ours only" switch on the all-time page ---- */
-.cv-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
-.cv-filter label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
-tr.cv-ours td { background: var(--butter, #FFF3C4) !important; }
-tr.cv-ours td:first-child { box-shadow: inset 3px 0 0 var(--crust); }
+.cv-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+.cv-filter label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; margin: 0; color: var(--ink); }
+tr.cv-ours td, tr.cv-ours th { background: var(--butter) !important; }
 .cv-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* ---------------------------------------------------------------------------- notices */
 .cv-note {
-  border: 1px solid var(--line);
-  border-left: 5px solid var(--deep);
-  background: var(--cream2);
-  border-radius: var(--radius);
-  padding: 10px 14px;
+  background: var(--tint);
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 12px 16px;
   margin: 0 0 16px;
-  font-size: 13px;
+  font-size: 14px;
 }
-.cv-note.is-bad  { border-left-color: var(--bad);  background: #FBE9E7; color: #4A1512; }
-.cv-note.is-good { border-left-color: var(--good); background: #E8F2E6; color: #1F4423; }
+.cv-note.is-bad  { background: #FBE9E7; color: #4A1512; }
+.cv-note.is-good { background: #E6F0E3; color: #1F4423; }
 .cv-note ul { margin: 6px 0 0; padding-left: 20px; }
 .cv-note p:last-child { margin-bottom: 0; }
 
-.cv-muted { color: var(--crust); font-size: 12px; }
+.cv-muted { color: var(--muted); font-size: 13px; }
 .cv-right { text-align: right; }
 .cv-center { text-align: center; }
 .cv-stack > * + * { margin-top: 12px; }
 
-/* --------------------------------------------------------------------- league tiles */
+/* --------------------------------------------------------------------- league cards */
+.cv-league-cards { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 20px; }
+.cv-league-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border-top: 5px solid var(--league, var(--crust));
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.cv-league-card.is-prep { --league: var(--prep); }
+.cv-league-card.is-college { --league: var(--college); }
+.cv-league-card.is-pro { --league: var(--pro); }
+.cv-league-card header { display: flex; align-items: baseline; gap: 10px; }
+.cv-league-card h2 { margin: 0; margin-right: auto; }
+.cv-league-card header a { font-size: 13px; font-weight: 700; }
+.cv-league-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cv-league-facts div { background: var(--tile); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.cv-league-facts span { display: block; font-size: 12px; color: var(--muted); }
+.cv-league-facts b { display: block; font-size: 15px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-league-card p { margin: 0; font-size: 14px; color: var(--muted); }
+.cv-league-card p b { color: var(--ink); }
+.cv-league-links { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+@media (max-width: 1000px) { .cv-league-cards { grid-template-columns: minmax(0, 1fr); } }
+
+/* the old tiles, still used if a page asks for them */
 .cv-leagues { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
 .cv-league {
   display: block;
-  border: 1px solid var(--crust);
-  border-radius: var(--radius);
+  border-radius: 16px;
+  background: var(--tile);
   padding: 16px;
   color: var(--ink);
-  box-shadow: var(--shadow);
 }
-.cv-league:hover { text-decoration: none; filter: brightness(1.04); }
-.cv-league b { display: block; font-size: 17px; }
-.cv-league span { display: block; font-size: 11.5px; font-weight: 600; color: var(--crust); margin-top: 3px; }
+.cv-league:hover { text-decoration: none; background: var(--tint); }
+.cv-league b { display: block; font: 800 18px/1.2 var(--display); }
+.cv-league span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-top: 3px; }
 .cv-league.is-placeholder { opacity: .65; cursor: not-allowed; }
-
-/* One grid item per league: the tile, and the bracket link under it. The link cannot go inside
-   the tile - that is an <a> - so the cell keeps the grid seeing a single child per league. */
 .cv-league-cell { display: flex; flex-direction: column; gap: 5px; }
-.cv-league-sub {
-  align-self: start;
-  font-size: 11.5px; font-weight: 600;
-  color: var(--crust);
-  padding-left: 2px;
+.cv-league-sub { align-self: start; font-size: 13px; font-weight: 600; padding-left: 2px; }
+
+/* the Leagues page: a segmented switch, then standings beside the leaders */
+.cv-page-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 20px; }
+.cv-page-head h1 { margin: 0 auto 0 0; }
+.cv-page-head .cv-muted { flex-basis: 100%; font-size: 15px; margin: -6px 0 0; }
+.cv-seg {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
+.cv-seg button {
+  min-height: 40px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: 700 14px/1 var(--font);
+  cursor: pointer;
+}
+.cv-seg button:hover { background: var(--tile); }
+.cv-seg button[aria-selected='true'] { background: var(--ink); color: var(--ground); }
+.cv-standings .cv-ours-names { color: var(--bark); font-size: 13px; font-weight: 700; }
+.cv-standings tr.is-ours td, .cv-standings tr.is-ours th { background: var(--butter); }
+.cv-leader-list { list-style: none; margin: 0; padding: 0; }
+.cv-leader-list li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.cv-leader-list li > span:first-child { width: 16px; color: var(--muted); font-weight: 700; font-size: 13px; }
+.cv-leader-list .cv-leader-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-leader-list .cv-leader-team { font-size: 12px; color: var(--muted); }
+.cv-leader-list b { width: 44px; text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+.cv-leader-list li.is-ours .cv-leader-name { font-weight: 700; }
+.cv-ours-badge { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--tint); color: var(--bark); font-size: 11px; font-weight: 700; }
+.cv-sitelinks { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* ------------------------------------------------------------------------ characters */
 .cv-roster { list-style: none; margin: 0; padding: 0; }
@@ -702,33 +825,99 @@ tr.cv-ours td:first-child { box-shadow: inset 3px 0 0 var(--crust); }
   flex-wrap: wrap;
   gap: 4px 10px;
   align-items: baseline;
-  padding: 8px 6px;
-  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
 }
-.cv-roster li:nth-child(even) { background: var(--cream2); }
-.cv-roster b { font-size: 14px; }
+.cv-roster li:first-child { border-top: 0; }
+.cv-roster b { font-size: 15px; }
 .cv-roster .cv-muted { margin-left: auto; }
 
-.cv-spinner { color: var(--crust); font-size: 13px; padding: 10px 0; }
+/* the crew on Home: an avatar, the name and where he plays, and his points to spend */
+.cv-crew { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+.cv-crew li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); min-width: 0; }
+.cv-avatar {
+  flex: 0 0 auto;
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--league, var(--bark));
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+}
+.cv-avatar.is-prep { --league: var(--prep); }
+.cv-avatar.is-college { --league: var(--college); }
+.cv-avatar.is-pro { --league: #9A5A1E; }
+.cv-crew-who { flex: 1 1 auto; min-width: 0; }
+.cv-crew-who a { display: block; color: var(--ink); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-crew-who span { display: block; font-size: 12px; color: var(--muted); }
+.cv-points { flex: 0 0 auto; padding: 3px 10px; border-radius: 999px; background: var(--tint); color: var(--bark); font-weight: 800; font-size: 13px; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .cv-crew { grid-template-columns: minmax(0, 1fr); } }
+
+/* the GOAT top three on Home */
+.cv-goat-mini { list-style: none; margin: 0; padding: 0; }
+.cv-goat-mini li { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--dark-line); font-size: 15px; }
+.cv-goat-mini li span:first-child { width: 20px; font-weight: 800; color: #F2C08A; }
+.cv-goat-mini li span:nth-child(2) { flex: 1 1 auto; }
+
+.cv-spinner { color: var(--muted); font-size: 14px; padding: 10px 0; }
 
 /* ------------------------------------------------------------------------------ phone */
+@media (max-width: 860px) {
+  body.cv-shell { padding-left: 0; padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .cv-side { display: none; }
+
+  .cv-mtop {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px 6px;
+  }
+  .cv-mtop .cv-brand { margin: 0 auto 0 0; font-size: 20px; }
+  .cv-mtop .cv-who-name { display: none; }
+
+  .cv-tabbar {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 30;
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--card);
+    border-top: 1px solid var(--border);
+  }
+  .cv-tabbar a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .cv-tabbar a[aria-current='page'] { color: var(--bark); }
+  .cv-tabbar a[aria-current='page'] svg { color: var(--crust); }
+
+  .cv-page { padding: 12px 14px 32px; }
+  .cv-foot { padding: 8px 16px 24px; }
+  h1 { font-size: 30px; }
+  .cv-card { padding: 18px; border-radius: 18px; }
+  .cv-hero { padding: 20px 18px; border-radius: 20px; }
+  .cv-hero h1 { font-size: 30px; }
+  .cv-hero p { font-size: 15px; }
+  .cv-page-head .cv-seg { width: 100%; }
+  .cv-page-head .cv-seg button { flex: 1 1 0; padding: 0 8px; }
+}
+
 @media (max-width: 640px) {
-  .cv-top-inner { padding: 10px var(--gutter); gap: 8px; }
-  .cv-wordmark b { font-size: 18px; }
-  /* The header was 181px of an 844px screen - a fifth of the phone gone before any content.
-     The tagline is decoration and the nav does not need to breathe as much. */
-  .cv-wordmark small { display: none; }
-  .cv-nav { gap: 4px 10px; }
-  .cv-nav a { padding: 5px 8px; }
   /* A tab strip that wraps onto three lines is worse than one that scrolls sideways. */
   .cv-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
              scrollbar-width: none; padding-bottom: 2px; }
   .cv-tabs::-webkit-scrollbar { display: none; }
   .cv-tab { flex: 0 0 auto; }
-  .cv-page { padding-top: 16px; }
-  .cv-hero { padding: 20px 16px; }
-  .cv-hero h1 { font-size: 24px; }
-  h1 { font-size: 22px; }
   .cv-fields { grid-template-columns: 1fr; }
   .cv-meter { position: static; }
   .cv-rating { grid-template-columns: 1fr; }
@@ -737,35 +926,45 @@ tr.cv-ours td:first-child { box-shadow: inset 3px 0 0 var(--crust); }
   .cv-choices { grid-template-columns: 1fr; }
   .cv-choices-tight { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
   .cv-trait { grid-template-columns: 8em minmax(40px, 1fr) 2.2em; }
-  .cv-readout b { font-size: 15px; }
+  .cv-readout b { font-size: 17px; }
   /* the career arc: three wide segments become three stacked ones. flex-grow does nothing in a
      column with no definite height, so the inline season weighting simply stops applying. */
   .cv-arc { flex-direction: column; }
   .cv-facts { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .cv-story-list { grid-template-columns: minmax(0, 1fr); }
+  .cv-pulse-tiles b { font-size: 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
 
-/* ---------------------------------------------------------------- the roll call
-   One row per real person's player. Deliberately not a table: at phone width a table of
-   eight columns becomes a horizontal scrollbar, and this list just stacks. */
-.cv-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px 0; }
+/* ---------------------------------------------------------------- tabs and the roll call */
+.cv-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px 0; }
 .cv-tab {
-  font: 600 13px/1 'Trebuchet MS', Verdana, sans-serif;
-  padding: 7px 12px; border-radius: 999px; cursor: pointer;
-  border: 1px solid var(--crust); background: transparent; color: var(--crust);
+  display: inline-flex;
+  align-items: center;
+  font: 600 14px/1 var(--font);
+  padding: 9px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 0;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--ink);
 }
-.cv-tab:hover { background: var(--row-alt); }
-.cv-tab.is-on { background: var(--gold); color: var(--ink); border-color: var(--crust); }
-/* A folded-away block of writing. The summary carries the headline, so leaving it shut costs
-   the reader nothing; the arrow is drawn rather than the browser's default marker so it looks
-   the same on every platform. */
-.cv-meter-stat { display: inline-flex; align-items: baseline; gap: 7px; }
+.cv-tab:hover { background: var(--tile); }
+.cv-tab.is-on { background: var(--ink); color: var(--ground); box-shadow: none; }
+/* inside a white card the off state needs a fill of its own */
+.cv-card .cv-tab:not(.is-on) { background: var(--ground); box-shadow: none; }
+.cv-card .cv-tab:not(.is-on):hover { background: var(--tile); }
 
-/* A heading inside a tab panel: smaller than the card's own, same uppercase key as the rating
-   group headings so a panel reads as one thing rather than a stack of cards. */
+.cv-tab-badge {
+  display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px;
+  background: var(--tint); color: var(--bark); font-size: 12px; font-weight: 700;
+}
+.cv-tab.is-on .cv-tab-badge { background: var(--crust); color: var(--ink); }
+
 /* Rank rows reuse the trait row's grid, but the two columns want opposite sizes: the label is
    "PTS" rather than "Motor", and the value is "104th" rather than "45". Left as-is the ordinal
    was clipped against the right edge of a phone - visible only by looking at it. */
@@ -775,26 +974,29 @@ tr.cv-ours td:first-child { box-shadow: inset 3px 0 0 var(--crust); }
 /* head to head: two columns of numbers with the label down the middle, so the eye compares
    across rather than reading two separate tables. */
 .cv-h2h td { text-align: center; font-variant-numeric: tabular-nums; }
-.cv-h2h th { text-align: center; color: var(--crust); }
-.cv-h2h tbody th { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
-.cv-h2h-win { font-weight: 700; background: var(--gold); color: var(--ink); }
+.cv-h2h th { text-align: center; }
+.cv-h2h tbody th { font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.cv-h2h-win { font-weight: 800; background: var(--tint); color: var(--bark); }
 
 .cv-select {
-  font: 600 14px 'Trebuchet MS', Verdana, sans-serif;
-  padding: 9px 10px; width: 100%; border-radius: 8px;
-  border: 1px solid var(--crust); background: #fff; color: var(--ink);
+  font: 600 15px var(--font);
+  padding: 10px 12px; width: 100%; border-radius: var(--radius-s);
+  border: 1px solid var(--border); background: var(--card); color: var(--ink);
 }
-.cv-select:focus-visible { outline: 2px solid var(--crust); outline-offset: 1px; }
+.cv-select:focus-visible { outline: 3px solid var(--crust); outline-offset: 2px; }
 
 .cv-subhead {
-  margin: 16px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
-  color: var(--crust);
+  margin: 18px 0 8px; font: 700 12px/1.2 var(--font); text-transform: uppercase; letter-spacing: 1px;
+  color: var(--muted);
 }
 
-.cv-fold { margin: 0 0 14px; border: 1px solid var(--crust); border-radius: 10px; background: var(--row-alt); }
+/* A folded-away block of writing. The summary carries the headline, so leaving it shut costs
+   the reader nothing; the arrow is drawn rather than the browser's default marker so it looks
+   the same on every platform. */
+.cv-fold { margin: 0 0 14px; border-radius: 14px; background: var(--ground); }
 .cv-fold > summary {
-  list-style: none; cursor: pointer; padding: 11px 14px;
-  font-weight: 700; color: var(--crust); display: flex; align-items: center; gap: 8px;
+  list-style: none; cursor: pointer; padding: 12px 16px;
+  font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 8px;
 }
 .cv-fold > summary::-webkit-details-marker { display: none; }
 /* The arrow is drawn with borders, not a glyph. A character would need either a CSS escape -
@@ -804,33 +1006,27 @@ tr.cv-ours td:first-child { box-shadow: inset 3px 0 0 var(--crust); }
 .cv-fold > summary::after {
   content: ''; margin-left: auto; width: 0; height: 0;
   border-left: 5px solid transparent; border-right: 5px solid transparent;
-  border-top: 6px solid var(--crust); transition: transform .15s ease;
+  border-top: 6px solid var(--muted); transition: transform .15s ease;
 }
 .cv-fold[open] > summary::after { transform: rotate(180deg); }
-.cv-fold > summary:hover { background: var(--cream); border-radius: 9px 9px 0 0; }
-.cv-fold > summary:focus-visible { outline: 2px solid var(--crust); outline-offset: -2px; }
-.cv-fold-body { padding: 0 14px 12px; }
+.cv-fold > summary:hover { background: var(--tile); border-radius: 14px; }
+.cv-fold[open] > summary:hover { border-radius: 14px 14px 0 0; }
+.cv-fold > summary:focus-visible { outline: 3px solid var(--crust); outline-offset: 2px; }
+.cv-fold-body { padding: 0 16px 14px; }
 .cv-fold-body > :first-child { margin-top: 0; }
 .cv-fold-body > :last-child { margin-bottom: 0; }
 
-.cv-tab-badge {
-  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px;
-  background: var(--crust); color: var(--cream); font-size: 11px; font-weight: 700;
-}
-.cv-tab.is-on .cv-tab-badge { background: var(--ink); color: var(--gold); }
-
 .cv-roll {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
-  padding: 10px 12px; border-bottom: 1px solid var(--row-alt);
+  padding: 12px 0; border-top: 1px solid var(--line);
 }
-.cv-roll:last-child { border-bottom: 0; }
-.cv-roll.is-mine { background: var(--row-alt); border-radius: 6px; }
+.cv-roll:first-child { border-top: 0; }
+.cv-roll.is-mine { background: var(--butter); border-radius: 12px; padding: 12px; border-top-color: transparent; }
 .cv-roll-main { display: flex; align-items: baseline; gap: 8px; flex: 1 1 260px; }
-.cv-rollname { font-weight: 700; font-size: 16px; color: var(--crust); text-decoration: none; }
+.cv-rollname { font: 800 17px/1.2 var(--display); color: var(--ink); text-decoration: none; }
 a.cv-rollname:hover { text-decoration: underline; }
-.cv-roll-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 13px; flex: 1 1 240px; }
-.cv-roll-owner { flex: 0 0 auto; font-size: 12px; }
-.cv-chip-mine { background: var(--gold); color: var(--ink); font-weight: 700; }
+.cv-roll-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 14px; flex: 1 1 240px; }
+.cv-roll-owner { flex: 0 0 auto; font-size: 13px; }
 
 @media (max-width: 560px) {
   .cv-roll { flex-direction: column; gap: 4px; }
@@ -875,27 +1071,27 @@ a.cv-rollname:hover { text-decoration: underline; }
    records it produced are real results of real games. The reader just needs to know why one
    season's numbers sit so far outside every other. */
 .cv-anomaly {
-  border-left: 4px solid var(--crust);
-  background: var(--cream2);
-  padding: 10px 14px;
-  margin: 0 0 14px;
-  border-radius: 4px;
-  font-size: 0.95rem;
+  background: var(--tint);
+  padding: 12px 16px;
+  margin: 0 0 16px;
+  border-radius: 14px;
+  font-size: 14px;
   line-height: 1.45;
 }
-.cv-anomaly strong { color: var(--crust); }
+.cv-anomaly strong { color: var(--bark); }
 
 /* ---- GOAT score (goats.html) ---------------------------------------------------------- */
-.cv-goat-sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; margin: 8px 0 12px; }
-.cv-goat-sliders label { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12px; font-weight: 600; }
+.cv-goat-sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 18px; margin: 8px 0 14px; }
+.cv-goat-sliders label { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 13px; font-weight: 600; color: var(--ink); }
 .cv-goat-sliders input[type=range] { grid-column: 1 / -1; width: 100%; }
-.cv-goat-sliders output { font-variant-numeric: tabular-nums; color: var(--crust); }
+.cv-goat-sliders output { font-variant-numeric: tabular-nums; color: var(--bark); font-weight: 700; }
 .cv-goat-row { cursor: pointer; }
-.cv-goat-row:hover td { background: rgba(0, 0, 0, 0.03); }
+.cv-goat-row:hover td { background: var(--ground); }
+.cv-goat-open > td { background: var(--ground); border-radius: 0 0 12px 12px; }
 .cv-goat-tag { margin-left: 6px; }
-.cv-goat-tag.is-carrier { background: var(--human, #1D5C8A); color: #fff; }
-.cv-goat-tag.is-passenger { background: #8a8a8a; color: #fff; }
-.cv-goat-detail { padding: 6px 2px 10px; }
-.cv-goat-parts { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 6px; }
-.cv-goat-parts div { display: flex; gap: 6px; font-size: 12px; }
+.cv-goat-tag.is-carrier { background: var(--dark); color: #F2C08A; }
+.cv-goat-tag.is-passenger { background: var(--line); color: var(--muted); }
+.cv-goat-detail { padding: 8px 4px 12px; }
+.cv-goat-parts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.cv-goat-parts div { display: flex; gap: 6px; font-size: 13px; background: var(--card); border-radius: 10px; padding: 6px 10px; }
 .cv-goat-parts b { font-variant-numeric: tabular-nums; }

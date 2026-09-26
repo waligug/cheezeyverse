@@ -120,44 +120,90 @@ export function statusPill(status) {
 
 /* ---------------------------------------------------------------------------- chrome */
 
+/* The Clubhouse layout: five places that matter, in the sidebar on a desktop and in the tab bar
+   on a phone. Everything else is one click further down, under "More", rather than eight links
+   of equal weight in a row - which is what the old header was, and why nobody could find the
+   one they wanted. The icons are 24px stroke paths, drawn rather than fetched. */
+const ICONS = {
+  home: 'M3 11l9-7 9 7 M5 10v10h14V10',
+  user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
+  table: 'M3 5h18 M3 12h18 M3 19h18 M8 5v14',
+  trophy: 'M8 21h8 M12 17v4 M7 4h10v5a5 5 0 0 1-10 0z M17 5h3v2a3 3 0 0 1-3 3 M7 5H4v2a3 3 0 0 0 3 3',
+  book: 'M4 19V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2 M20 19v2H6',
+  plus: 'M12 5v14 M5 12h14',
+};
+
 const NAV = [
-  { href: 'index.html', label: 'The Universe' },
-  { href: 'create.html', label: 'Create a player' },
-  { href: 'players.html', label: 'Roll call' },
-  { href: 'stories.html', label: 'Stories' },
-  { href: 'h2h.html', label: 'Head to head' },
-  { href: 'goats.html', label: 'All time' },
-  { href: 'cap.html', label: 'The cap' },
-  { href: 'me.html', label: 'My players' },
+  { href: 'index.html', label: 'Home', icon: ICONS.home },
+  { href: 'me.html', label: 'My players', icon: ICONS.user },
+  { href: 'leagues.html', label: 'Leagues', icon: ICONS.table },
+  { href: 'goats.html', label: 'All time', icon: ICONS.trophy },
+  { href: 'stories.html', label: 'Stories', icon: ICONS.book },
 ];
 
+const MORE = [
+  { href: 'players.html', label: 'Roll call' },
+  { href: 'h2h.html', label: 'Head to head' },
+  { href: 'cap.html', label: 'The cap' },
+];
+
+function icon(path, size = 18) {
+  return svg('svg', {
+    width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+    'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true',
+  }, svg('path', { d: path }));
+}
+
+/** The wedge: a slice of cheese with two holes, in the accent colour. */
+export function cheeseMark(size = 30) {
+  return svg('svg', { class: 'cv-mark', width: size, height: size, viewBox: '0 0 30 30', 'aria-hidden': 'true' },
+    svg('path', { d: 'M3 22 L27 22 L27 12 L3 20 Z', class: 'cv-mark-wedge' }),
+    svg('circle', { cx: 12, cy: 19, r: 1.6, class: 'cv-mark-hole' }),
+    svg('circle', { cx: 20, cy: 17, r: 2, class: 'cv-mark-hole' }));
+}
+
 /**
- * Header band with the wordmark, the nav and the Discord button. Called once per page;
+ * The sidebar (desktop) and the top bar plus bottom tab bar (phone). Called once per page;
  * call `refresh(user, profile)` afterwards when the auth state settles.
+ *
+ * Both the sidebar and the phone's top bar carry the sign-in control, and CSS shows one or the
+ * other, so `refresh` fills both.
  */
 export function renderChrome({ active, onSignIn, onSignOut }) {
   const cfg = config();
-  const who = el('div', { class: 'cv-who' });
+  const brandName = (cfg.universeName || 'The Cheezeyverse').replace(/^The\s+/i, '');
+  const brand = () => el('a', { class: 'cv-brand', href: 'index.html' }, cheeseMark(), el('span', {}, brandName));
+  const current = (href) => (href === active ? 'page' : null);
 
-  const header = el('header', { class: 'cv-top cv-cheese' },
-    el('div', { class: 'cv-top-inner' },
-      el('a', { class: 'cv-wordmark', href: 'index.html' },
-        el('b', {}, cfg.universeName || 'The Cheezeyverse'),
-        el('small', {}, 'Prep · College · Pro')),
-      el('nav', { class: 'cv-nav' },
-        NAV.map((n) => el('a', {
-          href: n.href,
-          'aria-current': n.href === active ? 'page' : null,
-        }, n.label))),
-      who));
+  const whoSide = el('div', { class: 'cv-who' });
+  const whoTop = el('div', { class: 'cv-who' });
 
-  document.body.prepend(header);
+  const side = el('aside', { class: 'cv-side', 'aria-label': 'Site' },
+    brand(),
+    el('nav', { class: 'cv-nav', 'aria-label': 'Main' },
+      NAV.map((n) => el('a', { href: n.href, 'aria-current': current(n.href) }, icon(n.icon), n.label))),
+    el('div', { class: 'cv-nav-more' },
+      el('span', { class: 'cv-nav-label' }, 'More'),
+      MORE.map((n) => el('a', { href: n.href, 'aria-current': current(n.href) }, n.label))),
+    el('div', { class: 'cv-side-fill' }),
+    el('a', { class: 'cv-btn cv-big cv-create', href: 'create.html', 'aria-current': current('create.html') },
+      icon(ICONS.plus), 'Create a player'),
+    whoSide);
 
-  function refresh(user, profile) {
+  const top = el('header', { class: 'cv-mtop' }, brand(), whoTop);
+
+  const tabbar = el('nav', { class: 'cv-tabbar', 'aria-label': 'Main' },
+    NAV.map((n) => el('a', { href: n.href, 'aria-current': current(n.href) }, icon(n.icon, 22), n.label)));
+
+  document.body.classList.add('cv-shell');
+  document.body.prepend(side, top);
+  document.body.append(tabbar);
+
+  function fill(who, user, profile) {
     clear(who);
     if (user) {
       who.append(
-        el('span', {}, displayNameOf(user, profile)),
+        el('span', { class: 'cv-who-name' }, displayNameOf(user, profile)),
         el('button', { class: 'cv-btn cv-small cv-ghost', type: 'button', onclick: onSignOut },
           'Sign out'),
       );
@@ -165,6 +211,11 @@ export function renderChrome({ active, onSignIn, onSignOut }) {
       who.append(el('button', { class: 'cv-btn cv-small', type: 'button', onclick: onSignIn },
         'Sign in with Discord'));
     }
+  }
+
+  function refresh(user, profile) {
+    fill(whoSide, user, profile);
+    fill(whoTop, user, profile);
   }
 
   refresh(null, null);
