@@ -1265,7 +1265,7 @@ body {
 
 .cv-spend-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-bottom: 6px; }
 .cv-seg.cv-seg-small button { min-height: 34px; padding: 0 14px; font-size: 13px; }
-.cv-spend-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.cv-spend-legend { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12px; color: var(--muted); }
 .cv-spend-legend > span { display: inline-block; margin-left: 6px; }
 .cv-key-fill { width: 14px; height: 8px; border-radius: 4px; background: var(--bark); }
 .cv-key-queued { width: 14px; height: 8px; border-radius: 4px; background: var(--crust); }
@@ -1280,7 +1280,7 @@ body {
 
 .cv-rate {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(40px, 1fr) 4.6em auto;
+  grid-template-columns: minmax(0, 2fr) minmax(40px, 1fr) 4.4em auto;
   gap: 10px;
   align-items: center;
   padding: 6px 0;
@@ -1329,7 +1329,7 @@ body {
   .cv-me-head { flex-wrap: wrap; }
   .cv-me-points { order: -1; margin-left: auto; }
   .cv-me-who { flex-basis: 100%; }
-  .cv-spend-legend { display: none; }
+  .cv-spend-legend { flex-wrap: wrap; row-gap: 4px; }
   .cv-rate { grid-template-columns: minmax(0, 1fr) minmax(36px, .7fr) 4.4em auto; gap: 8px; }
 }
 
@@ -1416,13 +1416,15 @@ body {
   .cv-mtop .cv-quick a { background: var(--card); box-shadow: inset 0 0 0 1px var(--border); }
 }
 
-/* On a phone the easy/hard tags shrink to a dot, so a rating stays on one line; the words are
-   still in the tag's title. "fixed" and "next sim" keep their words - those change what you can do. */
-@media (max-width: 640px) {
-  .cv-rtag.is-easy, .cv-rtag.is-hard { font-size: 0; padding: 0; width: 8px; height: 8px; border-radius: 50%; }
-  .cv-rtag.is-easy { background: var(--good); }
-  .cv-rtag.is-hard { background: #B4452A; }
-}
+/* The easy/hard tags are a dot, so a rating stays on one line; the words are in the tag's title
+   and in the legend above the sheet. "fixed" and "next sim" keep their words - those change what
+   you can do. */
+.cv-rtag.is-easy, .cv-rtag.is-hard { font-size: 0; padding: 0; width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.cv-rtag.is-easy { background: var(--good); }
+.cv-rtag.is-hard { background: #B4452A; }
+.cv-key-easy, .cv-key-hard { width: 8px; height: 8px; border-radius: 50%; }
+.cv-key-easy { background: var(--good); }
+.cv-key-hard { background: #B4452A; }
 
 /* Range sliders (the GOAT formula): a rind track and a cheese-coloured thumb, not the browser's
    black-and-blue default. */
@@ -1438,4 +1440,47 @@ input[type='range']::-moz-range-thumb {
   box-shadow: 0 1px 4px rgba(42, 33, 24, .3);
 }
 input[type='range']:focus-visible { outline: 3px solid var(--crust); outline-offset: 2px; border-radius: 6px; }
+
+/* ---- My players: groups that fold, prices on the buttons, and the summary column ---- */
+.cv-sheet h3:has(.cv-sheet-toggle) { padding: 0; }
+.cv-sheet-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 36px; padding: 6px 0;
+  border: 0; background: transparent; cursor: pointer;
+  font: 700 12px/1.2 var(--font); letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+  text-align: left;
+}
+.cv-sheet-toggle::before {
+  content: ''; width: 0; height: 0; flex: 0 0 auto;
+  border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-top: 6px solid var(--muted); transition: transform .15s ease;
+}
+.cv-sheet-toggle[aria-expanded='false']::before { transform: rotate(-90deg); }
+.cv-sheet-toggle:hover { color: var(--ink); }
+.cv-sheet-count { margin-left: auto; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--bark); }
+.cv-sheet.is-shut { border-bottom: 1px solid var(--line); }
+
+.cv-rate .cv-step { width: auto; min-width: 38px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+.cv-price { font: 700 11px/1 var(--font); opacity: .85; }
+
+.cv-me-layout { display: flex; flex-direction: column-reverse; gap: 18px; }
+.cv-me-aside { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.cv-me-mini { background: var(--ground); border-radius: 16px; padding: 14px 16px; }
+.cv-me-mini h3 { font: 700 12px/1.2 var(--font); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.cv-me-mini p { margin: 6px 0 0; }
+.cv-me-money { font: 800 24px/1.1 var(--display); color: var(--ink); }
+.cv-mini-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cv-mini-tiles div {
+  background-color: var(--card); border-radius: 10px; padding: 8px 8px 6px;
+  background-image: radial-gradient(circle at calc(100% - 8px) 8px, #EFE2C8 0 3px, transparent 3.6px);
+  background-repeat: no-repeat;
+}
+.cv-mini-tiles b { display: block; font: 800 20px/1.1 var(--display); }
+.cv-mini-tiles span { font-size: 11px; color: var(--muted); }
+@media (min-width: 1300px) {
+  .cv-me-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 24px; align-items: start; }
+  .cv-me-aside { grid-template-columns: minmax(0, 1fr); position: sticky; top: 20px; }
+  .cv-mini-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) { .cv-me-aside { display: none; } }
 

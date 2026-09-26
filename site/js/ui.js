@@ -336,10 +336,25 @@ export function renderSheet(container, state, onStep) {
   // row of controls for the potential, and the bar underneath. That was most of the page's height.
   container.classList.add('cv-sheet-grid');
   const kind = state.mode === 'potential' ? 'potential' : 'rating';
+  // Groups can be folded shut (state.collapsed holds their titles) when the page passes
+  // onToggleGroup; a shut group keeps its heading, with how many ratings it hides and how many
+  // of them have something staged, so nothing queued is ever out of sight without a trace.
+  const collapsed = new Set(state.collapsed || []);
 
   for (const group of RATING_GROUPS) {
-    const box = el('section', { class: 'cv-sheet' }, el('h3', {}, group.title));
-    for (const r of group.ratings) box.append(ratingRow(r, state, onStep, kind));
+    const shut = collapsed.has(group.title);
+    const staged = group.ratings.filter((r) => Number(state.ratings[r]) > Number(state.base.ratings[r])
+      || (hasPotential(r) && Number(state.potentials[r]) > Number(state.base.potentials[r]))).length;
+    const head = state.onToggleGroup
+      ? el('h3', {}, el('button', {
+        class: 'cv-sheet-toggle', type: 'button', 'aria-expanded': shut ? 'false' : 'true',
+        onclick: () => state.onToggleGroup(group.title),
+      }, el('span', {}, group.title),
+      el('span', { class: 'cv-sheet-count' },
+        shut ? `${group.ratings.length} hidden${staged ? ` · ${staged} staged` : ''}` : (staged ? `${staged} staged` : ''))))
+      : el('h3', {}, group.title);
+    const box = el('section', { class: `cv-sheet${shut ? ' is-shut' : ''}` }, head);
+    if (!shut) for (const r of group.ratings) box.append(ratingRow(r, state, onStep, kind));
     container.append(box);
   }
 
@@ -423,6 +438,9 @@ function ratingRow(rating, state, onStep, kind = 'rating') {
 
   const cost = onPot ? potCost : ratingCost;
   const what = onPot ? `${label} potential` : label;
+  // The price of the next point, on the button itself - it used to live only in the hover text,
+  // which a phone never shows. Left off where there is nothing left to buy.
+  const priced = !locked && (onPot ? pot !== null && pot < POTENTIAL_MAX : value < ceiling);
   row.append(el('div', { class: 'cv-rating-controls' },
     el('button', {
       class: 'cv-step', type: 'button', disabled: !canLower,
@@ -439,7 +457,7 @@ function ratingRow(rating, state, onStep, kind = 'rating') {
       'aria-label': `Raise ${what}, costs ${cost}`,
       dataset: { key: `${rating}:${kind}:1` },
       onclick: () => onStep(rating, kind, 1),
-    }, '+')));
+    }, '+', priced ? el('small', { class: 'cv-price', 'aria-hidden': 'true' }, String(cost)) : null)));
 
   return row;
 }

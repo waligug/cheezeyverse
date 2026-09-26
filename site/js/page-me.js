@@ -365,7 +365,11 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
   }
 
   const body = el('div', { class: 'cv-stack' });
-  card.append(body);
+  /* The season and the contract at a glance, BESIDE the sheet on a wide screen and above it on a
+     narrower one, so nobody has to leave the Spend tab to see how he is doing. The Season and
+     Money tabs keep the full detail. Hidden on a phone, where it would only add scrolling. */
+  const aside = summaryColumn(character);
+  card.append(aside ? el('div', { class: 'cv-me-layout' }, body, aside) : body);
 
   /* ---- spend ---- */
   const sheet = el('div', {});
@@ -452,6 +456,13 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
       budget: free,
       showPotentials: true,
       mode,
+      collapsed: place.collapsed || [],
+      onToggleGroup: (title) => {
+        const shut = new Set(place.collapsed || []);
+        if (shut.has(title)) shut.delete(title); else shut.add(title);
+        remember('collapsed', [...shut]);
+        drawSpend();
+      },
     }, step);
 
     // What is staged, in words, so the bar says what the button will send.
@@ -516,7 +527,9 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
         el('span', { class: 'cv-spend-legend' },
           el('span', { class: 'cv-key-fill' }), 'rating',
           el('span', { class: 'cv-key-queued' }), 'staged',
-          el('span', { class: 'cv-key-tick' }), 'potential'),
+          el('span', { class: 'cv-key-tick' }), 'potential',
+          el('span', { class: 'cv-key-easy' }), 'comes easy',
+          el('span', { class: 'cv-key-hard' }), 'hard work'),
         el('details', { class: 'cv-fold cv-fold-inline' },
           el('summary', {}, 'How pricing works'),
           el('div', { class: 'cv-fold-body' },
@@ -603,6 +616,52 @@ function heightBlock(character, age) {
   return el('div', {}, el('p', {}, el('b', {}, `${formatHeight(character.height_inches)} now.`)),
     el('p', { class: 'cv-muted' },
       'Recorded height, updated after offseason growth. Future growth is not added to this number.'));
+}
+
+/** The two small cards beside the sheet: this season's line, and the contract. */
+function summaryColumn(character) {
+  const cards = [];
+  if (character.status !== 'pending' && character.league) {
+    const season = el('section', { class: 'cv-me-mini' },
+      el('h3', {}, 'This season'), el('p', { class: 'cv-muted' }, 'Looking it up...'));
+    leagueStats(character.league).then((stats) => {
+      const name = `${character.first_name} ${character.last_name}`;
+      const id = (character.league_player_ids || {})[character.league];
+      const players = (stats && stats.players) || [];
+      // by the game's own id first: a renamed character still matches, where his name does not
+      const row = (id !== undefined && id !== null && players.find((r) => r.page === `player${id}`))
+        || players.find((r) => r.name === name);
+      clear(season);
+      season.append(el('h3', {}, 'This season'));
+      if (!row) {
+        season.append(el('p', { class: 'cv-muted' }, 'No games yet this season.'));
+        return;
+      }
+      const games = Number(row.G) || 0;
+      const per = (v) => (games ? (Number(v) / games).toFixed(1) : '0.0');
+      season.append(
+        el('div', { class: 'cv-mini-tiles' },
+          ...[['PTS', row.PTS], ['REB', row.REB], ['AST', row.AST]].map(([k, v]) =>
+            el('div', {}, el('b', {}, per(v)), el('span', {}, `${k} a game`))),
+          el('div', {}, el('b', {}, String(games)), el('span', {}, 'games'))),
+        el('p', { class: 'cv-muted' }, `${row.team}${row.MIN ? ` · ${per(row.MIN)} minutes a game` : ''}`
+          + (row.rank && row.rank.PTS ? ` · ${ordinal(Number(row.rank.PTS))} in scoring` : '')));
+    }).catch(() => { clear(season); season.append(el('h3', {}, 'This season'), el('p', { class: 'cv-muted' }, 'Did not load.')); });
+    cards.push(season);
+  }
+  const f = financesOf(character);
+  if (f) {
+    cards.push(el('section', { class: 'cv-me-mini' },
+      el('h3', {}, 'Contract'),
+      el('p', { class: 'cv-me-money' }, f.salary ? money(f.salary) : 'No contract'),
+      el('p', { class: 'cv-muted' }, [
+        f.salary ? 'a year' : '',
+        f.years_left != null ? `${f.years_left} year${f.years_left === 1 ? '' : 's'} left` : '',
+        f.band || '',
+      ].filter(Boolean).join(' · ')),
+      f.payout != null ? el('p', { class: 'cv-muted' }, `Pays him +${f.payout} skill points next offseason.`) : null));
+  }
+  return cards.length ? el('aside', { class: 'cv-me-aside' }, ...cards) : null;
 }
 
 function requestTable(requests) {
