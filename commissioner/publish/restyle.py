@@ -291,6 +291,17 @@ td[bgcolor] {{
 td.main > table {{ border-collapse: separate !important; }}
 td.main > table, td.main > table td {{ border-color: {crust} !important; }}
 
+/* The wins beside each team on the bracket open that series on the character site - dotted, so
+   they read as something to tap rather than as a plain number. */
+a.cv-series-link {{
+  display: block !important;
+  color: {link} !important;
+  font-weight: 800 !important;
+  text-decoration: underline dotted !important;
+  text-underline-offset: 3px !important;
+}}
+a.cv-series-link:hover {{ background: {gold} !important; text-decoration: underline solid !important; }}
+
 /* team pages keep their own team colour on the big banner, but the chrome matches the league */
 td.teamheader {{ color: #FFF8E6 !important; letter-spacing: -.5px !important; }}
 td.teamheader2 {{ color: #FFF8E6 !important; }}
@@ -835,6 +846,46 @@ def _drop_repeated_stl(html):
     return STAT_TABLE.sub(fix_table, html)
 
 
+# One entry on playoffs.htm: a seed cell ("#1"), a team cell holding the roster link, and the cell
+# with the series wins. The entries pair up CONSECUTIVELY into series - the same fact
+# seasonbonus.playoff_bracket relies on - whatever the rowspan layout does to their rounds.
+_BRACKET_ENTRY = re.compile(
+    r"(<td[^>]*>)#(\d+)(</td>\s*<td[^>]*>(?:&#160;|&nbsp;|\s)*<a[^>]*>)([^<]+)"
+    r"(</a>\s*</td>\s*<td[^>]*>)(\d+)(</td>)", re.I)
+
+
+def bracket_entries(html):
+    """[{seed, team, wins}] in page order, from the bracket page's own markup."""
+    import html as _html
+    return [{"seed": int(m.group(2)), "team": _html.unescape(m.group(4)).strip(), "wins": int(m.group(6))}
+            for m in _BRACKET_ENTRY.finditer(html)]
+
+
+def _link_series(html, key):
+    """Make each series' win count a link to that series on the character site."""
+    import html as _html
+    from urllib.parse import quote
+    year = re.search(r"(\d{4})\s+Playoff Bracket", html)
+    entries = list(_BRACKET_ENTRY.finditer(html))
+    if not year or len(entries) < 2:
+        return html
+    teams = [_html.unescape(m.group(4)).strip() for m in entries]
+    out, last = [], 0
+    for i, m in enumerate(entries):
+        j = i + 1 if i % 2 == 0 else i - 1
+        if j >= len(teams):
+            continue            # an unpaired entry: leave it as the game wrote it
+        href = (f"../../series.html?league={key}&amp;season={year.group(1)}"
+                f"&amp;a={quote(teams[i])}&amp;b={quote(teams[j])}")
+        out.append(html[last:m.start(6)])
+        out.append(f'<a class="cv-series-link" href="{href}" target="_top" '
+                   f'title="{_html.escape(teams[i])} vs {_html.escape(teams[j])}: every game, every player">'
+                   f"{m.group(6)}</a>")
+        last = m.end(6)
+    out.append(html[last:])
+    return "".join(out)
+
+
 def _skin_page(html, league, season, prefix, current, key=None, ours=None,
                page_dir=None, src_root=None, player_id=None, rookies=None):
     """Put the nav bar just inside <body> so the page reads the same wherever it was opened."""
@@ -970,6 +1021,8 @@ def restyle(src, dst, league="Cheezeyverse", season="", clean=True, key=None, ou
         elif name != "index.htm":
             if name == "seasonawards.htm":
                 html = add_all_stars(html, src, season)
+            if name == "playoffs.htm":
+                html = _link_series(html, key or dst.name)
             pid = None
             m = re.fullmatch(r"player(\d+)\.htm", name)
             if m:

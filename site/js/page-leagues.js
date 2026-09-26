@@ -109,6 +109,43 @@ async function draw() {
   const ours = oursIn(stats, characters, key);
   renderStandings(stats, ours, key);
   renderLeaders(stats, ours, key);
+  renderPlayoffs(key, stats).catch((err) => console.warn('playoffs failed', err));
+}
+
+/* The postseason: one chip per series, round by round, each opening that series' page - every
+   game, the box scores and the MVPs. Shown only once the publish has written the series file for
+   the season on screen. */
+async function renderPlayoffs(key, stats) {
+  const card = $('#playoffs-card');
+  const box = $('#playoffs');
+  card.hidden = true;
+  clear(box);
+  const year = String((stats && stats.season) || '').match(/(\d{4})/);
+  if (!year) return;
+  const data = await freshJSON(`leagues/${key}/series-${year[1]}.json`);
+  if (key !== current || !data || !(data.series || []).length) return;
+  const rounds = new Map();
+  for (const s of data.series) {
+    if (!rounds.has(s.round)) rounds.set(s.round, { name: s.round_name, list: [] });
+    rounds.get(s.round).list.push(s);
+  }
+  const seed = (t) => (t.seed ? `#${t.seed} ` : '');
+  for (const [, round] of [...rounds].sort((x, y) => x[0] - y[0])) {
+    box.append(el('h4', { class: 'cv-subhead' }, round.name),
+      el('div', { class: 'cv-series-list' }, round.list.map((s) => {
+        const [a, b] = s.teams;
+        const href = `series.html?league=${key}&season=${data.season}`
+          + `&a=${encodeURIComponent(a.name)}&b=${encodeURIComponent(b.name)}`;
+        return el('a', { class: 'cv-series-chip', href },
+          el('span', { class: s.winner === a.name ? 'is-won' : null }, `${seed(a)}${a.name} ${a.wins}`),
+          el('span', { class: 'cv-muted' }, ' – '),
+          el('span', { class: s.winner === b.name ? 'is-won' : null }, `${b.wins} ${seed(b)}${b.name}`));
+      })));
+  }
+  $('#playoffs-note').textContent = data.champion
+    ? `${data.season} champion: ${data.champion} · tap a series for every game`
+    : `${data.season} · tap a series for every game`;
+  card.hidden = false;
 }
 
 /** Row -> our character, for every character of ours with a line in this league's stats. */

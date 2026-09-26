@@ -1499,3 +1499,68 @@ input[type='range']:focus-visible { outline: 3px solid var(--crust); outline-off
   .cv-formula:not(.is-open) #formula { display: none; }
   .cv-formula:not(.is-open) .cv-card-head { margin-bottom: 0; }
 }
+
+/* ============================================================== a playoff series (series.html) */
+.cv-series-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+.cv-series-teams { display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.cv-series-team {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 16px; background-color: var(--dark-2);
+}
+.cv-series-seed { min-width: 30px; font-weight: 700; color: #D9C9B0; }
+.cv-series-name { flex: 1 1 auto; font: 800 26px/1.1 var(--display); color: var(--ground); }
+.cv-series-wins { font: 800 40px/1 var(--display); color: #D9C9B0; }
+.cv-series-team.is-winner { background-color: var(--crust); }
+.cv-series-team.is-winner .cv-series-name, .cv-series-team.is-winner .cv-series-wins,
+.cv-series-team.is-winner .cv-series-seed { color: var(--ink); }
+.cv-series-won { padding: 3px 10px; border-radius: 999px; background: var(--ink); color: #F2C08A; font-size: 12px; font-weight: 800; }
+.cv-series-mvp { display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.cv-series-mvp h2 { margin: 0; font-size: 32px; }
+.cv-series-mvp h2 a { color: var(--ground); }
+.cv-series-mvp .cv-ours-badge { vertical-align: middle; }
+@media (max-width: 900px) {
+  .cv-series-hero { grid-template-columns: minmax(0, 1fr); }
+  .cv-series-name { font-size: 21px; }
+  .cv-series-wins { font-size: 32px; }
+}
+
+.cv-games { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.cv-game-card {
+  display: flex; flex-direction: column; gap: 4px; text-align: left;
+  padding: 12px 14px; border: 0; border-radius: 16px; cursor: pointer;
+  background-color: var(--ground); color: var(--ink); font: 14px/1.35 var(--font);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.cv-game-card:hover { background-color: var(--tile); }
+.cv-game-card.is-on { background-color: var(--card); box-shadow: inset 0 0 0 2px var(--ink); }
+.cv-game-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+.cv-game-head span { font-size: 12px; color: var(--muted); }
+.cv-game-row { display: flex; justify-content: space-between; color: var(--muted); }
+.cv-game-row.is-won { color: var(--ink); font-weight: 700; }
+.cv-game-row b { font-variant-numeric: tabular-nums; }
+.cv-game-mvp { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.cv-game-mvp span { font-weight: 800; color: var(--bark); }
+
+.cv-box-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; margin: 4px 0 4px; }
+.cv-box-head h3 { margin: 0; margin-right: auto; font-size: 20px; }
+.cv-box-head a { font-size: 13px; }
+table.cv-box-table { font-size: 13px; }
+table.cv-box-table tbody th { white-space: nowrap; font-size: 13px; }
+table.cv-box-table td { white-space: nowrap; }
+table.cv-box-table tr.cv-total td, table.cv-box-table tr.cv-total th { font-weight: 800; background: var(--ground); }
+table.cv-box-table tr.cv-splits td, table.cv-box-table tr.cv-splits th { font-weight: 600; color: var(--muted); border-top: 0; }
+table.cv-box-table tr.is-mvp th { color: var(--bark); }
+.cv-starter { margin-left: 6px; padding: 0 5px; border-radius: 4px; background: var(--line); color: var(--muted); font-size: 10px; font-weight: 800; }
+.cv-mvp-tag { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--crust); color: var(--ink); font-size: 10px; font-weight: 800; letter-spacing: .4px; }
+
+.cv-series-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.cv-series-chip {
+  display: inline-flex; align-items: center; gap: 2px; min-height: 38px; padding: 6px 14px;
+  border-radius: 999px; background: var(--ground); box-shadow: inset 0 0 0 1px var(--border);
+  color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: none;
+}
+.cv-series-chip:hover { background: var(--tile); text-decoration: none; }
+.cv-series-chip .is-won { color: var(--ink); font-weight: 800; }
+.cv-series-chip.is-on { background: var(--ink); box-shadow: none; }
+.cv-series-chip.is-on span, .cv-series-chip.is-on .is-won { color: var(--ground); }
+.cv-split-cell small { display: block; font-size: 11px; color: var(--muted); font-weight: 500; }

@@ -167,6 +167,15 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
     # removed it from the site, and the comment on that call claimed the opposite.
     stats = _write_stats(src, dst, key)
     cap = _write_cap(src, dst, key)
+    # AFTER restyle as well: the playoff series page's data. Captured from the MDB only when this
+    # publish has a fresh one (see series.py for why it is archived), and rebuilt from the
+    # archive every time, since restyle can rmtree this folder and the archive cannot be touched.
+    try:
+        from . import series as playoff_series
+        series_out = playoff_series.write(src, dst, key, current, refresh=mdb_fresh)
+    except Exception as exc:                                            # noqa: BLE001
+        print(f"  no series files for {key} ({exc}); the pages themselves are fine")
+        series_out = None
     # AFTER restyle, which rebuilds the folder from the game's export and would undo this.
     repaired = fix_player_pages(key, dst, current)
     if mdb_fresh:
@@ -183,7 +192,7 @@ def publish_league(key, mdb_fresh=True, season=None, ours=None):
             (dst / name).write_bytes(payload)
         games = careers = {"deferred": True, "retained": sorted(retained)}
     return {"league": key, "name": spec.name, "pages": pages, "path": str(dst),
-            "stats": stats, "games": games, "careers": careers, "cap": cap,
+            "stats": stats, "games": games, "careers": careers, "cap": cap, "series": series_out,
             "repaired": repaired, "repaired_export": repaired_src}
 
 
