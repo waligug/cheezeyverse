@@ -149,22 +149,39 @@ def test_edits_round_trip():
                   and len(R2.players) == len(L3.players))
 
 
-test_baseline_matches_game_exports()
-test_aged_save_matches_game_exports()
-test_edits_round_trip()
-# The summary has to distinguish "everything passed" from "nothing ran". Both fixtures live in
-# the gitignored fixtures/saves/, so on a clone all three tests skip - and a last line reading
-# "all codec tests passed" told a reader scanning for green that the codec had been checked
-# when it had not been opened. Whoever reads this output usually reads only this line.
-if failures:
-    print("FAILED: " + ", ".join(failures))
-elif not BASELINE.exists() and not AGED.exists() and not LIVE.exists():
-    print("\nSKIPPED: no historical fixtures or live save present; codec edits were not exercised")
-elif not BASELINE.exists() and not AGED.exists():
-    print("\ncodec structural edits passed against a disposable live-save copy; "
-          "historical export-comparison fixtures are unavailable")
-elif not (BASELINE.exists() and AGED.exists()):
-    print("\ncodec tests passed, but one fixture is missing - see SKIP above")
-else:
-    print("\nall codec tests passed")
-sys.exit(1 if failures else 0)
+def main():
+    """Run every check once; 0 when all passed. A plain script, and ALSO a unittest
+    below - it used to call sys.exit at import, which the unittest loader reported as an
+    error on every full run even when every check passed."""
+    failures.clear()
+    test_baseline_matches_game_exports()
+    test_aged_save_matches_game_exports()
+    test_edits_round_trip()
+    # The summary has to distinguish "everything passed" from "nothing ran". Both fixtures live in
+    # the gitignored fixtures/saves/, so on a clone all three tests skip - and a last line reading
+    # "all codec tests passed" told a reader scanning for green that the codec had been checked
+    # when it had not been opened. Whoever reads this output usually reads only this line.
+    if failures:
+        print("FAILED: " + ", ".join(failures))
+    elif not BASELINE.exists() and not AGED.exists() and not LIVE.exists():
+        print("\nSKIPPED: no historical fixtures or live save present; codec edits were not exercised")
+    elif not BASELINE.exists() and not AGED.exists():
+        print("\ncodec structural edits passed against a disposable live-save copy; "
+              "historical export-comparison fixtures are unavailable")
+    elif not (BASELINE.exists() and AGED.exists()):
+        print("\ncodec tests passed, but one fixture is missing - see SKIP above")
+    else:
+        print("\nall codec tests passed")
+    return 1 if failures else 0
+
+
+import unittest  # noqa: E402
+
+
+class RunsClean(unittest.TestCase):
+    def test_every_check_passes(self):
+        self.assertEqual(main(), 0, failures)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

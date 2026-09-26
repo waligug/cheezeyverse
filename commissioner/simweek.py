@@ -888,6 +888,78 @@ def _discord_report(steps, result, seconds):
     return "\n".join(lines)
 
 
+# ---- chatter during the long, silent exports ------------------------------------------------
+# The game-by-game table takes 2-4 minutes for pro with nothing to report, and twice in one day
+# that silence was read as "are we frozen?". So while an export runs, every CHATTER_EVERY seconds
+# of silence posts a line - a live stat or a pending question from the league's own published
+# numbers. It says nothing about progress it cannot measure; it only proves the run is alive.
+CHATTER_EVERY = 20
+SITE_LEAGUES = Path(__file__).resolve().parents[1] / "site" / "leagues"
+
+
+def _fun_lines(key):
+    """A handful of true, league-specific lines. Never raises; generic lines if data is missing."""
+    lines = []
+    try:
+        stats = json.loads((SITE_LEAGUES / key / "stats.json").read_text(encoding="utf-8"))
+        name = cfg.BY_KEY[key].name
+        table = sorted(stats.get("table") or [], key=lambda r: -r.get("pct", 0))
+        if len(table) >= 2:
+            a, b = table[0], table[1]
+            lines.append(f"Pending question: can the {b['name']} ({b['w']}-{b['l']}) catch the "
+                         f"{a['name']} ({a['w']}-{a['l']}) for first in {name}?")
+        players = [p for p in stats.get("players") or [] if p.get("G")]
+        for stat, word in (("PTS", "points"), ("REB", "rebounds"), ("AST", "assists")):
+            if players:
+                top = max(players, key=lambda p: p[stat] / p["G"])
+                lines.append(f"While we wait: {top['name']} leads {name} with "
+                             f"{top[stat] / top['G']:.1f} {word} a game.")
+    except Exception:                                                   # noqa: BLE001
+        pass
+    try:
+        goat = json.loads((SITE_LEAGUES / key / "goat.json").read_text(encoding="utf-8"))
+        best = (goat.get("players") or [])[:3]
+        if len(best) >= 2:
+            lines.append(f"Pending question: will anybody ever catch {best[0]['name']} on the "
+                         f"all-time {key} board?")
+            lines.append(f"Trivia: {best[1]['name']} played {best[1]['years']} seasons here "
+                         f"and won {len(best[1].get('titles') or [])} title(s).")
+    except Exception:                                                   # noqa: BLE001
+        pass
+    return lines or ["Still writing the box scores - every rebound gets counted.",
+                     "Still here, still exporting. The pro league is the slow one."]
+
+
+class _chatter:
+    """`with _chatter(emit, key):` - post a fun line every CHATTER_EVERY seconds until it exits."""
+
+    def __init__(self, emit, key, every=None):
+        self.emit, self.key, self.every = emit, key, every or CHATTER_EVERY
+        self.stop = threading.Event()
+        self.thread = None
+
+    def __enter__(self):
+        lines = _fun_lines(self.key)
+
+        def run():
+            i = 0
+            while not self.stop.wait(self.every):
+                try:
+                    self.emit("export", lines[i % len(lines)], self.key)
+                except Exception:                                       # noqa: BLE001
+                    pass
+                i += 1
+        self.thread = threading.Thread(target=run, name=f"chatter-{self.key}", daemon=True)
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self.stop.set()
+        if self.thread:
+            self.thread.join(timeout=2)
+        return False
+
+
 class SeasonEnd(RuntimeError):
     """A run was asked for that would sim past the last day of the regular season."""
 
@@ -1565,7 +1637,8 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             # question set it to nothing and reported that FBPB3 cannot write box scores at all.
             # The window reaches about a month back from the save's own date, so a weekly run
             # covers its own games comfortably and a season left unexported cannot be recovered.
-            out = boundary_export or game.html_output(spec.save_name, old_boxes=True)
+            with _chatter(emit, key):
+                out = boundary_export or game.html_output(spec.save_name, old_boxes=True)
             emit("export", f"{len(list(out.rglob('*.htm')))} pages", key)
             league_news_characters = [c for c in news_characters if c.get("league") == key]
             new_business = leaguenews.real_player_trades(
@@ -1574,6 +1647,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             if new_business:
                 result["news"][key] = new_business
                 emit("export", f"{len(new_business)} real-player trade(s) recorded", key)
+                if not dry_run:
+                    for row in new_business:
+                        announce.trade(row, key, spec.name,
+                                       log=lambda m, key=key: emit("export", m, key))
             # The MDB is where the per-game and season-total tables come from, and it is also
             # the only chance to write a career down before the save retires the man: SeasonStats
             # is rebuilt from scratch every export, so whatever is not captured here is gone.
@@ -1602,8 +1679,9 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                     at("mdb", key)
                     emit("export", "writing the game-by-game table", key)
                     stall, cap = MDB_BUDGET.get(key, MDB_BUDGET["pro"])
-                    game.output_mdb(spec.save_name, attempts=1,
-                                    timeout=stall, max_seconds=cap)
+                    with _chatter(emit, key):
+                        game.output_mdb(spec.save_name, attempts=1,
+                                        timeout=stall, max_seconds=cap)
                     fresh_mdb.add(key)
                 except Exception as exc:
                     emit("export", f"no MDB for {key} ({exc}); head-to-head will not update", key)

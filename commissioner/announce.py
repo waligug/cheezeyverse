@@ -108,3 +108,28 @@ def arrival(character, league_key, league_name, team=None, log=print):
     except Exception as exc:                                     # noqa: BLE001
         log(f"could not build the arrival card ({exc.__class__.__name__}); the run is unaffected")
         return False
+
+
+def trade_card(row, league_key, league_name):
+    """The embed for a trade that moved one of OUR characters. Pure - builds a dict, sends nothing.
+
+    Nate, 2026-09-25: trades are fine, "just make sure it's a big deal". So a trade gets its own
+    loud card the moment the export finds it, not one line at the bottom of the Sim done post.
+    """
+    return {
+        "title": f"TRADE ALERT · {league_name}",
+        "description": f"**{row.get('action', '').strip()}**",
+        "color": 0xD0843A,
+        "fields": [{"name": "Date", "value": str(row.get("date") or "this week"), "inline": True},
+                   {"name": "Team", "value": str(row.get("team") or "?"), "inline": True}],
+        "footer": {"text": "Straight from the league's transaction wire. Check his page for the new team."},
+    }
+
+
+def trade(row, league_key, league_name, log=print):
+    """Post a trade alert. Never raises; a trade that cannot be announced is still a trade."""
+    try:
+        return notify.post_embed(trade_card(row, league_key, league_name), log=log)
+    except Exception as exc:                                         # noqa: BLE001
+        log(f"could not post the trade alert ({exc.__class__.__name__}); the run is unaffected")
+        return False

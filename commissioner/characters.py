@@ -241,6 +241,15 @@ def pick_slot(slots, position=None, team=None, busy=None, divisions=None, team_o
     pools = ([s for s in slots if where(s) == team], ordered) if team else (ordered,)
 
     for pool in pools:
+        # SPREADING OUTRANKS POSITION (Nate, 2026-09-25: teammates are fine "if the game gets it
+        # going, but shouldn't spawn there"). Position used to be searched across the whole
+        # pool, so a slot at his position on a team that already had one of ours beat an
+        # empty team with a slot at another position. Position now only chooses among the
+        # least-occupied teams.
+        drafting_team_pool = team and pool is pools[0]
+        if busy and pool and not drafting_team_pool:
+            least = min(busy.get(where(s), 0) for s in pool)
+            pool = [s for s in pool if busy.get(where(s), 0) == least]
         if position:
             for s in pool:
                 if s.position == position:

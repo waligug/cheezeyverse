@@ -352,20 +352,37 @@ def test_a_rookie_is_paid_like_one_rather_than_given_a_token():
           rookie_salary(1) > MID_LEVEL * 0.5, f"${rookie_salary(1):,}")
 
 
-test_reads_what_the_game_exports()
-test_writes_and_survives_a_reload()
-test_it_refuses_what_would_corrupt_a_save()
-test_signing_a_free_agent_pays_him()
-test_a_drafted_man_gets_a_deal_that_outlasts_the_rollover()
-test_a_rookie_is_paid_like_one_rather_than_given_a_token()
+def main():
+    """Run every check once; 0 when all passed. A plain script, and ALSO a unittest
+    below - it used to call sys.exit at import, which the unittest loader reported as an
+    error on every full run even when every check passed."""
+    failures.clear()
+    test_reads_what_the_game_exports()
+    test_writes_and_survives_a_reload()
+    test_it_refuses_what_would_corrupt_a_save()
+    test_signing_a_free_agent_pays_him()
+    test_a_drafted_man_gets_a_deal_that_outlasts_the_rollover()
+    test_a_rookie_is_paid_like_one_rather_than_given_a_token()
 
-if failures:
-    print("\nFAILED: " + ", ".join(failures))
-elif not SAVE.exists():
-    print("\nSKIPPED: the cv-pro-aged fixture is gitignored and absent; the contract field was "
-          "never opened. On SERVERPC this must not skip.")
-else:
-    print("\nOK  contract: read matches the game's own export for every player and every year, "
-          "a write survives a reload without disturbing a neighbouring field, and the edits "
-          "that would corrupt a save are refused")
-sys.exit(1 if failures else 0)
+    if failures:
+        print("\nFAILED: " + ", ".join(failures))
+    elif not SAVE.exists():
+        print("\nSKIPPED: the cv-pro-aged fixture is gitignored and absent; the contract field was "
+              "never opened. On SERVERPC this must not skip.")
+    else:
+        print("\nOK  contract: read matches the game's own export for every player and every year, "
+              "a write survives a reload without disturbing a neighbouring field, and the edits "
+              "that would corrupt a save are refused")
+    return 1 if failures else 0
+
+
+import unittest  # noqa: E402
+
+
+class RunsClean(unittest.TestCase):
+    def test_every_check_passes(self):
+        self.assertEqual(main(), 0, failures)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

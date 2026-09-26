@@ -66,5 +66,47 @@ class StartHeight(unittest.TestCase):
         self.assertEqual(offseason._start_height(st, {"id": "x", "height_inches": 79}), 79)
 
 
+class Spawning(unittest.TestCase):
+    """New characters never spawn onto a team that already has one while another team has none."""
+
+    def test_empty_team_beats_position(self):
+        from commissioner import characters as ch
+        S = lambda team, pos, name: SimpleNamespace(team=team, position=pos, name=name)
+        slots = [S("CHE", "SG", "a"), S("PAR", "C", "b")]
+        got = ch.pick_slot(slots, position="SG", busy={"CHE": 1, "PAR": 0})
+        self.assertEqual(got.team, "PAR")
+
+    def test_position_still_breaks_ties(self):
+        from commissioner import characters as ch
+        S = lambda team, pos, name: SimpleNamespace(team=team, position=pos, name=name)
+        slots = [S("CHE", "C", "a"), S("PAR", "SG", "b")]
+        self.assertEqual(ch.pick_slot(slots, position="SG", busy={}).team, "PAR")
+
+    def test_the_drafting_team_still_wins(self):
+        from commissioner import characters as ch
+        S = lambda team, pos, name: SimpleNamespace(team=team, position=pos, name=name)
+        slots = [S("CHE", "SG", "a"), S("PAR", "C", "b")]
+        self.assertEqual(ch.pick_slot(slots, position="SG", team="CHE", busy={"CHE": 1}).team, "CHE")
+
+
+class TradesAndChatter(unittest.TestCase):
+    def test_trade_card(self):
+        from commissioner import announce
+        card = announce.trade_card({"action": "Traded Chris Zimmer to the Hams", "team": "Cats"}, "pro", "Pro")
+        self.assertIn("TRADE", card["title"])
+        self.assertIn("Chris Zimmer", card["description"])
+
+    def test_chatter_posts_until_it_stops(self):
+        said = []
+        with simweek._chatter(lambda step, msg, key: said.append(msg), "pro", every=0.05):
+            import time
+            time.sleep(0.3)
+        n = len(said)
+        import time
+        time.sleep(0.15)
+        self.assertGreater(n, 1)
+        self.assertEqual(len(said), n)          # silent once the export is over
+
+
 if __name__ == "__main__":
     unittest.main()
