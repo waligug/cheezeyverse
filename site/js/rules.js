@@ -816,6 +816,15 @@ export const SKILL_RATINGS = RATINGS.filter((r) => !TENDENCY_RATINGS.includes(r)
 /** A brand new 14 year old is terrible. Nothing on the sheet starts above this. */
 export const START_RATING_CEILING = 44;
 export const START_RATING_FLOOR = 4;
+
+/**
+ * EVERY NEW CHARACTER STARTS AT 70 STAMINA (Nate, 2026-09-25). The position templates put it at
+ * 16-20, and a fourteen-year-old who tires in six minutes never holds a rotation spot long
+ * enough to show anything else - the first seven were raised to 70 by hand on 2026-09-19 for
+ * exactly that reason. The commissioner enforces the same floor when he is placed in the save
+ * (simweek._activate_pending), so an old cached copy of this page cannot undo it.
+ */
+export const STARTING_STAMINA = 70;
 /** And his potentials sit inside the prep filler band (25-58 in universe/config.py). */
 export const START_POTENTIAL_CEILING = 95;
 
@@ -1059,6 +1068,9 @@ export function startingSheet(position, traits, opts = {}) {
       ranges[r] = [clampSkill(mid - band), clampSkill(mid + band)];
     }
   }
+
+  ratings.Stamina = STARTING_STAMINA;
+  ranges.Stamina = [STARTING_STAMINA, STARTING_STAMINA];
 
   const coach = Math.round(
     (POTENTIAL_COACH_SWING * (coachTrait(traits) - TRAIT_BASE)) / 50,

@@ -690,6 +690,11 @@ def test_derived_sheets(results, base, consts, inputs):
                     f"{row['position']} {r} potential: {d['potentials'][r]} not in {plo}..{phi}")
         for r in consts["SKILL_RATINGS"]:
             v = d["ratings"][r]
+            if r == "Stamina":
+                # Set, not rolled: every new character starts at 70 (2026-09-25).
+                if v != 70:
+                    bad_bounds.append(f"{row['position']} Stamina = {v}, wanted exactly 70")
+                continue
             seen_max = max(seen_max, v)
             if v > ceiling or v < floor:
                 bad_bounds.append(f"{row['position']} {r} = {v}")
@@ -714,7 +719,7 @@ def test_derived_sheets(results, base, consts, inputs):
         if d["bias"]["Fouling"] != 100:
             bad_bias.append("Fouling is locked but has a bias")
 
-    check(f"no starting skill is above {ceiling} across {len(inputs)} sampled builds",
+    check(f"no starting skill is above {ceiling} (Stamina is always 70) across {len(inputs)} sampled builds",
           not bad_bounds, f"(highest seen: {seen_max}) " + str(bad_bounds[:4]))
     check("rating <= potential <= 58 on every sampled build", not bad_legal,
           "\n      " + "\n      ".join(bad_legal[:4]) if bad_legal else "")

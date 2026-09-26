@@ -470,6 +470,9 @@ def create_character(payload):
     return st.add_character(payload)
 
 
+STARTING_STAMINA = 70     # every new character, see _activate_pending
+
+
 def _activate_pending(league_key, L, st, log, season=None):
     """Give every pending character in this league a reserve slot and stamp him into the save.
 
@@ -538,6 +541,17 @@ def _activate_pending(league_key, L, st, log, season=None):
         # progression begins at fourteen. claimed_slot still records the slot's original DOB so
         # refill can restore its identity when the character leaves.
         dob = _arrival_dob(c.get("dob") or slot.dob, season)
+        # EVERY NEW CHARACTER STARTS AT 70 STAMINA (Nate, 2026-09-25) - never lower, and never
+        # lowered if he already bought more while pending. The site sets it too; this is the
+        # enforcement, because an old cached create page would still send the template's ~18.
+        ratings = dict(c.get("ratings") or {})
+        if int(ratings.get("Stamina") or 0) < STARTING_STAMINA:
+            ratings["Stamina"] = STARTING_STAMINA
+            c = {**c, "ratings": ratings}
+            try:
+                st.set_character_field(c["id"], "ratings", ratings)
+            except Exception as exc:                                    # noqa: BLE001
+                log(f"   (could not record {c['first_name']}'s starting Stamina: {exc})")
         before_stamp = copy.deepcopy(L.__dict__)
         try:
             # The term the level runs to, not the one year a bare `contract_years` becomes. A
