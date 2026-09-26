@@ -108,7 +108,7 @@ async function draw() {
   }
   const ours = oursIn(stats, characters, key);
   renderStandings(stats, ours, key);
-  renderLeaders(stats, ours);
+  renderLeaders(stats, ours, key);
 }
 
 /** Row -> our character, for every character of ours with a line in this league's stats. */
@@ -125,6 +125,28 @@ function oursIn(stats, characters, key) {
     if (row) out.set(row, c);
   }
   return out;
+}
+
+/* WHERE A NAME GOES WHEN YOU CLICK IT. A team opens its roster on the league's own site; one of
+   ours opens his career page; anybody else opens his page in the league export. Built off the
+   configured league URL (config.js leagueSites), never a hardcoded path. A name we cannot place
+   stays plain text rather than linking somewhere wrong. */
+function leagueBase(key) {
+  const site = leagueSites()[key];
+  return site && site.ready ? site.url.replace(/[^/]*$/, '') : null;
+}
+
+function teamLink(key, name, roster) {
+  const base = leagueBase(key);
+  return base && roster ? el('a', { href: `${base}rosters/${roster}.htm` }, name) : name;
+}
+
+function playerLink(key, row, character) {
+  if (character && character.id) {
+    return el('a', { href: `career.html?id=${encodeURIComponent(character.id)}` }, row.name);
+  }
+  const base = leagueBase(key);
+  return base && row.page ? el('a', { href: `${base}players/${row.page}.htm` }, row.name) : row.name;
 }
 
 function renderStandings(stats, ours, key) {
@@ -149,7 +171,7 @@ function renderStandings(stats, ours, key) {
     const gb = i === 0 ? '—' : (((lead.w - t.w) + (t.l - lead.l)) / 2).toFixed(1);
     return el('tr', { class: names.length ? 'is-ours' : null },
       el('td', { class: 'cv-muted' }, String(i + 1)),
-      el('th', { scope: 'row' }, t.name),
+      el('th', { scope: 'row' }, teamLink(key, t.name, t.roster)),
       el('td', { class: 'cv-right' }, el('b', {}, String(t.w))),
       el('td', { class: 'cv-right' }, String(t.l)),
       el('td', { class: 'cv-right cv-muted' }, pct(t.pct)),
@@ -168,7 +190,8 @@ function renderStandings(stats, ours, key) {
     + (stats.export_date ? `From the league export of ${stats.export_date}.` : '')));
 }
 
-function renderLeaders(stats, ours) {
+function renderLeaders(stats, ours, key) {
+  const rosterOf = new Map((stats.table || []).map((t) => [t.name, t.roster]));
   const teamGames = stats.teams || {};
   const qualified = (stats.players || []).filter((r) => {
     const games = Number(r.G) || 0;
@@ -190,9 +213,9 @@ function renderLeaders(stats, ours) {
         const mine = ours.has(r);
         return el('li', { class: mine ? 'is-ours' : null },
           el('span', {}, String(i + 1)),
-          el('span', { class: 'cv-leader-name' }, r.name,
+          el('span', { class: 'cv-leader-name' }, playerLink(key, r, ours.get(r)),
             mine ? el('span', { class: 'cv-ours-badge' }, 'ours') : null),
-          el('span', { class: 'cv-leader-team' }, r.team),
+          el('span', { class: 'cv-leader-team' }, teamLink(key, r.team, rosterOf.get(r.team))),
           el('b', {}, v.toFixed(1)));
       })));
     }

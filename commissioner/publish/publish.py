@@ -643,6 +643,17 @@ def _write_stats(src, dst, key):
         data["generated"] = datetime.now().isoformat(timespec="seconds")
         data["league"] = key
         data["season"] = season_label(key)
+        # WHERE EACH TEAM'S PAGE IS, so the site's standings can link a team to its roster. The
+        # game's own standings page is the one place that pairs a team name with its rosterN id.
+        try:
+            html = (Path(src) / "standings.htm").read_text(encoding="latin-1", errors="replace")
+            roster = {name.strip(): rid for rid, name in
+                      re.findall(r'href="\.?/?rosters/(roster\d+)\.htm[^"]*"[^>]*>([^<]+)<', html)}
+            for row in data.get("table") or []:
+                if row.get("name") in roster:
+                    row["roster"] = roster[row["name"]]
+        except OSError:
+            pass
         (dst / "stats.json").write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
         return {"players": data["count"], "elite": data["elite"]}
     except Exception as exc:
