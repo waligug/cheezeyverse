@@ -7,6 +7,42 @@ from .driver.fbpb3 import FBPB3
 from .universe import config as cfg
 
 
+# ---- aging ------------------------------------------------------------------------------------
+# Nate, 2026-09-25: "Regression should potentially be pretty aggro past a certain point, but they
+# should be able to play as long as they want, assuming they're able to continue being signed."
+# So nobody is retired by age any more; the body declines instead, gently from 30 and hard from
+# 33, and the market decides when he is done (see _unsigned_veteran). Fraction of each rating
+# lost per offseason, by the age he turns; athletic ratings fall half as fast again.
+REGRESSION = {30: 0.01, 31: 0.02, 32: 0.03, 33: 0.05, 34: 0.07, 35: 0.10}
+REGRESSION_AFTER = 0.13          # 36 and up
+ATHLETIC = ("Quickness", "Jumping", "Strength", "Stamina")
+ATHLETIC_FACTOR = 1.5
+UNSIGNED_RETIRE_AGE = 33         # unsigned at or past this age: retired, not put back
+
+
+def regress(sheet, age):
+    """The sheet after one offseason of aging at `age`. Tendencies are left alone; a potential
+    falls with its rating and never below it. Returns a new dict."""
+    rate = REGRESSION.get(int(age), REGRESSION_AFTER if int(age) > max(REGRESSION) else 0.0)
+    if not rate:
+        return dict(sheet)
+    out = dict(sheet)
+    for field in RATINGS:
+        if field in ("3pUsage", "Fouling") or field not in out:
+            continue
+        cut = rate * (ATHLETIC_FACTOR if field in ATHLETIC else 1.0)
+        out[field] = max(1, int(round(out[field] * (1 - cut))))
+    for rating, pot in ch.POT_BY_RATING.items():
+        if pot in out and rating in out:
+            out[pot] = max(out[rating], int(round(out[pot] * (1 - rate))))
+    return out
+
+
+def _unsigned_veteran(character, season):
+    from .offseason import age_of
+    return age_of(character, season + 1) >= UNSIGNED_RETIRE_AGE
+
+
 def _character_floor(store, character, *sheets):
     """Highest value ever recorded for every protected field.
 
@@ -27,7 +63,19 @@ def _character_floor(store, character, *sheets):
         if rating in stored_potentials:
             values[potential] = max(values.get(potential, 0), int(stored_potentials[rating]))
     snapshot_reader = getattr(store, "snapshots", lambda _character_id: [])
-    for row in snapshot_reader(character["id"]):
+    # ONLY HIS CURRENT LEAGUE, ONLY ITS LATEST SEASON (2026-09-25). This used to take every
+    # snapshot he ever had, from any level, so the best sheet of his career came back at every
+    # rollover and every week. That silently undid the promotion haircut (Gravy 976 -> 982
+    # across the move), would undo the early-declare penalty the same way, and made aging
+    # regression impossible. The floor exists to stop the GAME knocking a rating down inside a
+    # season or across its own camps - the sheets the callers pass cover the rollover - not to
+    # freeze a career at its peak.
+    rows = [r for r in snapshot_reader(character["id"])
+            if not character.get("league") or r.get("league") == character.get("league")]
+    if rows:
+        latest = max(int(r.get("season") or 0) for r in rows)
+        rows = [r for r in rows if int(r.get("season") or 0) == latest]
+    for row in rows:
         for field, value in (row.get("ratings") or {}).items():
             if field in RATINGS and value is not None:
                 values[field] = max(values.get(field, 0), int(value))
@@ -561,6 +609,16 @@ def rollover_saves(store, season, journal, log, progress=None):
             # pre/post value retains every gain while making that kind of regression impossible.
             sheet = _character_floor(store, character, sheet, pl.values)
             sheet = {field: sheet[field] for field in RATINGS + POTENTIALS}
+            # AGING, on OUR schedule. The floor above cancels whatever the game's own camps did,
+            # so decline is applied here instead - see regress().
+            if key == "pro":
+                from .offseason import age_of
+                age = age_of(character, season + 1)
+                aged = regress(sheet, age)
+                if aged != sheet:
+                    drop = sum(sheet[f] - aged[f] for f in RATINGS)
+                    log(f"   {name} is {age}: aging took {drop} rating points off his sheet")
+                    sheet = aged
             values = dict(BirthMonth=month, BirthDay=day, BirthYear=year,
                           Height=height, Weight=weight, **sheet)
             for field, value in values.items():
@@ -609,6 +667,17 @@ def rollover_saves(store, season, journal, log, progress=None):
                 if abbrev and abbrev != character.get("team_abbrev"):
                     log(f'   {name}: now on {abbrev} (was {character.get("team_abbrev")})')
                     store.set_character_field(character["id"], "team_abbrev", abbrev)
+                elif not abbrev and _unsigned_veteran(character, season):
+                    # NOBODY SIGNED HIM, AND HE IS PAST THE AGE WE CATCH (Nate, 2026-09-25: "they
+                    # should be able to play as long as they want, assuming they're able to
+                    # continue being signed"). A young man left unsigned is put back; a veteran
+                    # the whole league passed on has reached the end.
+                    from .offseason import age_of, retire
+                    retired.append(retire(character, season,
+                                          f"went unsigned in free agency at {age_of(character, season + 1)}",
+                                          store, log=log))
+                    league = LeagueDat(path)      # refill rewrote the save under us
+                    continue
                 elif not abbrev:
                     # A REAL PERSON CAME OUT OF THE ROLLOVER WITH NO TEAM. This used to be logged
                     # with "he needs placing by hand" and left there - and Gravy Jones, a #3 pick

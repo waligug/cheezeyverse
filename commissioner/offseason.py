@@ -278,18 +278,10 @@ def declining(store, character, live_mean, season):
 
 def retirement_for(character, pl, season, store):
     """Why this career ends now, in one line, or None if it does not end."""
-    if character.get("league") != "pro":
-        return None
-    age = age_of(character, season)
-    if age >= PRO_RETIREMENT_AGE:
-        return f"aged out at {age}"
-    if age < PRO_DECLINE_AGE:
-        return None
-    fall = declining(store, character, _mean(pl.values), season)
-    if fall is None:
-        return None
-    return (f'declining at {age}: his sheet averages {fall["now"]}, '
-            f'down from {fall["peak"]} in {fall["peak_season"]}')
+    # NOBODY IS RETIRED BY AGE OR DECLINE ANY MORE (Nate, 2026-09-25). A career ends when the
+    # league stops signing him - seasonflow._unsigned_veteran, at the rollover - or when the game
+    # deletes his record (run_retirements). Aging is seasonflow.regress().
+    return None
 
 
 def retire(character, season, reason, store, log=print, dry_run=False, slot_exists=True):
@@ -393,7 +385,25 @@ def run_retirements(characters, store, season, log=print, dry_run=False):
 
 
 # ---- 1. growth ------------------------------------------------------------------------------
-def apply_growth(league_key, characters, season, log=print, dry_run=False):
+def _start_height(store, character):
+    """His height at fourteen: the earliest snapshot that recorded one, else what he is now.
+
+    The growth curve is defined from the height he was CREATED at. `height_inches` is rewritten
+    every offseason, so passing it - which this used to - re-anchored the curve each summer and
+    let a man drift one or two inches off his own projection (Zach Russell +2, Beans Johnson -2
+    by 2036). Snapshots are never rewritten, so the first one is the anchor.
+    """
+    try:
+        rows = sorted(store.snapshots(character["id"]), key=lambda r: str(r.get("taken_at") or ""))
+        first = next((r for r in rows if r.get("height_inches")), None)
+        if first:
+            return int(first["height_inches"])
+    except Exception:                                                   # noqa: BLE001
+        pass
+    return int(character["height_inches"])
+
+
+def apply_growth(league_key, characters, season, log=print, dry_run=False, store=None):
     """Write this year's inches - and this year's weight - into the save, character by character.
 
     WEIGHT IS NOT CONDITIONAL ON INCHES. A sixteen-year-old who gains no height still fills out,
@@ -423,7 +433,8 @@ def apply_growth(league_key, characters, season, log=print, dry_run=False):
         except Exception as exc:
             log(f"   ! {name}: {exc}")
             continue
-        inches = growth.grew_this_offseason(c["id"], int(c["height_inches"]), int(genes), age)
+        start = _start_height(store, c) if store is not None else int(c["height_inches"])
+        inches = growth.grew_this_offseason(c["id"], start, int(genes), age)
         now = pl.values["Height"] + max(0, inches)
         # Off the height the SAVE holds, not off the model's own curve: the game is allowed to
         # have moved him, and his weight should describe the body that is actually in there.
@@ -687,7 +698,12 @@ def promote(character, to_league, store, log=print, dry_run=False, how="promoted
             # jsonb, is already written here, and IS read back - and a contract genuinely belongs
             # to the level he signed at, so it closes itself when the level does.
             if contract:
-                entry["contract"] = dict(contract, team=slot.team)
+                # THE TEAM ON THE DEAL IS THE TEAM THAT SIGNED IT. For a draft pick that is the
+                # team that PICKED him, even when its roster had no free reserve row and he was
+                # stamped somewhere else - the rollover reads this and puts him back on it
+                # (Nate, 2026-09-25: "can't ever have that happening"; Zach Russell was drafted
+                # by FER and spent his rookie deal on SON).
+                entry["contract"] = dict(contract, team=contract.get("team") or slot.team)
             store.record_level(character["id"], entry)
         except Exception as exc:
             log(f"   (could not record the level for {name}: {exc})")
@@ -960,21 +976,22 @@ def run_draft(declared, store, log=print, dry_run=False, season=None, cast=None,
                         # `rate` is skill points a week; `salary` is what the GAME pays him.
                         # Different currencies answering different questions.
                         "salary": rookie_salary(p["pick"]),
-                        "game_years": ROOKIE_GAME_YEARS}
+                        "game_years": ROOKIE_GAME_YEARS, "team": p["team"]}
                 moved = promote(c, "pro", store, log=log, how=how, season=season,
                                 team=p["team"], contract=deal, busy=busy)
                 if moved["slot"].get("team") != p["team"]:
-                    # Not fatal - a roster with no free reserve row cannot take him and
-                    # anywhere in the league is better than nowhere - but it must be said,
-                    # because the career page will read "drafted by X, plays for Y".
-                    log(f'   ! {p["team"]} had no free slot; '
-                        f'{c["first_name"]} goes to {moved["slot"].get("team")} instead')
+                    # Only for tonight. The deal is recorded against the DRAFTING team, and the
+                    # rollover that runs straight after the draft sees him on the wrong roster
+                    # mid-rookie-deal and moves him there (rehearsed on pro).
+                    log(f'   {p["team"]} had no free reserve row; {c["first_name"]} is stamped '
+                        f'on {moved["slot"].get("team")} for now and moves to {p["team"]} at '
+                        f'the rollover')
                 landed = moved["slot"].get("team")
                 if busy is not None and landed:
                     busy[landed] = busy.get(landed, 0) + 1
                 p["slot"] = moved["slot"]
                 p["conversion"] = moved["conversion"]
-                p["contract"] = dict(deal, team=moved["slot"].get("team") or p["team"])
+                p["contract"] = dict(deal)       # the drafting team; see promote's note
                 if hasattr(store, "set_character_field"):
                     store.set_character_field(c["id"], "draft_pick", p["pick"])
                     store.set_character_field(c["id"], "draft_round", p["round"])
@@ -1652,7 +1669,8 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
             continue
         _say(status, 15, "grow", f"{cfg.BY_KEY[key].name}: growing everybody a year", key)
         log(f"{key}: growth")
-        grown, changed = apply_growth(key, characters, season, log=log, dry_run=dry_run)
+        grown, changed = apply_growth(key, characters, season, log=log, dry_run=dry_run,
+                                      store=store)
         if not dry_run:
             by_name = {f'{c["first_name"]} {c["last_name"]}': c for c in characters}
             for name, _dob, values in changed:

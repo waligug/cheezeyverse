@@ -1781,6 +1781,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             except Exception as exc:
                 emit("publish", f"the site did NOT publish ({exc}); the week itself is saved")
 
+        weeks_paid = {}
         for key in keys:
             at("points", key)
             emit("points", f"awarding weekly points in {cfg.BY_KEY[key].name}", key)
@@ -1791,6 +1792,7 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
                 emit("points", f"{cfg.BY_KEY[key].name} played {played} of the {day_counts[key]} "
                      "day(s) asked for; paying for the days played", key)
             league_weeks = max(1, round(played / 7))
+            weeks_paid[key] = league_weeks
             n = st.grant_week_points(league=key, weeks=league_weeks)
             result["summary"]["points"].append({"league": key, "per_player": league_weeks, "players": n})
             if n:
@@ -1815,6 +1817,29 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             except Exception as exc:                                    # noqa: BLE001
                 emit("points", f"contract top-ups did not run for {key} ({exc}); "
                      "the league rate was paid", key)
+        # A LEAGUE WHOSE SEASON IS OVER IS STILL PAID WHILE THE OTHERS PLAY (Nate, 2026-09-25).
+        # College crowns its champion weeks before END SEASON; after that it is refused every sim,
+        # so its characters earned nothing while prep and pro were paid all the way to 6/20. The
+        # three share one calendar, so matching the longest-running league this run pays every
+        # league through END SEASON and never past it.
+        try:
+            run_weeks = max(weeks_paid.values(), default=0)
+            season_now = st.get_settings().get("current_season")
+            for spec in cfg.LEAGUES:
+                owed = run_weeks - weeks_paid.get(spec.key, 0)
+                if owed <= 0:
+                    continue
+                if not _champion(ch.save_path(spec.key).parent, season_now,
+                                 rounds=spec.playoff_rounds):
+                    continue                     # still playing: paid for what it played
+                n = st.grant_week_points(league=spec.key, weeks=owed,
+                                         reason="week simmed (season over; paid alongside "
+                                                "the leagues still playing)")
+                if n:
+                    emit("points", f"{spec.name}'s season is over: {owed} week(s) paid to {n} "
+                                   "character(s) alongside the leagues still playing", spec.key)
+        except Exception as exc:                                        # noqa: BLE001
+            emit("points", f"could not pay the finished leagues ({exc})")
         at("finish")
         emit("points", "updating the completed week")
         st.set_setting("current_week", week_done)
