@@ -65,6 +65,21 @@ class ScheduleParser(HTMLParser):
                                'label': text, 'played': bool(box), 'teams': teams})
 
 
+def mark_all_star(games, team_names):
+    """The All-Star Game is exported under Regular Season; it is not league play.
+
+    Any 'Regular Season' row whose teams are not the league's own (East vs West) is relabelled
+    'All-star'. Shared by read_league and verified_playoff_boundary: the boundary check once
+    parsed the schedule without it, so a calendar run that started before the All-Star Game -
+    absent from a January export, present at season end - saw one extra regular-season game and
+    rejected every clean season-end landing (2038 and 2039 prep, 2026-09-26/27).
+    """
+    for game in games:
+        if game["phase"] == "Regular Season" and not set(game["teams"]) <= team_names:
+            game["phase"] = "All-star"
+    return games
+
+
 def read_league(key):
     path = ch.save_path(key)
     stamp = find_season_day(path.read_bytes())
@@ -91,10 +106,7 @@ def read_league(key):
     current = opener + timedelta(days=stamp[0] - 1)
     if any(g['played'] and date.fromisoformat(g['date']) >= current for g in parser.games):
         raise CalendarError(f'{key}: schedule export is ahead of the save; refresh the export')
-    team_names = {t.nickname for t in cfg.BY_KEY[key].teams}
-    for game in parser.games:
-        if game["phase"] == "Regular Season" and not set(game["teams"]) <= team_names:
-            game["phase"] = "All-star"
+    mark_all_star(parser.games, {t.nickname for t in cfg.BY_KEY[key].teams})
     if any(g['phase'] == 'Regular Season' and not g['played'] and g['date'] < current.isoformat()
            for g in parser.games):
         raise CalendarError(f'{key}: export is behind the save; refresh the export before planning')
@@ -128,17 +140,23 @@ def snapshot():
         SAVE_LOCK.release()
 
 
-def verified_playoff_boundary(before_html, after_html, stored, wanted, start_date, days):
+def verified_playoff_boundary(before_html, after_html, stored, wanted, start_date, days, teams=None):
     """Accept the observed one-day playoff setup skip, only with full schedule evidence.
 
     FBPB advances April 19 -> April 21 after the final regular-season games. April 20
     is never a playable stop. Do not turn that exception into a generic date tolerance.
+
+    `teams` is the league's own team nicknames; with it the All-Star Game is set aside before the
+    regular seasons are compared (see mark_all_star). Pass it whenever the league is known.
     """
     if not stored or stored != (wanted[0] + 1, wanted[1]) or not start_date:
         return False
     before, after = ScheduleParser(), ScheduleParser()
     before.feed(before_html)
     after.feed(after_html)
+    if teams:
+        mark_all_star(before.games, set(teams))
+        mark_all_star(after.games, set(teams))
     target = date.fromisoformat(str(start_date)) + timedelta(days=days - 1)
     regular = [g for g in before.games if g['phase'] == 'Regular Season']
     final = [g for g in after.games if g['phase'] == 'Regular Season']

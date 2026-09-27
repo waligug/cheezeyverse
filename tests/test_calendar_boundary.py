@@ -1,5 +1,6 @@
 """Real FBPB exports from the 2029 Prep boundary rehearsal, not reconstructed HTML."""
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -8,6 +9,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from commissioner import calendarplan, simweek
+from commissioner.universe import config as cfg
 
 BEFORE = (ROOT / 'fixtures/calendar-boundary/before.htm').read_text(encoding='latin-1')
 AFTER = (ROOT / 'fixtures/calendar-boundary/after.htm').read_text(encoding='latin-1')
@@ -36,6 +38,23 @@ class BoundaryTests(unittest.TestCase):
             '<td class=header>4/21/2029</td><td class=main>'
             '<a href="boxes/box187-1.htm">Royals 40, @Tulips 50</a></td>')
         self.assertFalse(self.check_boundary(after=played))
+
+    def test_run_that_started_before_the_all_star_game_is_accepted(self):
+        # A January start: the All-Star Game (West vs East, 2/11) is not on the schedule yet, and
+        # the season-end export has it. It is not league play, so it must not make the regular
+        # seasons differ. This rejected every clean prep landing in 2038 and 2039.
+        row = re.search(r'<tr class=row1 align=left>\s*<td class=main[^>]*>&nbsp;<a[^>]*>@West \d+, East \d+</a></td>\s*</tr>', BEFORE)
+        self.assertIsNotNone(row)
+        before = BEFORE.replace(row.group(0), '')
+        teams = {t.nickname for t in cfg.BY_KEY['prep'].teams}
+        check = lambda **kw: calendarplan.verified_playoff_boundary(
+            before, AFTER, (187, 2028), (186, 2028), '2029-03-18', 33, **kw)
+        self.assertFalse(check())               # the old comparison: one "extra" regular game
+        self.assertTrue(check(teams=teams))
+        # and the relabelling must not wave through a real difference in league games
+        self.assertFalse(calendarplan.verified_playoff_boundary(
+            before, AFTER.replace('box185-', 'missing185-'), (187, 2028), (186, 2028),
+            '2029-03-18', 33, teams=teams))
 
     def test_export_probe_preserves_old_pages_and_rolls_back_failed_export(self):
         for fresh, accepted in ((AFTER, True), (BEFORE, False), (None, False)):

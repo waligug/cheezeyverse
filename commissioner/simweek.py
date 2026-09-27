@@ -1217,7 +1217,8 @@ def _export_verified_boundary(game, key, stored, wanted, start_date, days):
             shutil.copytree(previous, html)
             out = game.html_output(cfg.BY_KEY[key].save_name, old_boxes=True)
             after = (out / 'schedule.htm').read_text(encoding='latin-1')
-            accepted = verified_playoff_boundary(before, after, stored, wanted, start_date, days)
+            accepted = verified_playoff_boundary(before, after, stored, wanted, start_date, days,
+                                                 teams={t.nickname for t in cfg.BY_KEY[key].teams})
             return out if accepted else None
         finally:
             if not accepted:
