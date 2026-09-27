@@ -384,13 +384,19 @@ function ratingRow(rating, state, onStep, kind = 'rating') {
   const waitingPot = (state.inflight && state.inflight.potentials && state.inflight.potentials[rating]) || 0;
 
   // A potential-bearing rating is capped by its potential, which can pass 100; see POTENTIAL_MAX.
-  const ceiling = pot === null ? cap : Math.min(POTENTIAL_MAX, pot);
-  const ratingCost = nextPointCost(value, 'rating', bias);
-  const potCost = pot === null ? 0 : nextPointCost(pot, 'potential', bias);
+  // The page may pass its own rules (the skill tree: stage caps, the ceiling room, its prices) as
+  // optional state.ratingCap / state.potCap / state.price. Optional on purpose: this file is cached
+  // for ten minutes, so the page must work with a copy that has never heard of them.
+  const ceiling = state.ratingCap ? state.ratingCap(rating, pot)
+    : (pot === null ? cap : Math.min(POTENTIAL_MAX, pot));
+  const potTop = state.potCap ? state.potCap(rating, value) : POTENTIAL_MAX;
+  const priceOf = state.price || ((v, k, b) => nextPointCost(v, k, b));
+  const ratingCost = priceOf(value, 'rating', bias, rating);
+  const potCost = pot === null ? 0 : priceOf(pot, 'potential', bias, rating);
 
   const onPot = kind === 'potential';
   const canRaise = onPot
-    ? !locked && pot !== null && pot < POTENTIAL_MAX && potCost <= state.budget
+    ? !locked && pot !== null && pot < potTop && potCost <= state.budget
     : !locked && value < ceiling && ratingCost <= state.budget;
   const canLower = onPot
     ? !locked && pot !== null && pot > basePot
@@ -440,7 +446,7 @@ function ratingRow(rating, state, onStep, kind = 'rating') {
   const what = onPot ? `${label} potential` : label;
   // The price of the next point, on the button itself - it used to live only in the hover text,
   // which a phone never shows. Left off where there is nothing left to buy.
-  const priced = !locked && (onPot ? pot !== null && pot < POTENTIAL_MAX : value < ceiling);
+  const priced = !locked && (onPot ? pot !== null && pot < potTop : value < ceiling);
   row.append(el('div', { class: 'cv-rating-controls' },
     el('button', {
       class: 'cv-step', type: 'button', disabled: !canLower,
@@ -452,8 +458,8 @@ function ratingRow(rating, state, onStep, kind = 'rating') {
     el('button', {
       class: 'cv-step', type: 'button', disabled: !canRaise,
       title: locked ? 'This one cannot be bought'
-        : onPot ? (pot === null ? 'No potential to raise' : pot >= POTENTIAL_MAX ? `Capped at ${POTENTIAL_MAX}` : `Costs ${cost} (potentials are double)`)
-          : value >= ceiling ? `Capped at ${ceiling} - raise the potential first` : `Costs ${cost}`,
+        : onPot ? (pot === null ? 'No potential to raise' : pot >= potTop ? `Capped at ${potTop} for now` : `Costs ${cost}`)
+          : value >= ceiling ? `Capped at ${ceiling} for now` : `Costs ${cost}`,
       'aria-label': `Raise ${what}, costs ${cost}`,
       dataset: { key: `${rating}:${kind}:1` },
       onclick: () => onStep(rating, kind, 1),

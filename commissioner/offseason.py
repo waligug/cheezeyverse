@@ -55,6 +55,7 @@ from . import simstatus
 from . import takeaways
 from .simstatus import SimStatus
 from . import growth
+from . import tree
 from .codec.league_dat import POTENTIALS, RATINGS, LeagueDat
 from .universe import config as cfg
 
@@ -1066,6 +1067,30 @@ class _JournaledStore:
         return write
 
 
+def _grant_cap_breakers(store, season, promoted_ids, settings, log=print):
+    """One Cap Breaker to everybody who moved up, and to every pro still 30 or younger.
+
+    A Cap Breaker is +3 on one ceiling of his choosing (at most three on any one rating); the
+    player spends it on the site. One a season at most, so a drafted rookie gets one, not two.
+    """
+    last_age = int(settings.get("breaker_last_age", 30) or 30)
+    given = {}
+    for c in store.characters():
+        if c.get("status") != "active":
+            continue
+        pro_age = c.get("league") == "pro" and age_of(c, season + 1) <= last_age
+        if c["id"] not in promoted_ids and not pro_age:
+            continue
+        try:
+            store.set_character_field(c["id"], "cap_breakers", int(c.get("cap_breakers") or 0) + 1)
+            given[c["id"]] = 1
+        except Exception as exc:                                        # noqa: BLE001
+            log(f'could not give {c["first_name"]} {c["last_name"]} a Cap Breaker: {exc}')
+    if given:
+        log(f"gave a Cap Breaker to {len(given)} character(s)")
+    return given
+
+
 def run_offseason(store, season=None, log=print, dry_run=False, force=False, rollover=False):
     """Share the save lock and recovery journal with Sim Week.
 
@@ -1695,6 +1720,12 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         log(f"could not work out who improved most ({exc}); the offseason is unaffected")
     _say(status, 30, "bonus", "Reading the season's honours and leaderboards")
     season_bonus, promotion_grants = _season_bonuses(characters, settings, log)
+    if tree.tree_on(settings):
+        # THE SKILL TREE PAYS FOR SHOWING UP, NOT FOR WINNING. Stat and honours bonuses fed the
+        # players who were already best; moving up still pays, the same for everybody.
+        season_bonus = {}
+        flat = int(settings.get("promotion_points", 10) or 0)
+        promotion_grants = {cid: ([("promotion", flat)] if flat else []) for cid in promotion_grants}
     for c in characters:
         rows = season_bonus.get(c["id"])
         if rows:
@@ -1869,7 +1900,7 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         cannot be given them: 164 of its 240 rostered players have none, and Finances would
         release every one of them on load.
         """
-        if c.get("league") != "pro":
+        if c.get("league") != "pro" or tree.tree_on(settings):
             return lump, "offseason"
         salary = pro_salaries.get((f'{c["first_name"]} {c["last_name"]}',
                                    ch.codec_dob(c.get("game_dob"))), 0)
@@ -1930,6 +1961,8 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         # the report beside the lump and the development bonus rather than only in the log.
         result["promotion_grants"] = {cid: rows for cid, rows in promotion_grants.items()
                                       if cid in granted_to}
+        if tree.tree_on(settings):
+            result["cap_breakers"] = _grant_cap_breakers(store, season, promoted_ids, settings, log)
         result["paid"] = paid
         result["developed"] = developed
         result["season_bonus"] = earned

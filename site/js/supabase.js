@@ -33,6 +33,8 @@ export const CHARACTER_COLUMNS = [
   'draft_round', 'draft_pick', 'draft_season',
   // how the career ended, both null while he is still playing
   'retired_season', 'retired_reason',
+  // the skill tree: the nodes he owns and the Cap Breakers he has not spent (skill_tree.sql)
+  'nodes', 'cap_breakers',
 ].join(',');
 
 export const LEAGUE_LABELS = { prep: 'Prep', college: 'College', pro: 'Pro' };

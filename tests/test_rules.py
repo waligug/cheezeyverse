@@ -402,8 +402,10 @@ def test_schema_mirror():
     sql = SCHEMA_SQL.read_text(encoding="utf-8")
     band = re.search(r"case when v < 50 then 1 when v < 70 then 2 when v < 85 then 3 else 5 end", sql)
     check("schema.sql cv_step_cost has the same bands as rules.js", bool(band))
-    doubles = "total := total * 2" in sql
-    check("schema.sql doubles the cost of a potential step", doubles)
+    # With the skill tree off a ceiling step is double; on, settings.potential_multiplier (3).
+    doubles = "total := total * 2" in sql or bool(re.search(
+        r"total := total \* case when public\.cv_tree_on\(\)\s+then public\.cv_setting_int\('potential_multiplier', 3\) else 2 end", sql))
+    check("schema.sql doubles the cost of a potential step (tree off)", doubles)
     for name in ("InsideScoring", "PerimeterDefense", "Fouling", "3pUsage"):
         if f"'{name}'" not in sql:
             check(f"schema.sql cv_ratings lists {name}", False)

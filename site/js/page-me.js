@@ -19,6 +19,7 @@ import {
   oauthErrorFromUrl, pointsPerWeek,
 } from './supabase.js';
 import { $, classLine, clear, describeCharacter, el, fmtDate, freshJSON, goalLine, money, note, positionLine, renderChrome, renderFooter, renderSheet, renderTraitBars, setupNeededNote, showNote, statusPill, tabs } from './ui.js';
+import { treeRules, treeNodes, biasedCost, stageCap, describePrices, renderTree, sendOrder } from './tree.js';
 
 const chrome = renderChrome({
   active: 'me.html',
@@ -100,7 +101,9 @@ async function load() {
   const cfg = await settings(true);
   const characters = await myCharacters();
   const ids = characters.map((c) => c.id);
-  const [requests, ledger] = await Promise.all([requestsFor(ids), ledgerFor(ids)]);
+  const rules = treeRules(cfg);
+  const [requests, ledger, nodes] = await Promise.all([
+    requestsFor(ids), ledgerFor(ids), rules.on ? treeNodes() : Promise.resolve([])]);
 
   const box = $('#characters');
   clear(box);
@@ -137,6 +140,8 @@ async function load() {
       ledger.filter((l) => l.character_id === character.id),
       currentAge(character, cfg.current_season),
       cfg.current_season,
+      rules,
+      nodes,
     ),
   }));
   /* ONE PLAYER AT A TIME. Every card used to be open, one under the other, so somebody with
@@ -239,7 +244,7 @@ function rankFill(rank, count) {
   return Math.max(0, Math.min(100, ((count - rank) / (count - 1)) * 100));
 }
 
-function seasonPanel(character) {
+function seasonPanel(character, tree = false) {
   const box = el('div', {}, el('p', { class: 'cv-muted' }, 'Looking up his season...'));
   leagueStats(character.league).then((stats) => {
     clear(box);
@@ -295,8 +300,10 @@ function seasonPanel(character) {
     }
     box.append(bars);
     box.append(el('p', { class: 'cv-hint' },
-      'The two ticks on each bar are the lines the end-of-season bonus pays on: the top 25, '
-      + `and the ${ordinal(stats.elite_rank)} best total in the league.`));
+      tree
+        ? `The two ticks on each bar are the league's top 25 and its ${ordinal(stats.elite_rank)} best total.`
+        : 'The two ticks on each bar are the lines the end-of-season bonus pays on: the top 25, '
+          + `and the ${ordinal(stats.elite_rank)} best total in the league.`));
     if (stats.export_date) {
       box.append(el('p', { class: 'cv-muted' }, `From the league export of ${stats.export_date}.`));
     }
@@ -311,11 +318,24 @@ function ordinal(n) {
   return `${v}${['th', 'st', 'nd', 'rd'][v % 10] || 'th'}`;
 }
 
-function renderCharacter(character, requests, ledger, age, currentSeason) {
+function renderCharacter(character, requests, ledger, age, currentSeason, rules, nodes) {
   const card = el('section', { class: 'cv-card' });
   const klass = classify(character.ratings || {}, character.position);
   const bias = character.growth_bias || {};
   const reserved = reservedCost(requests);
+  /* Prices and caps, the database's own (supabase/skill_tree.sql, mirrored in tree.js). A staged
+     change is priced in one piece, the way the request that carries it will be. */
+  const priceSteps = (from, steps, kind, r) => (rules
+    ? biasedCost(rules, from, steps, kind, biasFor(bias, r))
+    : biasedUpgradeCost(from, steps, kind, biasFor(bias, r)));
+  const priceOne = (value, kind, b, r) => priceSteps(value, 1, kind, r);
+  // what a rating may be BOUGHT to: its ceiling, and the stage's cap with the tree open
+  const ratingCap = (r, pot) => Math.min(
+    pot === null || pot === undefined ? RATING_MAX : Math.min(POTENTIAL_MAX, Number(pot)),
+    rules ? stageCap(rules, character.league) : POTENTIAL_MAX);
+  // what a ceiling may be bought to: with the tree open, `room` over the rating
+  const potCap = (r, value) => (rules && rules.room !== null && rules.room !== undefined
+    ? Math.min(POTENTIAL_MAX, Number(value) + rules.room) : POTENTIAL_MAX);
 
   /* The number you spend against, big and on the right, as on the mockup. It is filled in by
      drawSpend() on every click, because it is the same "free to spend" the old meter showed. */
@@ -368,7 +388,7 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
   /* The season and the contract at a glance, BESIDE the sheet on a wide screen and above it on a
      narrower one, so nobody has to leave the Spend tab to see how he is doing. The Season and
      Money tabs keep the full detail. Hidden on a phone, where it would only add scrolling. */
-  const aside = summaryColumn(character);
+  const aside = summaryColumn(character, Boolean(rules && rules.on));
   card.append(aside ? el('div', { class: 'cv-me-layout' }, body, aside) : body);
 
   /* ---- spend ---- */
@@ -391,12 +411,12 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
     for (const r of RATINGS) {
       const from = Number(base.ratings[r] ?? 0);
       const to = Number(draft.ratings[r] ?? from);
-      if (to > from) total += biasedUpgradeCost(from, to - from, 'rating', biasFor(bias, r));
+      if (to > from) total += priceSteps(from, to - from, 'rating', r);
     }
     for (const r of POTENTIAL_RATINGS) {
       const from = Number(base.potentials[r] ?? 0);
       const to = Number(draft.potentials[r] ?? from);
-      if (to > from) total += biasedUpgradeCost(from, to - from, 'potential', biasFor(bias, r));
+      if (to > from) total += priceSteps(from, to - from, 'potential', r);
     }
     return total;
   };
@@ -419,12 +439,10 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
       // Jumping, Strength or Stamina for seven of the eight characters, because most were
       // already above their athletic ceiling - Johnny Gartholomew lost four ratings at once.
       const ceiling = kind === 'potential'
-        ? POTENTIAL_MAX
-        : hasPotential(rating)
-          ? Math.min(POTENTIAL_MAX, Number(draft.potentials[rating]))
-          : RATING_MAX;
+        ? potCap(rating, Number(draft.ratings[rating]))
+        : ratingCap(rating, hasPotential(rating) ? Number(draft.potentials[rating]) : null);
       if (value >= ceiling) return;
-      if (nextPointCost(value, kind, biasFor(bias, rating)) > freePoints()) return;
+      if (priceOne(value, kind, biasFor(bias, rating), rating) > freePoints()) return;
       bag[rating] = value + 1;
     } else {
       if (value <= floor) return;
@@ -455,6 +473,9 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
       potentials: draft.potentials,
       budget: free,
       showPotentials: true,
+      price: priceOne,
+      ratingCap,
+      potCap,
       mode,
       collapsed: place.collapsed || [],
       onToggleGroup: (title) => {
@@ -489,11 +510,11 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
     clear(actions);
     const undo = el('button', {
       class: 'cv-btn cv-ghost cv-small', type: 'button', disabled: queued === 0,
-      onclick: () => { drafts.delete(character.id); draftFor(character); load(); },
+      onclick: () => { drafts.delete(character.id); loadKeepingPlace(); },
     }, 'Clear');
     const send = el('button', {
       class: 'cv-btn', type: 'button', disabled: queued === 0,
-      onclick: () => sendRequests(character, base, draft, send, problems),
+      onclick: () => sendRequests(character, base, draft, send, problems, rules),
     }, queued ? `Send ${queued} point${queued === 1 ? '' : 's'}` : 'Send');
     actions.append(undo, send);
   }
@@ -533,7 +554,11 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
         el('details', { class: 'cv-fold cv-fold-inline' },
           el('summary', {}, 'How pricing works'),
           el('div', { class: 'cv-fold-body' },
-            el('p', { class: 'cv-hint' }, `What a step costs: ${describeCurve()}. Potentials cost double.`),
+            el('p', { class: 'cv-hint' }, rules && rules.on
+              ? `What a step costs: ${describePrices(rules)}. A ceiling step costs ${rules.potMult}x, and a ceiling `
+                + `can be bought at most ${rules.room} above its rating. Nothing is bought past `
+                + `${rules.caps.prep} in prep or ${rules.caps.college} in college.`
+              : `What a step costs: ${describeCurve()}. Potentials cost double.`),
             el('p', { class: 'cv-hint' },
               'Nothing changes until the commissioner applies it during a Sim Week. '
               + 'Staged and sent points are held back so you cannot promise the same point twice.')))),
@@ -548,14 +573,28 @@ function renderCharacter(character, requests, ledger, age, currentSeason) {
       'What the quiz decided about him. These do not change.'), traits);
   }
 
+  let treePanel = null;
+  if (rules && rules.on && character.status !== 'retired') {
+    treePanel = el('div', {});
+    renderTree(treePanel, {
+      character, nodes: nodes || [], requests, rules,
+      free: Number(character.points_available || 0) - reserved,
+      onUnlock: (node) => fileOne(character, { rating: node.id, delta: 1, kind: 'node' },
+        `${node.name} asked for`),
+      onBreaker: (rating) => fileOne(character, { rating, delta: 1, kind: 'breaker' },
+        `a Cap Breaker on ${RATING_LABELS[rating] || rating} asked for`),
+    });
+  }
+
   const sections = [
     { key: 'spend', label: 'Spend', node: spendPanel },
-    { key: 'season', label: 'Season', node: character.status === 'pending' ? null : seasonPanel(character) },
+    { key: 'tree', label: 'Tree', node: treePanel },
+    { key: 'season', label: 'Season', node: character.status === 'pending' ? null : seasonPanel(character, Boolean(rules && rules.on)) },
     { key: 'him', label: 'Him', node: traitsPanel },
     { key: 'requests', label: 'Requests', node: el('div', {}, requestTable(requests)),
       badge: requests.filter((r) => r.status === 'pending' || r.status === 'approved').length || null },
     { key: 'points', label: 'Points', node: el('div', {}, ledgerTable(ledger, character)) },
-    { key: 'money', label: 'Money', node: moneyPanel(character) },
+    { key: 'money', label: 'Money', node: moneyPanel(character, Boolean(rules && rules.on)) },
   ].filter((x) => x.node);
 
   body.append(tabs(sections, { initial: place.tab, onChange: (key) => remember('tab', key) }),
@@ -619,7 +658,7 @@ function heightBlock(character, age) {
 }
 
 /** The two small cards beside the sheet: this season's line, and the contract. */
-function summaryColumn(character) {
+function summaryColumn(character, tree = false) {
   const cards = [];
   if (character.status !== 'pending' && character.league) {
     const season = el('section', { class: 'cv-me-mini' },
@@ -659,7 +698,7 @@ function summaryColumn(character) {
         f.years_left != null ? `${f.years_left} year${f.years_left === 1 ? '' : 's'} left` : '',
         f.band || '',
       ].filter(Boolean).join(' · ')),
-      f.payout != null ? el('p', { class: 'cv-muted' }, `Pays him +${f.payout} skill points next offseason.`) : null));
+      f.payout != null && !tree ? el('p', { class: 'cv-muted' }, `Pays him +${f.payout} skill points next offseason.`) : null));
   }
   return cards.length ? el('aside', { class: 'cv-me-aside' }, ...cards) : null;
 }
@@ -669,8 +708,8 @@ function requestTable(requests) {
     return el('p', { class: 'cv-muted' }, 'Nothing asked for yet.');
   }
   const rows = requests.map((r) => el('tr', {},
-    el('td', {}, RATING_LABELS[r.rating] || r.rating),
-    el('td', {}, r.kind === 'potential' ? 'potential' : 'rating'),
+    el('td', {}, r.kind === 'node' ? r.rating.replace(/-/g, ' ') : RATING_LABELS[r.rating] || r.rating),
+    el('td', {}, { potential: 'potential', node: 'tree', breaker: 'Cap Breaker' }[r.kind] || 'rating'),
     el('td', { class: 'cv-right' }, `+${r.delta}`),
     el('td', { class: 'cv-right' }, String(r.cost)),
     el('td', {}, el('span', { class: `cv-pill is-${pillFor(r.status)}` }, r.status)),
@@ -717,7 +756,7 @@ function financesOf(character) {
 }
 
 
-function moneyPanel(character) {
+function moneyPanel(character, tree = false) {
   const f = financesOf(character);
   if (!f) return null;
   const rows = [];
@@ -729,7 +768,7 @@ function moneyPanel(character) {
     rows.push(el('tr', {}, el('td', {}, 'Where that sits'),
       el('td', { class: 'cv-right' }, f.band)));
   }
-  if (f.payout != null) {
+  if (f.payout != null && !tree) {
     rows.push(el('tr', {}, el('td', {}, 'Pays him next offseason'),
       el('td', { class: 'cv-right' }, '+' + f.payout + ' skill points')));
   }
@@ -746,10 +785,12 @@ function moneyPanel(character) {
       + 'nobody can be ranked yet. When they are switched on, the game decides what he is '
       + 'worth and this is what pays him.'));
   } else {
-    notes.push(el('p', { class: 'cv-hint' },
-      'Paid once a season, on top of the points he earns every week. It is worked out from '
-      + 'where his salary sits among everyone else in his league, not from a fixed amount - so '
-      + "it moves as the league's money moves."));
+    notes.push(el('p', { class: 'cv-hint' }, tree
+      ? 'What the game pays him. Since the skill tree, a salary no longer pays skill points: '
+        + 'everybody earns the same every week.'
+      : 'Paid once a season, on top of the points he earns every week. It is worked out from '
+        + 'where his salary sits among everyone else in his league, not from a fixed amount - so '
+        + "it moves as the league's money moves."));
     if (f.league_median) {
       notes.push(el('p', { class: 'cv-muted' },
         'The middle of his league earns ' + money(f.league_median) + ' a year.'));
@@ -785,23 +826,14 @@ function ledgerTable(ledger, character) {
 
 /* --------------------------------------------------------------------------- actions */
 
-async function sendRequests(character, base, draft, button, problems) {
+async function sendRequests(character, base, draft, button, problems, rules) {
   button.disabled = true;
   button.textContent = 'Sending...';
   clear(problems);
-  const wanted = [];
-  for (const r of RATINGS) {
-    const from = Number(base.ratings[r] ?? 0);
-    const to = Number(draft.ratings[r] ?? from);
-    if (to > from) wanted.push({ rating: r, delta: to - from, kind: 'rating' });
-  }
-  for (const r of POTENTIAL_RATINGS) {
-    const from = Number(base.potentials[r] ?? 0);
-    const to = Number(draft.potentials[r] ?? from);
-    if (to > from) wanted.push({ rating: r, delta: to - from, kind: 'potential' });
-  }
-  // potentials first: raising a potential is what makes room for the rating underneath it
-  wanted.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'potential' ? -1 : 1));
+  /* In an order the database accepts request by request. A rating may not pass its ceiling and,
+     with the tree open, a ceiling may not be bought more than `room` over the rating - so a
+     ceiling and its rating staged together can need interleaving. tree.js works that out. */
+  const { order: wanted } = sendOrder(rules || { room: null }, base, draft, RATINGS, POTENTIAL_RATINGS);
 
   const sent = [];
   try {
@@ -827,6 +859,18 @@ async function sendRequests(character, base, draft, button, problems) {
     button.textContent = 'Try again';
     if (sent.length) await loadKeepingPlace();
   }
+}
+
+/** One request from the Tree tab - a node or a Cap Breaker - then the page again. */
+async function fileOne(character, want, words) {
+  try {
+    await requestUpgrade({ characterId: character.id, ...want });
+    showNote($('#notices'), 'good', `${character.first_name} ${character.last_name}: ${words}. `
+      + 'The commissioner applies it at the next Sim Week.');
+  } catch (err) {
+    showNote($('#notices'), 'bad', errorText(err));
+  }
+  await loadKeepingPlace();
 }
 
 async function cancel(request, button) {

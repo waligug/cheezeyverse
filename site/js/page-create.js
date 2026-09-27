@@ -24,6 +24,7 @@ import {
   myCharacters, createCharacter, errorText,
   oauthErrorFromUrl,
 } from './supabase.js';
+import { treeRules, describePrices } from './tree.js';
 import {
   $, el, clear, renderChrome, renderFooter, setupNeededNote, showNote, note,
   renderDerivedSheet, renderScoutingSheet, renderTraitBars, classLine,
@@ -57,6 +58,11 @@ let startingPoints = 20;
 let busy = false;
 
 $('#curve').textContent = describeCurve();
+// With the skill tree open the prices are the tree's (settings.price_bands); tree.js knows them.
+settings().then((cfg) => {
+  const rules = treeRules(cfg);
+  if (rules.on) $('#curve').textContent = describePrices(rules);
+}).catch(() => { /* the old line stays */ });
 $('#signin').addEventListener('click', () => signIn().catch(
   (e) => showNote($('#notices'), 'bad', errorText(e))));
 

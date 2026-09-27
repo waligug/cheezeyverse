@@ -39,7 +39,9 @@ ONLY_LOCAL = {
     "add_request", "upgrade_cost", "step_cost", "queued_requests",
     "BadRequest", "NotEnoughPoints",
 }
-ONLY_SUPABASE = {"characters_for_export", "main", "StoreError", "StoreNotConfigured"}
+ONLY_SUPABASE = {"characters_for_export", "main", "StoreError", "StoreNotConfigured",
+                 # tools/sync_tree.py writes the tree table; a local store has none
+                 "upsert_tree_nodes", "retire_tree_nodes"}
 
 
 def call_sites():

@@ -1,7 +1,7 @@
 """Complete-season orchestration. All callers hold the shared save lock and journal."""
 from pathlib import Path
 import shutil
-from . import characters as ch, recovery
+from . import characters as ch, recovery, tree
 from .codec.league_dat import LeagueDat, POTENTIALS, RATINGS, find_season_day
 from .driver.fbpb3 import FBPB3
 from .universe import config as cfg
@@ -20,21 +20,49 @@ ATHLETIC_FACTOR = 1.5
 UNSIGNED_RETIRE_AGE = 33         # unsigned at or past this age: retired, not put back
 
 
-def regress(sheet, age):
+def regress(sheet, age, shields=None):
     """The sheet after one offseason of aging at `age`. Tendencies are left alone; a potential
-    falls with its rating and never below it. Returns a new dict."""
+    falls with its rating and never below it. Returns a new dict.
+
+    `shields` is {branch: fraction} from the skill tree (commissioner/tree.py): a branch he has
+    taken to tier 3 ages at that fraction of the usual rate."""
     rate = REGRESSION.get(int(age), REGRESSION_AFTER if int(age) > max(REGRESSION) else 0.0)
     if not rate:
         return dict(sheet)
+    shields = shields or {}
+    guard = lambda field: shields.get(tree.BRANCH_OF.get(field), 1.0)
     out = dict(sheet)
     for field in RATINGS:
         if field in ("3pUsage", "Fouling") or field not in out:
             continue
-        cut = rate * (ATHLETIC_FACTOR if field in ATHLETIC else 1.0)
+        cut = rate * (ATHLETIC_FACTOR if field in ATHLETIC else 1.0) * guard(field)
         out[field] = max(1, int(round(out[field] * (1 - cut))))
     for rating, pot in ch.POT_BY_RATING.items():
         if pot in out and rating in out:
-            out[pot] = max(out[rating], int(round(out[pot] * (1 - rate))))
+            out[pot] = max(out[rating], int(round(out[pot] * (1 - rate * guard(rating)))))
+    return out
+
+
+def rollover_two_way(before, after, drop_cap=5):
+    """The game's own offseason development, both ways, for one of our characters.
+
+    FBPB3 develops every player at END SEASON: some ratings and ceilings rise, some fall. Our
+    players used to keep every rise and have every fall cancelled - a one-way ratchet the AI
+    never got, and the main reason every character finished near the top of the league (see
+    docs/SKILL_TREE.md). Now a fall counts too, like everybody else's, but never more than
+    `drop_cap` on any one field in one offseason - which is what a bug looks like, and why the
+    floor existed. A ceiling is never left below its rating.
+    """
+    out = {}
+    for field in RATINGS + POTENTIALS:
+        if field not in before and field not in after:
+            continue
+        was = int(before.get(field, after.get(field, 0)))
+        now = int(after.get(field, was))
+        out[field] = max(now, was - int(drop_cap))
+    for rating, pot in ch.POT_BY_RATING.items():
+        if rating in out and pot in out:
+            out[pot] = max(out[pot], out[rating])
     return out
 
 
@@ -553,6 +581,16 @@ def rollover_saves(store, season, journal, log, progress=None):
 
     out = []
     count = len(cfg.LEAGUES)
+    settings = store.get_settings() if hasattr(store, "get_settings") else {}
+    two_way = tree.flag(settings, "rollover_two_way")
+    drop_cap = int(settings.get("rollover_drop_cap", 5) or 5)
+    try:
+        rows = store.tree_nodes() if hasattr(store, "tree_nodes") else None
+    except Exception:                                                   # noqa: BLE001
+        rows = None
+    tree_nodes = {r["id"]: r for r in rows} if rows else tree.BY_ID
+    if two_way:
+        log(f"offseason development is two-way for our players (falls capped at {drop_cap})")
     for index, spec in enumerate(cfg.LEAGUES):
         # 80..92 split across the leagues; publish takes over at 92.
         base = 80 + 12 * index / max(count, 1)
@@ -607,14 +645,18 @@ def rollover_saves(store, season, journal, log, progress=None):
             # Keep passive Training Camps growth, but never let camps erase midseason development
             # or point purchases.  Johnny's first rollover cut Jumping 25 -> 12; taking the larger
             # pre/post value retains every gain while making that kind of regression impossible.
-            sheet = _character_floor(store, character, sheet, pl.values)
+            # With the skill tree's two-way offseason on, a fall counts like the AI's, capped.
+            if two_way:
+                sheet = rollover_two_way(sheet, pl.values, drop_cap)
+            else:
+                sheet = _character_floor(store, character, sheet, pl.values)
             sheet = {field: sheet[field] for field in RATINGS + POTENTIALS}
             # AGING, on OUR schedule. The floor above cancels whatever the game's own camps did,
             # so decline is applied here instead - see regress().
             if key == "pro":
                 from .offseason import age_of
                 age = age_of(character, season + 1)
-                aged = regress(sheet, age)
+                aged = regress(sheet, age, tree.shields(character.get("nodes"), tree_nodes))
                 if aged != sheet:
                     drop = sum(sheet[f] - aged[f] for f in RATINGS)
                     log(f"   {name} is {age}: aging took {drop} rating points off his sheet")

@@ -115,7 +115,10 @@ def main():
         _, exc, took = timed(lambda: g.save_game(wait=0, path=save))
         assert isinstance(exc, DriverError), f"a save that wrote nothing returned {exc!r}"
         assert "did not finish writing" in str(exc), exc
-        assert took < 8, f"took {took:.1f}s to give up on a 4s floor"
+        # ONE RETRY since 2026-09-25 (a stalled save is photographed and SAVE pressed again,
+        # because the caller then exits without saving): two 4 s floors and the 1 s pause.
+        assert "second attempt" in str(exc), exc
+        assert took < 12, f"took {took:.1f}s to give up on two 4s floors"
 
         # ---- SAVE: with no path it still returns (the rehearsal and newgame call it bare) ---
         g = FakeGame()

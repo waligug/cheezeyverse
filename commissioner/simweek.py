@@ -31,6 +31,7 @@ from . import announce
 from . import characters as ch
 from . import points
 from . import growth
+from . import tree
 from . import notify
 from . import settings as cfgenv
 from . import localstore, recovery
@@ -744,6 +745,18 @@ def _dress_characters(league_key, L, st, log):
     return fixed
 
 
+def _tree_nodes(st):
+    """{node id: node} as the database holds them - the effects apply_upgrade_requests used on
+    the stored sheet. commissioner/tree.py's definitions stand in for a store that has none."""
+    try:
+        rows = st.tree_nodes() if hasattr(st, "tree_nodes") else None
+    except Exception:                                                    # noqa: BLE001
+        rows = None
+    if not rows:
+        return dict(tree.BY_ID)
+    return {r["id"]: r for r in rows}
+
+
 def _apply_requests(league_key, L, st, log):
     """Apply approved point spends as deltas on the live values."""
     reqs = [r for r in st.pending_requests(league=league_key) if r.get("status") == "approved"]
@@ -753,6 +766,11 @@ def _apply_requests(league_key, L, st, log):
     for r in reqs:
         by_char.setdefault(r["character_id"], []).append(r)
     applied, expect = [], []
+    # THE SKILL TREE'S TWO KINDS. A node names a tree node and a breaker names the rating whose
+    # ceiling it raises; both are priced and guarded by the database, and apply_upgrade_requests
+    # moves the stored sheet the same way commissioner/tree.py moves the save here.
+    nodes = _tree_nodes(st)
+    breaker_size = int((st.get_settings() or {}).get("breaker_size", 3) or 3)
     for char_id, rows in by_char.items():
         c = rows[0]["character"]
         slot = c.get("claimed_slot") or {}
@@ -766,8 +784,10 @@ def _apply_requests(league_key, L, st, log):
         # potential - that is the game's rule - so buying +5 potential and +5 rating in the same
         # week only works if the ceiling is raised before the rating is pushed at it. Applied the
         # other way round the rating silently stops at the old ceiling and the points are gone.
-        rows = sorted(rows, key=lambda r: 0 if (r.get("kind") or "rating") == "potential" else 1)
-        deltas, keep = {}, []
+        # Cap Breakers are ceilings too; tree nodes go last, onto whatever the week bought.
+        order = {"potential": 0, "breaker": 0, "rating": 1, "node": 2}
+        rows = sorted(rows, key=lambda r: order.get((r.get("kind") or "rating").lower(), 1))
+        deltas, keep, bought_nodes = {}, [], []
         for r in rows:
             # A request names the RATING it is about and says in `kind` whether it is buying the
             # rating or its ceiling: cv_potentials() returns rating names, so the name alone
@@ -775,6 +795,32 @@ def _apply_requests(league_key, L, st, log):
             # applied as a rating purchase - which apply_deltas then caps at the potential the
             # buyer was trying to raise, so it did nothing at all while the points were spent.
             kind = (r.get("kind") or "rating").lower()
+            if kind == "node":
+                node = nodes.get(r["rating"])
+                if node is None:
+                    why = f'there is no tree node called {r["rating"]}'
+                    log(f"{name}: rejected {r['rating']} - {why}")
+                    try:
+                        st.reject_request(r["id"], why)
+                    except Exception:
+                        pass
+                    continue
+                bought_nodes.append(node)
+                keep.append(r)
+                continue
+            if kind == "breaker":
+                pot = ch.POT_BY_RATING.get(r["rating"])
+                if not pot:
+                    why = f'{r["rating"]} has no ceiling to break'
+                    log(f"{name}: rejected a Cap Breaker - {why}")
+                    try:
+                        st.reject_request(r["id"], why)
+                    except Exception:
+                        pass
+                    continue
+                deltas[pot] = deltas.get(pot, 0) + breaker_size
+                keep.append(r)
+                continue
             field = r["rating"]
             if kind == "potential":
                 field = ch.POT_BY_RATING.get(field, field)
@@ -789,11 +835,19 @@ def _apply_requests(league_key, L, st, log):
                 continue
             deltas[field] = deltas.get(field, 0) + int(r["delta"])
             keep.append(r)
-        if not deltas:
+        if not deltas and not bought_nodes:
             continue
         try:
-            moved = ch.apply_deltas(L, name, ch.codec_dob(c.get("game_dob") or slot.get("dob")),
-                                    deltas)
+            dob = ch.codec_dob(c.get("game_dob") or slot.get("dob"))
+            moved = ch.apply_deltas(L, name, dob, deltas) if deltas else {}
+            if bought_nodes:
+                pl = L.find(name, dob)
+                for node in bought_nodes:
+                    for field, value in tree.save_changes(pl.values, node.get("effects") or {}).items():
+                        was = moved.get(field, (pl.values[field], None))[0]
+                        L.set(pl, field, value)
+                        moved[field] = (was, value)
+                    log(f"{name}: unlocked {node.get('name') or node.get('id')}")
         except Exception as exc:
             log(f"{name}: none of his requests could be applied - {exc}")
             continue
@@ -1883,8 +1937,10 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             try:
                 from . import points as _points
                 settings_now = st.get_settings()
-                league_characters = [c for c in st.characters(league=key)
-                                     if c.get("status") in ("active", "declared")]
+                # THE SKILL TREE PAYS EVERYBODY THE SAME. A contract - a rookie deal by draft
+                # slot - no longer earns anything on top of the league rate.
+                league_characters = [] if tree.tree_on(settings_now) else [
+                    c for c in st.characters(league=key) if c.get("status") in ("active", "declared")]
                 # The season is what expires a rookie deal - without it ROOKIE_YEARS never
                 # counts down and a high pick keeps his rate for life.
                 for character, extra, why in _points.contract_topups(

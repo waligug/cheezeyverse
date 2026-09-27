@@ -1564,3 +1564,47 @@ table.cv-box-table tr.is-mvp th { color: var(--bark); }
 .cv-series-chip.is-on { background: var(--ink); box-shadow: none; }
 .cv-series-chip.is-on span, .cv-series-chip.is-on .is-won { color: var(--ground); }
 .cv-split-cell small { display: block; font-size: 11px; color: var(--muted); font-weight: 500; }
+
+/* ------------------------------------------------------------------------------------------
+ * THE SKILL TREE (2026-09-27): the Tree tab on My players. Five branch columns, a card per
+ * node. A node he owns fills with rind and gets its holes; one he can buy wears the crust; a
+ * Signature at the top of a branch is the one dark card. site/js/tree.js draws it.
+ * ------------------------------------------------------------------------------------------ */
+.cv-tree { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+@media (max-width: 1100px) { .cv-tree { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .cv-tree { grid-template-columns: minmax(0, 1fr); } }
+.cv-tree-branch { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cv-tree-branch h3 { margin: 0; font-family: var(--display); font-size: 18px; }
+.cv-tree-spent { margin: 0; font-size: 12px; }
+.cv-tree-node { position: relative; overflow: hidden; border: 2px solid var(--line); border-radius: var(--radius-s);
+  background: var(--card); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.cv-tree-node h4 { margin: 0; font-size: 15px; }
+.cv-tree-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.cv-tree-tier { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.cv-tree-cost { font-size: 13px; color: var(--bark); }
+.cv-tree-blurb { margin: 0; font-size: 13px; color: var(--ink); }
+.cv-tree-state { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.cv-tree-node .cv-btn { align-self: flex-start; margin-top: 4px; }
+.cv-tree-node.is-open { border-color: var(--crust); }
+.cv-tree-node.is-queued { border-style: dashed; border-color: var(--crust); }
+.cv-tree-node.is-queued .cv-tree-state { color: var(--bark); font-weight: 700; }
+.cv-tree-node.is-owned { background: var(--rind); border-color: var(--rind-line); }
+.cv-tree-node.is-owned .cv-tree-state { color: var(--good); font-weight: 700; }
+.cv-tree-node.is-owned::after { content: ''; position: absolute; right: -10px; bottom: -10px; width: 42px; height: 42px;
+  border-radius: 50%; background: radial-gradient(circle at 30% 30%, var(--hole, #F3E7D0) 0 9px, transparent 10px),
+  radial-gradient(circle at 70% 65%, var(--hole, #F3E7D0) 0 6px, transparent 7px); opacity: .9; pointer-events: none; }
+.cv-tree-node.is-locked { background: var(--ground); }
+.cv-tree-node.is-locked h4, .cv-tree-node.is-locked .cv-tree-blurb { color: var(--muted); }
+.cv-tree-node.is-signature { background: var(--dark); border-color: var(--dark-line); }
+.cv-tree-node.is-signature h4, .cv-tree-node.is-signature .cv-tree-blurb { color: #FBF7EE; }
+.cv-tree-node.is-signature .cv-tree-tier, .cv-tree-node.is-signature .cv-tree-state { color: #E9DCC4; }
+.cv-tree-node.is-signature .cv-tree-cost { color: #F3D3AE; }
+.cv-tree-node.is-signature.is-owned { outline: 3px solid var(--crust); }
+.cv-tree-breakers { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px; border-radius: var(--radius-s); background: var(--tint); }
+.cv-tree-breakers .cv-actions { margin: 0; gap: 8px; }
+.cv-select { min-height: 36px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--card);
+  font: inherit; padding: 0 10px; }
+.cv-tree-breakers .cv-actions { flex-wrap: nowrap; align-items: center; }
+.cv-tree-breakers .cv-select { width: auto; max-width: 260px; }
+@media (max-width: 720px) { .cv-tree-breakers .cv-actions { flex-wrap: wrap; } .cv-tree-breakers .cv-select { max-width: 100%; } }

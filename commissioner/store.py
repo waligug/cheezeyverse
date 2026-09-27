@@ -63,7 +63,9 @@ CHARACTER_COLUMNS = (
     # reads None, every one of them derives as "solid", and a wiry or heavy kid is quietly handed
     # a weight up to 20 lbs from the one his own page has always shown him. weight_lbs itself is
     # in the first line of this list.
-    "traits,build,created_at"
+    "traits,build,created_at,"
+    # the skill tree: the nodes he owns and the Cap Breakers he has not spent (skill_tree.sql)
+    "nodes,cap_breakers"
 )
 
 DRY_RUN = False  # set by --selftest; makes every call describe itself instead of firing
@@ -219,27 +221,32 @@ def _print_plan(plan):
 PENDING_COLUMNS = {
     "weight_lbs": "the weight he chose in the builder; until supabase/weight_column.sql is run, "
                   "the commissioner derives it from height and build as it always has",
+    "nodes": "the skill tree's nodes; until supabase/skill_tree.sql is run nobody owns any",
+    "cap_breakers": "the skill tree's Cap Breakers; until supabase/skill_tree.sql is run nobody has any",
 }
 _warned_missing = set()
 
 
 def _table(name, params=None, prefer=None):
-    try:
-        return _request("GET", f"/rest/v1/{name}", params=params, prefer=prefer)
-    except StoreError as exc:
-        missing = _missing_column(exc, params)
-        if not missing:
-            raise
-        # Drop it and ask again, once. Only ever a column named in PENDING_COLUMNS: an unknown
-        # column that nobody declared as pending is a typo in a select, and a typo that silently
-        # answers with the field missing is the exact failure CHARACTER_COLUMNS already cost us
-        # five times in a day.
-        if missing not in _warned_missing:
-            _warned_missing.add(missing)
-            print(f"[store] {name}.{missing} does not exist yet - {PENDING_COLUMNS[missing]}")
-        thinner = dict(params or {})
-        thinner["select"] = _drop_column(thinner.get("select", ""), missing)
-        return _request("GET", f"/rest/v1/{name}", params=thinner, prefer=prefer)
+    params = dict(params or {})
+    # One pending column at a time, as many times as there are pending columns: the skill tree
+    # added two at once, and a single retry dropped the first and failed on the second.
+    for _ in range(len(PENDING_COLUMNS) + 1):
+        try:
+            return _request("GET", f"/rest/v1/{name}", params=params, prefer=prefer)
+        except StoreError as exc:
+            missing = _missing_column(exc, params)
+            if not missing:
+                raise
+            # Drop it and ask again. Only ever a column named in PENDING_COLUMNS: an unknown
+            # column that nobody declared as pending is a typo in a select, and a typo that
+            # silently answers with the field missing is the exact failure CHARACTER_COLUMNS
+            # already cost us five times in a day.
+            if missing not in _warned_missing:
+                _warned_missing.add(missing)
+                print(f"[store] {name}.{missing} does not exist yet - {PENDING_COLUMNS[missing]}")
+            params["select"] = _drop_column(params.get("select", ""), missing)
+    return _request("GET", f"/rest/v1/{name}", params=params, prefer=prefer)
 
 
 def _missing_column(exc, params):
@@ -509,7 +516,36 @@ SETTABLE_FIELDS = {
     "retired_season", "retired_reason", "archetype", "height_inches",
     "ratings", "potentials", "league_player_ids", "level_history",
     "weight_lbs",
+    # the offseason hands these out; apply_upgrade_requests spends them
+    "cap_breakers",
 }
+
+
+def tree_nodes():
+    """Every node of the skill tree, as public.tree_nodes holds it. [] before skill_tree.sql."""
+    try:
+        return _table("tree_nodes", {"select": "*", "order": "branch,sort"}) or []
+    except StoreError as exc:
+        if "tree_nodes" in str(exc) and ("PGRST205" in str(exc) or "42P01" in str(exc)
+                                         or "does not exist" in str(exc)):
+            return []
+        raise
+
+
+def upsert_tree_nodes(rows):
+    """Write the tree (tools/sync_tree.py). Rows are commissioner/tree.py's TREE entries."""
+    body = [{k: r.get(k) for k in ("id", "branch", "tier", "name", "blurb", "cost", "stage",
+                                   "requires", "min_spent", "min_ratings", "group_key",
+                                   "effects", "sort")} | {"active": True} for r in rows]
+    return _request("POST", "/rest/v1/tree_nodes", params={"on_conflict": "id"}, body=body,
+                    prefer="resolution=merge-duplicates,return=representation")
+
+
+def retire_tree_nodes(keep_ids):
+    """Switch off any node the tree no longer defines. Owned nodes keep their effects."""
+    ids = ",".join(f'"{i}"' for i in keep_ids)
+    return _request("PATCH", "/rest/v1/tree_nodes", params={"id": f"not.in.({ids})"},
+                    body={"active": False}, prefer="return=representation")
 
 
 def set_character_field(character_id, field, value):

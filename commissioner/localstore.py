@@ -134,6 +134,12 @@ def activate_character(character_id, league, team_abbrev, claimed_slot, game_dob
     raise KeyError(character_id)
 
 
+def tree_nodes():
+    """The skill tree. Locally there is no table: commissioner/tree.py's definitions are it."""
+    from . import tree
+    return [dict(n) | {"active": True} for n in tree.TREE]
+
+
 def set_character_field(character_id, field, value):
     """Set one column on a character. The offseason uses it to bank college years."""
     with _LOCK:

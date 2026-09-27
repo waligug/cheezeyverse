@@ -50,7 +50,9 @@ def _guard(sql):
 def run():
     rules = (ROOT / "site/js/rules.js").read_text(encoding="utf-8")
     schema = _guard((ROOT / "supabase/schema.sql").read_text(encoding="utf-8"))
-    migration = _guard((ROOT / "supabase/potential_ceiling.sql").read_text(encoding="utf-8"))
+    # The NEWEST migration that defines the guard. potential_ceiling.sql was, until the skill tree
+    # (supabase/skill_tree.sql) replaced the guard again - running an older file would revert it.
+    migration = _guard((ROOT / "supabase/skill_tree.sql").read_text(encoding="utf-8"))
 
     print("the site")
     m = re.search(r"export const POTENTIAL_MAX = (\d+);", rules)
@@ -75,12 +77,16 @@ def run():
     # Code only: the page's own comment names ratingCeiling() to explain why it is NOT used.
     me_code = chr(10).join(line.split("//")[0] for line in me.splitlines())
     check("the stepper does not call ratingCeiling()", "ratingCeiling(" not in me_code)
-    check("a rating with no potential is capped at RATING_MAX", ": RATING_MAX;" in me)
+    # Since the skill tree the caps live in ratingCap() (the stage cap on top of these) - the
+    # stepper and the rows both ask it.
+    check("a rating with no potential is capped at RATING_MAX",
+          "pot === null || pot === undefined ? RATING_MAX" in me)
     check("a potential-bearing rating is capped by its potential up to POTENTIAL_MAX",
-          "Math.min(POTENTIAL_MAX, Number(draft.potentials[rating]))" in me)
+          "Math.min(POTENTIAL_MAX, Number(pot))" in me
+          and "ratingCap(rating, hasPotential(rating) ? Number(draft.potentials[rating]) : null)" in me)
 
     print("\nthe database guard")
-    for label, body in (("schema.sql", schema), ("potential_ceiling.sql", migration)):
+    for label, body in (("schema.sql", schema), ("skill_tree.sql", migration)):
         check(f"{label}: a rating is capped by its potential up to {CODEC_MAX}",
               f"least({CODEC_MAX}, pot_eff)" in body)
         check(f"{label}: a potential is capped at {CODEC_MAX}",

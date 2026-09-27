@@ -1426,7 +1426,12 @@ class FBPB3:
             if note.get("runtime_error"):
                 raise DriverError(f"{exc}; FBPB3 showed a run-time error: "
                                   f"{note['runtime_error']}") from exc
-            self.dismiss_all()
+            # Clearing dialogs is best effort: if it cannot even find the window, the retry below
+            # says so as a DriverError instead of an AttributeError hiding the real stall.
+            try:
+                self.dismiss_all()
+            except Exception:                                           # noqa: BLE001
+                pass
             time.sleep(1)
             try:
                 return self._save_once(wait, path)
