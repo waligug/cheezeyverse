@@ -82,8 +82,13 @@ class FakeWindow:
         self._r = type("R", (), {"left": x, "top": y, "right": x + w, "bottom": y + h})()
 
 
-def guard(window, work, foreground=42, move=True):
-    """Run assert_clickable against a made-up desktop. Returns True, or the DriverError."""
+def guard(window, work, foreground=42, move=True, recovers=False):
+    """Run assert_clickable against a made-up desktop. Returns True, or the DriverError.
+
+    `recovers` stands in for recover_desktop. The REAL one disconnects this machine's actual RDP
+    session - which a first draft of this test did, to the person watching - so no test may
+    ever reach it.
+    """
     game = FBPB3.__new__(FBPB3)
     game.main = window
     import types
@@ -96,16 +101,64 @@ def guard(window, work, foreground=42, move=True):
     real = {k: sys.modules.get(k) for k in ("win32gui", "win32api", "win32con")}
     sys.modules["win32gui"], sys.modules["win32api"], sys.modules["win32con"] = \
         fake_gui, fake_api, fake_con
+    real_recover = fbpb3.recover_desktop
+    fbpb3.recover_desktop = lambda *a, **k: recovers
     try:
         return game.assert_clickable(move=move)
     except DriverError as exc:
         return exc
     finally:
+        fbpb3.recover_desktop = real_recover
         for k, v in real.items():
             if v is None:
                 sys.modules.pop(k, None)
             else:
                 sys.modules[k] = v
+
+
+def check_recover_desktop():
+    """Only an RDP session is disconnected, and only when the desktop is not drawing.
+
+    win32gui AND win32ts are both faked, so nothing here can touch the real session.
+    """
+    import types
+    calls = []
+
+    def run(station, frames, timeout=3):
+        """`frames` is what GetForegroundWindow returns, call by call (the last one repeats)."""
+        seq = list(frames)
+        gui = types.SimpleNamespace(
+            GetForegroundWindow=lambda: seq.pop(0) if len(seq) > 1 else seq[0])
+        ts = types.SimpleNamespace(
+            WTS_CURRENT_SERVER_HANDLE=0, WTSWinStationName=6,
+            ProcessIdToSessionId=lambda pid: 2,
+            WTSQuerySessionInformation=lambda h, sid, cls: station,
+            WTSDisconnectSession=lambda h, sid, wait: calls.append(sid))
+        real = {k: sys.modules.get(k) for k in ("win32gui", "win32ts")}
+        sys.modules["win32gui"], sys.modules["win32ts"] = gui, ts
+        real_sleep = fbpb3.time.sleep
+        fbpb3.time.sleep = lambda s: None
+        try:
+            return fbpb3.recover_desktop(timeout=timeout)
+        finally:
+            fbpb3.time.sleep = real_sleep
+            for k, v in real.items():
+                if v is None:
+                    sys.modules.pop(k, None)
+                else:
+                    sys.modules[k] = v
+
+    calls.clear()
+    assert run("RDP-Tcp#0", [42]) is True and calls == [], "a drawing desktop must be left alone"
+    calls.clear()
+    assert run("Console", [0]) is False and calls == [], \
+        "a locked CONSOLE cannot be fixed by disconnecting - it must not try"
+    calls.clear()
+    assert run("RDP-Tcp#0", [0, 0, 0, 42]) is True and calls == [2], \
+        "a minimized RDP session must be disconnected (session 2) and then found drawing"
+    calls.clear()
+    assert run("RDP-Tcp#0", [0], timeout=0.05) is False and calls == [2], \
+        "if the keeper never moves it, say so rather than pretending"
 
 
 def main():
@@ -150,6 +203,19 @@ def main():
     assert "not rendering" in str(locked), locked
     assert "install_session_keeper" in str(locked), \
         "the refusal should name the fix, not just the problem"
+
+    # ---- ...unless it is only a minimized RDP window, which is handed to the console ----------
+    handed = guard(FakeWindow(0, 0, 1019, 762), big, foreground=0, recovers=True)
+    assert handed is True, f"a desktop recover_desktop brought back must pass: {handed}"
+
+    # ---- recover_desktop itself, against a fake session API ---------------------------------
+    check_recover_desktop()
+
+    # ---- and every real click re-checks, so minimizing mid-run is caught too -----------------
+    src_all = DRIVER.read_text(encoding="utf-8")
+    fg = src_all[src_all.index("def _foreground(self):"):]
+    fg = fg[:fg.index("hwnd = self.main.handle")]
+    assert "recover_desktop()" in fg, "_foreground no longer recovers a desktop that stopped drawing"
 
     # ---- and launch() must actually call it --------------------------------------------------
     src = DRIVER.read_text(encoding="utf-8")

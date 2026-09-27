@@ -82,6 +82,45 @@ EXPORT_WRITE_LIMIT = 30
 EXPORT_ATTEMPTS = 3
 
 
+def recover_desktop(timeout=45):
+    """Make the desktop render again when all that is wrong is a Remote Desktop window.
+
+    WHY. The dummy plug gives the CONSOLE a monitor, but while this session is attached to Remote
+    Desktop it is drawn through the RDP client - and a MINIMIZED client tells the server to stop
+    drawing. Nothing renders, GetForegroundWindow() is 0, real clicks land nowhere, and a sim that
+    was fine a second earlier fails. "As I click off it breaks" (2026-09-27): it did, every time
+    the RDP window was minimized, including twice in one evening.
+
+    THE FIX IS TO LET GO OF RDP. Disconnecting this session raises event 24, and the
+    "Cheezeyverse session keeper" task (SYSTEM) tscons it onto the console, which draws on the
+    plug and never stops. A user may disconnect their OWN session - no elevation needed - which is
+    all this does; the keeper does the part that needs SYSTEM. The person watching over RDP sees
+    their window disconnect, and can reconnect any time; the sim carries on either way.
+
+    Returns True once the desktop renders again. False when it cannot help: the session is not an
+    RDP one (a locked console cannot be unlocked from here), or the keeper never moved it.
+    """
+    import os
+    import win32gui
+    import win32ts
+
+    if win32gui.GetForegroundWindow() != 0:
+        return True
+    sid = win32ts.ProcessIdToSessionId(os.getpid())
+    station = str(win32ts.WTSQuerySessionInformation(
+        win32ts.WTS_CURRENT_SERVER_HANDLE, sid, win32ts.WTSWinStationName) or "")
+    if not station.lower().startswith("rdp"):
+        return False
+    win32ts.WTSDisconnectSession(win32ts.WTS_CURRENT_SERVER_HANDLE, sid, False)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        time.sleep(1)
+        if win32gui.GetForegroundWindow() != 0:
+            time.sleep(3)       # let the console desktop settle at its own resolution
+            return True
+    return False
+
+
 class DriverError(Exception):
     pass
 
@@ -136,7 +175,9 @@ class FBPB3:
         import win32con
         import win32gui
 
-        if win32gui.GetForegroundWindow() == 0:
+        # A minimized Remote Desktop window is the usual cause and is recoverable: hand the
+        # session to the console (see recover_desktop) and carry on. Only refuse when that fails.
+        if win32gui.GetForegroundWindow() == 0 and not recover_desktop():
             raise DriverError(
                 "this desktop is not rendering - the session is locked or disconnected, and "
                 "every real mouse click would land nowhere. Reconnect, or hand the session "
@@ -229,6 +270,16 @@ class FBPB3:
         """Force the game window to the top (real mouse clicks land on whatever is topmost)."""
         import win32con
         import win32gui
+        # MID-RUN, TOO. Minimizing the RDP window part-way through a sim stops the drawing just as
+        # surely as before it started; checked here because every real click comes through here,
+        # and the check is a single call when all is well.
+        if win32gui.GetForegroundWindow() == 0:
+            if not recover_desktop():
+                raise DriverError(
+                    "the desktop stopped rendering mid-run and could not be handed to the "
+                    "console - real clicks would land nowhere. Reconnect, or check the session "
+                    "keeper (tools\\install_session_keeper.ps1).")
+            self.assert_clickable()     # the console has its own resolution; re-check the fit
         hwnd = self.main.handle
         # If the game is ALREADY the foreground window, the raise below and its 0.3 s settle
         # are 300 ms of doing nothing - and they are paid on every single click, which measured
