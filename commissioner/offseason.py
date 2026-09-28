@@ -1725,7 +1725,11 @@ def _run_offseason(store, season=None, log=print, dry_run=False, force=False, ba
         # players who were already best; moving up still pays, the same for everybody.
         season_bonus = {}
         flat = int(settings.get("promotion_points", 10) or 0)
-        promotion_grants = {cid: ([("promotion", flat)] if flat else []) for cid in promotion_grants}
+        # Everybody who plays, not only the ones promotion_grant found a stat line for: a kid who
+        # sat on the bench all season (minutes are earned) still moves up, and is still paid for it.
+        # Only the movers are paid; see promoted_ids below.
+        promotion_grants = {c["id"]: [("promotion", flat)] for c in characters
+                            if flat and c.get("status") in ("active", "declared")}
     for c in characters:
         rows = season_bonus.get(c["id"])
         if rows:

@@ -582,7 +582,9 @@ def rollover_saves(store, season, journal, log, progress=None):
     out = []
     count = len(cfg.LEAGUES)
     settings = store.get_settings() if hasattr(store, "get_settings") else {}
-    two_way = tree.flag(settings, "rollover_two_way")
+    # Behind the tree's switch like everything else it brought, so switching the tree off is the
+    # whole rollback - rollover_two_way left on by itself would keep the falls.
+    two_way = tree.tree_on(settings) and tree.flag(settings, "rollover_two_way")
     drop_cap = int(settings.get("rollover_drop_cap", 5) or 5)
     try:
         rows = store.tree_nodes() if hasattr(store, "tree_nodes") else None

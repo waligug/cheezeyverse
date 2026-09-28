@@ -106,7 +106,11 @@ def main(argv):
     # --close
     back = json.loads(ROLLBACK.read_text(encoding="utf-8")) if ROLLBACK.exists() else {}
     for k in ECONOMY:
-        value = back.get(k, False if k in ("skill_tree_enabled", "rollover_two_way") else None)
+        value = back.get(k)
+        # A switch that did not exist before --open was saved as None; it goes back to off, not
+        # left on. (rollover_two_way is not set today, so skipping None kept the rollover two-way.)
+        if value is None and isinstance(ECONOMY[k], bool):
+            value = False
         if value is None:
             continue
         store.set_setting(k, value)

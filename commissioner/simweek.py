@@ -1927,9 +1927,11 @@ def run_sim(leagues=None, days=7, on_step=None, dry_run=False,
             league_weeks = max(1, round(played / 7))
             weeks_paid[key] = league_weeks
             n = st.grant_week_points(league=key, weeks=league_weeks)
-            result["summary"]["points"].append({"league": key, "per_player": league_weeks, "players": n})
+            # POINTS, not weeks: the two were the same number only while a week paid one point.
+            each = league_weeks * points.per_week(key, st.get_settings())
+            result["summary"]["points"].append({"league": key, "per_player": each, "players": n})
             if n:
-                emit("points", f"{league_weeks} point(s) to {n} character(s) in {key}", key)
+                emit("points", f"{each} point(s) to {n} character(s) in {key}", key)
             # A CONTRACT PAYS ON TOP. grant_week_points is one RPC paying everybody in a league
             # the same number, so a man on a bigger deal gets the difference as his own ledger
             # row rather than a schema migration. Never fatal: the week is already played, saved

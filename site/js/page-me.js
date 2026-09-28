@@ -177,6 +177,10 @@ function inflightOf(requests) {
   const out = { ratings: {}, potentials: {} };
   for (const r of requests || []) {
     if (r.status !== 'pending' && r.status !== 'approved') continue;
+    // Ratings and ceilings only, as the database's guard counts them. A tree node names a node,
+    // and a Cap Breaker names a rating but is +3 on its CEILING - counted here, a queued breaker
+    // on Def. Rebounding showed the rating itself one higher until the next sim.
+    if (r.kind === 'node' || r.kind === 'breaker') continue;
     const bag = r.kind === 'potential' ? out.potentials : out.ratings;
     bag[r.rating] = (bag[r.rating] || 0) + Number(r.delta || 0);
   }
@@ -451,6 +455,16 @@ function renderCharacter(character, requests, ledger, age, currentSeason, rules,
           `Take ${RATING_LABELS[rating]} itself back down first - a rating cannot sit above its potential.`);
         return;
       }
+      // The other way round with the tree open: a staged ceiling must stay within `room` of the
+      // rating, or the database refuses it and Send quietly leaves it behind.
+      if (kind === 'rating' && hasPotential(rating)
+          && Number(draft.potentials[rating]) > potCap(rating, value - 1)
+          && Number(draft.potentials[rating]) > Number(base.potentials[rating] ?? 0)) {
+        showNote(problems, 'bad',
+          `Take the ${RATING_LABELS[rating]} ceiling back down first - it can only be bought `
+          + `${rules.room} above the rating.`);
+        return;
+      }
       bag[rating] = value - 1;
     }
     drawSpend();
@@ -591,7 +605,7 @@ function renderCharacter(character, requests, ledger, age, currentSeason, rules,
     { key: 'tree', label: 'Tree', node: treePanel },
     { key: 'season', label: 'Season', node: character.status === 'pending' ? null : seasonPanel(character, Boolean(rules && rules.on)) },
     { key: 'him', label: 'Him', node: traitsPanel },
-    { key: 'requests', label: 'Requests', node: el('div', {}, requestTable(requests)),
+    { key: 'requests', label: 'Requests', node: el('div', {}, requestTable(requests, nodes)),
       badge: requests.filter((r) => r.status === 'pending' || r.status === 'approved').length || null },
     { key: 'points', label: 'Points', node: el('div', {}, ledgerTable(ledger, character)) },
     { key: 'money', label: 'Money', node: moneyPanel(character, Boolean(rules && rules.on)) },
@@ -703,12 +717,14 @@ function summaryColumn(character, tree = false) {
   return cards.length ? el('aside', { class: 'cv-me-aside' }, ...cards) : null;
 }
 
-function requestTable(requests) {
+function requestTable(requests, nodes = []) {
   if (!requests.length) {
     return el('p', { class: 'cv-muted' }, 'Nothing asked for yet.');
   }
   const rows = requests.map((r) => el('tr', {},
-    el('td', {}, r.kind === 'node' ? r.rating.replace(/-/g, ' ') : RATING_LABELS[r.rating] || r.rating),
+    el('td', {}, r.kind === 'node'
+      ? ((nodes || []).find((n) => n.id === r.rating) || {}).name || r.rating.replace(/-/g, ' ')
+      : RATING_LABELS[r.rating] || r.rating),
     el('td', {}, { potential: 'potential', node: 'tree', breaker: 'Cap Breaker' }[r.kind] || 'rating'),
     el('td', { class: 'cv-right' }, `+${r.delta}`),
     el('td', { class: 'cv-right' }, String(r.cost)),
@@ -833,7 +849,16 @@ async function sendRequests(character, base, draft, button, problems, rules) {
   /* In an order the database accepts request by request. A rating may not pass its ceiling and,
      with the tree open, a ceiling may not be bought more than `room` over the rating - so a
      ceiling and its rating staged together can need interleaving. tree.js works that out. */
-  const { order: wanted } = sendOrder(rules || { room: null }, base, draft, RATINGS, POTENTIAL_RATINGS);
+  const { order: wanted, stuck } = sendOrder(rules || { room: null }, base, draft, RATINGS, POTENTIAL_RATINGS);
+  if (stuck.length) {
+    // Sending the rest would file part of the change and drop the draft with the rest in it.
+    const names = [...new Set(stuck)].map((r) => RATING_LABELS[r] || r).join(', ');
+    showNote(problems, 'bad', `${names}: a ceiling can only be bought ${rules ? rules.room : ''} above `
+      + 'its rating. Take the ceiling down a little, or the rating up, and send again.');
+    button.disabled = false;
+    button.textContent = 'Send';
+    return;
+  }
 
   const sent = [];
   try {
