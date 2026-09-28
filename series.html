@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playoff series &middot; The Cheezeyverse</title>
+<meta name="description" content="One Cheezeyverse playoff series: every game, every box score, what everyone averaged, and the MVPs.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F1E4CB'/%3E%3Cpath d='M4 24 L28 24 L28 13 L4 21 Z' fill='%23D0843A'/%3E%3Ccircle cx='13' cy='21' r='1.8' fill='%23F1E4CB'/%3E%3Ccircle cx='21' cy='19' r='2.2' fill='%23F1E4CB'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<main class="cv-page">
+
+  <div class="cv-page-head">
+    <div>
+      <div class="cv-kicker" id="kicker">Playoffs</div>
+      <h1 id="title">Playoff series</h1>
+    </div>
+    <p class="cv-muted" id="lede"></p>
+  </div>
+
+  <div id="notices"></div>
+  <p class="cv-spinner" id="loading">Reading the series...</p>
+
+  <section id="hero"></section>
+
+  <section class="cv-card" id="games-card" hidden>
+    <div class="cv-card-head">
+      <h2>The games</h2>
+      <span class="cv-muted">tap a game for its box score</span>
+    </div>
+    <div class="cv-games" id="games"></div>
+    <div id="box"></div>
+  </section>
+
+  <section class="cv-card" id="stats-card" hidden>
+    <div class="cv-card-head">
+      <h2>Series stats</h2>
+      <div class="cv-seg cv-seg-small" role="tablist" aria-label="Show" id="mode"></div>
+    </div>
+    <div id="stats"></div>
+    <p class="cv-hint">TS is true shooting: points per shot, counting threes and free throws.
+      eFG counts a three as one and a half makes. GmSc is Game Score, the single-number rating the
+      MVPs are picked by.</p>
+  </section>
+
+  <section class="cv-card" id="others-card" hidden>
+    <div class="cv-card-head">
+      <h2>The whole bracket</h2>
+      <a id="bracket-link" href="#">The bracket page</a>
+    </div>
+    <div id="others"></div>
+  </section>
+
+</main>
+
+<script type="module" src="js/page-series.js"></script>
+</body>
+</html>

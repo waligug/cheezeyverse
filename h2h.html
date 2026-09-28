@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Head to head &middot; The Cheezeyverse</title>
+<meta name="description" content="Pick two Cheezeyverse players and see how they do against each other: the record, and what each averaged in the games they met.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23F1E4CB'/%3E%3Cpath d='M4 24 L28 24 L28 13 L4 21 Z' fill='%23D0843A'/%3E%3Ccircle cx='13' cy='21' r='1.8' fill='%23F1E4CB'/%3E%3Ccircle cx='21' cy='19' r='2.2' fill='%23F1E4CB'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&amp;family=Figtree:wght@400;500;600;700;800&amp;display=swap">
+<link rel="stylesheet" href="css/cheezey.css">
+<script src="config.js"></script>
+</head>
+<body>
+
+<main class="cv-page">
+
+  <h1>Head to head</h1>
+  <p class="cv-muted" id="intro">Pick two players. Everything below counts only the games their
+    teams actually played against each other.</p>
+
+  <div id="notices"></div>
+
+  <section class="cv-card">
+    <div class="cv-card-head">
+      <h2>Who against who</h2>
+      <span class="cv-muted" id="league-note"></span>
+    </div>
+    <div id="pickers"><p class="cv-spinner">Loading the players...</p></div>
+  </section>
+
+  <div id="result"></div>
+
+</main>
+
+<script type="module" src="js/page-h2h.js"></script>
+</body>
+</html>

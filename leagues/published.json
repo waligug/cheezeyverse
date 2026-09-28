@@ -1,0 +1,239 @@
+{
+ "published_at": "2026-09-27T15:13:33",
+ "leagues": [
+  {
+   "league": "prep",
+   "name": "Cheezeyverse Prep",
+   "pages": 1268,
+   "path": "C:\\claude\\hoops-universe\\site\\leagues\\prep",
+   "stats": {
+    "players": 204,
+    "elite": {
+     "PTS": 350,
+     "REB": 182,
+     "AST": 70,
+     "STL": 32,
+     "BLK": 19
+    }
+   },
+   "games": {
+    "characters": 10,
+    "games": 1156,
+    "from_mdb": 0
+   },
+   "careers": {
+    "careers": 857,
+    "seasons": [
+     2026,
+     2027,
+     2028,
+     2029,
+     2030,
+     2031,
+     2032,
+     2033,
+     2034,
+     2035,
+     2036,
+     2037,
+     2038,
+     2039
+    ],
+    "playoff_careers": 495,
+    "goat": {
+     "players": 410,
+     "seasons": 14
+    }
+   },
+   "cap": {
+    "teams": 16,
+    "payroll": 219000000,
+    "tax": null
+   },
+   "series": {
+    "captured": {
+     "games": 9,
+     "written": true
+    },
+    "seasons": [
+     2037,
+     2038,
+     2039
+    ]
+   },
+   "repaired": [],
+   "repaired_export": []
+  },
+  {
+   "league": "college",
+   "name": "Cheezeyverse College",
+   "pages": 1294,
+   "path": "C:\\claude\\hoops-universe\\site\\leagues\\college",
+   "stats": {
+    "players": 229,
+    "elite": {
+     "PTS": 645,
+     "REB": 338,
+     "AST": 139,
+     "STL": 48,
+     "BLK": 66
+    }
+   },
+   "games": {
+    "characters": 10,
+    "games": 936,
+    "from_mdb": 32
+   },
+   "careers": {
+    "careers": 1019,
+    "seasons": [
+     2026,
+     2027,
+     2028,
+     2029,
+     2030,
+     2031,
+     2032,
+     2033,
+     2034,
+     2035,
+     2036,
+     2037,
+     2038,
+     2039
+    ],
+    "playoff_careers": 563,
+    "goat": {
+     "players": 342,
+     "seasons": 14
+    }
+   },
+   "cap": {
+    "teams": 16,
+    "payroll": 217000000,
+    "tax": null
+   },
+   "series": {
+    "captured": {
+     "games": 7,
+     "written": true
+    },
+    "seasons": [
+     2037,
+     2038,
+     2039
+    ]
+   },
+   "repaired": [],
+   "repaired_export": [
+    {
+     "name": "Beans Johnson",
+     "page": "player83",
+     "from": 2038,
+     "rows_dropped": 52
+    }
+   ]
+  },
+  {
+   "league": "pro",
+   "name": "Cheezeyverse",
+   "pages": 1928,
+   "path": "C:\\claude\\hoops-universe\\site\\leagues\\pro",
+   "stats": {
+    "players": 290,
+    "elite": {
+     "PTS": 1421,
+     "REB": 587,
+     "AST": 488,
+     "STL": 122,
+     "BLK": 173
+    }
+   },
+   "games": {
+    "deferred": true,
+    "retained": [
+     "careers.json",
+     "games.json",
+     "goat.json"
+    ]
+   },
+   "careers": {
+    "deferred": true,
+    "retained": [
+     "careers.json",
+     "games.json",
+     "goat.json"
+    ]
+   },
+   "cap": {
+    "teams": 20,
+    "payroll": 1788788251,
+    "tax": null
+   },
+   "series": {
+    "captured": null,
+    "seasons": [
+     2037,
+     2038
+    ]
+   },
+   "repaired": [],
+   "repaired_export": [
+    {
+     "name": "Chris Zimmer",
+     "page": "player85",
+     "from": 2034,
+     "rows_dropped": 24
+    },
+    {
+     "name": "Zach Russell",
+     "page": "player83",
+     "from": 2034,
+     "rows_dropped": 38
+    },
+    {
+     "name": "Tim Turner",
+     "page": "player69",
+     "from": 2034,
+     "rows_dropped": 20
+    },
+    {
+     "name": "Johnny Gartholomew",
+     "page": "player190",
+     "from": 2034,
+     "rows_dropped": 36
+    },
+    {
+     "name": "Dodger Manson",
+     "page": "player250",
+     "from": 2031,
+     "rows_dropped": 25
+    },
+    {
+     "name": "Gravy Jones",
+     "page": "player220",
+     "from": 2032,
+     "rows_dropped": 29
+    },
+    {
+     "name": "Liam Zimmel",
+     "page": "player173",
+     "from": 2034,
+     "rows_dropped": 29
+    },
+    {
+     "name": "Josh Hong",
+     "page": "player294",
+     "from": 2038,
+     "rows_dropped": 53
+    },
+    {
+     "name": "Lightning McQueen",
+     "page": "player109",
+     "from": 2038,
+     "rows_dropped": 37
+    }
+   ]
+  }
+ ]
+}
