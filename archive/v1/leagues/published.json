@@ -1,0 +1,303 @@
+{
+ "published_at": "2026-11-27T04:01:22",
+ "leagues": [
+  {
+   "league": "prep",
+   "name": "Cheezeyverse Prep",
+   "pages": 1374,
+   "path": "C:\\claude\\hoops-universe\\site\\leagues\\prep",
+   "stats": {
+    "players": 208,
+    "elite": {
+     "PTS": 323,
+     "REB": 188,
+     "AST": 66,
+     "STL": 27,
+     "BLK": 24
+    }
+   },
+   "games": {
+    "characters": 10,
+    "games": 1156,
+    "from_mdb": 0
+   },
+   "careers": {
+    "careers": 1795,
+    "seasons": [
+     2026,
+     2027,
+     2028,
+     2029,
+     2030,
+     2031,
+     2032,
+     2033,
+     2034,
+     2035,
+     2036,
+     2037,
+     2038,
+     2039,
+     2040,
+     2041,
+     2042,
+     2043,
+     2044,
+     2045,
+     2046,
+     2047,
+     2048,
+     2049,
+     2050,
+     2051,
+     2052,
+     2053,
+     2054,
+     2055,
+     2056,
+     2057,
+     2058,
+     2059
+    ],
+    "playoff_careers": 1165,
+    "goat": {
+     "players": 950,
+     "seasons": 34
+    }
+   },
+   "cap": null,
+   "series": {
+    "captured": {
+     "games": 8,
+     "written": true
+    },
+    "seasons": [
+     2037,
+     2038,
+     2039,
+     2041,
+     2042,
+     2043,
+     2044,
+     2045,
+     2046,
+     2047,
+     2048,
+     2049,
+     2050,
+     2051,
+     2052,
+     2053,
+     2054,
+     2055,
+     2056,
+     2057,
+     2058,
+     2059
+    ]
+   },
+   "repaired": [],
+   "repaired_export": []
+  },
+  {
+   "league": "college",
+   "name": "Cheezeyverse College",
+   "pages": 1409,
+   "path": "C:\\claude\\hoops-universe\\site\\leagues\\college",
+   "stats": {
+    "players": 229,
+    "elite": {
+     "PTS": 607,
+     "REB": 311,
+     "AST": 153,
+     "STL": 45,
+     "BLK": 73
+    }
+   },
+   "games": {
+    "characters": 10,
+    "games": 1037,
+    "from_mdb": 0
+   },
+   "careers": {
+    "careers": 2230,
+    "seasons": [
+     2026,
+     2027,
+     2028,
+     2029,
+     2030,
+     2031,
+     2032,
+     2033,
+     2034,
+     2035,
+     2036,
+     2037,
+     2038,
+     2039,
+     2040,
+     2041,
+     2042,
+     2043,
+     2044,
+     2045,
+     2046,
+     2047,
+     2048,
+     2049,
+     2050,
+     2051,
+     2052,
+     2053,
+     2054,
+     2055,
+     2056,
+     2057,
+     2058,
+     2059
+    ],
+    "playoff_careers": 1356,
+    "goat": {
+     "players": 874,
+     "seasons": 34
+    }
+   },
+   "cap": null,
+   "series": {
+    "captured": {
+     "games": 7,
+     "written": true
+    },
+    "seasons": [
+     2037,
+     2038,
+     2039,
+     2041,
+     2042,
+     2043,
+     2044,
+     2045,
+     2046,
+     2047,
+     2048,
+     2049,
+     2050,
+     2051,
+     2052,
+     2053,
+     2054,
+     2055,
+     2056,
+     2057,
+     2058,
+     2059
+    ]
+   },
+   "repaired": [],
+   "repaired_export": []
+  },
+  {
+   "league": "pro",
+   "name": "Cheezeyverse",
+   "pages": 2058,
+   "path": "C:\\claude\\hoops-universe\\site\\leagues\\pro",
+   "stats": {
+    "players": 289,
+    "elite": {
+     "PTS": 1380,
+     "REB": 633,
+     "AST": 411,
+     "STL": 125,
+     "BLK": 178
+    }
+   },
+   "games": {
+    "characters": 10,
+    "games": 9197,
+    "from_mdb": 0
+   },
+   "careers": {
+    "careers": 1371,
+    "seasons": [
+     2026,
+     2027,
+     2028,
+     2029,
+     2030,
+     2031,
+     2032,
+     2033,
+     2034,
+     2035,
+     2036,
+     2037,
+     2038,
+     2039,
+     2040,
+     2041,
+     2042,
+     2043,
+     2044,
+     2045,
+     2046,
+     2047,
+     2048,
+     2049,
+     2050,
+     2051,
+     2052,
+     2053,
+     2054,
+     2055,
+     2056,
+     2057,
+     2058,
+     2059
+    ],
+    "playoff_careers": 906,
+    "goat": {
+     "players": 672,
+     "seasons": 33
+    }
+   },
+   "cap": {
+    "teams": 20,
+    "payroll": 2446929604,
+    "tax": null
+   },
+   "series": {
+    "captured": {
+     "games": 29,
+     "written": true
+    },
+    "seasons": [
+     2037,
+     2038,
+     2040,
+     2041,
+     2042,
+     2043,
+     2044,
+     2045,
+     2046,
+     2047,
+     2048,
+     2049,
+     2050,
+     2051,
+     2052,
+     2053,
+     2054,
+     2055,
+     2056,
+     2057,
+     2058,
+     2059
+    ]
+   },
+   "repaired": [],
+   "repaired_export": []
+  }
+ ]
+}
